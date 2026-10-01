@@ -19,6 +19,9 @@ const teamElement = document.querySelector("#team");
 const noticeElement = document.querySelector("#notice");
 const feedbackElement = document.querySelector("#feedback");
 const weaponButton = document.querySelector("#weapon");
+const weaponName = document.querySelector("#weapon-name");
+const weaponAmmo = document.querySelector("#weapon-ammo");
+const weaponCooldown = document.querySelector("#weapon-cooldown");
 const dashButton = document.querySelector("#dash");
 const staminaValue = document.querySelector("#stamina-value");
 const staminaMeter = document.querySelector("#stamina-meter");
@@ -81,6 +84,10 @@ let tapPointer = null;
 let dashPointer = null;
 let dashKey = false;
 let hitEffects = [];
+let predictedLocal = null;
+let localMove = { x: 0, y: 0 };
+let dashRequested = false;
+let lastFrameAt = performance.now();
 const keys = new Set();
 const smoothed = new Map();
 
@@ -104,6 +111,9 @@ function connect() {
         if (message.type === "feedback" || message.type === "error") showFeedback(message.message);
     });
     socket.addEventListener("close", () => {
+        predictedLocal = null;
+        localMove = { x: 0, y: 0 };
+        dashRequested = false;
         menu.classList.remove("hidden");
         hud.classList.add("hidden");
         closeActionMenu();
@@ -124,6 +134,7 @@ function receiveState(next) {
     if (lastCoreHp !== undefined && next.core.hp < lastCoreHp) coreHitStarted = performance.now();
     lastCoreHp = next.core.hp;
     state = next;
+    reconcileLocalPrediction(next);
     if (next.noticeVersion !== lastNoticeVersion) {
         lastNoticeVersion = next.noticeVersion;
         showNotice(next.notice);
@@ -191,26 +202,37 @@ function updateHud() {
     creditsElement.textContent = `${state.credits} CR`;
     readyButton.classList.toggle("hidden", state.phase !== "preparing");
     teamElement.innerHTML = state.players.map(player => `
-        <div class="teammate ${player.down ? "down" : ""}">
-            ${escapeHtml(player.name)}${player.human ? "" : " [CPU]"} ${player.down ? "DOWN" : ""}
+        <div class="teammate ${player.down ? "down" : ""} ${player.id === myPlayerId ? "self" : ""}">
+            <div class="teammate-label"><span>${player.id === myPlayerId ? "YOU" : player.human ? escapeHtml(player.name) : `CPU${player.id.at(-1)}`}</span><span>${player.down ? "DOWN" : Math.ceil(player.hp)}</span></div>
             <div class="hp-line"><span style="width:${player.hp}%"></span></div>
         </div>`).join("");
     const me = getMe();
     if (me) {
-        const ammo = me.weapon === "shotgun" ? ` ${me.shotgunAmmo}` : me.weapon === "rifle" ? ` ${me.rifleAmmo}` : " ∞";
-        weaponButton.textContent = `${me.weapon.toUpperCase()}${ammo}`;
-        weaponButton.style.opacity = String(Math.max(.38, 1 - me.cooldown));
-        staminaValue.textContent = String(Math.ceil(me.stamina));
-        staminaMeter.style.width = `${me.stamina}%`;
-        staminaMeter.style.background = me.stamina < 28 ? "#ef6b62" : "#59cce7";
-        dashButton.disabled = me.down || (me.stamina < 1 && !me.dashing);
-        dashButton.classList.toggle("active", me.dashing);
+        const ammo = me.weapon === "shotgun" ? String(me.shotgunAmmo) : me.weapon === "rifle" ? String(me.rifleAmmo) : "∞";
+        const cooldownMax = Math.max(.01, me.cooldownMax || me.cooldown || .01);
+        const cooldownProgress = 1 - Math.min(1, me.cooldown / cooldownMax);
+        weaponName.textContent = me.weapon.toUpperCase();
+        weaponAmmo.textContent = ammo;
+        weaponCooldown.textContent = me.cooldown > 0 ? `${me.cooldown.toFixed(1)}s` : "READY";
+        weaponButton.style.setProperty("--cooldown-angle", `${cooldownProgress * 360}deg`);
+        weaponButton.classList.toggle("cooling", me.cooldown > 0);
+        const movementState = predictedLocal || me;
+        updateStaminaHud(movementState.stamina, movementState.dashing, me.down);
     }
 }
 
 function setDash(active) {
+    dashRequested = active;
     send(`DASH:${active ? 1 : 0}`);
     dashButton.classList.toggle("active", active);
+}
+
+function updateStaminaHud(stamina, dashing, down) {
+    staminaValue.textContent = String(Math.ceil(stamina));
+    staminaMeter.style.width = `${stamina}%`;
+    staminaMeter.style.background = stamina < 28 ? "#ef6b62" : "#59cce7";
+    dashButton.disabled = down || (stamina < 1 && !dashing);
+    dashButton.classList.toggle("active", dashing);
 }
 
 function showNotice(text) {
@@ -228,6 +250,29 @@ function showFeedback(text) {
 }
 
 function getMe() { return state?.players.find(player => player.id === myPlayerId); }
+
+function reconcileLocalPrediction(snapshot) {
+    const serverMe = snapshot.players.find(player => player.id === myPlayerId);
+    if (!serverMe) return;
+    if (!predictedLocal) {
+        predictedLocal = { x: serverMe.x, y: serverMe.y, stamina: serverMe.stamina, dashing: serverMe.dashing, exhausted: false };
+        return;
+    }
+    const errorX = serverMe.x - predictedLocal.x;
+    const errorY = serverMe.y - predictedLocal.y;
+    const error = Math.hypot(errorX, errorY);
+    if (error > 120 || !["preparing", "wave"].includes(snapshot.phase)) {
+        predictedLocal.x = serverMe.x;
+        predictedLocal.y = serverMe.y;
+    } else {
+        const correction = Math.hypot(localMove.x, localMove.y) > .12 ? .24 : .55;
+        predictedLocal.x += errorX * correction;
+        predictedLocal.y += errorY * correction;
+    }
+    predictedLocal.stamina += (serverMe.stamina - predictedLocal.stamina) * .4;
+    if (serverMe.stamina >= 28) predictedLocal.exhausted = false;
+    if (serverMe.stamina <= 0) predictedLocal.exhausted = true;
+}
 
 function openActionMenu(title, options) {
     actionTitle.textContent = title;
@@ -389,7 +434,9 @@ function sendMovement() {
     if (keys.has("d") || keys.has("arrowright")) x += 1;
     const length = Math.hypot(x, y);
     if (length > 1) { x /= length; y /= length; }
-    const message = `MOVE:${x.toFixed(2)}:${y.toFixed(2)}`;
+    localMove.x = Number(x.toFixed(2));
+    localMove.y = Number(y.toFixed(2));
+    const message = `MOVE:${localMove.x.toFixed(2)}:${localMove.y.toFixed(2)}`;
     if (message !== lastMove) { lastMove = message; send(message); }
 }
 
@@ -446,15 +493,62 @@ function nearestAt(items, point) {
 }
 function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
-function animate() { requestAnimationFrame(animate); draw(); }
+function updateLocalPrediction(dt) {
+    const serverMe = getMe();
+    if (!predictedLocal || !serverMe || !["preparing", "wave"].includes(state.phase)) return;
+    const input = Math.hypot(localMove.x, localMove.y);
+    if (predictedLocal.exhausted && predictedLocal.stamina >= 28) predictedLocal.exhausted = false;
+    predictedLocal.dashing = !serverMe.down && dashRequested && !predictedLocal.exhausted && input > .12 && predictedLocal.stamina > 0;
+    if (predictedLocal.dashing) {
+        predictedLocal.stamina = Math.max(0, predictedLocal.stamina - 38 * dt);
+        if (predictedLocal.stamina <= 0) {
+            predictedLocal.exhausted = true;
+            predictedLocal.dashing = false;
+        }
+    } else {
+        predictedLocal.stamina = Math.min(100, predictedLocal.stamina + 24 * dt);
+    }
+
+    const speed = serverMe.down ? 45 : predictedLocal.dashing ? 265 : 155;
+    const nextX = clamp(predictedLocal.x + localMove.x * speed * dt, 25, WORLD.width - 25);
+    const nextY = clamp(predictedLocal.y + localMove.y * speed * dt, 25, WORLD.height - 25);
+    if (canPredictOccupy(nextX, predictedLocal.y, 21)) predictedLocal.x = nextX;
+    if (canPredictOccupy(predictedLocal.x, nextY, 21)) predictedLocal.y = nextY;
+    updateStaminaHud(predictedLocal.stamina, predictedLocal.dashing, serverMe.down);
+}
+
+function canPredictOccupy(x, y, radius) {
+    if (x - radius < 0 || y - radius < 0 || x + radius > WORLD.width || y + radius > WORLD.height) return false;
+    for (const wall of WALLS) {
+        const overlaps = x + radius > wall.x && x - radius < wall.x + wall.width
+            && y + radius > wall.y && y - radius < wall.y + wall.height;
+        if (overlaps && !insidePredictedUnlockedArea(x, y, radius)) return false;
+    }
+    return true;
+}
+
+function insidePredictedUnlockedArea(x, y, radius) {
+    return AREAS.some(area => state.areas[area.id]
+        && x >= area.x - radius && x <= area.x + area.width + radius
+        && y >= area.y - radius && y <= area.y + area.height + radius);
+}
+
+function animate(now = performance.now()) {
+    const dt = Math.min(.05, Math.max(0, (now - lastFrameAt) / 1000));
+    lastFrameAt = now;
+    updateLocalPrediction(dt);
+    draw();
+    requestAnimationFrame(animate);
+}
 
 function draw() {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const me = getMe();
-    if (me) {
-        camera.x += (me.x - camera.x) * .12;
-        camera.y += (me.y - camera.y) * .12;
+    const cameraTarget = predictedLocal || me;
+    if (cameraTarget) {
+        camera.x += (cameraTarget.x - camera.x) * .12;
+        camera.y += (cameraTarget.y - camera.y) * .12;
         const halfW = canvas.width / scale / 2, halfH = canvas.height / scale / 2;
         camera.x = clamp(camera.x, halfW, WORLD.width - halfW);
         camera.y = clamp(camera.y, halfH, WORLD.height - halfH);
@@ -680,10 +774,12 @@ function drawEnemies() {
 function drawPlayers() {
     const colors = ["#56b4e9", "#d486e8", "#70d58b", "#e6ae55"];
     for (const player of state.players) {
-        const p = smoothEntity("player", player);
+        const isLocal = player.id === myPlayerId && predictedLocal;
+        const p = isLocal ? predictedLocal : smoothEntity("player", player);
+        const isDashing = isLocal ? predictedLocal.dashing : player.dashing;
         const rescuers = state.players.filter(worker => worker.action === player.id);
         if (rescuers.length) drawReviveEffect(p.x, p.y, Math.max(...rescuers.map(worker => worker.actionProgress / 4)));
-        if (player.dashing) {
+        if (isDashing) {
             const pulse = (Math.sin(performance.now() / 55) + 1) / 2;
             ctx.save(); ctx.strokeStyle = "#76e5ff"; ctx.globalAlpha = .55 + pulse * .3; ctx.lineWidth = 5;
             ctx.beginPath(); ctx.arc(p.x, p.y, 29 + pulse * 7, 0, Math.PI * 2); ctx.stroke();

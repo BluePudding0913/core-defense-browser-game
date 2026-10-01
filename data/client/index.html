@@ -29,14 +29,16 @@
         <div id="feedback" class="feedback"></div>
         <div class="controls-right">
             <button id="ready" class="control-button ready hidden" type="button">準備完了</button>
-            <button id="dash" class="control-button dash" type="button">DASH</button>
-            <button id="weapon" class="control-button weapon" type="button">PISTOL</button>
+            <div class="dash-control">
+                <button id="dash" class="control-button dash" type="button"><span>DASH</span><small id="stamina-value">100</small></button>
+                <div class="stamina-meter"><span id="stamina-meter"></span></div>
+            </div>
+            <button id="weapon" class="control-button weapon" type="button">
+                <span id="weapon-name">PISTOL</span>
+                <small id="weapon-ammo">∞</small>
+                <span id="weapon-cooldown" class="weapon-cooldown">READY</span>
+            </button>
         </div>
-        <div class="stamina-status">
-            <div><strong>DASH</strong><span id="stamina-value">100</span></div>
-            <div class="stamina-meter"><span id="stamina-meter"></span></div>
-        </div>
-        <div class="hint">左側を長押しして移動 ・ DASH長押し／Shift ・ 敵／設備をタップ</div>
     </section>
 
     <section id="action-menu" class="action-menu hidden" aria-modal="true">
