@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#080d12">
+    <title>CORE DEFENSE</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="game" aria-label="ゲーム画面"></canvas>
+
+    <section id="hud" class="hidden" aria-live="polite">
+        <div class="top-bar">
+            <div class="core-status">
+                <div><strong>CORE</strong><span id="core-value">1000 / 1000</span></div>
+                <div class="meter"><span id="core-meter"></span></div>
+                <div id="shield-row" class="shield-row hidden">SHIELD <span id="shield-value"></span></div>
+            </div>
+            <div class="round-status">
+                <strong id="round">ROUND 0 / 12</strong>
+                <span id="phase">PREPARING</span>
+                <span id="phase-detail">00:20</span>
+            </div>
+            <div id="credits" class="credits">700 CR</div>
+        </div>
+        <div id="team" class="team"></div>
+        <div id="notice" class="notice"></div>
+        <div id="feedback" class="feedback"></div>
+        <div class="controls-right">
+            <button id="ready" class="control-button ready hidden" type="button">準備完了</button>
+            <button id="dash" class="control-button dash" type="button">DASH</button>
+            <button id="weapon" class="control-button weapon" type="button">PISTOL</button>
+        </div>
+        <div class="stamina-status">
+            <div><strong>DASH</strong><span id="stamina-value">100</span></div>
+            <div class="stamina-meter"><span id="stamina-meter"></span></div>
+        </div>
+        <div class="hint">左側を長押しして移動 ・ DASH長押し／Shift ・ 敵／設備をタップ</div>
+    </section>
+
+    <section id="action-menu" class="action-menu hidden" aria-modal="true">
+        <div class="action-card">
+            <div class="action-heading"><strong id="action-title">BUILD</strong><button id="action-close" type="button">×</button></div>
+            <div id="action-options" class="action-options"></div>
+        </div>
+    </section>
+
+    <section id="menu" class="menu">
+        <h1>CORE DEFENSE</h1>
+        <p id="menu-status">サーバーに接続しています…</p>
+        <label>名前 <input id="player-name" maxlength="16" value="Player" autocomplete="nickname"></label>
+        <button id="start" type="button" disabled>CPUを補充して防衛開始</button>
+        <small>横画面推奨 / PCではWASDでも移動できます</small>
+    </section>
+
+    <div id="rotate-message">端末を横向きにしてください</div>
+    <script src="app.js"></script>
+</body>
+</html>
