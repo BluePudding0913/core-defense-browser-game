@@ -38,7 +38,9 @@ class GameSessionTest {
         assertEquals(GamePhase.WAVE, game.phase);
         assertEquals(1, game.round);
         assertEquals(12, game.queuedEnemies);
-        assertEquals(1, game.activeSpawnIds.size());
+        assertEquals(2, game.activeSpawnIds.size());
+        assertEquals(GameMap.SPAWN_POINTS.subList(0, 2).stream().map(SpawnPoint::id).toList(),
+                game.activeSpawnIds, "round one spawn locations must be fixed and plural");
 
         game.queuedEnemies = 0;
         game.queuedBosses = 0;
@@ -59,7 +61,7 @@ class GameSessionTest {
     }
 
     @Test
-    void purchaseRequiresTheFacilityAndChargesOnlyOnce() {
+    void purchaseRequiresTheFacilityAndWeaponUnitRefillsItsAmmo() {
         startPreparing();
         ShopUnit shotgunShop = GameMap.shopByItem("shotgun");
         player.x = shotgunShop.x();
@@ -72,8 +74,14 @@ class GameSessionTest {
         assertEquals(30, player.shotgunAmmo);
         assertEquals(250, player.credits);
 
+        player.shotgunAmmo = 4;
         game.handleMessage(player, "BUY:shotgun");
-        assertEquals(250, player.credits, "an owned weapon must not be charged twice");
+        assertEquals(30, player.shotgunAmmo);
+        assertEquals(130, player.credits,
+                "the weapon unit should refill its own ammunition for 120G");
+
+        game.handleMessage(player, "BUY:shotgun");
+        assertEquals(130, player.credits, "full ammunition must not be charged again");
 
         player.credits = 1_000;
         game.handleMessage(player, "BUY:rifle");
@@ -86,6 +94,18 @@ class GameSessionTest {
         game.handleMessage(player, "BUY:ammo");
         assertEquals(30, player.shotgunAmmo);
         assertEquals(1_000, player.credits, "a remote purchase must be rejected");
+    }
+
+    @Test
+    void enemiesCycleAcrossTheFixedSpawnLocationsForTheRound() {
+        startWave();
+        game.players.forEach(candidate -> candidate.human = true);
+        for (int i = 0; i < 4; i++) game.update(1.5);
+
+        Set<String> usedSpawns = game.enemies.stream().map(enemy -> enemy.spawnId)
+                .collect(java.util.stream.Collectors.toSet());
+        assertTrue(usedSpawns.containsAll(game.activeSpawnIds),
+                "the wave must visibly use every fixed spawn location");
     }
 
     @Test
@@ -147,6 +167,9 @@ class GameSessionTest {
         assertTrue(events.broadcasts.stream().anyMatch(message ->
                 message.contains("\"effect\":\"hit\"") && message.contains("\"credits\":8")),
                 "the hit effect should report the credits earned by that hit");
+        assertTrue(events.broadcasts.stream().anyMatch(message ->
+                message.contains("\"effect\":\"hit\"") && message.contains("\"headshot\":false")),
+                "aiming at the center should remain a normal body shot");
 
         game.handleMessage(player, "ATTACK:" + enemy.id);
         assertEquals(19, enemy.hp, "cooldown must reject a second immediate attack");
@@ -159,6 +182,29 @@ class GameSessionTest {
         assertEquals(teammateInitialCredits + 7, teammate.credits);
         assertEquals(0, player.kills);
         assertEquals(1, teammate.kills);
+    }
+
+    @Test
+    void aimingAtTheUpperHitboxDealsHeadshotDamage() {
+        startWave();
+        game.players.forEach(candidate -> candidate.human = true);
+        game.enemies.clear();
+        player.x = GameMap.CORE_X;
+        player.y = GameMap.CORE_Y;
+        Enemy enemy = new Enemy(9_020, "grunt", GameMap.SPAWN_POINTS.get(0),
+                500, 0, 0, 0);
+        enemy.x = player.x + 100;
+        enemy.y = player.y;
+        game.enemies.add(enemy);
+        events.broadcasts.clear();
+
+        game.handleMessage(player, "FIRE:" + enemy.x + ":" + (enemy.y - 10.5) + ":1");
+        game.handleMessage(player, "FIRE:" + enemy.x + ":" + (enemy.y - 10.5) + ":0");
+
+        assertEquals(461, enemy.hp, 0.001, "a pistol headshot should deal 1.5x damage");
+        assertTrue(events.broadcasts.stream().anyMatch(message ->
+                message.contains("\"headshot\":true") && message.contains("\"damage\":39.0")),
+                "the hit effect should identify the headshot for client feedback");
     }
 
     @Test
@@ -277,7 +323,34 @@ class GameSessionTest {
     }
 
     @Test
-    void earlyResourcePocketsActivateWithTheSecondArea() {
+    void droppedMaterialsCanBeCollectedByAnotherPlayer() {
+        startPreparing();
+        game.players.forEach(candidate -> candidate.human = true);
+        Player collector = game.players.get(1);
+        player.x = 1_020;
+        player.y = 1_900;
+        player.facingX = 1;
+        player.facingY = 0;
+        player.wood = 5;
+        collector.x = 1_060;
+        collector.y = 1_900;
+        game.players.get(2).x = 900;
+        game.players.get(2).y = 1_980;
+        game.players.get(3).x = 900;
+        game.players.get(3).y = 1_820;
+
+        game.handleMessage(player, "DROP_RESOURCE:wood:2");
+        assertEquals(3, player.wood);
+        assertEquals(1, game.droppedResources.size());
+        assertTrue(SnapshotBuilder.build(game).contains("\"drops\":[{\"id\":"));
+
+        game.update(0.8);
+        assertEquals(2, collector.wood);
+        assertTrue(game.droppedResources.isEmpty());
+    }
+
+    @Test
+    void earlyResourcePocketsRequireTheirOwnPaidAreas() {
         startPreparing();
         ResourceNode wood = game.resourceNodes.stream()
                 .filter(candidate -> candidate.id.equals("early-wood-1"))
@@ -289,14 +362,17 @@ class GameSessionTest {
         player.x = wood.x;
         player.y = wood.y;
         game.update(0.05);
-        assertEquals(0, player.wood, "the side pocket must stay sealed before transit opens");
+        assertEquals(0, player.wood, "the side pocket must stay sealed before its area opens");
 
-        game.unlockedAreas.add("transit-hall");
+        game.unlockedAreas.add("wood-room");
         game.update(0.05);
         assertEquals(1, player.wood);
 
         player.x = ore.x;
         player.y = ore.y;
+        game.update(0.05);
+        assertEquals(0, player.ore, "ore must remain locked when only the wood room is open");
+        game.unlockedAreas.add("ore-room");
         game.update(0.05);
         assertEquals(1, player.ore);
     }
@@ -443,6 +519,25 @@ class GameSessionTest {
     }
 
     @Test
+    void distributedWorkbenchRequiresItsAreaAndCanCraftWhenUnlocked() {
+        startPreparing();
+        WorkbenchUnit workbench = GameMap.WORKBENCH_UNITS.stream()
+                .filter(candidate -> candidate.id().equals("workbench-command"))
+                .findFirst().orElseThrow();
+        player.x = workbench.x();
+        player.y = workbench.y();
+        player.wood = 8;
+
+        game.handleMessage(player, "CRAFT:block");
+        assertEquals(0, player.blockItems);
+
+        game.unlockedAreas.add(workbench.requiredArea());
+        game.handleMessage(player, "CRAFT:block");
+        assertEquals(1, player.blockItems);
+        assertEquals(4, player.wood);
+    }
+
+    @Test
     void placedBlockSnapsToTheGridBlocksMovementAndCanBeRemoved() {
         startPreparing();
         player.x = 1_140;
@@ -477,7 +572,7 @@ class GameSessionTest {
         game.handleMessage(player, "START");
 
         assertTrue(events.broadcasts.stream().anyMatch(message -> message.contains("\"type\":\"log\"")));
-        assertTrue(events.broadcasts.stream().anyMatch(message -> message.contains("CORE防衛準備")));
+        assertTrue(events.broadcasts.stream().anyMatch(message -> message.contains("準備開始")));
     }
 
     @Test
@@ -570,6 +665,59 @@ class GameSessionTest {
     }
 
     @Test
+    void cpuSpendsPersonalGoldOnAvailableWeapons() {
+        startPreparing();
+        game.unlockedAreas.add("entry-room");
+        Player bot = game.players.get(1);
+
+        game.update(4);
+
+        assertTrue(bot.ownsShotgun);
+        assertEquals(250, bot.credits);
+        assertEquals("shotgun", bot.weapon);
+    }
+
+    @Test
+    void cpuPlayersSeparateInsteadOfStackingOnOnePoint() {
+        startPreparing();
+        List<Player> bots = game.players.stream().filter(candidate -> !candidate.human).toList();
+        bots.forEach(bot -> { bot.x = 1020; bot.y = 1900; });
+
+        game.update(0.7);
+
+        double widestSeparation = 0;
+        for (Player first : bots) {
+            for (Player second : bots) {
+                widestSeparation = Math.max(widestSeparation,
+                        GameSupport.distance(first.x, first.y, second.x, second.y));
+            }
+        }
+        assertTrue(widestSeparation > 20, "CPU formation and avoidance should spread the team");
+    }
+
+    @Test
+    void cpuUsesWalkableTilePathsToReachADeepCorePosition() {
+        startPreparing();
+        game.unlockedAreas.addAll(GameMap.AREAS.stream().map(UnlockArea::id).toList());
+        game.coreX = 300;
+        game.coreY = 300;
+        game.prepTime = 100;
+        Player bot = game.players.get(1);
+        game.players.get(2).human = true;
+        game.players.get(3).human = true;
+        bot.x = 1_020;
+        bot.y = 1_900;
+        double initialDistance = GameSupport.distance(bot.x, bot.y, game.coreX, game.coreY);
+
+        for (int i = 0; i < 200; i++) game.update(0.1);
+
+        assertTrue(GameSupport.distance(bot.x, bot.y, game.coreX, game.coreY)
+                < initialDistance - 700,
+                "CPU should navigate the corridor instead of walking into a wall");
+        assertTrue(GameMap.canOccupy(bot.x, bot.y, 5, game.unlockedAreas));
+    }
+
+    @Test
     void defensePriorityEnemiesAttackBuiltEquipmentBeforeNearbyPlayers() {
         startWave();
         game.enemies.clear();
@@ -637,17 +785,55 @@ class GameSessionTest {
     }
 
     @Test
-    void coreCanExtendPreparationByThreeMinutesForThirtyGold() {
+    void blackoutUsesOneBreakerAndPersistsAfterRoundClear() {
         startPreparing();
-        player.x = game.coreX;
-        player.y = game.coreY;
+        game.unlockedAreas.add("entry-room");
+        game.unlockedAreas.add("transit-hall");
+        beginSpecificRound(3);
+
+        assertEquals(1, game.blackoutBreakerTotal);
+        assertEquals(1, game.trippedBreakers.size());
+        game.queuedEnemies = 0;
+        game.queuedBosses = 0;
+        game.enemies.clear();
+        game.update(0.05);
+
+        assertEquals(GamePhase.PREPARING, game.phase);
+        assertTrue(game.blackoutActive, "round clear must not repair the breaker");
+        assertEquals(1, game.trippedBreakers.size());
+    }
+
+    @Test
+    void timeControlExtendsPreparationByOneMinuteForTenGold() {
+        startPreparing();
+        game.unlockedAreas.add(GameMap.PREP_CONSOLE.requiredArea());
+        player.x = GameMap.PREP_CONSOLE.x();
+        player.y = GameMap.PREP_CONSOLE.y();
         double previousTime = game.prepTime;
         int previousGold = player.credits;
 
         game.handleMessage(player, "EXTEND_PREP");
 
-        assertEquals(previousTime + 180, game.prepTime);
-        assertEquals(previousGold - 30, player.credits);
+        assertEquals(previousTime + 60, game.prepTime);
+        assertEquals(previousGold - 10, player.credits);
+    }
+
+    @Test
+    void timeControlDuringWaveExtendsTheNextBreak() {
+        startWave();
+        game.unlockedAreas.add(GameMap.PREP_CONSOLE.requiredArea());
+        player.x = GameMap.PREP_CONSOLE.x();
+        player.y = GameMap.PREP_CONSOLE.y();
+
+        game.handleMessage(player, "EXTEND_PREP");
+        assertEquals(60, game.nextPrepBonusSeconds);
+
+        game.queuedEnemies = 0;
+        game.queuedBosses = 0;
+        game.enemies.clear();
+        game.update(0.05);
+        assertEquals(GameConfig.PREP_SECONDS + 60, game.prepTime);
+        assertEquals(0, game.nextPrepBonusSeconds);
     }
 
     @Test

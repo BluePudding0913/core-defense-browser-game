@@ -40,6 +40,11 @@ record ShopUnit(String id, String item, String label, double x, double y, int co
 
 record BreakerTerminal(String id, String label, double x, double y, String requiredArea) { }
 
+record WorkbenchUnit(String id, double x, double y, String requiredArea) { }
+
+record PrepConsole(String id, double x, double y, String requiredArea, int cost,
+        int seconds) { }
+
 record MapDefinition(int version, WorldSize world, MapPoint core, Stations stations,
         TileMapDefinition tileMap, List<UnlockArea> areas, List<SpawnPoint> spawnPoints,
         List<TrapSlotDefinition> trapSlots, List<ResourceNodeDefinition> resourceNodes,
@@ -71,6 +76,13 @@ final class GameMap {
     static final List<SpawnPoint> SPAWN_POINTS = List.copyOf(DEFINITION.spawnPoints());
     static final List<ShopUnit> SHOP_UNITS = List.copyOf(DEFINITION.shopUnits());
     static final List<ResourceNodeDefinition> RESOURCE_NODES = buildResourceNodeDefinitions();
+    static final List<WorkbenchUnit> WORKBENCH_UNITS = List.of(
+            new WorkbenchUnit("workbench-entry", WORKBENCH_X, WORKBENCH_Y, "entry-room"),
+            new WorkbenchUnit("workbench-armory", 1740, 900, "armory-wing"),
+            new WorkbenchUnit("workbench-relay", 1340, 380, "relay-gallery"),
+            new WorkbenchUnit("workbench-command", 300, 300, "command-room"));
+    static final PrepConsole PREP_CONSOLE = new PrepConsole(
+            "prep-console", 1260, 980, "operations-room", 10, 60);
     static final List<BreakerTerminal> BREAKER_TERMINALS = List.of(
             new BreakerTerminal("breaker-outside", "OUTSIDE", 820, 1940, null),
             new BreakerTerminal("breaker-entry", "ENTRY ROOM", 1140, 1620, "entry-room"),
@@ -160,14 +172,20 @@ final class GameMap {
         if (GameSupport.distance(point.x(), point.y(), ARMORY_X, ARMORY_Y) < 70
                 || GameSupport.distance(point.x(), point.y(), MED_X, MED_Y) < 70
                 || GameSupport.distance(point.x(), point.y(), WOODCUTTER_X, WOODCUTTER_Y) < 70
-                || GameSupport.distance(point.x(), point.y(), QUARRY_X, QUARRY_Y) < 70
-                || GameSupport.distance(point.x(), point.y(), WORKBENCH_X, WORKBENCH_Y) < 70) {
+                || GameSupport.distance(point.x(), point.y(), QUARRY_X, QUARRY_Y) < 70) {
+            return false;
+        }
+        if (WORKBENCH_UNITS.stream().anyMatch(workbench ->
+                GameSupport.distance(point.x(), point.y(), workbench.x(), workbench.y()) < 70)) {
             return false;
         }
         if (SHOP_UNITS.stream().anyMatch(shop ->
                 GameSupport.distance(point.x(), point.y(), shop.x(), shop.y()) < 55)) return false;
         if (BREAKER_TERMINALS.stream().anyMatch(breaker ->
                 GameSupport.distance(point.x(), point.y(), breaker.x(), breaker.y()) < 55)) return false;
+        if (GameSupport.distance(point.x(), point.y(), PREP_CONSOLE.x(), PREP_CONSOLE.y()) < 60) {
+            return false;
+        }
         if (RESOURCE_NODES.stream().anyMatch(node ->
                 GameSupport.distance(point.x(), point.y(), node.x(), node.y()) < 36)) return false;
         return SPAWN_POINTS.stream().noneMatch(spawn ->
@@ -185,14 +203,20 @@ final class GameMap {
         if (GameSupport.distance(point.x(), point.y(), ARMORY_X, ARMORY_Y) < 70
                 || GameSupport.distance(point.x(), point.y(), MED_X, MED_Y) < 70
                 || GameSupport.distance(point.x(), point.y(), WOODCUTTER_X, WOODCUTTER_Y) < 70
-                || GameSupport.distance(point.x(), point.y(), QUARRY_X, QUARRY_Y) < 70
-                || GameSupport.distance(point.x(), point.y(), WORKBENCH_X, WORKBENCH_Y) < 70) {
+                || GameSupport.distance(point.x(), point.y(), QUARRY_X, QUARRY_Y) < 70) {
+            return false;
+        }
+        if (WORKBENCH_UNITS.stream().anyMatch(workbench ->
+                GameSupport.distance(point.x(), point.y(), workbench.x(), workbench.y()) < 70)) {
             return false;
         }
         if (SHOP_UNITS.stream().anyMatch(shop ->
                 GameSupport.distance(point.x(), point.y(), shop.x(), shop.y()) < 55)) return false;
         if (BREAKER_TERMINALS.stream().anyMatch(breaker ->
                 GameSupport.distance(point.x(), point.y(), breaker.x(), breaker.y()) < 55)) return false;
+        if (GameSupport.distance(point.x(), point.y(), PREP_CONSOLE.x(), PREP_CONSOLE.y()) < 60) {
+            return false;
+        }
         if (RESOURCE_NODES.stream().anyMatch(node ->
                 GameSupport.distance(point.x(), point.y(), node.x(), node.y()) < 36)) return false;
         return SPAWN_POINTS.stream().noneMatch(spawn ->
@@ -263,6 +287,8 @@ final class GameMap {
             clientMap.set("tileMap", JSON.valueToTree(TILE_MAP));
             clientMap.set("areas", JSON.valueToTree(AREAS));
             clientMap.set("breakerTerminals", JSON.valueToTree(BREAKER_TERMINALS));
+            clientMap.set("workbenchUnits", JSON.valueToTree(WORKBENCH_UNITS));
+            clientMap.set("prepConsole", JSON.valueToTree(PREP_CONSOLE));
             clientMap.set("resourceNodes", JSON.valueToTree(RESOURCE_NODES));
             return "{\"type\":\"map\",\"map\":" + JSON.writeValueAsString(clientMap) + "}";
         } catch (IOException error) {
@@ -273,23 +299,25 @@ final class GameMap {
 
     private static List<ResourceNodeDefinition> buildResourceNodeDefinitions() {
         List<ResourceNodeDefinition> nodes = new ArrayList<>(DEFINITION.resourceNodes());
-        nodes.add(new ResourceNodeDefinition("early-wood-1", "wood", 1180, 980,
-                "transit-hall"));
-        nodes.add(new ResourceNodeDefinition("early-wood-2", "wood", 1300, 1060,
-                "transit-hall"));
+        nodes.add(new ResourceNodeDefinition("early-wood-1", "wood", 740, 1420,
+                "wood-room"));
+        nodes.add(new ResourceNodeDefinition("early-wood-2", "wood", 820, 1500,
+                "wood-room"));
         nodes.add(new ResourceNodeDefinition("early-ore-1", "ore", 1340, 1260,
-                "transit-hall"));
+                "ore-room"));
         nodes.add(new ResourceNodeDefinition("early-ore-2", "ore", 1460, 1340,
-                "transit-hall"));
+                "ore-room"));
         return List.copyOf(nodes);
     }
 
     private static TileMapDefinition buildGameplayTileMap() {
         List<String> rows = new ArrayList<>(DEFINITION.tileMap().rows());
-        for (int row = 24; row <= 26; row++) rows.set(row, carveFloor(rows.get(row), 29, 32));
-        rows.set(27, carveFloor(rows.get(27), 30, 31));
+        for (int row = 23; row <= 25; row++) rows.set(row, carveFloor(rows.get(row), 29, 32));
+        for (int row = 26; row <= 27; row++) rows.set(row, carveFloor(rows.get(row), 30, 31));
         rows.set(30, carveFloor(rows.get(30), 34, 35));
         for (int row = 31; row <= 33; row++) rows.set(row, carveFloor(rows.get(row), 33, 36));
+        for (int row = 35; row <= 38; row++) rows.set(row, carveFloor(rows.get(row), 18, 21));
+        for (int row = 36; row <= 37; row++) rows.set(row, carveFloor(rows.get(row), 22, 22));
         return new TileMapDefinition(DEFINITION.tileMap().tileSize(),
                 DEFINITION.tileMap().legend(), List.copyOf(rows));
     }
@@ -301,11 +329,20 @@ final class GameMap {
     }
 
     private static List<UnlockArea> buildGameplayAreas() {
-        return DEFINITION.areas().stream().map(area -> area.id().equals("transit-hall")
-                ? new UnlockArea(area.id(), area.name(), area.x(), 960, area.width(), 400,
-                        area.terminalX(), area.terminalY(), area.labelX(), area.labelY(),
-                        area.color(), area.detail())
-                : area).toList();
+        List<UnlockArea> areas = new ArrayList<>(DEFINITION.areas().stream()
+                .map(area -> area.id().equals("entry-room")
+                        ? new UnlockArea(area.id(), area.name(), area.x(), area.y(),
+                                area.width(), area.height(), area.terminalX(), area.terminalY(),
+                                900, 1340, area.color(), area.detail())
+                        : area)
+                .toList());
+        areas.add(new UnlockArea("wood-room", "WOOD ROOM", 720, 1400, 160, 160,
+                940, 1500, 820, 1380, "#ffffff", "木材を回収できる小部屋"));
+        areas.add(new UnlockArea("ore-room", "ORE ROOM", 1320, 1240, 160, 120,
+                1420, 1180, 1400, 1380, "#ffffff", "鉱石を回収できる小部屋"));
+        areas.add(new UnlockArea("operations-room", "TIME CONTROL", 1160, 920, 160, 120,
+                1180, 1100, 1140, 980, "#ffffff", "次の準備時間を延長できる小部屋"));
+        return List.copyOf(areas);
     }
 
     private static void validate(MapDefinition map) {

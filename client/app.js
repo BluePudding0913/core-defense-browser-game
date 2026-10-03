@@ -23,6 +23,7 @@ const weaponName = document.querySelector("#weapon-name");
 const weaponAmmo = document.querySelector("#weapon-ammo");
 const weaponCooldown = document.querySelector("#weapon-cooldown");
 const weaponIcon = document.querySelector("#weapon-icon");
+const slotPopup = document.querySelector("#slot-popup");
 const actionMenu = document.querySelector("#action-menu");
 const actionTitle = document.querySelector("#action-title");
 const actionOptions = document.querySelector("#action-options");
@@ -45,11 +46,13 @@ let MED = { id: "med", x: 0, y: 0 };
 let WOODCUTTER = { id: "woodcutter", x: 0, y: 0 };
 let QUARRY = { id: "quarry", x: 0, y: 0 };
 let WORKBENCH = { id: "workbench", x: 0, y: 0 };
+let WORKBENCHES = [];
 let TILE_MAP = { tileSize: 40, legend: {}, rows: [] };
 let AREAS = [];
 let SPAWN_POINTS = [];
 let SHOP_UNITS = [];
 let BREAKER_TERMINALS = [];
+let PREP_CONSOLE = null;
 const BUILD_INFO = {
     block: { name: "BLOCK", wood: 4, ore: 0, description: "通路を塞ぐ基本ブロック" },
     turret: { name: "AUTO TURRET", wood: 4, ore: 8, description: "範囲内の敵を自動射撃" },
@@ -58,11 +61,12 @@ const BUILD_INFO = {
     barricade: { name: "BARRICADE", wood: 6, ore: 2, description: "高耐久の進路妨害" },
 };
 const WEAPON_FIELDS = Object.freeze({
-    shotgun: { owned: "ownsShotgun", ammo: "shotgunAmmo" },
-    smg: { owned: "ownsSmg", ammo: "smgAmmo" },
-    rifle: { owned: "ownsRifle", ammo: "rifleAmmo" },
-    sniper: { owned: "ownsSniper", ammo: "sniperAmmo" },
+    shotgun: { owned: "ownsShotgun", ammo: "shotgunAmmo", capacity: 30 },
+    smg: { owned: "ownsSmg", ammo: "smgAmmo", capacity: 90 },
+    rifle: { owned: "ownsRifle", ammo: "rifleAmmo", capacity: 24 },
+    sniper: { owned: "ownsSniper", ammo: "sniperAmmo", capacity: 16 },
 });
+const WEAPON_AMMO_REFILL_COST = 120;
 const INTERACTION_RANGE = Object.freeze({
     shop: 70,
     medBay: 95,
@@ -84,6 +88,7 @@ let lastCoreHp;
 let coreHitStarted = 0;
 let feedbackTimer;
 let roundIntroTimer;
+let slotPopupTimer;
 let connectionAttemptTimer;
 let previousRound = 0;
 let previousPhase = "lobby";
@@ -144,6 +149,9 @@ function applyMap(map) {
     SPAWN_POINTS = map.spawnPoints.map(spawn => ({ ...spawn }));
     SHOP_UNITS = map.shopUnits.map(shop => ({ ...shop }));
     BREAKER_TERMINALS = (map.breakerTerminals || []).map(breaker => ({ ...breaker }));
+    WORKBENCHES = (map.workbenchUnits || [{ ...WORKBENCH, requiredArea: "entry-room" }])
+        .map(workbench => ({ ...workbench }));
+    PREP_CONSOLE = { ...map.prepConsole };
     camera = { x: CORE.x, y: CORE.y };
     if (!mapReady) {
         mapReady = true;
@@ -158,12 +166,13 @@ function validateMap(map) {
     }
     if (!isPoint(map.core) || !isPoint(map.stations?.armory) || !isPoint(map.stations?.medBay)
             || !isPoint(map.stations?.woodcutter) || !isPoint(map.stations?.quarry)
-            || !isPoint(map.stations?.workbench)) {
+            || !isPoint(map.stations?.workbench) || !isPoint(map.prepConsole)) {
         throw new Error("COREまたは施設の座標が不正です");
     }
     for (const [name, values] of [["areas", map.areas],
         ["spawnPoints", map.spawnPoints], ["trapSlots", map.trapSlots],
-        ["resourceNodes", map.resourceNodes], ["shopUnits", map.shopUnits]]) {
+        ["resourceNodes", map.resourceNodes], ["shopUnits", map.shopUnits],
+        ["workbenchUnits", map.workbenchUnits]]) {
         if (!Array.isArray(values)) throw new Error(`${name}が配列ではありません`);
     }
     const tiles = map.tileMap;
@@ -184,6 +193,7 @@ function validateMap(map) {
     requireUniqueIds(map.trapSlots, "trapSlots");
     requireUniqueIds(map.resourceNodes, "resourceNodes");
     requireUniqueIds(map.shopUnits, "shopUnits");
+    requireUniqueIds(map.workbenchUnits, "workbenchUnits");
     for (const spawn of map.spawnPoints) {
         if (!Array.isArray(spawn.route) || spawn.route.length === 0 || !spawn.route.every(isPoint)) {
             throw new Error(`侵入口${spawn.id}の経路が不正です`);
@@ -278,6 +288,7 @@ function connect() {
     });
     socket.addEventListener("close", () => {
         clearTimeout(connectionAttemptTimer);
+        smoothed.clear();
         predictedLocal = null;
         localMove = { x: 0, y: 0 };
         dashRequested = false;
@@ -315,6 +326,7 @@ function receiveState(next) {
         && (previousPhase !== "wave" || next.round !== previousRound);
     if (lastCoreHp !== undefined && next.core.hp < lastCoreHp) coreHitStarted = performance.now();
     lastCoreHp = next.core.hp;
+    reconcileEnemySmoothing(next);
     state = next;
     CORE.x = next.core.x;
     CORE.y = next.core.y;
@@ -341,6 +353,25 @@ function receiveState(next) {
         startButton.disabled = false;
     }
     if (!["preparing", "wave"].includes(next.phase)) closeActionMenu();
+}
+
+function reconcileEnemySmoothing(next) {
+    const restarted = state && (["won", "lost"].includes(state.phase)
+        && ["lobby", "preparing"].includes(next.phase) || next.round < state.round);
+    const previousIds = restarted
+        ? new Set()
+        : new Set((state?.enemies || []).map(enemy => enemy.id));
+    const nextIds = new Set(next.enemies.map(enemy => enemy.id));
+    for (const key of smoothed.keys()) {
+        if (key.startsWith("enemy-") && (restarted || !nextIds.has(Number(key.slice(6))))) {
+            smoothed.delete(key);
+        }
+    }
+    for (const enemy of next.enemies) {
+        if (!previousIds.has(enemy.id) || !smoothed.has(`enemy-${enemy.id}`)) {
+            smoothed.set(`enemy-${enemy.id}`, { x: enemy.x, y: enemy.y });
+        }
+    }
 }
 
 function showRoundIntro(round) {
@@ -381,6 +412,20 @@ function selectEquipment(entry) {
     }
     if (entry.kind === "weapon") send(`WEAPON:${entry.value}`);
     else if (entry.kind === "build") send(`EQUIP_BUILD:${entry.value}`);
+    showEquipmentPopup(entry.key);
+}
+
+function showEquipmentPopup(selectedKey) {
+    const me = getMe();
+    if (!me) return;
+    const entries = equipmentEntries(me);
+    slotPopup.innerHTML = entries.map((entry, index) => {
+        const amount = entry.kind === "build" ? ` ×${me.buildItems?.[entry.value] || 0}` : "";
+        return `<div class="${entry.key === selectedKey ? "selected" : ""}">${index + 1}. ${escapeHtml(entry.label)}${amount}</div>`;
+    }).join("");
+    slotPopup.classList.remove("hidden");
+    clearTimeout(slotPopupTimer);
+    slotPopupTimer = setTimeout(() => slotPopup.classList.add("hidden"), 2600);
 }
 
 function cycleEquipment(direction = 1) {
@@ -432,14 +477,14 @@ function updateHud() {
     const blackoutStatus = state.blackoutActive
         ? ` / BREAKER:${(state.trippedBreakers || []).length}` : "";
     phaseDetail.textContent = state.phase === "preparing"
-        ? `next round in ${Math.floor(prepSeconds / 60)}:${String(prepSeconds % 60).padStart(2, "0")}`
+        ? `next round in ${Math.floor(prepSeconds / 60)}:${String(prepSeconds % 60).padStart(2, "0")}${blackoutStatus}`
         : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}` : "";
     const me = getMe();
     teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">
             <div class="teammate-label">
                 <span>${player.id === myPlayerId ? "YOU" : player.human ? escapeHtml(player.name) : `CPU${player.id.at(-1)}`}</span>
-                <span class="player-stats">${player.down ? "DOWN" : ""}<b>${player.credits}g</b></span>
+                <span class="player-stats">${player.down ? "DOWN" : ""}<b>${player.credits}G</b></span>
             </div>
             <div class="hp-line"><span style="width:${player.hp}%"></span></div>
         </div>`).join("");
@@ -448,16 +493,21 @@ function updateHud() {
         const health = clamp(me.hp, 0, 100);
         healthHeart.style.setProperty("--health", `${health}%`);
         healthHeart.setAttribute("aria-label", `体力 ${Math.ceil(health)}%`);
-        selfCredits.textContent = `${me.credits}g`;
-        const ammo = ammoForWeapon(me, me.weapon);
+        selfCredits.textContent = `${me.credits}G`;
+        const selectedBuild = me.selectedBuild && (me.buildItems?.[me.selectedBuild] || 0) > 0
+            ? me.selectedBuild : null;
+        const showingItem = me.movingCore || selectedBuild;
         const cooldownMax = Math.max(.01, me.cooldownMax || me.cooldown || .01);
-        const cooldownProgress = 1 - Math.min(1, me.cooldown / cooldownMax);
-        weaponName.textContent = me.weapon.toUpperCase();
-        weaponAmmo.textContent = ammo;
-        weaponIcon.className = `weapon-icon ${me.weapon}`;
-        weaponCooldown.textContent = me.cooldown > 0 ? `${me.cooldown.toFixed(1)}s` : "READY";
+        const cooldownProgress = showingItem ? 1 : 1 - Math.min(1, me.cooldown / cooldownMax);
+        weaponName.textContent = me.movingCore ? "CORE"
+            : selectedBuild ? BUILD_INFO[selectedBuild].name : me.weapon.toUpperCase();
+        weaponAmmo.textContent = me.movingCore ? "" : selectedBuild
+            ? `×${me.buildItems[selectedBuild]}` : ammoForWeapon(me, me.weapon);
+        weaponIcon.className = `weapon-icon ${me.movingCore ? "core" : selectedBuild ? `build-${selectedBuild}` : me.weapon}`;
+        weaponCooldown.textContent = showingItem ? "R TO PLACE"
+            : me.cooldown > 0 ? `${me.cooldown.toFixed(1)}s` : "READY";
         weaponButton.style.setProperty("--cooldown-progress", `${cooldownProgress * 100}%`);
-        weaponButton.classList.toggle("cooling", me.cooldown > 0);
+        weaponButton.classList.toggle("cooling", !showingItem && me.cooldown > 0);
         weaponButton.classList.toggle("locked", me.movingCore);
         weaponButton.disabled = me.movingCore;
         updateInventory(me);
@@ -471,24 +521,37 @@ function updateInventory(me) {
     const entries = equipmentEntries(me);
     const selectedKey = me.movingCore ? "core"
         : me.selectedBuild ? `build:${me.selectedBuild}` : `weapon:${me.weapon}`;
-    const equipment = entries.map(entry => {
+    const equipment = entries.map((entry, index) => {
         const amount = entry.kind === "build" ? `×${me.buildItems[entry.value]}`
             : entry.kind === "core" ? ""
                 : WEAPON_FIELDS[entry.value] ? `${ammoForWeapon(me, entry.value)} AMMO` : "WEAPON";
         return `<button type="button" data-key="${entry.key}" class="${selectedKey === entry.key ? "selected" : ""}">
-            <strong>${entry.label}</strong><span>${amount}</span>
+            <strong>${index + 1}. ${entry.label}</strong><span>${amount}</span>
         </button>`;
     }).join("");
     inventoryItems.innerHTML = `
         <div class="inventory-section"><h3>EQUIPMENT</h3><div class="inventory-grid">${equipment}</div></div>
         <div class="inventory-section"><h3>MATERIALS</h3><div class="inventory-grid materials-grid">
-            <div class="inventory-resource"><strong>WOOD</strong><span>×${me.wood}</span></div>
-            <div class="inventory-resource"><strong>ORE</strong><span>×${me.ore}</span></div>
+            ${resourceInventoryCard("wood", me.wood)}
+            ${resourceInventoryCard("ore", me.ore)}
         </div></div>`;
-    inventoryItems.querySelectorAll("button").forEach(button => button.addEventListener("click", () => {
+    inventoryItems.querySelectorAll("button[data-key]").forEach(button => button.addEventListener("click", () => {
         const entry = entries.find(candidate => candidate.key === button.dataset.key);
         if (entry) selectEquipment(entry);
     }));
+    inventoryItems.querySelectorAll("button[data-drop]").forEach(button => button.addEventListener("click", () => {
+        send(`DROP_RESOURCE:${button.dataset.drop}:${button.dataset.amount}`);
+    }));
+}
+
+function resourceInventoryCard(type, amount) {
+    return `<div class="inventory-resource">
+        <strong>${type.toUpperCase()}</strong><span>×${amount}</span>
+        <div class="resource-actions">
+            <button type="button" data-drop="${type}" data-amount="1" ${amount < 1 ? "disabled" : ""}>DROP 1</button>
+            <button type="button" data-drop="${type}" data-amount="${amount}" ${amount < 1 ? "disabled" : ""}>DROP ALL</button>
+        </div>
+    </div>`;
 }
 
 function toggleInventory() {
@@ -509,7 +572,7 @@ function showNotice(text) {
     const entry = {
         id: `${Date.now()}-${Math.random()}`,
         text: String(text),
-        danger: String(text).includes("ダウンしました"),
+        danger: String(text).includes("DOWN") || String(text).includes("DESTROYED"),
     };
     const previousPositions = new Map([...noticeElement.children]
         .map(element => [element.dataset.logId, element.getBoundingClientRect().top]));
@@ -685,10 +748,11 @@ function canBuildAt(point, forCore = false) {
             && point.y >= area.y && point.y <= area.y + area.height)) return false;
     if (!forCore && distance(point, state.core) < 90) return false;
     if (distance(point, ARMORY) < 70 || distance(point, MED) < 70
-            || distance(point, WOODCUTTER) < 70 || distance(point, QUARRY) < 70
-            || distance(point, WORKBENCH) < 70) return false;
+            || distance(point, WOODCUTTER) < 70 || distance(point, QUARRY) < 70) return false;
+    if (WORKBENCHES.some(workbench => distance(point, workbench) < 70)) return false;
     if (SHOP_UNITS.some(shop => distance(point, shop) < 55)) return false;
     if (BREAKER_TERMINALS.some(breaker => distance(point, breaker) < 55)) return false;
+    if (PREP_CONSOLE && distance(point, PREP_CONSOLE) < 60) return false;
     if ((state.resources || []).some(node => distance(point, node) < 36)) return false;
     if (SPAWN_POINTS.some(spawn => distance(point, spawn) < 80)) return false;
     if (state.slots.some(slot => (forCore ? slot.defense : true) && distance(point, slot) < 36)) return false;
@@ -698,37 +762,47 @@ function canBuildAt(point, forCore = false) {
 
 function openCoreMenu() {
     const core = state.core;
-    const me = getMe();
     const hpCost = 300 + Math.round((core.maxHp - 1000) * .6);
     const shieldCost = 350 + Math.round(core.maxShield * .8);
     const defenseCost = 450 + core.defense * 250;
     const regenCost = 500 + core.regen * 300;
-    openNearbyActionMenu("CORE UPGRADES", [
+    openNearbyActionMenu(`CORE HP ${Math.ceil(core.hp)} / ${Math.ceil(core.maxHp)}`, [
         option("MAX HP +250", hpCost, "UPGRADE:hp"),
         option("SHIELD +180", shieldCost, "UPGRADE:shield"),
         option(`DEFENSE Lv.${core.defense + 1}`, defenseCost, "UPGRADE:defense", core.defense >= 4),
         option(`AUTO REPAIR Lv.${core.regen + 1}`, regenCost, "UPGRADE:regen", core.regen >= 4),
-        {
-            label: "PREP TIME +3:00",
-            detail: "30G",
-            command: "EXTEND_PREP",
-            disabled: state.phase !== "preparing" || !me || me.credits < 30,
-        },
         { label: "MOVE CORE", detail: "運搬後、正面の色付きタイルへRで設置", command: "EQUIP_CORE" },
     ], CORE, INTERACTION_RANGE.core);
+}
+
+function openPrepConsoleMenu() {
+    const me = getMe();
+    const queued = state.phase === "wave" && state.nextPrepBonus > 0
+        ? ` / 予約 +${Math.floor(state.nextPrepBonus / 60)}:00` : "";
+    openNearbyActionMenu("TIME CONTROL", [{
+        label: "+1:00",
+        detail: `${PREP_CONSOLE.cost}G${queued}`,
+        command: "EXTEND_PREP",
+        disabled: !me || me.credits < PREP_CONSOLE.cost,
+    }], PREP_CONSOLE, 95, "single");
 }
 
 function openShopPurchase(shop) {
     const me = getMe();
     const weaponFields = WEAPON_FIELDS[shop.item];
     const alreadyOwned = Boolean(weaponFields && me[weaponFields.owned]);
+    const ammo = alreadyOwned ? me[weaponFields.ammo] : 0;
+    const ammoFull = alreadyOwned && ammo >= weaponFields.capacity;
+    const price = alreadyOwned ? WEAPON_AMMO_REFILL_COST : shop.cost;
     const unavailable = shop.item === "ammo"
         && !Object.values(WEAPON_FIELDS).some(fields => me[fields.owned]);
     openNearbyActionMenu(shop.label, [{
-        label: alreadyOwned ? "OWNED" : unavailable ? "LOCKED" : "BUY",
-        detail: `${shop.cost}G`,
+        label: alreadyOwned ? ammoFull ? "AMMO FULL" : "REFILL AMMO"
+            : unavailable ? "LOCKED" : "BUY",
+        detail: alreadyOwned ? `${ammo} / ${weaponFields.capacity} AMMO · ${price}G`
+            : `${price}G`,
         command: `BUY:${shop.item}`,
-        disabled: alreadyOwned || unavailable || me.credits < shop.cost,
+        disabled: ammoFull || unavailable || me.credits < price,
     }], shop, INTERACTION_RANGE.shop, "single");
 }
 
@@ -752,14 +826,14 @@ function openQuarryMenu() {
     }], QUARRY, INTERACTION_RANGE.resource);
 }
 
-function openWorkbenchMenu() {
+function openWorkbenchMenu(workbench) {
     const me = getMe();
     openNearbyActionMenu("WORKBENCH", Object.entries(BUILD_INFO).map(([type, info]) => ({
         label: info.name,
         detail: `${info.description} — WOOD ${info.wood} / ORE ${info.ore}`,
         command: `CRAFT:${type}`,
         disabled: me.wood < info.wood || me.ore < info.ore,
-    })), WORKBENCH, INTERACTION_RANGE.workbench);
+    })), workbench, INTERACTION_RANGE.workbench);
 }
 
 function openMedMenu() {
@@ -782,7 +856,7 @@ function openUnlockMenu(area) {
 
 function option(label, cost, command, extraDisabled = false, customDetail = "") {
     const me = getMe();
-    return { label, detail: customDetail || `${cost}g`, command,
+    return { label, detail: customDetail || `${cost}G`, command,
         disabled: extraDisabled || !me || me.credits < cost };
 }
 
@@ -932,6 +1006,14 @@ window.addEventListener("keydown", event => {
         event.preventDefault();
         return;
     }
+    if (/^[1-9]$/.test(key) && state && ["preparing", "wave"].includes(state.phase)) {
+        event.preventDefault();
+        if (!event.repeat) {
+            const entry = equipmentEntries(getMe() || {})[Number(key) - 1];
+            if (entry) selectEquipment(entry);
+        }
+        return;
+    }
     if (key === "e") {
         event.preventDefault();
         if (!event.repeat) toggleInventory();
@@ -980,7 +1062,13 @@ function findNearestInteraction() {
     SHOP_UNITS.forEach(shop => add("shop", shop, INTERACTION_RANGE.shop,
         shop.label, () => openShopPurchase(shop)));
     add("med", MED, INTERACTION_RANGE.medBay, "MED BAY", openMedMenu);
-    add("craft", WORKBENCH, INTERACTION_RANGE.workbench, "CRAFT", openWorkbenchMenu);
+    WORKBENCHES
+        .filter(workbench => !workbench.requiredArea || state.areas[workbench.requiredArea])
+        .forEach(workbench => add("craft", workbench, INTERACTION_RANGE.workbench,
+            "CRAFT", () => openWorkbenchMenu(workbench)));
+    if (PREP_CONSOLE && state.areas[PREP_CONSOLE.requiredArea]) {
+        add("prep-console", PREP_CONSOLE, 95, "+1:00", openPrepConsoleMenu);
+    }
     add("core", state.core, INTERACTION_RANGE.core, "CORE", openCoreMenu);
     if (state.blackoutActive) {
         const tripped = new Set(state.trippedBreakers || []);
@@ -1142,6 +1230,7 @@ function draw() {
         drawCore();
         drawShops();
         drawResources();
+        drawDroppedResources();
         drawTrapSlots();
         drawEnemies();
         drawPlayers();
@@ -1149,7 +1238,7 @@ function draw() {
         drawHitEffects();
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    if (state?.phase === "wave" && state.blackoutActive) drawBlackout();
+    if (state?.blackoutActive) drawBlackout();
     drawJoystick();
 }
 
@@ -1358,10 +1447,15 @@ function drawCore() {
 function drawShops() {
     SHOP_UNITS.filter(isUnlockedPoint)
         .forEach(shop => drawStation(shop, shop.label, "#d8d8d8", "#111"));
-    if (isUnlockedPoint(MED)) drawStation(MED, "MED BAY", "#ff5964");
+    if (isUnlockedPoint(MED)) drawStation(MED, "MED BAY", "#d8d8d8", "#111");
     if (isUnlockedPoint(WOODCUTTER)) drawStation(WOODCUTTER, "WOODCUTTER", "#a8a8a8");
     if (isUnlockedPoint(QUARRY)) drawStation(QUARRY, "QUARRY", "#808080");
-    if (isUnlockedPoint(WORKBENCH)) drawStation(WORKBENCH, "WORKBENCH", "#79d8ff");
+    WORKBENCHES
+        .filter(workbench => !workbench.requiredArea || state.areas[workbench.requiredArea])
+        .forEach(workbench => drawStation(workbench, "WORKBENCH", "#d8d8d8", "#111"));
+    if (PREP_CONSOLE && state.areas[PREP_CONSOLE.requiredArea]) {
+        drawStation(PREP_CONSOLE, "TIME CONTROL", "#d8d8d8", "#111");
+    }
 }
 
 function isUnlockedPoint(point) {
@@ -1378,21 +1472,6 @@ function drawStation(station, label, color, labelColor = "#111") {
 }
 
 function drawResources() {
-    if (state.areas["transit-hall"]) {
-        for (const type of ["wood", "ore"]) {
-            const pocket = (state.resources || []).filter(node =>
-                node.id.startsWith(`early-${type}-`));
-            if (!pocket.length) continue;
-            const centerX = pocket.reduce((sum, node) => sum + node.x, 0) / pocket.length;
-            const labelY = type === "wood"
-                ? Math.min(...pocket.map(node => node.y)) - 35
-                : Math.max(...pocket.map(node => node.y)) + 47;
-            ctx.fillStyle = "#a8a8a8";
-            ctx.font = "900 11px ui-monospace, monospace";
-            ctx.textAlign = "center";
-            ctx.fillText(`${type.toUpperCase()} ROOM`, centerX, labelY);
-        }
-    }
     for (const node of state.resources || []) {
         if (!node.available) continue;
         const bob = Math.sin(performance.now() / 260 + node.x * .01) * 3;
@@ -1409,6 +1488,30 @@ function drawResources() {
             ctx.moveTo(0, -10); ctx.lineTo(10, -2); ctx.lineTo(6, 9);
             ctx.lineTo(-7, 8); ctx.lineTo(-10, -3); ctx.closePath(); ctx.fill(); ctx.stroke();
         }
+        ctx.restore();
+    }
+}
+
+function drawDroppedResources() {
+    for (const drop of state.drops || []) {
+        const bob = Math.sin(performance.now() / 230 + drop.id) * 2;
+        ctx.save();
+        ctx.translate(drop.x, drop.y + bob);
+        ctx.fillStyle = drop.type === "wood" ? "#b8b8b8" : "#777";
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2;
+        if (drop.type === "wood") {
+            ctx.fillRect(-12, -8, 24, 16);
+            ctx.strokeRect(-12, -8, 24, 16);
+        } else {
+            ctx.beginPath();
+            ctx.moveTo(0, -13); ctx.lineTo(13, -3); ctx.lineTo(8, 11);
+            ctx.lineTo(-9, 10); ctx.lineTo(-13, -4); ctx.closePath(); ctx.fill(); ctx.stroke();
+        }
+        ctx.fillStyle = "#fff";
+        ctx.font = "900 10px ui-monospace, monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(`${drop.type.toUpperCase()} ×${drop.amount}`, 0, -18);
         ctx.restore();
     }
 }
@@ -1543,7 +1646,9 @@ function drawReviveEffect(x, y, progress) {
 function drawHitEffects() {
     const now = performance.now();
     hitEffects = hitEffects.filter(effect => now - effect.started
-        < (effect.effect === "core-pulse" || effect.effect === "pickup" || effect.credits > 0 ? 900 : 360));
+        < (effect.effect === "core-pulse" || effect.effect === "pickup"
+            || (effect.credits > 0 || effect.headshot) && effect.playerId === myPlayerId
+            ? 900 : 360));
     for (const effect of hitEffects) {
         if (effect.effect === "core-pulse") {
             const progress = (now - effect.started) / 900;
@@ -1581,7 +1686,7 @@ function drawHitEffects() {
             }
             ctx.restore();
         }
-        if (effect.credits > 0 && age < 900) {
+        if (effect.credits > 0 && effect.playerId === myPlayerId && age < 900) {
             const progress = age / 900;
             ctx.save();
             ctx.globalAlpha = 1 - progress;
@@ -1590,7 +1695,17 @@ function drawHitEffects() {
             ctx.shadowBlur = 8;
             ctx.font = "950 13px ui-monospace, monospace";
             ctx.textAlign = "center";
-            ctx.fillText(`+${effect.credits}g`, effect.x, effect.y - 24 - progress * 24);
+            ctx.fillText(`+${effect.credits}G`, effect.x, effect.y - 24 - progress * 24);
+            ctx.restore();
+        }
+        if (effect.headshot && effect.playerId === myPlayerId && age < 700) {
+            const progress = age / 700;
+            ctx.save();
+            ctx.globalAlpha = 1 - progress;
+            ctx.fillStyle = "#ff5964";
+            ctx.font = "950 11px ui-monospace, monospace";
+            ctx.textAlign = "center";
+            ctx.fillText("HEADSHOT", effect.x, effect.y - 42 - progress * 20);
             ctx.restore();
         }
     }

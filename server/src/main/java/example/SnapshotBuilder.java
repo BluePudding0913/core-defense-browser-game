@@ -25,6 +25,7 @@ final class SnapshotBuilder {
                 .append(",\"roomCapacity\":").append(capacity);
         json.append(",\"round\":").append(game.round).append(",\"maxRounds\":").append(MAX_ROUNDS);
         json.append(",\"prepTime\":").append(roundOne(game.prepTime));
+        json.append(",\"nextPrepBonus\":").append(game.nextPrepBonusSeconds);
         json.append(",\"queued\":").append(game.queuedEnemies + game.queuedBosses);
         json.append(",\"roundEvent\":\"").append(game.roundEvent).append('"');
         json.append(",\"blackoutActive\":").append(game.blackoutActive)
@@ -50,6 +51,7 @@ final class SnapshotBuilder {
         appendEnemies(json, game.enemies);
         appendSlots(json, game);
         appendResources(json, game);
+        appendDroppedResources(json, game.droppedResources);
         json.append('}');
         return json.toString();
     }
@@ -143,6 +145,21 @@ final class SnapshotBuilder {
             json.append(",\"y\":").append(roundOne(enemy.y))
                     .append(",\"hp\":").append(roundOne(enemy.hp));
             json.append(",\"maxHp\":").append(roundOne(enemy.maxHp)).append('}');
+        }
+        json.append(']');
+    }
+
+    private static void appendDroppedResources(StringBuilder json,
+            List<DroppedResource> drops) {
+        json.append(",\"drops\":[");
+        for (int i = 0; i < drops.size(); i++) {
+            DroppedResource drop = drops.get(i);
+            if (i > 0) json.append(',');
+            json.append("{\"id\":").append(drop.id)
+                    .append(",\"type\":\"").append(drop.type)
+                    .append("\",\"x\":").append(roundOne(drop.x))
+                    .append(",\"y\":").append(roundOne(drop.y))
+                    .append(",\"amount\":").append(drop.amount).append('}');
         }
         json.append(']');
     }

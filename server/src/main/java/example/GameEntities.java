@@ -54,6 +54,15 @@ final class Player {
     int botTargetEnemyId = -1;
     int botObservedEnemyId = -1;
     double botRecognitionTimer;
+    double botWanderX;
+    double botWanderY;
+    double botWanderTimer;
+    double botSpendCooldown;
+    List<MapPoint> botPath = List.of();
+    int botPathIndex;
+    double botPathTimer;
+    double botPathTargetX = Double.NaN;
+    double botPathTargetY = Double.NaN;
 
     Player(int slot) {
         this.slot = slot;
@@ -81,6 +90,23 @@ final class Player {
             case "barricade" -> barricadeItems += amount;
             default -> { }
         }
+    }
+}
+
+final class DroppedResource {
+    final int id;
+    final String type;
+    final double x;
+    final double y;
+    final int amount;
+    double pickupDelay = 0.7;
+
+    DroppedResource(int id, String type, double x, double y, int amount) {
+        this.id = id;
+        this.type = type;
+        this.x = x;
+        this.y = y;
+        this.amount = amount;
     }
 }
 

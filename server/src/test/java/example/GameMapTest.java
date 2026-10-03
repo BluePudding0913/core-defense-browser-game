@@ -32,12 +32,13 @@ class GameMapTest {
         assertEquals(definition.stations().quarry().y(), GameMap.QUARRY_Y);
         assertEquals(definition.stations().workbench().x(), GameMap.WORKBENCH_X);
         assertEquals(definition.tileMap().tileSize(), GameMap.TILE_MAP.tileSize());
-        assertEquals(definition.areas().size(), GameMap.AREAS.size());
+        assertEquals(definition.areas().size() + 3, GameMap.AREAS.size());
         assertEquals(definition.spawnPoints(), GameMap.SPAWN_POINTS);
         assertEquals(definition.trapSlots().size(), GameMap.createTrapSlots().size());
         assertEquals(definition.resourceNodes().size() + 4, GameMap.createResourceNodes().size());
         assertEquals(definition.shopUnits(), GameMap.SHOP_UNITS);
         assertEquals(9, GameMap.BREAKER_TERMINALS.size());
+        assertEquals(4, GameMap.WORKBENCH_UNITS.size());
         assertTrue(definition.spawnPoints().size() >= 7,
                 "the outdoor field should provide several spawn candidates");
         assertTrue(definition.spawnPoints().stream().allMatch(spawn -> spawn.y() >= 1_760),
@@ -63,7 +64,7 @@ class GameMapTest {
                 "terrain beside the route must block movement");
         assertFalse(GameMap.canOccupy(3, GameMap.CORE_Y, 5, Set.of()),
                 "the world boundary must block movement");
-        assertEquals(8, GameMap.AREAS.size());
+        assertEquals(11, GameMap.AREAS.size());
     }
 
     @Test
@@ -80,6 +81,10 @@ class GameMapTest {
         assertEquals(GameMap.SHOP_UNITS.size(), message.path("map").path("shopUnits").size());
         assertEquals(GameMap.BREAKER_TERMINALS.size(),
                 message.path("map").path("breakerTerminals").size());
+        assertEquals(GameMap.WORKBENCH_UNITS.size(),
+                message.path("map").path("workbenchUnits").size());
+        assertEquals(GameMap.PREP_CONSOLE.id(),
+                message.path("map").path("prepConsole").path("id").asText());
     }
 
     @Test
@@ -125,7 +130,7 @@ class GameMapTest {
     }
 
     @Test
-    void secondUnlockedAreaProvidesEarlyWoodAndOrePockets() {
+    void earlyWoodAndOrePocketsAreSeparatePaidSideAreas() {
         List<ResourceNodeDefinition> earlyNodes = GameMap.RESOURCE_NODES.stream()
                 .filter(node -> node.id().startsWith("early-"))
                 .toList();
@@ -133,15 +138,45 @@ class GameMapTest {
         assertEquals(4, earlyNodes.size());
         assertEquals(Set.of("wood", "ore"), earlyNodes.stream()
                 .map(ResourceNodeDefinition::type).collect(Collectors.toSet()));
-        assertTrue(earlyNodes.stream()
-                .allMatch(node -> "transit-hall".equals(node.requiredArea())));
+        assertEquals(Set.of("wood-room", "ore-room"), earlyNodes.stream()
+                .map(ResourceNodeDefinition::requiredArea).collect(Collectors.toSet()));
         assertTrue(earlyNodes.stream().noneMatch(node -> node.y() == 1_140 || node.y() == 1_180),
                 "resource nodes must not remain in the main corridor");
         for (ResourceNodeDefinition node : earlyNodes) {
             assertFalse(GameMap.canOccupy(node.x(), node.y(), 5, Set.of()),
-                    () -> node.id() + " must stay sealed before the second area opens");
-            assertTrue(GameMap.canOccupy(node.x(), node.y(), 5, Set.of("transit-hall")),
+                    () -> node.id() + " must stay sealed before its area opens");
+            assertTrue(GameMap.canOccupy(node.x(), node.y(), 5, Set.of(node.requiredArea())),
                     () -> node.id() + " must be reachable inside its side room");
+        }
+        assertTrue(GameMap.areaById("wood-room").terminalY()
+                > GameMap.areaById("ore-room").terminalY(),
+                "the wood room must branch from the earlier entry area");
+        assertEquals("operations-room", GameMap.PREP_CONSOLE.requiredArea());
+    }
+
+    @Test
+    void timeControlRoomConnectsToTransitImmediatelyAfterUnlock() {
+        assertTrue(GameMap.canOccupy(1_220, 1_100, 5, Set.of("transit-hall")),
+                "the two-tile doorway from transit must be open");
+        assertFalse(GameMap.canOccupy(GameMap.PREP_CONSOLE.x(), GameMap.PREP_CONSOLE.y(), 5,
+                Set.of("transit-hall")), "the room must remain locked before purchase");
+        assertTrue(GameMap.canOccupy(GameMap.PREP_CONSOLE.x(), GameMap.PREP_CONSOLE.y(), 5,
+                Set.of("transit-hall", "operations-room")),
+                "unlocking TIME CONTROL must make the console reachable immediately");
+    }
+
+    @Test
+    void workbenchesAreDistributedAcrossSeveralProgressionAreas() {
+        Set<String> workbenchAreas = GameMap.WORKBENCH_UNITS.stream()
+                .map(WorkbenchUnit::requiredArea).collect(Collectors.toSet());
+        Set<String> allAreas = GameMap.AREAS.stream().map(UnlockArea::id)
+                .collect(Collectors.toSet());
+
+        assertEquals(4, GameMap.WORKBENCH_UNITS.size());
+        assertEquals(4, workbenchAreas.size());
+        for (WorkbenchUnit workbench : GameMap.WORKBENCH_UNITS) {
+            assertTrue(GameMap.canOccupy(workbench.x(), workbench.y(), 5, allAreas),
+                    () -> workbench.id() + " must be reachable");
         }
     }
 
