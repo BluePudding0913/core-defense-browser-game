@@ -1,66 +1,72 @@
 package example;
 
-import static example.GameConfig.WORLD_H;
-import static example.GameConfig.WORLD_W;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
-record Wall(double x, double y, double width, double height) { }
+record WorldSize(int width, int height) { }
+
+record MapPoint(double x, double y) { }
+
+record Station(String id, double x, double y) { }
+
+record Stations(Station armory, Station medBay, Station woodcutter, Station quarry,
+        Station workbench) { }
+
+record TileType(String name, boolean solid, boolean buildable, String color) { }
+
+record TileMapDefinition(int tileSize, Map<String, TileType> legend, List<String> rows) { }
 
 record UnlockArea(String id, String name, double x, double y, double width, double height,
-        double terminalX, double terminalY) { }
+        double terminalX, double terminalY, String color, String detail) { }
 
 record SpawnPoint(String id, String name, double x, double y, String lane,
-        double routeX, double routeY) { }
+        String enemyBias, double speedMultiplier, String targetPriority,
+        List<MapPoint> route) { }
 
-/** Static research-facility layout and collision rules. */
+record TrapSlotDefinition(String id, String lane, double x, double y, String requiredArea) { }
+
+record MapDefinition(int version, WorldSize world, MapPoint core, Stations stations,
+        TileMapDefinition tileMap, List<UnlockArea> areas, List<SpawnPoint> spawnPoints,
+        List<TrapSlotDefinition> trapSlots) { }
+
+/** Static research-facility layout loaded from the shared map resource. */
 final class GameMap {
-    static final List<Wall> WALLS = List.of(
-            new Wall(60, 80, 180, 420),
-            new Wall(360, 80, 420, 420),
-            new Wall(1020, 80, 420, 420),
-            new Wall(1560, 80, 180, 420),
-            new Wall(60, 700, 180, 420),
-            new Wall(360, 700, 420, 420),
-            new Wall(1020, 700, 420, 420),
-            new Wall(1560, 700, 180, 420));
+    private static final String RESOURCE_PATH = "/map.json";
+    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final MapDefinition DEFINITION = loadDefinition();
+    private static final String CLIENT_MAP_MESSAGE = buildClientMapMessage();
 
-    static final List<UnlockArea> AREAS = List.of(
-            new UnlockArea("depot", "BIO LAB", 380, 320, 400, 180, 740, 535),
-            new UnlockArea("relay", "SECURITY LAB", 1020, 320, 400, 180, 1060, 535),
-            new UnlockArea("workshop", "FABRICATION LAB", 1020, 700, 400, 180, 1060, 665));
-
-    static final List<SpawnPoint> SPAWN_POINTS = List.of(
-            new SpawnPoint("north-airlock", "NORTH AIRLOCK", 900, 28, "north", -1, -1),
-            new SpawnPoint("reactor-duct", "REACTOR DUCT", 1500, 28, "east", 1500, 600),
-            new SpawnPoint("east-loading", "LOADING BAY", 1772, 600, "east", -1, -1),
-            new SpawnPoint("service-vent", "SERVICE VENT", 1500, 1172, "east", 1500, 600),
-            new SpawnPoint("south-lock", "QUARANTINE", 900, 1172, "south", -1, -1),
-            new SpawnPoint("waste-tunnel", "WASTE TUNNEL", 300, 1172, "west", 300, 600),
-            new SpawnPoint("west-access", "WEST ACCESS", 28, 600, "west", -1, -1),
-            new SpawnPoint("specimen-vent", "SPECIMEN VENT", 300, 28, "west", 300, 600));
+    static final int WORLD_W = DEFINITION.world().width();
+    static final int WORLD_H = DEFINITION.world().height();
+    static final double CORE_X = DEFINITION.core().x();
+    static final double CORE_Y = DEFINITION.core().y();
+    static final double ARMORY_X = DEFINITION.stations().armory().x();
+    static final double ARMORY_Y = DEFINITION.stations().armory().y();
+    static final double MED_X = DEFINITION.stations().medBay().x();
+    static final double MED_Y = DEFINITION.stations().medBay().y();
+    static final double WOODCUTTER_X = DEFINITION.stations().woodcutter().x();
+    static final double WOODCUTTER_Y = DEFINITION.stations().woodcutter().y();
+    static final double QUARRY_X = DEFINITION.stations().quarry().x();
+    static final double QUARRY_Y = DEFINITION.stations().quarry().y();
+    static final double WORKBENCH_X = DEFINITION.stations().workbench().x();
+    static final double WORKBENCH_Y = DEFINITION.stations().workbench().y();
+    static final int TILE_SIZE = DEFINITION.tileMap().tileSize();
+    static final TileMapDefinition TILE_MAP = DEFINITION.tileMap();
+    static final List<UnlockArea> AREAS = List.copyOf(DEFINITION.areas());
+    static final List<SpawnPoint> SPAWN_POINTS = List.copyOf(DEFINITION.spawnPoints());
 
     private GameMap() { }
 
     static List<TrapSlot> createTrapSlots() {
-        List<TrapSlot> slots = new ArrayList<>();
-        slots.add(new TrapSlot("north-1", "north", 850, 420, null));
-        slots.add(new TrapSlot("north-2", "north", 950, 420, null));
-        slots.add(new TrapSlot("east-1", "east", 1080, 550, null));
-        slots.add(new TrapSlot("east-2", "east", 1080, 650, null));
-        slots.add(new TrapSlot("south-1", "south", 850, 780, null));
-        slots.add(new TrapSlot("south-2", "south", 950, 780, null));
-        slots.add(new TrapSlot("west-1", "west", 720, 550, null));
-        slots.add(new TrapSlot("west-2", "west", 720, 650, null));
-        slots.add(new TrapSlot("depot-1", "west", 560, 430, "depot"));
-        slots.add(new TrapSlot("depot-2", "west", 690, 430, "depot"));
-        slots.add(new TrapSlot("relay-1", "north", 1080, 430, "relay"));
-        slots.add(new TrapSlot("relay-2", "north", 1210, 430, "relay"));
-        slots.add(new TrapSlot("workshop-1", "south", 1080, 770, "workshop"));
-        slots.add(new TrapSlot("workshop-2", "south", 1210, 770, "workshop"));
-        return slots;
+        return new ArrayList<>(DEFINITION.trapSlots().stream()
+                .map(slot -> new TrapSlot(slot.id(), slot.lane(), slot.x(), slot.y(), slot.requiredArea()))
+                .toList());
     }
 
     static UnlockArea areaById(String id) {
@@ -72,29 +78,169 @@ final class GameMap {
                 .findFirst().orElse(SPAWN_POINTS.get(0));
     }
 
+    static String clientMapMessage() {
+        return CLIENT_MAP_MESSAGE;
+    }
+
     static boolean canOccupy(double x, double y, double radius, Set<String> unlockedAreas) {
         if (x - radius < 0 || y - radius < 0 || x + radius > WORLD_W || y + radius > WORLD_H) {
             return false;
         }
-        for (Wall wall : WALLS) {
-            if (x + radius > wall.x() && x - radius < wall.x() + wall.width()
-                    && y + radius > wall.y() && y - radius < wall.y() + wall.height()
-                    && !insideUnlockedArea(x, y, radius, unlockedAreas)) {
+        for (UnlockArea area : AREAS) {
+            if (!unlockedAreas.contains(area.id())
+                    && overlaps(x, y, radius, area.x(), area.y(), area.width(), area.height())) {
                 return false;
+            }
+        }
+        int minColumn = (int) Math.floor((x - radius) / TILE_SIZE);
+        int maxColumn = (int) Math.floor((x + radius) / TILE_SIZE);
+        int minRow = (int) Math.floor((y - radius) / TILE_SIZE);
+        int maxRow = (int) Math.floor((y + radius) / TILE_SIZE);
+        for (int row = minRow; row <= maxRow; row++) {
+            for (int column = minColumn; column <= maxColumn; column++) {
+                TileType type = tileTypeAt(column, row);
+                if (type != null && type.solid()) return false;
             }
         }
         return true;
     }
 
-    private static boolean insideUnlockedArea(double x, double y, double radius,
-            Set<String> unlockedAreas) {
-        for (UnlockArea area : AREAS) {
-            if (unlockedAreas.contains(area.id())
-                    && x >= area.x() - radius && x <= area.x() + area.width() + radius
-                    && y >= area.y() - radius && y <= area.y() + area.height() + radius) {
-                return true;
+    static MapPoint snapToTile(double x, double y) {
+        return new MapPoint((Math.floor(x / TILE_SIZE) + 0.5) * TILE_SIZE,
+                (Math.floor(y / TILE_SIZE) + 0.5) * TILE_SIZE);
+    }
+
+    static boolean canPlaceDefense(double x, double y, Set<String> unlockedAreas) {
+        MapPoint point = snapToTile(x, y);
+        int column = (int) (point.x() / TILE_SIZE);
+        int row = (int) (point.y() / TILE_SIZE);
+        TileType tile = tileTypeAt(column, row);
+        if (tile == null || !tile.buildable() || !canOccupy(point.x(), point.y(), 15, unlockedAreas)) {
+            return false;
+        }
+        if (GameSupport.distance(point.x(), point.y(), CORE_X, CORE_Y) < 90
+                || GameSupport.distance(point.x(), point.y(), ARMORY_X, ARMORY_Y) < 70
+                || GameSupport.distance(point.x(), point.y(), MED_X, MED_Y) < 70
+                || GameSupport.distance(point.x(), point.y(), WOODCUTTER_X, WOODCUTTER_Y) < 70
+                || GameSupport.distance(point.x(), point.y(), QUARRY_X, QUARRY_Y) < 70
+                || GameSupport.distance(point.x(), point.y(), WORKBENCH_X, WORKBENCH_Y) < 70) {
+            return false;
+        }
+        return SPAWN_POINTS.stream().noneMatch(spawn ->
+                GameSupport.distance(point.x(), point.y(), spawn.x(), spawn.y()) < 80);
+    }
+
+    private static TileType tileTypeAt(int column, int row) {
+        if (row < 0 || row >= TILE_MAP.rows().size()) return null;
+        String cells = TILE_MAP.rows().get(row);
+        if (column < 0 || column >= cells.length()) return null;
+        return TILE_MAP.legend().get(String.valueOf(cells.charAt(column)));
+    }
+
+    private static boolean overlaps(double x, double y, double radius,
+            double left, double top, double width, double height) {
+        return x + radius > left && x - radius < left + width
+                && y + radius > top && y - radius < top + height;
+    }
+
+    private static MapDefinition loadDefinition() {
+        try (InputStream input = GameMap.class.getResourceAsStream(RESOURCE_PATH)) {
+            if (input == null) throw new IllegalStateException("Missing shared map resource: " + RESOURCE_PATH);
+            MapDefinition definition = JSON.readValue(input, MapDefinition.class);
+            validate(definition);
+            return definition;
+        } catch (IOException error) {
+            throw new ExceptionInInitializerError("Could not read shared map resource: " + error.getMessage());
+        }
+    }
+
+    private static String buildClientMapMessage() {
+        try {
+            return "{\"type\":\"map\",\"map\":" + JSON.writeValueAsString(DEFINITION) + "}";
+        } catch (IOException error) {
+            throw new ExceptionInInitializerError(
+                    "Could not serialize shared map resource: " + error.getMessage());
+        }
+    }
+
+    private static void validate(MapDefinition map) {
+        if (map.version() != 4) throw new IllegalStateException("Unsupported map version: " + map.version());
+        if (map.world() == null || map.world().width() <= 0 || map.world().height() <= 0) {
+            throw new IllegalStateException("Map world size must be positive");
+        }
+        if (map.core() == null || map.stations() == null
+                || map.stations().armory() == null || map.stations().medBay() == null
+                || map.stations().woodcutter() == null || map.stations().quarry() == null
+                || map.stations().workbench() == null) {
+            throw new IllegalStateException("Map core and stations are required");
+        }
+        if (map.tileMap() == null || map.areas() == null || map.spawnPoints() == null
+                || map.trapSlots() == null || map.spawnPoints().isEmpty()) {
+            throw new IllegalStateException("Map lists and at least one spawn point are required");
+        }
+        validateTileMap(map);
+
+        Set<String> areaIds = uniqueIds(map.areas().stream().map(UnlockArea::id).toList(), "area");
+        uniqueIds(map.spawnPoints().stream().map(SpawnPoint::id).toList(), "spawn point");
+        uniqueIds(map.trapSlots().stream().map(TrapSlotDefinition::id).toList(), "trap slot");
+
+        for (SpawnPoint spawn : map.spawnPoints()) {
+            if (spawn.route() == null || spawn.route().isEmpty()
+                    || spawn.route().stream().anyMatch(point -> point == null)) {
+                throw new IllegalStateException("Spawn requires a non-empty route: " + spawn.id());
+            }
+            if (!Set.of("balanced", "runner", "brute").contains(spawn.enemyBias())) {
+                throw new IllegalStateException("Unknown enemy bias for spawn " + spawn.id());
+            }
+            if (spawn.speedMultiplier() <= 0) {
+                throw new IllegalStateException("Spawn speed multiplier must be positive: " + spawn.id());
+            }
+            if (!Set.of("core", "players", "defenses").contains(spawn.targetPriority())) {
+                throw new IllegalStateException("Unknown target priority for spawn " + spawn.id());
             }
         }
-        return false;
+        for (TrapSlotDefinition slot : map.trapSlots()) {
+            if (slot.requiredArea() != null && !areaIds.contains(slot.requiredArea())) {
+                throw new IllegalStateException("Unknown area for trap slot " + slot.id()
+                        + ": " + slot.requiredArea());
+            }
+        }
+    }
+
+    private static void validateTileMap(MapDefinition map) {
+        TileMapDefinition tiles = map.tileMap();
+        if (tiles.tileSize() <= 0 || tiles.legend() == null || tiles.legend().isEmpty()
+                || tiles.rows() == null || tiles.rows().isEmpty()) {
+            throw new IllegalStateException("Tile map, legend, and rows are required");
+        }
+        if (map.world().width() % tiles.tileSize() != 0
+                || map.world().height() % tiles.tileSize() != 0) {
+            throw new IllegalStateException("World size must align to the tile size");
+        }
+        int expectedColumns = map.world().width() / tiles.tileSize();
+        int expectedRows = map.world().height() / tiles.tileSize();
+        if (tiles.rows().size() != expectedRows) {
+            throw new IllegalStateException("Tile row count must be " + expectedRows);
+        }
+        for (String row : tiles.rows()) {
+            if (row == null || row.length() != expectedColumns) {
+                throw new IllegalStateException("Every tile row must contain " + expectedColumns + " cells");
+            }
+            for (int index = 0; index < row.length(); index++) {
+                if (!tiles.legend().containsKey(String.valueOf(row.charAt(index)))) {
+                    throw new IllegalStateException("Unknown tile symbol: " + row.charAt(index));
+                }
+            }
+        }
+    }
+
+    private static Set<String> uniqueIds(List<String> ids, String label) {
+        Set<String> unique = new HashSet<>();
+        for (String id : ids) {
+            if (id == null || id.isBlank() || !unique.add(id)) {
+                throw new IllegalStateException("Invalid or duplicate " + label + " id: " + id);
+            }
+        }
+        return unique;
     }
 }

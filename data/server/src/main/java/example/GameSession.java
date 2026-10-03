@@ -1,17 +1,25 @@
 package example;
 
-import static example.GameConfig.ARMORY_X;
-import static example.GameConfig.ARMORY_Y;
-import static example.GameConfig.BUILD_COSTS;
-import static example.GameConfig.CORE_X;
-import static example.GameConfig.CORE_Y;
+import static example.GameConfig.BUILD_RECIPES;
+import static example.GameConfig.GATHER_COOLDOWN_SECONDS;
 import static example.GameConfig.MAX_ROUNDS;
-import static example.GameConfig.MED_X;
-import static example.GameConfig.MED_Y;
 import static example.GameConfig.PLAYER_COUNT;
 import static example.GameConfig.PREP_SECONDS;
-import static example.GameConfig.WORLD_H;
-import static example.GameConfig.WORLD_W;
+import static example.GameConfig.RECONNECT_GRACE_SECONDS;
+import static example.GameMap.ARMORY_X;
+import static example.GameMap.ARMORY_Y;
+import static example.GameMap.CORE_X;
+import static example.GameMap.CORE_Y;
+import static example.GameMap.MED_X;
+import static example.GameMap.MED_Y;
+import static example.GameMap.QUARRY_X;
+import static example.GameMap.QUARRY_Y;
+import static example.GameMap.WOODCUTTER_X;
+import static example.GameMap.WOODCUTTER_Y;
+import static example.GameMap.WORKBENCH_X;
+import static example.GameMap.WORKBENCH_Y;
+import static example.GameMap.WORLD_H;
+import static example.GameMap.WORLD_W;
 import static example.GameSupport.clamp;
 import static example.GameSupport.distance;
 import static example.GameSupport.escapeJson;
@@ -45,7 +53,7 @@ final class GameSession {
     int round;
     double prepTime;
     int queuedEnemies;
-    boolean bossPending;
+    int queuedBosses;
     int credits;
     double coreHp;
     double coreMaxHp;
@@ -55,12 +63,15 @@ final class GameSession {
     int coreRegenLevel;
     int noticeVersion;
     String notice = "プレイヤーを待っています";
+    String roundEvent = "none";
+    String failedSpawnId;
 
     private final GameEventSink events;
     private final List<String> activeLanes = new ArrayList<>();
     private final Random random = new Random();
     private double spawnTimer;
     private int nextEnemyId = 1;
+    private int nextDefenseId = 1;
     private String previousSpawnSignature = "";
 
     GameSession(GameEventSink events) {
@@ -70,28 +81,65 @@ final class GameSession {
     }
 
     Player connectPlayer() {
+        return connectPlayer(null);
+    }
+
+    Player connectPlayer(String sessionId) {
         if (phase == GamePhase.WON || phase == GamePhase.LOST) resetWorld(true);
-        Player assigned = players.stream().filter(player -> !player.human).findFirst().orElse(null);
+        String reconnectId = sessionId == null || sessionId.isBlank() ? null : sessionId;
+        Player assigned = reconnectId == null ? null : players.stream()
+                .filter(player -> reconnectId.equals(player.sessionId))
+                .findFirst().orElse(null);
+        boolean rejoining = assigned != null;
+        if (assigned == null) {
+            assigned = players.stream()
+                    .filter(player -> !player.human
+                            && (player.sessionId == null || player.reconnectGrace <= 0))
+                    .findFirst().orElse(null);
+        }
         if (assigned != null) {
             assigned.human = true;
-            assigned.name = "Player " + assigned.slot;
-            setNotice(assigned.name + " が防衛チームに参加しました");
+            assigned.reconnectGrace = 0;
+            if (!rejoining) {
+                assigned.sessionId = reconnectId;
+                assigned.lastProcessedInput = 0;
+                assigned.name = "Player " + assigned.slot;
+            }
+            setNotice(assigned.name + (rejoining ? " が再参加しました" : " が防衛チームに参加しました"));
         }
         return assigned;
     }
 
     void disconnectPlayer(Player player) {
+        if (!player.human) return;
+        String displayName = player.name;
         player.human = false;
-        player.name = "CPU " + player.slot;
+        player.reconnectGrace = player.sessionId == null ? 0 : RECONNECT_GRACE_SECONDS;
+        if (player.sessionId == null) player.name = "CPU " + player.slot;
         player.moveX = 0;
         player.moveY = 0;
         player.dashHeld = false;
         player.dashing = false;
+        player.firing = false;
+        player.queuedShots.clear();
         cancelAction(player);
-        setNotice("Player " + player.slot + " はCPUに交代しました");
+        setNotice(displayName + " が切断され、CPUが一時交代しました");
     }
 
     void handleMessage(Player player, String message) {
+        if (message.startsWith("INPUT:")) {
+            int commandStart = message.indexOf(':', 6);
+            if (commandStart < 0) return;
+            long sequence = Long.parseLong(message.substring(6, commandStart));
+            if (sequence <= 0 || sequence <= player.lastProcessedInput) return;
+            player.lastProcessedInput = sequence;
+            handleCommand(player, message.substring(commandStart + 1));
+            return;
+        }
+        handleCommand(player, message);
+    }
+
+    private void handleCommand(Player player, String message) {
         String[] parts = message.split(":", 4);
         switch (parts[0]) {
             case "HELLO" -> updateName(player, parts);
@@ -103,20 +151,36 @@ final class GameSession {
             case "MOVE" -> handleMove(player, parts);
             case "DASH" -> handleDash(player, parts);
             case "ATTACK" -> { if (parts.length >= 2) attack(player, Integer.parseInt(parts[1])); }
+            case "FIRE" -> handleFire(player, parts);
             case "INTERACT" -> { if (parts.length >= 2) interact(player, parts[1]); }
             case "WEAPON" -> { if (parts.length >= 2) switchWeapon(player, parts[1]); }
             case "BUY" -> { if (parts.length >= 2) buy(player, parts[1]); }
             case "BUILD" -> { if (parts.length >= 3) build(player, parts[1], parts[2]); }
+            case "PLACE" -> { if (parts.length >= 4) placeDefense(player, parts); }
+            case "REMOVE" -> { if (parts.length >= 2) removeDefense(player, parts[1]); }
             case "REPAIR" -> { if (parts.length >= 2) repair(player, parts[1]); }
             case "UPGRADE" -> { if (parts.length >= 2) upgradeCore(player, parts[1]); }
             case "UNLOCK" -> { if (parts.length >= 2) unlockArea(player, parts[1]); }
+            case "GATHER" -> { if (parts.length >= 2) gather(player, parts[1]); }
+            case "CRAFT" -> { if (parts.length >= 2) craft(player, parts[1]); }
+            case "EQUIP_BUILD" -> { if (parts.length >= 2) equipBuild(player, parts[1]); }
             case "READY" -> { if (phase == GamePhase.PREPARING) prepTime = 0; }
             default -> { }
         }
     }
 
     void update(double dt) {
-        for (Player player : players) player.cooldown = Math.max(0, player.cooldown - dt);
+        updateReconnectReservations(dt);
+        for (Player player : players) {
+            player.cooldown = Math.max(0, player.cooldown - dt);
+            player.gatherCooldown = Math.max(0, player.gatherCooldown - dt);
+            if ((player.firing || !player.queuedShots.isEmpty())
+                    && player.cooldown <= 0 && canMove()) {
+                MapPoint queuedAim = player.queuedShots.pollFirst();
+                attackAt(player, queuedAim == null ? player.aimX : queuedAim.x(),
+                        queuedAim == null ? player.aimY : queuedAim.y());
+            }
+        }
         if (phase == GamePhase.LOBBY || phase == GamePhase.WON || phase == GamePhase.LOST) return;
 
         updateBots();
@@ -147,7 +211,18 @@ final class GameSession {
             setNotice("防衛チームが全滅しました");
             return;
         }
-        if (queuedEnemies == 0 && enemies.isEmpty()) finishRound();
+        if (queuedEnemies == 0 && queuedBosses == 0 && enemies.isEmpty()) finishRound();
+    }
+
+    private void updateReconnectReservations(double dt) {
+        for (Player player : players) {
+            if (player.human || player.sessionId == null) continue;
+            player.reconnectGrace = Math.max(0, player.reconnectGrace - dt);
+            if (player.reconnectGrace <= 0) {
+                player.sessionId = null;
+                player.name = "CPU " + player.slot;
+            }
+        }
     }
 
     private void updateName(Player player, String[] parts) {
@@ -174,6 +249,23 @@ final class GameSession {
         if (!player.dashHeld) player.dashing = false;
     }
 
+    private void handleFire(Player player, String[] parts) {
+        if (parts.length < 4 || !canMove() || player.down) return;
+        double x = Double.parseDouble(parts[1]);
+        double y = Double.parseDouble(parts[2]);
+        if (!Double.isFinite(x) || !Double.isFinite(y)) return;
+        boolean active = parts[3].equals("1") || parts[3].equalsIgnoreCase("true");
+        boolean beginsPress = active && !player.firing;
+        player.aimX = x;
+        player.aimY = y;
+        player.firing = active;
+        if (beginsPress && player.cooldown <= 0) {
+            attackAt(player, x, y);
+        } else if (beginsPress && player.queuedShots.size() < 8) {
+            player.queuedShots.addLast(new MapPoint(x, y));
+        }
+    }
+
     private void startMatch() {
         resetWorld(true);
         phase = GamePhase.PREPARING;
@@ -186,11 +278,31 @@ final class GameSession {
         selectRoundSpawns(round);
         phase = GamePhase.WAVE;
         queuedEnemies = 8 + round * 4;
-        bossPending = round == MAX_ROUNDS;
+        queuedBosses = switch (round) {
+            case 4 -> 1;
+            case 8 -> 2;
+            case 12 -> 3;
+            default -> 0;
+        };
+        roundEvent = switch (round) {
+            case 3, 7, 11 -> "blackout";
+            case 5, 9 -> "door_failure";
+            case 4, 8, 12 -> "boss_assault";
+            default -> "none";
+        };
+        failedSpawnId = roundEvent.equals("door_failure")
+                ? activeSpawnIds.get(random.nextInt(activeSpawnIds.size())) : null;
         spawnTimer = 0;
         coreShield = coreMaxShield;
+        String eventText = switch (roundEvent) {
+            case "blackout" -> " / 停電発生";
+            case "door_failure" -> " / " + GameMap.spawnById(failedSpawnId).name() + " 扉故障";
+            case "boss_assault" -> " / BOSS×" + queuedBosses;
+            default -> "";
+        };
         setNotice("ROUND " + round + "：施設内 " + activeSpawnIds.size() + " か所で侵入を検知 / "
-                + queuedEnemies + (bossPending ? "+BOSS" : "") + " HOSTILES");
+                + queuedEnemies + (queuedBosses > 0 ? "+" + queuedBosses + " BOSS" : "")
+                + " HOSTILES" + eventText);
     }
 
     private void finishRound() {
@@ -205,6 +317,8 @@ final class GameSession {
         prepTime = PREP_SECONDS;
         activeLanes.clear();
         activeSpawnIds.clear();
+        roundEvent = "none";
+        failedSpawnId = null;
         setNotice("ROUND " + round + " CLEAR：+" + reward + " CREDIT");
     }
 
@@ -275,28 +389,43 @@ final class GameSession {
     }
 
     private void updateSpawning(double dt) {
-        if (queuedEnemies <= 0 && !bossPending) return;
+        if (queuedEnemies <= 0 && queuedBosses <= 0) return;
         spawnTimer -= dt;
         if (spawnTimer > 0) return;
-        if (bossPending && queuedEnemies <= 1) {
-            spawnEnemy("boss", randomSpawn());
-            bossPending = false;
+        SpawnPoint spawn = randomSpawn();
+        if (queuedBosses > 0 && queuedEnemies <= queuedBosses * 2) {
+            spawnEnemy("boss", spawn);
+            queuedBosses--;
         } else if (queuedEnemies > 0) {
-            spawnEnemy(selectEnemyType(), randomSpawn());
+            spawnEnemy(selectEnemyType(spawn), spawn);
             queuedEnemies--;
         }
-        spawnTimer = Math.max(0.35, 1.15 - round * 0.045);
+        double eventMultiplier = roundEvent.equals("door_failure")
+                && spawn.id().equals(failedSpawnId) ? 0.58 : 1;
+        spawnTimer = Math.max(0.28, (1.15 - round * 0.045) * eventMultiplier);
     }
 
-    private String selectEnemyType() {
+    private String selectEnemyType(SpawnPoint spawn) {
+        double bruteChance = round >= 5 ? 0.18 : 0;
+        double runnerChance = round >= 3 ? 0.25 : 0;
+        if (spawn.enemyBias().equals("runner")) {
+            bruteChance = round >= 5 ? 0.10 : 0;
+            runnerChance = round >= 3 ? 0.52 : 0;
+        } else if (spawn.enemyBias().equals("brute")) {
+            bruteChance = round >= 5 ? 0.38 : 0;
+            runnerChance = round >= 3 ? 0.16 : 0;
+        }
         double roll = random.nextDouble();
-        if (round >= 5 && roll < 0.18) return "brute";
-        if (round >= 3 && roll < 0.43) return "runner";
+        if (roll < bruteChance) return "brute";
+        if (roll < bruteChance + runnerChance) return "runner";
         return "grunt";
     }
 
     private SpawnPoint randomSpawn() {
         if (activeSpawnIds.isEmpty()) return GameMap.SPAWN_POINTS.get(0);
+        if (failedSpawnId != null && random.nextDouble() < 0.58) {
+            return GameMap.spawnById(failedSpawnId);
+        }
         String id = activeSpawnIds.get(random.nextInt(activeSpawnIds.size()));
         return GameMap.spawnById(id);
     }
@@ -388,50 +517,132 @@ final class GameSession {
             enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
 
             TrapSlot barricade = trapSlots.stream()
-                    .filter(slot -> slot.defense != null && slot.defense.type.equals("barricade")
+                    .filter(slot -> slot.defense != null
+                            && (slot.defense.type.equals("barricade") || slot.defense.type.equals("block"))
                             && distance(enemy.x, enemy.y, slot.x, slot.y) < 52)
-                    .findFirst().orElse(null);
+                    .min(Comparator.comparingDouble(slot -> distance(enemy.x, enemy.y, slot.x, slot.y)))
+                    .orElse(null);
             if (barricade != null) {
-                if (enemy.attackCooldown <= 0) {
-                    barricade.defense.hp -= enemy.damage;
-                    enemy.attackCooldown = 0.9;
+                attackDefense(enemy, barricade);
+                continue;
+            }
+
+            advanceEnemyRoute(enemy);
+            if (enemy.type.equals("boss")) {
+                enemy.specialCooldown = Math.max(0, enemy.specialCooldown - dt);
+                if (enemy.specialCooldown <= 0
+                        && distance(enemy.x, enemy.y, CORE_X, CORE_Y) <= 260) {
+                    useBossCorePulse(enemy);
+                    enemy.specialCooldown = 6;
+                }
+            }
+            double defenseRange = switch (enemy.targetPriority) {
+                case "defenses" -> 190;
+                case "players" -> 75;
+                default -> 50;
+            };
+            double playerRange = switch (enemy.targetPriority) {
+                case "players" -> 190;
+                case "defenses" -> 75;
+                default -> 55;
+            };
+            TrapSlot defenseTarget = nearestDefense(enemy, defenseRange);
+            Player playerTarget = nearestPlayer(enemy, playerRange);
+            boolean preferDefense = enemy.targetPriority.equals("defenses");
+            if (preferDefense && defenseTarget != null || playerTarget == null) {
+                playerTarget = null;
+            } else if (playerTarget != null) {
+                defenseTarget = null;
+            }
+
+            if (defenseTarget != null) {
+                double targetDistance = distance(enemy.x, enemy.y, defenseTarget.x, defenseTarget.y);
+                if (targetDistance <= 38) attackDefense(enemy, defenseTarget);
+                else moveEnemyToward(enemy, defenseTarget.x, defenseTarget.y, enemy.speed * enemy.slow * dt);
+                continue;
+            }
+            if (playerTarget != null) {
+                double targetDistance = distance(enemy.x, enemy.y, playerTarget.x, playerTarget.y);
+                if (targetDistance <= 36) {
+                    if (enemy.attackCooldown <= 0) {
+                        damagePlayer(playerTarget, enemy.damage);
+                        enemy.attackCooldown = 0.9;
+                    }
+                } else {
+                    moveEnemyToward(enemy, playerTarget.x, playerTarget.y, enemy.speed * enemy.slow * dt);
                 }
                 continue;
             }
 
-            for (TrapSlot slot : trapSlots) {
-                if (slot.defense != null && !slot.defense.type.equals("mine")
-                        && distance(enemy.x, enemy.y, slot.x, slot.y) < 34) {
-                    slot.defense.hp -= 2.2 * dt;
-                }
-            }
-
-            Player nearby = players.stream()
-                    .filter(player -> !player.down && distance(enemy.x, enemy.y, player.x, player.y) < 78)
-                    .min(Comparator.comparingDouble(player -> distance(enemy.x, enemy.y, player.x, player.y)))
-                    .orElse(null);
-            if (nearby == null && enemy.routing
-                    && distance(enemy.x, enemy.y, enemy.routeX, enemy.routeY) < 30) {
-                enemy.routing = false;
-            }
-            double targetX = nearby != null ? nearby.x : enemy.routing ? enemy.routeX : CORE_X;
-            double targetY = nearby != null ? nearby.y : enemy.routing ? enemy.routeY : CORE_Y;
+            MapPoint routeTarget = enemy.routeIndex < enemy.route.size()
+                    ? enemy.route.get(enemy.routeIndex) : null;
+            double targetX = routeTarget == null ? CORE_X : routeTarget.x();
+            double targetY = routeTarget == null ? CORE_Y : routeTarget.y();
             double targetDistance = distance(enemy.x, enemy.y, targetX, targetY);
 
-            if (nearby == null && !enemy.routing && distance(enemy.x, enemy.y, CORE_X, CORE_Y) <= 72) {
+            if (routeTarget == null && distance(enemy.x, enemy.y, CORE_X, CORE_Y) <= 72) {
                 if (enemy.attackCooldown <= 0) {
                     damageCore(enemy.damage);
-                    enemy.attackCooldown = 0.9;
-                }
-            } else if (nearby != null && targetDistance <= 36) {
-                if (enemy.attackCooldown <= 0) {
-                    damagePlayer(nearby, enemy.damage);
                     enemy.attackCooldown = 0.9;
                 }
             } else {
                 moveEnemyToward(enemy, targetX, targetY, enemy.speed * enemy.slow * dt);
             }
         }
+    }
+
+    private void advanceEnemyRoute(Enemy enemy) {
+        while (enemy.routeIndex < enemy.route.size()) {
+            MapPoint current = enemy.route.get(enemy.routeIndex);
+            double currentDistance = distance(enemy.x, enemy.y, current.x(), current.y());
+            if (currentDistance <= 30) {
+                enemy.routeIndex++;
+                continue;
+            }
+            if (enemy.routeIndex + 1 < enemy.route.size()) {
+                MapPoint next = enemy.route.get(enemy.routeIndex + 1);
+                if (distance(enemy.x, enemy.y, next.x(), next.y()) + 18 < currentDistance) {
+                    enemy.routeIndex++;
+                    continue;
+                }
+            }
+            break;
+        }
+    }
+
+    private TrapSlot nearestDefense(Enemy enemy, double range) {
+        return trapSlots.stream()
+                .filter(slot -> slot.defense != null && !slot.defense.type.equals("mine")
+                        && distance(enemy.x, enemy.y, slot.x, slot.y) <= range)
+                .min(Comparator.comparingDouble(slot -> distance(enemy.x, enemy.y, slot.x, slot.y)))
+                .orElse(null);
+    }
+
+    private Player nearestPlayer(Enemy enemy, double range) {
+        return players.stream()
+                .filter(player -> !player.down
+                        && distance(enemy.x, enemy.y, player.x, player.y) <= range)
+                .min(Comparator.comparingDouble(player -> distance(enemy.x, enemy.y, player.x, player.y)))
+                .orElse(null);
+    }
+
+    private void attackDefense(Enemy enemy, TrapSlot slot) {
+        if (enemy.attackCooldown <= 0 && slot.defense != null) {
+            slot.defense.hp -= enemy.damage;
+            enemy.attackCooldown = 0.9;
+        }
+    }
+
+    private void useBossCorePulse(Enemy enemy) {
+        damageCore(enemy.damage * 0.55);
+        for (Player player : players) {
+            if (!player.down && distance(player.x, player.y, CORE_X, CORE_Y) <= 175) {
+                damagePlayer(player, 12 + round * 0.6);
+            }
+        }
+        events.broadcast("{\"type\":\"effect\",\"effect\":\"core-pulse\",\"x\":"
+                + CORE_X + ",\"y\":" + CORE_Y + "}");
+        setNotice("BOSSのCOREパルス攻撃を検知しました");
     }
 
     private void moveEnemyToward(Enemy enemy, double targetX, double targetY, double amount) {
@@ -525,10 +736,10 @@ final class GameSession {
 
     private static double[] guardPoint(String lane) {
         return switch (lane) {
-            case "north" -> new double[] {900, 445};
-            case "east" -> new double[] {1055, 600};
-            case "south" -> new double[] {900, 755};
-            default -> new double[] {745, 600};
+            case "north" -> new double[] {CORE_X, CORE_Y - 300};
+            case "east" -> new double[] {CORE_X + 300, CORE_Y};
+            case "south" -> new double[] {CORE_X, CORE_Y + 300};
+            default -> new double[] {CORE_X - 300, CORE_Y};
         };
     }
 
@@ -549,73 +760,95 @@ final class GameSession {
     }
 
     private void attack(Player player, int enemyId) {
-        if (phase != GamePhase.WAVE || player.down || player.cooldown > 0) return;
         Enemy target = enemies.stream().filter(enemy -> enemy.id == enemyId && enemy.hp > 0)
                 .findFirst().orElse(null);
         if (target == null) return;
+        attackAt(player, target.x, target.y);
+    }
 
-        double range;
-        double damage;
-        double cooldown;
-        double knockback;
-        switch (player.weapon) {
-            case "bat" -> {
-                range = 96;
-                damage = 20;
-                cooldown = 1.0;
-                knockback = 115;
-            }
-            case "shotgun" -> {
-                range = 220;
-                damage = 46;
-                cooldown = 1.45;
-                knockback = 75;
-            }
-            case "rifle" -> {
-                range = 430;
-                damage = 58;
-                cooldown = 1.15;
-                knockback = 32;
-            }
-            default -> {
-                range = 285;
-                damage = 26;
-                cooldown = 0.38;
-                knockback = 35;
-            }
-        }
-        if (distance(player.x, player.y, target.x, target.y) > range) {
-            feedback(player, "TOO FAR");
-            return;
-        }
+    private void attackAt(Player player, double aimX, double aimY) {
+        if (!canMove() || player.down || player.cooldown > 0) return;
+
+        WeaponStats weapon = weaponStats(player.weapon);
         if (player.weapon.equals("shotgun") && player.shotgunAmmo <= 0) {
             feedback(player, "NO AMMO");
+            player.firing = false;
+            player.queuedShots.clear();
             return;
         }
         if (player.weapon.equals("rifle") && player.rifleAmmo <= 0) {
             feedback(player, "NO AMMO");
+            player.firing = false;
+            player.queuedShots.clear();
             return;
         }
         if (player.weapon.equals("shotgun")) player.shotgunAmmo--;
         if (player.weapon.equals("rifle")) player.rifleAmmo--;
 
         cancelAction(player);
-        player.cooldown = cooldown;
-        player.cooldownMax = cooldown;
+        player.cooldown = weapon.cooldown();
+        player.cooldownMax = weapon.cooldown();
+        double dx = aimX - player.x;
+        double dy = aimY - player.y;
+        double length = Math.hypot(dx, dy);
+        if (length < 0.001) {
+            dx = 1;
+            dy = 0;
+            length = 1;
+        }
+        double directionX = dx / length;
+        double directionY = dy / length;
+        double endX = player.x + directionX * weapon.range();
+        double endY = player.y + directionY * weapon.range();
+
+        List<Enemy> candidates = enemies.stream().filter(enemy -> enemy.hp > 0)
+                .filter(enemy -> isInsideAttack(enemy, player, directionX, directionY, weapon))
+                .sorted(Comparator.comparingDouble(enemy ->
+                        distance(player.x, player.y, enemy.x, enemy.y))).toList();
         List<Enemy> targets = player.weapon.equals("shotgun")
-                ? enemies.stream().filter(enemy -> enemy.hp > 0
-                        && distance(target.x, target.y, enemy.x, enemy.y) <= 85
-                        && distance(player.x, player.y, enemy.x, enemy.y) <= range + 40).toList()
-                : List.of(target);
+                ? candidates : candidates.stream().limit(1).toList();
+        if (targets.isEmpty()) {
+            sendHitEffect(player.id, player.weapon, player.x, player.y, endX, endY, 0, false);
+            return;
+        }
         for (Enemy hit : targets) {
             double hitX = hit.x;
             double hitY = hit.y;
-            damageEnemy(hit, damage, player);
-            knockbackEnemy(player.x, player.y, hit, knockback);
+            damageEnemy(hit, weapon.damage(), player);
+            knockbackEnemy(player.x, player.y, hit, weapon.knockback());
             sendHitEffect(player.id, player.weapon, player.x, player.y, hitX, hitY,
-                    damage, hit.hp <= 0);
+                    weapon.damage(), hit.hp <= 0);
         }
     }
+
+    private boolean isInsideAttack(Enemy enemy, Player player, double directionX,
+            double directionY, WeaponStats weapon) {
+        double toEnemyX = enemy.x - player.x;
+        double toEnemyY = enemy.y - player.y;
+        double projection = toEnemyX * directionX + toEnemyY * directionY;
+        if (projection < 0 || projection > weapon.range()) return false;
+        double perpendicular = Math.abs(toEnemyX * directionY - toEnemyY * directionX);
+        double enemyRadius = switch (enemy.type) {
+            case "boss" -> 42;
+            case "brute" -> 28;
+            case "runner" -> 16;
+            default -> 21;
+        };
+        double spread = player.weapon.equals("shotgun") ? 16 + projection * 0.28 : weapon.width();
+        return perpendicular <= spread + enemyRadius;
+    }
+
+    private static WeaponStats weaponStats(String weapon) {
+        return switch (weapon) {
+            case "bat" -> new WeaponStats(96, 20, 1.0, 115, 26);
+            case "shotgun" -> new WeaponStats(220, 46, 1.45, 75, 18);
+            case "rifle" -> new WeaponStats(430, 58, 1.15, 32, 8);
+            default -> new WeaponStats(285, 26, 0.38, 35, 10);
+        };
+    }
+
+    private record WeaponStats(double range, double damage, double cooldown,
+            double knockback, double width) { }
 
     private void damageEnemy(Enemy enemy, double damage, Player player) {
         if (enemy.hp <= 0) return;
@@ -666,6 +899,8 @@ final class GameSession {
                 || weapon.equals("rifle") && player.ownsRifle;
         if (owned) {
             player.weapon = weapon;
+            player.firing = false;
+            player.queuedShots.clear();
             cancelAction(player);
         }
     }
@@ -739,8 +974,62 @@ final class GameSession {
         }
     }
 
+    private void gather(Player player, String resource) {
+        if (!canUseFacilities() || player.down) return;
+        if (player.gatherCooldown > 0) {
+            feedback(player, "RESOURCE NOT READY");
+            return;
+        }
+        if (resource.equals("wood")) {
+            if (distance(player.x, player.y, WOODCUTTER_X, WOODCUTTER_Y) > 110) {
+                feedback(player, "MOVE TO WOODCUTTER");
+                return;
+            }
+            player.wood += 4;
+            setNotice(player.name + " が木材を4個回収しました");
+        } else if (resource.equals("ore")) {
+            if (distance(player.x, player.y, QUARRY_X, QUARRY_Y) > 110) {
+                feedback(player, "MOVE TO QUARRY");
+                return;
+            }
+            player.ore += 3;
+            setNotice(player.name + " が鉱石を3個回収しました");
+        } else {
+            return;
+        }
+        player.gatherCooldown = GATHER_COOLDOWN_SECONDS;
+    }
+
+    private void craft(Player player, String type) {
+        if (!canUseFacilities() || player.down || !BUILD_RECIPES.containsKey(type)) return;
+        if (distance(player.x, player.y, WORKBENCH_X, WORKBENCH_Y) > 110) {
+            feedback(player, "MOVE TO WORKBENCH");
+            return;
+        }
+        var recipe = BUILD_RECIPES.get(type);
+        int woodCost = recipe.getOrDefault("wood", 0);
+        int oreCost = recipe.getOrDefault("ore", 0);
+        if (player.wood < woodCost || player.ore < oreCost) {
+            feedback(player, "NOT ENOUGH MATERIALS");
+            return;
+        }
+        player.wood -= woodCost;
+        player.ore -= oreCost;
+        player.addBuildItem(type, 1);
+        player.selectedBuild = type;
+        setNotice(player.name + " が " + type.toUpperCase(Locale.ROOT) + " をクラフトしました");
+    }
+
+    private void equipBuild(Player player, String type) {
+        if (type.equals("none")) {
+            player.selectedBuild = null;
+        } else if (BUILD_RECIPES.containsKey(type) && player.buildItemCount(type) > 0) {
+            player.selectedBuild = type;
+        }
+    }
+
     private void build(Player player, String slotId, String type) {
-        if (!canUseFacilities() || player.down || !BUILD_COSTS.containsKey(type)) return;
+        if (!canUseFacilities() || player.down || !BUILD_RECIPES.containsKey(type)) return;
         TrapSlot slot = slotById(slotId);
         if (slot == null || distance(player.x, player.y, slot.x, slot.y) > 100) {
             feedback(player, "MOVE CLOSER");
@@ -754,12 +1043,62 @@ final class GameSession {
             feedback(player, "SLOT OCCUPIED");
             return;
         }
-        if (!spend(BUILD_COSTS.get(type))) {
-            feedback(player, "NOT ENOUGH CREDIT");
+        if (player.buildItemCount(type) <= 0) {
+            feedback(player, "CRAFT THIS ITEM FIRST");
             return;
         }
+        player.addBuildItem(type, -1);
         slot.defense = new Defense(type);
         setNotice(player.name + " が " + type.toUpperCase(Locale.ROOT) + " を設置しました");
+    }
+
+    private void placeDefense(Player player, String[] parts) {
+        if (!canUseFacilities() || player.down || !BUILD_RECIPES.containsKey(parts[3])) return;
+        double requestedX = Double.parseDouble(parts[1]);
+        double requestedY = Double.parseDouble(parts[2]);
+        MapPoint point = GameMap.snapToTile(requestedX, requestedY);
+        if (distance(player.x, player.y, point.x(), point.y()) > 180) {
+            feedback(player, "MOVE CLOSER");
+            return;
+        }
+        if (!GameMap.canPlaceDefense(point.x(), point.y(), unlockedAreas)
+                || trapSlots.stream().anyMatch(slot -> distance(point.x(), point.y(), slot.x, slot.y) < 36)
+                || players.stream().anyMatch(other -> distance(point.x(), point.y(), other.x, other.y)
+                        < (other == player ? 30 : 48))
+                || enemies.stream().anyMatch(enemy -> enemy.hp > 0
+                        && distance(point.x(), point.y(), enemy.x, enemy.y) < 48)) {
+            feedback(player, "CANNOT BUILD HERE");
+            return;
+        }
+        String type = parts[3];
+        if (!type.equals(player.selectedBuild) || player.buildItemCount(type) <= 0) {
+            feedback(player, "HOLD A CRAFTED ITEM");
+            return;
+        }
+        player.addBuildItem(type, -1);
+        if (player.buildItemCount(type) <= 0) player.selectedBuild = null;
+        String lane = GameMap.SPAWN_POINTS.stream()
+                .min(Comparator.comparingDouble(spawn ->
+                        distance(point.x(), point.y(), spawn.x(), spawn.y())))
+                .map(SpawnPoint::lane).orElse("free");
+        TrapSlot placed = new TrapSlot("placed-" + nextDefenseId++, lane,
+                point.x(), point.y(), null);
+        placed.defense = new Defense(type);
+        trapSlots.add(placed);
+        setNotice(player.name + " が " + type.toUpperCase(Locale.ROOT) + " を配置しました");
+    }
+
+    private void removeDefense(Player player, String slotId) {
+        if (!canUseFacilities() || player.down) return;
+        TrapSlot slot = slotById(slotId);
+        if (slot == null || slot.defense == null
+                || distance(player.x, player.y, slot.x, slot.y) > 100) return;
+        String type = slot.defense.type;
+        trapSlots.remove(slot);
+        player.addBuildItem(type, 1);
+        player.selectedBuild = type;
+        setNotice(player.name + " が " + type.toUpperCase(Locale.ROOT)
+                + " を回収しました");
     }
 
     private void repair(Player player, String slotId) {
@@ -771,13 +1110,14 @@ final class GameSession {
             feedback(player, "DURABILITY FULL");
             return;
         }
-        int cost = Math.max(25, (int) Math.ceil((slot.defense.maxHp - slot.defense.hp) * 0.45));
-        if (spend(cost)) {
-            slot.defense.hp = slot.defense.maxHp;
-            setNotice(slot.id.toUpperCase(Locale.ROOT) + " を修理しました");
-        } else {
-            feedback(player, "NOT ENOUGH CREDIT");
+        boolean metal = Set.of("turret", "wire", "mine").contains(slot.defense.type);
+        if (metal && player.ore < 1 || !metal && player.wood < 1) {
+            feedback(player, "NOT ENOUGH MATERIALS");
+            return;
         }
+        if (metal) player.ore--; else player.wood--;
+        slot.defense.hp = slot.defense.maxHp;
+        setNotice(slot.id.toUpperCase(Locale.ROOT) + " を修理しました");
     }
 
     private void upgradeCore(Player player, String type) {
@@ -871,6 +1211,8 @@ final class GameSession {
             player.moveY = 0;
             player.dashHeld = false;
             player.dashing = false;
+            player.firing = false;
+            player.queuedShots.clear();
             setNotice(player.name + " がダウンしました");
         }
     }
@@ -880,7 +1222,9 @@ final class GameSession {
         round = 0;
         prepTime = 0;
         queuedEnemies = 0;
-        bossPending = false;
+        queuedBosses = 0;
+        roundEvent = "none";
+        failedSpawnId = null;
         spawnTimer = 0;
         credits = 700;
         coreMaxHp = 1000;
@@ -895,11 +1239,13 @@ final class GameSession {
         previousSpawnSignature = "";
         unlockedAreas.clear();
         nextEnemyId = 1;
-        for (TrapSlot slot : trapSlots) slot.defense = null;
+        nextDefenseId = 1;
+        trapSlots.clear();
+        trapSlots.addAll(GameMap.createTrapSlots());
         int index = 0;
         for (Player player : players) {
-            player.x = 855 + (index % 2) * 90;
-            player.y = 555 + (index / 2) * 90;
+            player.x = CORE_X - 45 + (index % 2) * 90;
+            player.y = CORE_Y - 45 + (index / 2) * 90;
             player.moveX = 0;
             player.moveY = 0;
             player.hp = 100;
@@ -911,10 +1257,23 @@ final class GameSession {
             player.weapon = "pistol";
             player.cooldown = 0;
             player.cooldownMax = 0;
+            player.firing = false;
+            player.queuedShots.clear();
+            player.aimX = player.x + 100;
+            player.aimY = player.y;
             player.ownsShotgun = false;
             player.ownsRifle = false;
             player.shotgunAmmo = 0;
             player.rifleAmmo = 0;
+            player.wood = 0;
+            player.ore = 0;
+            player.gatherCooldown = 0;
+            player.blockItems = 0;
+            player.turretItems = 0;
+            player.wireItems = 0;
+            player.mineItems = 0;
+            player.barricadeItems = 0;
+            player.selectedBuild = null;
             player.kills = 0;
             cancelAction(player);
             if (!preserveHumans && !player.human) player.name = "CPU " + player.slot;
@@ -939,7 +1298,10 @@ final class GameSession {
     }
 
     private boolean canOccupy(double x, double y, double radius) {
-        return GameMap.canOccupy(x, y, radius, unlockedAreas);
+        if (!GameMap.canOccupy(x, y, radius, unlockedAreas)) return false;
+        return trapSlots.stream().noneMatch(slot -> slot.defense != null
+                && (slot.defense.type.equals("block") || slot.defense.type.equals("barricade"))
+                && distance(x, y, slot.x, slot.y) < radius + 18);
     }
 
     private void cancelAction(Player player) {
@@ -957,5 +1319,7 @@ final class GameSession {
     private void setNotice(String text) {
         notice = text;
         noticeVersion++;
+        events.broadcast("{\"type\":\"log\",\"version\":" + noticeVersion
+                + ",\"message\":\"" + escapeJson(text) + "\"}");
     }
 }

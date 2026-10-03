@@ -1,11 +1,17 @@
 package example;
 
+import java.util.ArrayDeque;
+import java.util.List;
+
 /** Mutable entities owned exclusively by the single game-loop thread. */
 final class Player {
     final String id;
     final int slot;
     String name;
     boolean human;
+    String sessionId;
+    double reconnectGrace;
+    long lastProcessedInput;
     double x;
     double y;
     double moveX;
@@ -19,10 +25,23 @@ final class Player {
     String weapon = "pistol";
     double cooldown;
     double cooldownMax;
+    boolean firing;
+    double aimX;
+    double aimY;
+    final ArrayDeque<MapPoint> queuedShots = new ArrayDeque<>();
     boolean ownsShotgun;
     boolean ownsRifle;
     int shotgunAmmo;
     int rifleAmmo;
+    int wood;
+    int ore;
+    double gatherCooldown;
+    int blockItems;
+    int turretItems;
+    int wireItems;
+    int mineItems;
+    int barricadeItems;
+    String selectedBuild;
     String actionTarget;
     double actionProgress;
     int kills;
@@ -31,6 +50,28 @@ final class Player {
         this.slot = slot;
         this.id = "player-" + slot;
         this.name = "CPU " + slot;
+    }
+
+    int buildItemCount(String type) {
+        return switch (type) {
+            case "block" -> blockItems;
+            case "turret" -> turretItems;
+            case "wire" -> wireItems;
+            case "mine" -> mineItems;
+            case "barricade" -> barricadeItems;
+            default -> 0;
+        };
+    }
+
+    void addBuildItem(String type, int amount) {
+        switch (type) {
+            case "block" -> blockItems += amount;
+            case "turret" -> turretItems += amount;
+            case "wire" -> wireItems += amount;
+            case "mine" -> mineItems += amount;
+            case "barricade" -> barricadeItems += amount;
+            default -> { }
+        }
     }
 }
 
@@ -47,11 +88,12 @@ final class Enemy {
     double y;
     double hp;
     double attackCooldown;
+    double specialCooldown;
     double slow = 1;
     boolean rewarded;
-    double routeX;
-    double routeY;
-    boolean routing;
+    final List<MapPoint> route;
+    final String targetPriority;
+    int routeIndex;
 
     Enemy(int id, String type, SpawnPoint spawn, double hp, double speed, double damage, int reward) {
         this.id = id;
@@ -62,12 +104,12 @@ final class Enemy {
         this.y = spawn.y();
         this.hp = hp;
         this.maxHp = hp;
-        this.speed = speed;
+        this.speed = speed * spawn.speedMultiplier();
         this.damage = damage;
         this.reward = reward;
-        this.routeX = spawn.routeX();
-        this.routeY = spawn.routeY();
-        this.routing = spawn.routeX() >= 0;
+        this.route = List.copyOf(spawn.route());
+        this.targetPriority = spawn.targetPriority();
+        this.specialCooldown = type.equals("boss") ? 4.5 : 0;
     }
 }
 
@@ -80,6 +122,7 @@ final class Defense {
     Defense(String type) {
         this.type = type;
         this.maxHp = switch (type) {
+            case "block" -> 320;
             case "turret" -> 120;
             case "wire" -> 100;
             case "mine" -> 1;

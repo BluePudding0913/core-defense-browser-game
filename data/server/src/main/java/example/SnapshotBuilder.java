@@ -1,8 +1,8 @@
 package example;
 
-import static example.GameConfig.CORE_X;
-import static example.GameConfig.CORE_Y;
 import static example.GameConfig.MAX_ROUNDS;
+import static example.GameMap.CORE_X;
+import static example.GameMap.CORE_Y;
 import static example.GameSupport.escapeJson;
 import static example.GameSupport.roundOne;
 
@@ -14,13 +14,25 @@ final class SnapshotBuilder {
     private SnapshotBuilder() { }
 
     static String build(GameSession game) {
+        int humans = (int) game.players.stream().filter(player -> player.human).count();
+        return build(game, "lobby", humans, GameConfig.PLAYER_COUNT);
+    }
+
+    static String build(GameSession game, String roomId, int humans, int capacity) {
         StringBuilder json = new StringBuilder(8192);
         json.append("{\"type\":\"state\",\"phase\":\"")
                 .append(game.phase.name().toLowerCase(Locale.ROOT));
-        json.append("\",\"round\":").append(game.round).append(",\"maxRounds\":").append(MAX_ROUNDS);
+        json.append("\",\"roomId\":\"").append(escapeJson(roomId)).append('"');
+        json.append(",\"roomPlayers\":").append(humans)
+                .append(",\"roomCapacity\":").append(capacity);
+        json.append(",\"round\":").append(game.round).append(",\"maxRounds\":").append(MAX_ROUNDS);
         json.append(",\"prepTime\":").append(roundOne(game.prepTime));
         json.append(",\"credits\":").append(game.credits);
-        json.append(",\"queued\":").append(game.queuedEnemies + (game.bossPending ? 1 : 0));
+        json.append(",\"queued\":").append(game.queuedEnemies + game.queuedBosses);
+        json.append(",\"roundEvent\":\"").append(game.roundEvent).append('"');
+        json.append(",\"failedSpawn\":")
+                .append(game.failedSpawnId == null ? "null"
+                        : "\"" + escapeJson(game.failedSpawnId) + "\"");
         appendStringArray(json, "activeSpawns", game.activeSpawnIds);
         json.append(",\"noticeVersion\":").append(game.noticeVersion)
                 .append(",\"notice\":\"").append(escapeJson(game.notice)).append('"');
@@ -41,9 +53,13 @@ final class SnapshotBuilder {
 
     private static void appendAreas(StringBuilder json, GameSession game) {
         json.append(",\"areas\":{");
-        json.append("\"depot\":").append(game.unlockedAreas.contains("depot"));
-        json.append(",\"relay\":").append(game.unlockedAreas.contains("relay"));
-        json.append(",\"workshop\":").append(game.unlockedAreas.contains("workshop")).append('}');
+        for (int i = 0; i < GameMap.AREAS.size(); i++) {
+            UnlockArea area = GameMap.AREAS.get(i);
+            if (i > 0) json.append(',');
+            json.append('"').append(escapeJson(area.id())).append("\":")
+                    .append(game.unlockedAreas.contains(area.id()));
+        }
+        json.append('}');
     }
 
     private static void appendPlayers(StringBuilder json, List<Player> players) {
@@ -54,6 +70,7 @@ final class SnapshotBuilder {
             json.append("{\"id\":\"").append(player.id)
                     .append("\",\"name\":\"").append(escapeJson(player.name));
             json.append("\",\"human\":").append(player.human)
+                    .append(",\"ackInput\":").append(player.lastProcessedInput)
                     .append(",\"x\":").append(roundOne(player.x));
             json.append(",\"y\":").append(roundOne(player.y))
                     .append(",\"hp\":").append(roundOne(player.hp));
@@ -67,6 +84,17 @@ final class SnapshotBuilder {
                     .append(",\"ownsRifle\":").append(player.ownsRifle);
             json.append(",\"shotgunAmmo\":").append(player.shotgunAmmo)
                     .append(",\"rifleAmmo\":").append(player.rifleAmmo);
+            json.append(",\"wood\":").append(player.wood)
+                    .append(",\"ore\":").append(player.ore)
+                    .append(",\"gatherCooldown\":").append(roundOne(player.gatherCooldown));
+            json.append(",\"selectedBuild\":")
+                    .append(player.selectedBuild == null ? "null"
+                            : "\"" + escapeJson(player.selectedBuild) + "\"");
+            json.append(",\"buildItems\":{\"block\":").append(player.blockItems)
+                    .append(",\"turret\":").append(player.turretItems)
+                    .append(",\"wire\":").append(player.wireItems)
+                    .append(",\"mine\":").append(player.mineItems)
+                    .append(",\"barricade\":").append(player.barricadeItems).append('}');
             json.append(",\"kills\":").append(player.kills);
             json.append(",\"action\":")
                     .append(player.actionTarget == null ? "null" : "\"" + player.actionTarget + "\"");
