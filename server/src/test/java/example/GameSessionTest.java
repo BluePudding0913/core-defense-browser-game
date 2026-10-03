@@ -47,7 +47,9 @@ class GameSessionTest {
 
         assertEquals(GamePhase.PREPARING, game.phase);
         assertEquals(GameConfig.PREP_SECONDS, game.prepTime);
-        assertEquals(910, game.credits);
+        assertEquals(910, player.credits);
+        assertTrue(game.players.stream().allMatch(candidate -> candidate.credits == 910),
+                "round rewards should be granted to every personal balance");
 
         game.handleMessage(player, "READY");
         game.update(0.05);
@@ -67,46 +69,56 @@ class GameSessionTest {
         assertTrue(player.ownsShotgun);
         assertEquals("shotgun", player.weapon);
         assertEquals(30, player.shotgunAmmo);
-        assertEquals(250, game.credits);
+        assertEquals(250, player.credits);
 
         game.handleMessage(player, "BUY:shotgun");
-        assertEquals(250, game.credits, "an owned weapon must not be charged twice");
+        assertEquals(250, player.credits, "an owned weapon must not be charged twice");
 
         player.x = GameMap.CORE_X;
         player.y = GameMap.CORE_Y;
-        game.credits = 1_000;
+        player.credits = 1_000;
         game.handleMessage(player, "BUY:rifle");
         assertFalse(player.ownsRifle);
-        assertEquals(1_000, game.credits, "a remote purchase must be rejected");
+        assertEquals(1_000, player.credits, "a remote purchase must be rejected");
     }
 
     @Test
-    void attackDamagesRewardsAndRespectsCooldown() {
+    void attackRewardsOnlyThePlayersWhoLandHitsAndRespectsCooldown() {
         startWave();
         player.x = GameMap.CORE_X;
         player.y = GameMap.CORE_Y;
+        Player teammate = game.players.get(1);
+        teammate.human = true;
+        teammate.x = player.x;
+        teammate.y = player.y;
         Enemy enemy = new Enemy(9_001, "grunt", GameMap.SPAWN_POINTS.get(0),
                 45, 0, 0, 15);
         enemy.x = player.x + 50;
         enemy.y = player.y;
         game.enemies.add(enemy);
-        int initialCredits = game.credits;
+        int initialCredits = player.credits;
+        int teammateInitialCredits = teammate.credits;
 
         game.handleMessage(player, "ATTACK:" + enemy.id);
 
         assertEquals(19, enemy.hp);
         assertEquals(0.38, player.cooldown);
-        assertEquals(initialCredits, game.credits);
+        assertEquals(initialCredits + 8, player.credits,
+                "the first attacker should immediately earn their damage share");
+        assertEquals(teammateInitialCredits, teammate.credits);
         assertFalse(events.broadcasts.isEmpty(), "an attack should publish a hit effect");
 
         game.handleMessage(player, "ATTACK:" + enemy.id);
         assertEquals(19, enemy.hp, "cooldown must reject a second immediate attack");
+        assertEquals(initialCredits + 8, player.credits);
 
-        player.cooldown = 0;
-        game.handleMessage(player, "ATTACK:" + enemy.id);
+        game.handleMessage(teammate, "ATTACK:" + enemy.id);
         assertTrue(enemy.hp <= 0);
-        assertEquals(initialCredits + enemy.reward, game.credits);
-        assertEquals(1, player.kills);
+        assertEquals(initialCredits + 8, player.credits,
+                "a teammate's hit must not change the first attacker's balance");
+        assertEquals(teammateInitialCredits + 7, teammate.credits);
+        assertEquals(0, player.kills);
+        assertEquals(1, teammate.kills);
     }
 
     @Test
@@ -377,7 +389,7 @@ class GameSessionTest {
         game.players.forEach(candidate -> candidate.human = true);
         player.x = GameMap.CORE_X;
         player.y = GameMap.CORE_Y;
-        Enemy boss = new Enemy(9_004, "boss", GameMap.spawnById("north-airlock"),
+        Enemy boss = new Enemy(9_004, "boss", GameMap.spawnById("north-service-hatch"),
                 1_000, 0, 48, 0);
         boss.x = GameMap.CORE_X + 200;
         boss.y = GameMap.CORE_Y;

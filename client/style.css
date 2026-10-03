@@ -79,10 +79,49 @@ button, input { font: inherit; }
 .teammate.down .hp-line span { background: #ff656f; }
 .materials { margin-top: .28rem; color: rgb(255 255 255 / 62%); font: 800 .58rem ui-monospace, monospace; letter-spacing: .08em; }
 
+.self-vitals {
+    position: absolute;
+    left: max(.8rem, env(safe-area-inset-left));
+    bottom: max(.75rem, env(safe-area-inset-bottom));
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    filter: drop-shadow(0 3px 7px rgb(0 0 0 / 88%));
+}
+
+.health-heart {
+    --health: 100%;
+    position: relative;
+    width: clamp(3.4rem, 8vw, 4.8rem);
+    height: clamp(3.15rem, 7.4vw, 4.45rem);
+    color: #6c7075;
+    font: 900 clamp(3.8rem, 9vw, 5.4rem)/.82 Georgia, serif;
+}
+
+.heart-base,
+.heart-fill {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+}
+
+.heart-base { color: #6c7075; }
+.heart-fill {
+    color: #e64c57;
+    clip-path: inset(calc(100% - var(--health)) 0 0 0);
+}
+
+.self-vitals-meta { display: grid; gap: .12rem; font-family: ui-monospace, monospace; }
+.self-vitals-meta strong { font-size: clamp(.82rem, 1.9vw, 1.05rem); }
+.self-vitals-meta b { color: #ffe18a; font-size: clamp(.7rem, 1.55vw, .86rem); }
+.self-vitals-meta small { color: rgb(255 255 255 / 64%); font-size: clamp(.52rem, 1.2vw, .65rem); font-weight: 800; letter-spacing: .06em; }
+
 .notice {
     position: absolute;
     left: max(.9rem, env(safe-area-inset-left));
-    bottom: max(.9rem, env(safe-area-inset-bottom));
+    bottom: calc(max(.9rem, env(safe-area-inset-bottom)) + 5.2rem);
     z-index: 3;
     display: grid;
     gap: .22rem;
@@ -320,7 +359,7 @@ button, input { font: inherit; }
     .round-status strong { font-size: 1.55rem; }
     .team { width: min(12.6rem, 29vw); gap: .22rem; }
     .teammate { padding: .34rem .45rem; }
-    .materials { display: none; }
+    .self-vitals-meta small { display: none; }
     .weapon { width: 9rem; height: 4rem; }
     .build-belt button { min-width: 4.3rem; padding: .36rem .42rem; }
 }

@@ -449,6 +449,250 @@
           "y": 1820
         }
       ]
+    },
+    {
+      "id": "north-service-hatch",
+      "name": "NORTH SERVICE HATCH",
+      "x": 2340,
+      "y": 980,
+      "lane": "north",
+      "enemyBias": "brute",
+      "speedMultiplier": 0.95,
+      "targetPriority": "defenses",
+      "route": [
+        {
+          "x": 2340,
+          "y": 980
+        },
+        {
+          "x": 2700,
+          "y": 980
+        },
+        {
+          "x": 2700,
+          "y": 1580
+        }
+      ]
+    },
+    {
+      "id": "north-east-service-hatch",
+      "name": "NORTHEAST SERVICE HATCH",
+      "x": 4100,
+      "y": 1060,
+      "lane": "east",
+      "enemyBias": "runner",
+      "speedMultiplier": 1.08,
+      "targetPriority": "players",
+      "route": [
+        {
+          "x": 4100,
+          "y": 1060
+        },
+        {
+          "x": 3540,
+          "y": 1060
+        },
+        {
+          "x": 3540,
+          "y": 1580
+        },
+        {
+          "x": 2900,
+          "y": 1580
+        },
+        {
+          "x": 2900,
+          "y": 1820
+        }
+      ]
+    },
+    {
+      "id": "east-maintenance-hatch",
+      "name": "EAST MAINTENANCE HATCH",
+      "x": 4340,
+      "y": 1420,
+      "lane": "east",
+      "enemyBias": "balanced",
+      "speedMultiplier": 1.02,
+      "targetPriority": "core",
+      "route": [
+        {
+          "x": 4340,
+          "y": 1420
+        },
+        {
+          "x": 4340,
+          "y": 2100
+        },
+        {
+          "x": 3540,
+          "y": 2100
+        },
+        {
+          "x": 2900,
+          "y": 2100
+        },
+        {
+          "x": 2900,
+          "y": 1820
+        }
+      ]
+    },
+    {
+      "id": "south-east-service-hatch",
+      "name": "SOUTHEAST SERVICE HATCH",
+      "x": 4100,
+      "y": 2620,
+      "lane": "east",
+      "enemyBias": "runner",
+      "speedMultiplier": 1.1,
+      "targetPriority": "players",
+      "route": [
+        {
+          "x": 4100,
+          "y": 2620
+        },
+        {
+          "x": 3460,
+          "y": 2620
+        },
+        {
+          "x": 3460,
+          "y": 2220
+        },
+        {
+          "x": 2900,
+          "y": 2220
+        },
+        {
+          "x": 2900,
+          "y": 1820
+        }
+      ]
+    },
+    {
+      "id": "south-maintenance-hatch",
+      "name": "SOUTH MAINTENANCE HATCH",
+      "x": 3060,
+      "y": 3140,
+      "lane": "south",
+      "enemyBias": "balanced",
+      "speedMultiplier": 1,
+      "targetPriority": "core",
+      "route": [
+        {
+          "x": 3060,
+          "y": 3140
+        },
+        {
+          "x": 3060,
+          "y": 2660
+        },
+        {
+          "x": 2700,
+          "y": 2660
+        },
+        {
+          "x": 2700,
+          "y": 2060
+        }
+      ]
+    },
+    {
+      "id": "south-west-service-hatch",
+      "name": "SOUTHWEST SERVICE HATCH",
+      "x": 1380,
+      "y": 2620,
+      "lane": "west",
+      "enemyBias": "brute",
+      "speedMultiplier": 0.9,
+      "targetPriority": "defenses",
+      "route": [
+        {
+          "x": 1380,
+          "y": 2620
+        },
+        {
+          "x": 1940,
+          "y": 2620
+        },
+        {
+          "x": 1940,
+          "y": 2180
+        },
+        {
+          "x": 2500,
+          "y": 2180
+        },
+        {
+          "x": 2500,
+          "y": 1820
+        }
+      ]
+    },
+    {
+      "id": "west-maintenance-hatch",
+      "name": "WEST MAINTENANCE HATCH",
+      "x": 1140,
+      "y": 2220,
+      "lane": "west",
+      "enemyBias": "balanced",
+      "speedMultiplier": 1.02,
+      "targetPriority": "core",
+      "route": [
+        {
+          "x": 1140,
+          "y": 2220
+        },
+        {
+          "x": 1140,
+          "y": 1540
+        },
+        {
+          "x": 1940,
+          "y": 1540
+        },
+        {
+          "x": 2500,
+          "y": 1540
+        },
+        {
+          "x": 2500,
+          "y": 1820
+        }
+      ]
+    },
+    {
+      "id": "north-west-service-hatch",
+      "name": "NORTHWEST SERVICE HATCH",
+      "x": 1380,
+      "y": 1060,
+      "lane": "west",
+      "enemyBias": "runner",
+      "speedMultiplier": 1.06,
+      "targetPriority": "players",
+      "route": [
+        {
+          "x": 1380,
+          "y": 1060
+        },
+        {
+          "x": 1940,
+          "y": 1060
+        },
+        {
+          "x": 1940,
+          "y": 1500
+        },
+        {
+          "x": 2500,
+          "y": 1500
+        },
+        {
+          "x": 2500,
+          "y": 1820
+        }
+      ]
     }
   ],
   "trapSlots": []

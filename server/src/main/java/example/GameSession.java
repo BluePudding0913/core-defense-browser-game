@@ -54,7 +54,6 @@ final class GameSession {
     double prepTime;
     int queuedEnemies;
     int queuedBosses;
-    int credits;
     double coreHp;
     double coreMaxHp;
     double coreShield;
@@ -312,14 +311,14 @@ final class GameSession {
             return;
         }
         int reward = 180 + round * 30;
-        credits += reward;
+        players.forEach(player -> player.credits += reward);
         phase = GamePhase.PREPARING;
         prepTime = PREP_SECONDS;
         activeLanes.clear();
         activeSpawnIds.clear();
         roundEvent = "none";
         failedSpawnId = null;
-        setNotice("ROUND " + round + " CLEAR：+" + reward + " CREDIT");
+        setNotice("ROUND " + round + " CLEAR：全員 +" + reward + " CREDIT");
     }
 
     private void selectRoundSpawns(int currentRound) {
@@ -852,11 +851,18 @@ final class GameSession {
 
     private void damageEnemy(Enemy enemy, double damage, Player player) {
         if (enemy.hp <= 0) return;
-        enemy.hp -= damage;
-        if (enemy.hp <= 0 && !enemy.rewarded) {
-            enemy.rewarded = true;
-            credits += enemy.reward;
-            if (player != null) player.kills++;
+        double dealt = Math.min(enemy.hp, damage);
+        enemy.hp -= dealt;
+        if (player != null && dealt > 0) {
+            enemy.creditProgress += enemy.reward * dealt / enemy.maxHp;
+            int earnedCredits = Math.min(enemy.reward,
+                    (int) Math.floor(enemy.creditProgress + 1e-9));
+            int payout = earnedCredits - enemy.paidCredits;
+            if (payout > 0) {
+                player.credits += payout;
+                enemy.paidCredits += payout;
+            }
+            if (enemy.hp <= 0) player.kills++;
         }
     }
 
@@ -916,7 +922,7 @@ final class GameSession {
                 feedback(player, "HP FULL");
                 return;
             }
-            if (spend(80)) {
+            if (spend(player, 80)) {
                 player.hp = 100;
                 setNotice(player.name + " が回復しました");
             } else {
@@ -934,7 +940,7 @@ final class GameSession {
                     feedback(player, "ALREADY OWNED");
                     return;
                 }
-                if (spend(450)) {
+                if (spend(player, 450)) {
                     player.ownsShotgun = true;
                     player.shotgunAmmo = 30;
                     player.weapon = "shotgun";
@@ -948,7 +954,7 @@ final class GameSession {
                     feedback(player, "ALREADY OWNED");
                     return;
                 }
-                if (spend(650)) {
+                if (spend(player, 650)) {
                     player.ownsRifle = true;
                     player.rifleAmmo = 24;
                     player.weapon = "rifle";
@@ -962,7 +968,7 @@ final class GameSession {
                     feedback(player, "NO AMMO WEAPON");
                     return;
                 }
-                if (spend(100)) {
+                if (spend(player, 100)) {
                     player.shotgunAmmo += player.ownsShotgun ? 16 : 0;
                     player.rifleAmmo += player.ownsRifle ? 12 : 0;
                     setNotice(player.name + " が弾薬を補充しました");
@@ -1126,7 +1132,7 @@ final class GameSession {
         switch (type) {
             case "hp" -> {
                 int cost = 300 + (int) ((coreMaxHp - 1000) * 0.6);
-                if (spend(cost)) {
+                if (spend(player, cost)) {
                     coreMaxHp += 250;
                     coreHp += 250;
                     setNotice("CORE最大HPを強化しました");
@@ -1136,7 +1142,7 @@ final class GameSession {
             }
             case "shield" -> {
                 int cost = 350 + (int) (coreMaxShield * 0.8);
-                if (spend(cost)) {
+                if (spend(player, cost)) {
                     coreMaxShield += 180;
                     coreShield = coreMaxShield;
                     setNotice("COREシールドを強化しました");
@@ -1150,7 +1156,7 @@ final class GameSession {
                     feedback(player, "MAX LEVEL");
                     return;
                 }
-                if (spend(cost)) {
+                if (spend(player, cost)) {
                     coreDefenseLevel++;
                     setNotice("CORE防御を強化しました");
                 } else {
@@ -1163,7 +1169,7 @@ final class GameSession {
                     feedback(player, "MAX LEVEL");
                     return;
                 }
-                if (spend(cost)) {
+                if (spend(player, cost)) {
                     coreRegenLevel++;
                     setNotice("CORE自動修復を強化しました");
                 } else {
@@ -1187,7 +1193,7 @@ final class GameSession {
             return;
         }
         int cost = 350 + unlockedAreas.size() * 100;
-        if (spend(cost)) {
+        if (spend(player, cost)) {
             unlockedAreas.add(areaId);
             setNotice(area.name() + " OPEN：防衛スロットを解放しました");
         } else {
@@ -1195,9 +1201,9 @@ final class GameSession {
         }
     }
 
-    private boolean spend(int amount) {
-        if (credits < amount) return false;
-        credits -= amount;
+    private boolean spend(Player player, int amount) {
+        if (player.credits < amount) return false;
+        player.credits -= amount;
         return true;
     }
 
@@ -1226,7 +1232,6 @@ final class GameSession {
         roundEvent = "none";
         failedSpawnId = null;
         spawnTimer = 0;
-        credits = 700;
         coreMaxHp = 1000;
         coreHp = coreMaxHp;
         coreMaxShield = 0;
@@ -1273,6 +1278,7 @@ final class GameSession {
             player.wireItems = 0;
             player.mineItems = 0;
             player.barricadeItems = 0;
+            player.credits = 700;
             player.selectedBuild = null;
             player.kills = 0;
             cancelAction(player);

@@ -41,6 +41,7 @@ final class Player {
     int wireItems;
     int mineItems;
     int barricadeItems;
+    int credits;
     String selectedBuild;
     String actionTarget;
     double actionProgress;
@@ -90,7 +91,8 @@ final class Enemy {
     double attackCooldown;
     double specialCooldown;
     double slow = 1;
-    boolean rewarded;
+    double creditProgress;
+    int paidCredits;
     final List<MapPoint> route;
     final String targetPriority;
     int routeIndex;

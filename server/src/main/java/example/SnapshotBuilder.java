@@ -27,7 +27,6 @@ final class SnapshotBuilder {
                 .append(",\"roomCapacity\":").append(capacity);
         json.append(",\"round\":").append(game.round).append(",\"maxRounds\":").append(MAX_ROUNDS);
         json.append(",\"prepTime\":").append(roundOne(game.prepTime));
-        json.append(",\"credits\":").append(game.credits);
         json.append(",\"queued\":").append(game.queuedEnemies + game.queuedBosses);
         json.append(",\"roundEvent\":\"").append(game.roundEvent).append('"');
         json.append(",\"failedSpawn\":")
@@ -86,6 +85,7 @@ final class SnapshotBuilder {
                     .append(",\"rifleAmmo\":").append(player.rifleAmmo);
             json.append(",\"wood\":").append(player.wood)
                     .append(",\"ore\":").append(player.ore)
+                    .append(",\"credits\":").append(player.credits)
                     .append(",\"gatherCooldown\":").append(roundOne(player.gatherCooldown));
             json.append(",\"selectedBuild\":")
                     .append(player.selectedBuild == null ? "null"

@@ -33,6 +33,12 @@ class GameMapTest {
         assertEquals(definition.areas(), GameMap.AREAS);
         assertEquals(definition.spawnPoints(), GameMap.SPAWN_POINTS);
         assertEquals(definition.trapSlots().size(), GameMap.createTrapSlots().size());
+        assertTrue(definition.spawnPoints().size() >= 16,
+                "the facility should provide spawn candidates across the map");
+        assertTrue(definition.spawnPoints().stream().filter(spawn ->
+                spawn.x() > 80 && spawn.x() < GameMap.WORLD_W - 80
+                        && spawn.y() > 80 && spawn.y() < GameMap.WORLD_H - 80).count() >= 8,
+                "at least half of the spawn candidates should be inside the facility");
         assertTrue(definition.spawnPoints().stream().allMatch(spawn -> spawn.route().size() >= 3),
                 "every enemy entry should include a corridor route");
         assertTrue(definition.spawnPoints().stream()

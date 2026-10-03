@@ -11,6 +11,11 @@ const roundElement = document.querySelector("#round");
 const phaseElement = document.querySelector("#phase");
 const phaseDetail = document.querySelector("#phase-detail");
 const teamElement = document.querySelector("#team");
+const selfVitals = document.querySelector("#self-vitals");
+const healthHeart = document.querySelector("#health-heart");
+const selfHealthLabel = document.querySelector("#self-health-label");
+const selfCredits = document.querySelector("#self-credits");
+const selfMaterials = document.querySelector("#self-materials");
 const noticeElement = document.querySelector("#notice");
 const feedbackElement = document.querySelector("#feedback");
 const interactButton = document.querySelector("#interact");
@@ -25,6 +30,8 @@ const actionOptions = document.querySelector("#action-options");
 const actionClose = document.querySelector("#action-close");
 const buildBelt = document.querySelector("#build-belt");
 const roundIntro = document.querySelector("#round-intro");
+const URL_PARAMETERS = new URLSearchParams(window.location.search);
+const DEBUG_MODE = URL_PARAMETERS.get("debug") === "1";
 
 const VIEW = { width: 900, height: 500 };
 let WORLD = { width: 1, height: 1 };
@@ -204,7 +211,7 @@ function isPositiveNumber(value) {
 function connect() {
     const host = window.location.hostname || "localhost";
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const serverPort = new URLSearchParams(window.location.search).get("serverPort") || "8887";
+    const serverPort = URL_PARAMETERS.get("serverPort") || "8887";
     socket = new WebSocket(`${protocol}://${host}:${serverPort}/?session=${encodeURIComponent(clientSessionId)}`);
     socket.addEventListener("open", () => {
         if (mapReady) {
@@ -352,17 +359,23 @@ function updateHud() {
     phaseDetail.textContent = state.phase === "preparing"
         ? `00:${String(Math.ceil(state.prepTime)).padStart(2, "0")}`
         : `${state.enemies.length + state.queued} HOSTILES`;
-    teamElement.innerHTML = state.players.map(player => `
+    const me = getMe();
+    teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : ""} ${player.id === myPlayerId ? "self" : ""}">
             <div class="teammate-label">
                 <span>${player.id === myPlayerId ? "YOU" : player.human ? escapeHtml(player.name) : `CPU${player.id.at(-1)}`}</span>
-                <span class="player-stats">${player.down ? "DOWN" : `${Math.ceil(player.hp)} HP`}<b>${state.credits} CR</b></span>
+                <span class="player-stats">${player.down ? "DOWN" : `${Math.ceil(player.hp)} HP`}<b>${player.credits} CR</b></span>
             </div>
             <div class="hp-line"><span style="width:${player.hp}%"></span></div>
-            ${player.id === myPlayerId ? `<div class="materials">WOOD ${player.wood} · ORE ${player.ore}</div>` : ""}
         </div>`).join("");
-    const me = getMe();
+    selfVitals.classList.toggle("hidden", !me);
     if (me) {
+        const health = clamp(me.hp, 0, 100);
+        healthHeart.style.setProperty("--health", `${health}%`);
+        healthHeart.setAttribute("aria-label", `体力 ${Math.ceil(health)}%`);
+        selfHealthLabel.textContent = me.down ? "DOWN" : `${Math.ceil(health)} HP`;
+        selfCredits.textContent = `${me.credits} CR`;
+        selfMaterials.textContent = `WOOD ${me.wood} · ORE ${me.ore}`;
         const ammo = me.weapon === "shotgun" ? String(me.shotgunAmmo) : me.weapon === "rifle" ? String(me.rifleAmmo) : "∞";
         const cooldownMax = Math.max(.01, me.cooldownMax || me.cooldown || .01);
         const cooldownProgress = 1 - Math.min(1, me.cooldown / cooldownMax);
@@ -614,7 +627,9 @@ function openUnlockMenu(area) {
 }
 
 function option(label, cost, command, extraDisabled = false, customDetail = "") {
-    return { label, detail: customDetail || `${cost} CR`, command, disabled: extraDisabled || state.credits < cost };
+    const me = getMe();
+    return { label, detail: customDetail || `${cost} CR`, command,
+        disabled: extraDisabled || !me || me.credits < cost };
 }
 
 function resize() {
@@ -952,22 +967,30 @@ function drawWorld() {
             }
         }
     }
-    SPAWN_POINTS.forEach(drawSpawn);
+    if (DEBUG_MODE) SPAWN_POINTS.forEach(drawDebugSpawn);
     ctx.strokeStyle = "#5a7079"; ctx.lineWidth = 3; ctx.strokeRect(1, 1, WORLD.width - 2, WORLD.height - 2);
 }
 
-function drawSpawn(spawn) {
+function drawDebugSpawn(spawn) {
     const incoming = Boolean(state && state.phase === "wave" && state.activeSpawns.includes(spawn.id));
     const failed = incoming && state.roundEvent === "door_failure" && state.failedSpawn === spawn.id;
     const pulse = (Math.sin(performance.now() / 130) + 1) / 2;
     ctx.save();
+    ctx.strokeStyle = failed ? "#ffb267" : incoming ? "#ff6c74" : "#627880";
+    ctx.lineWidth = incoming ? 3 : 2;
+    ctx.setLineDash([12, 8]);
+    ctx.beginPath();
+    ctx.moveTo(spawn.x, spawn.y);
+    for (const point of spawn.route) ctx.lineTo(point.x, point.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
     if (incoming) { ctx.shadowColor = failed ? "#ff9b3d" : "#ff4f58"; ctx.shadowBlur = 14 + pulse * 15; }
     ctx.fillStyle = failed ? "#ef8a2f" : incoming ? "#e23f49" : "#3a464b"; ctx.beginPath(); ctx.arc(spawn.x, spawn.y, incoming ? 25 + pulse * 3 : 17, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = failed ? "#ffe0a8" : incoming ? "#ffc0b8" : "#8c686b"; ctx.lineWidth = incoming ? 4 : 2; ctx.stroke();
     ctx.restore();
     ctx.fillStyle = failed ? "#ffe0a8" : incoming ? "#ffd1c9" : "#75858b"; ctx.font = "900 10px ui-monospace, monospace"; ctx.textAlign = "center";
     const labelY = spawn.y < 60 ? spawn.y + 43 : spawn.y > WORLD.height - 60 ? spawn.y - 34 : spawn.y - 31;
-    ctx.fillText(failed ? `FAILED DOOR: ${spawn.name}` : incoming ? `BREACH: ${spawn.name}` : spawn.name, spawn.x, labelY);
+    ctx.fillText(failed ? `DEBUG FAILED: ${spawn.name}` : incoming ? `DEBUG ACTIVE: ${spawn.name}` : `DEBUG: ${spawn.name}`, spawn.x, labelY);
 }
 
 function drawAreas() {
