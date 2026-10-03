@@ -1,1 +1,26 @@
+<<<<<<< HEAD
 target/
+=======
+# Build outputs
+server/target/
+*.class
+*.jar
+*.log
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+>>>>>>> 185ef0c34007a4b5ef04f452fd8b533e22951e13
