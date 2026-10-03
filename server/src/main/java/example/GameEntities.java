@@ -30,9 +30,13 @@ final class Player {
     double aimY;
     final ArrayDeque<MapPoint> queuedShots = new ArrayDeque<>();
     boolean ownsShotgun;
+    boolean ownsSmg;
     boolean ownsRifle;
+    boolean ownsSniper;
     int shotgunAmmo;
+    int smgAmmo;
     int rifleAmmo;
+    int sniperAmmo;
     int wood;
     int ore;
     double gatherCooldown;

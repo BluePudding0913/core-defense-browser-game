@@ -43,10 +43,17 @@ public final class WasdServer extends WebSocketServer {
     private final int maxRooms;
     private final String accessToken;
     private final Set<String> allowedOrigins;
+    private final String bindHost;
     private boolean tlsEnabled;
 
     public WasdServer(int port) {
-        super(new InetSocketAddress(port));
+        this(null, port);
+    }
+
+    public WasdServer(String bindHost, int port) {
+        super(bindHost == null || bindHost.isBlank()
+                ? new InetSocketAddress(port) : new InetSocketAddress(bindHost, port));
+        this.bindHost = bindHost == null || bindHost.isBlank() ? "0.0.0.0" : bindHost;
         maxRooms = positiveIntEnvironment("CORE_MAX_ROOMS", 64);
         accessToken = trimmedEnvironment("CORE_ACCESS_TOKEN");
         allowedOrigins = parseAllowedOrigins(trimmedEnvironment("CORE_ALLOWED_ORIGINS"));
@@ -143,7 +150,7 @@ public final class WasdServer extends WebSocketServer {
         setConnectionLostTimeout(30);
         ticker.scheduleAtFixedRate(this::tickSafely, 0, 50, TimeUnit.MILLISECONDS);
         System.out.println("CORE Defense server: " + (tlsEnabled ? "wss" : "ws")
-                + "://localhost:" + getPort() + " (rooms=" + maxRooms + ")");
+                + "://" + bindHost + ":" + getPort() + " (rooms=" + maxRooms + ")");
     }
 
     private GameRoom createRoom(String id) {
@@ -297,7 +304,8 @@ public final class WasdServer extends WebSocketServer {
 
     public static void main(String[] args) {
         int port = args.length == 0 ? 8887 : Integer.parseInt(args[0]);
-        new WasdServer(port).start();
+        String bindHost = args.length < 2 ? null : args[1];
+        new WasdServer(bindHost, port).start();
     }
 
     private record ConnectionAssignment(GameRoom room, Player player) { }

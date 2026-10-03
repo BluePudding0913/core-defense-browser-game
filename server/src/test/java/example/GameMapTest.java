@@ -61,7 +61,7 @@ class GameMapTest {
                 "terrain beside the route must block movement");
         assertFalse(GameMap.canOccupy(3, GameMap.CORE_Y, 5, Set.of()),
                 "the world boundary must block movement");
-        assertEquals(5, GameMap.AREAS.size());
+        assertEquals(8, GameMap.AREAS.size());
     }
 
     @Test
@@ -88,6 +88,19 @@ class GameMapTest {
                         () -> area.id() + " terminal overlaps defense slot " + slot.id);
             }
         }
+    }
+
+    @Test
+    void shopsAreDistributedAcrossTheSingleRouteAreas() {
+        Set<String> shopAreas = GameMap.SHOP_UNITS.stream().map(shop -> GameMap.AREAS.stream()
+                .filter(area -> shop.x() >= area.x() && shop.x() <= area.x() + area.width()
+                        && shop.y() >= area.y() && shop.y() <= area.y() + area.height())
+                .findFirst().map(UnlockArea::id).orElse("outside"))
+                .collect(Collectors.toSet());
+
+        assertEquals(5, GameMap.SHOP_UNITS.size());
+        assertEquals(GameMap.SHOP_UNITS.size(), shopAreas.size(),
+                "each shop should occupy a different progression area");
     }
 
     @Test

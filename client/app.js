@@ -29,6 +29,10 @@ const actionClose = document.querySelector("#action-close");
 const inventoryMenu = document.querySelector("#inventory-menu");
 const inventoryItems = document.querySelector("#inventory-items");
 const roundIntro = document.querySelector("#round-intro");
+const howToMenu = document.querySelector("#how-to-menu");
+const howToStart = document.querySelector("#how-to-start");
+const howToInventory = document.querySelector("#how-to-inventory");
+const howToClose = document.querySelector("#how-to-close");
 const URL_PARAMETERS = new URLSearchParams(window.location.search);
 const DEBUG_MODE = URL_PARAMETERS.get("debug") === "1";
 
@@ -51,6 +55,12 @@ const BUILD_INFO = {
     mine: { name: "MINE", wood: 1, ore: 5, description: "接近した敵へ範囲ダメージ" },
     barricade: { name: "BARRICADE", wood: 6, ore: 2, description: "高耐久の進路妨害" },
 };
+const WEAPON_FIELDS = Object.freeze({
+    shotgun: { owned: "ownsShotgun", ammo: "shotgunAmmo" },
+    smg: { owned: "ownsSmg", ammo: "smgAmmo" },
+    rifle: { owned: "ownsRifle", ammo: "rifleAmmo" },
+    sniper: { owned: "ownsSniper", ammo: "sniperAmmo" },
+});
 const INTERACTION_RANGE = Object.freeze({
     shop: 70,
     medBay: 95,
@@ -71,6 +81,7 @@ let lastCoreHp;
 let coreHitStarted = 0;
 let feedbackTimer;
 let roundIntroTimer;
+let connectionAttemptTimer;
 let previousRound = 0;
 let previousPhase = "lobby";
 const noticeEntries = [];
@@ -108,12 +119,6 @@ function loadClientSessionId() {
     } catch {
         return create();
     }
-}
-
-async function loadMap() {
-    const response = await fetch("../shared/map.json", { cache: "no-store" });
-    if (!response.ok) throw new Error(`map.json: HTTP ${response.status}`);
-    applyMap(await response.json());
 }
 
 function applyMap(map) {
@@ -216,8 +221,19 @@ function connect() {
     const host = window.location.hostname || "localhost";
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const serverPort = URL_PARAMETERS.get("serverPort") || "8887";
+    menuStatus.textContent = mapReady
+        ? "ゲームサーバーに再接続しています…"
+        : "ゲームサーバーに接続しています…";
     socket = new WebSocket(`${protocol}://${host}:${serverPort}/?session=${encodeURIComponent(clientSessionId)}`);
+    const connectingSocket = socket;
+    clearTimeout(connectionAttemptTimer);
+    connectionAttemptTimer = setTimeout(() => {
+        if (socket === connectingSocket && connectingSocket.readyState === WebSocket.CONNECTING) {
+            menuStatus.textContent = "ゲームサーバーに接続できません。公開されたWSSサーバーが必要です。";
+        }
+    }, 6000);
     socket.addEventListener("open", () => {
+        clearTimeout(connectionAttemptTimer);
         if (mapReady) {
             menuStatus.textContent = "接続しました。防衛を開始できます。";
             startButton.disabled = false;
@@ -256,6 +272,7 @@ function connect() {
         if (message.type === "feedback" || message.type === "error") showFeedback(message.message);
     });
     socket.addEventListener("close", () => {
+        clearTimeout(connectionAttemptTimer);
         predictedLocal = null;
         localMove = { x: 0, y: 0 };
         dashRequested = false;
@@ -269,6 +286,7 @@ function connect() {
         setTimeout(connect, 2000);
     });
     socket.addEventListener("error", () => {
+        clearTimeout(connectionAttemptTimer);
         menuStatus.textContent = "接続できません。Javaサーバーを起動してください。";
     });
 }
@@ -340,7 +358,9 @@ function equipmentEntries(me) {
         { key: "weapon:bat", kind: "weapon", value: "bat", label: "BAT" },
     ];
     if (me.ownsShotgun) entries.push({ key: "weapon:shotgun", kind: "weapon", value: "shotgun", label: "SHOTGUN" });
+    if (me.ownsSmg) entries.push({ key: "weapon:smg", kind: "weapon", value: "smg", label: "SMG" });
     if (me.ownsRifle) entries.push({ key: "weapon:rifle", kind: "weapon", value: "rifle", label: "RIFLE" });
+    if (me.ownsSniper) entries.push({ key: "weapon:sniper", kind: "weapon", value: "sniper", label: "SNIPER" });
     for (const [type, info] of Object.entries(BUILD_INFO)) {
         if ((me.buildItems?.[type] || 0) > 0) entries.push({ key: `build:${type}`, kind: "build", value: type, label: info.name });
     }
@@ -377,10 +397,24 @@ actionMenu.addEventListener("pointerdown", event => {
 inventoryMenu.addEventListener("pointerdown", event => {
     if (event.target === inventoryMenu) inventoryMenu.classList.add("hidden");
 });
+howToStart.addEventListener("click", openHowTo);
+howToInventory.addEventListener("click", openHowTo);
+howToClose.addEventListener("click", closeHowTo);
+howToMenu.addEventListener("pointerdown", event => {
+    if (event.target === howToMenu) closeHowTo();
+});
+
+function openHowTo() {
+    howToMenu.classList.remove("hidden");
+}
+
+function closeHowTo() {
+    howToMenu.classList.add("hidden");
+}
 
 function updateHud() {
     if (!state) return;
-    roundElement.textContent = `ROUND ${state.round} / ${state.maxRounds}`;
+    roundElement.textContent = `ROUND ${state.round}`;
     phaseElement.textContent = "";
     phaseElement.classList.add("hidden");
     const prepSeconds = Math.max(0, Math.ceil(state.prepTime));
@@ -389,7 +423,7 @@ function updateHud() {
         : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}` : "";
     const me = getMe();
     teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
-        <div class="teammate ${player.down ? "down" : ""} ${player.id === myPlayerId ? "self" : ""}">
+        <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">
             <div class="teammate-label">
                 <span>${player.id === myPlayerId ? "YOU" : player.human ? escapeHtml(player.name) : `CPU${player.id.at(-1)}`}</span>
                 <span class="player-stats">${player.down ? "DOWN" : ""}<b>${player.credits}g</b></span>
@@ -402,7 +436,7 @@ function updateHud() {
         healthHeart.style.setProperty("--health", `${health}%`);
         healthHeart.setAttribute("aria-label", `体力 ${Math.ceil(health)}%`);
         selfCredits.textContent = `${me.credits}g`;
-        const ammo = me.weapon === "shotgun" ? String(me.shotgunAmmo) : me.weapon === "rifle" ? String(me.rifleAmmo) : "∞";
+        const ammo = ammoForWeapon(me, me.weapon);
         const cooldownMax = Math.max(.01, me.cooldownMax || me.cooldown || .01);
         const cooldownProgress = 1 - Math.min(1, me.cooldown / cooldownMax);
         weaponName.textContent = me.weapon.toUpperCase();
@@ -422,8 +456,8 @@ function updateInventory(me) {
         : me.selectedBuild ? `build:${me.selectedBuild}` : `weapon:${me.weapon}`;
     const equipment = entries.map(entry => {
         const amount = entry.kind === "build" ? `×${me.buildItems[entry.value]}`
-            : entry.kind === "core" ? "MOVE" : entry.value === "shotgun" ? `${me.shotgunAmmo} AMMO`
-                : entry.value === "rifle" ? `${me.rifleAmmo} AMMO` : "WEAPON";
+            : entry.kind === "core" ? "CARRYING"
+                : WEAPON_FIELDS[entry.value] ? `${ammoForWeapon(me, entry.value)} AMMO` : "WEAPON";
         return `<button type="button" data-key="${entry.key}" class="${selectedKey === entry.key ? "selected" : ""}">
             <strong>${entry.label}</strong><span>${amount}</span>
         </button>`;
@@ -458,15 +492,15 @@ function showNotice(text) {
     const entry = {
         id: `${Date.now()}-${Math.random()}`,
         text: String(text),
-        round: state?.round > 0 ? `R${state.round}` : "SYS",
+        danger: String(text).includes("ダウンしました"),
     };
     const previousPositions = new Map([...noticeElement.children]
         .map(element => [element.dataset.logId, element.getBoundingClientRect().top]));
     noticeEntries.push(entry);
     const element = document.createElement("div");
-    element.className = "log-entry";
+    element.className = `log-entry${entry.danger ? " danger" : ""}`;
     element.dataset.logId = entry.id;
-    element.innerHTML = `<span>${entry.round}</span><p>${escapeHtml(entry.text)}</p>`;
+    element.innerHTML = `<p>${escapeHtml(entry.text)}</p>`;
     noticeElement.append(element);
     while (noticeEntries.length > 6) {
         const removed = noticeEntries.shift();
@@ -513,6 +547,11 @@ function showFeedback(text) {
 }
 
 function getMe() { return state?.players.find(player => player.id === myPlayerId); }
+
+function ammoForWeapon(player, weapon) {
+    const field = WEAPON_FIELDS[weapon]?.ammo;
+    return field ? String(player[field] ?? 0) : "∞";
+}
 
 function reconcileLocalPrediction(snapshot) {
     const serverMe = snapshot.players.find(player => player.id === myPlayerId);
@@ -649,9 +688,10 @@ function openCoreMenu() {
 
 function openShopPurchase(shop) {
     const me = getMe();
-    const alreadyOwned = shop.item === "shotgun" && me.ownsShotgun
-        || shop.item === "rifle" && me.ownsRifle;
-    const unavailable = shop.item === "ammo" && !me.ownsShotgun && !me.ownsRifle;
+    const weaponFields = WEAPON_FIELDS[shop.item];
+    const alreadyOwned = Boolean(weaponFields && me[weaponFields.owned]);
+    const unavailable = shop.item === "ammo"
+        && !Object.values(WEAPON_FIELDS).some(fields => me[fields.owned]);
     const detail = alreadyOwned ? "購入済み"
         : unavailable ? "弾薬武器を先に購入してください"
             : `${shop.cost}g — ${shop.detail}`;
@@ -877,6 +917,11 @@ function isTypingTarget(target) {
 window.addEventListener("keydown", event => {
     if (isTypingTarget(event.target)) return;
     const key = event.key.toLowerCase();
+    if (!howToMenu.classList.contains("hidden")) {
+        if (["escape", "e"].includes(key)) closeHowTo();
+        event.preventDefault();
+        return;
+    }
     if (key === "e") {
         event.preventDefault();
         if (!event.repeat) toggleInventory();
@@ -963,7 +1008,8 @@ function updateLocalPrediction(dt) {
     if (!predictedLocal || !serverMe || !["preparing", "wave"].includes(state.phase)) return;
     const input = Math.hypot(localMove.x, localMove.y);
     if (predictedLocal.exhausted && predictedLocal.stamina >= 28) predictedLocal.exhausted = false;
-    predictedLocal.dashing = !serverMe.down && dashRequested && !predictedLocal.exhausted && input > .12 && predictedLocal.stamina > 0;
+    predictedLocal.dashing = !serverMe.down && !serverMe.movingCore
+        && dashRequested && !predictedLocal.exhausted && input > .12 && predictedLocal.stamina > 0;
     if (predictedLocal.dashing) {
         predictedLocal.stamina = Math.max(0, predictedLocal.stamina - 38 * dt);
         if (predictedLocal.stamina <= 0) {
@@ -974,7 +1020,7 @@ function updateLocalPrediction(dt) {
         predictedLocal.stamina = Math.min(100, predictedLocal.stamina + 24 * dt);
     }
 
-    const speed = serverMe.down ? 45 : predictedLocal.dashing ? 265 : 155;
+    const speed = serverMe.down ? 45 : serverMe.movingCore ? 82 : predictedLocal.dashing ? 265 : 155;
     const nextX = clamp(predictedLocal.x + localMove.x * speed * dt, 25, WORLD.width - 25);
     const nextY = clamp(predictedLocal.y + localMove.y * speed * dt, 25, WORLD.height - 25);
     if (canPredictOccupy(nextX, predictedLocal.y, 5)) predictedLocal.x = nextX;
@@ -1083,7 +1129,7 @@ function drawWorld() {
         }
     }
     if (DEBUG_MODE) SPAWN_POINTS.forEach(drawDebugSpawn);
-    ctx.strokeStyle = "#5a7079"; ctx.lineWidth = 3; ctx.strokeRect(1, 1, WORLD.width - 2, WORLD.height - 2);
+    ctx.strokeStyle = "#5f5f5f"; ctx.lineWidth = 3; ctx.strokeRect(1, 1, WORLD.width - 2, WORLD.height - 2);
 }
 
 function drawDebugSpawn(spawn) {
@@ -1125,7 +1171,7 @@ function drawAreas() {
         if (!unlocked) {
             ctx.fillStyle = "#d8d8d8";
             ctx.fillRect(area.terminalX - 15, area.terminalY - 15, 30, 30);
-            ctx.strokeStyle = "#ffe09a"; ctx.lineWidth = 2;
+            ctx.strokeStyle = "#79d8ff"; ctx.lineWidth = 2;
             ctx.strokeRect(area.terminalX - 18, area.terminalY - 18, 36, 36);
             ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace";
             ctx.fillText("UNLOCK", area.terminalX, area.terminalY - 24);
@@ -1136,38 +1182,62 @@ function drawAreas() {
 
 function drawCore() {
     const core = state.core;
+    const carrier = state.players.find(player => player.movingCore);
+    let x = core.x;
+    let y = core.y;
+    let size = 38;
+    let carrierY = y;
+    if (carrier) {
+        const carrierPosition = carrier.id === myPlayerId && predictedLocal
+            ? predictedLocal : smoothEntity("player", carrier);
+        x = carrierPosition.x;
+        y = carrierPosition.y - 22;
+        carrierY = carrierPosition.y;
+        size = 26;
+    }
     const ratio = clamp(core.hp / Math.max(1, core.maxHp), 0, 1);
     ctx.save();
-    ctx.fillStyle = "#666b69";
-    ctx.fillRect(core.x - 19, core.y - 19, 38, 38);
-    ctx.fillStyle = "#35b765";
-    ctx.fillRect(core.x - 19, core.y + 19 - 38 * ratio, 38, 38 * ratio);
+    if (carrier) {
+        ctx.strokeStyle = "rgb(255 255 255 / 62%)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x - 9, y + size / 2);
+        ctx.lineTo(x - 5, carrierY - 4);
+        ctx.moveTo(x + 9, y + size / 2);
+        ctx.lineTo(x + 5, carrierY - 4);
+        ctx.stroke();
+    }
+    ctx.fillStyle = "#666";
+    ctx.fillRect(x - size / 2, y - size / 2, size, size);
+    ctx.fillStyle = "#79d8ff";
+    ctx.fillRect(x - size / 2, y + size / 2 - size * ratio, size, size * ratio);
     ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 3;
-    ctx.strokeRect(core.x - 19, core.y - 19, 38, 38);
+    ctx.strokeRect(x - size / 2, y - size / 2, size, size);
     if (core.shield > 0) {
         ctx.strokeStyle = "#70bfff";
         ctx.globalAlpha = .8;
         ctx.lineWidth = 2;
-        ctx.strokeRect(core.x - 24, core.y - 24, 48, 48);
+        ctx.strokeRect(x - size / 2 - 5, y - size / 2 - 5, size + 10, size + 10);
     }
     const hitAge = performance.now() - coreHitStarted;
     if (hitAge < 350) {
         ctx.strokeStyle = "#ff4e58"; ctx.globalAlpha = 1 - hitAge / 350; ctx.lineWidth = 9;
-        const size = 48 + hitAge / 8;
-        ctx.strokeRect(core.x - size / 2, core.y - size / 2, size, size);
+        const hitSize = 48 + hitAge / 8;
+        ctx.strokeRect(x - hitSize / 2, y - hitSize / 2, hitSize, hitSize);
     }
     ctx.restore();
-    ctx.fillStyle = "white"; ctx.font = "900 8px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText("CORE", core.x, core.y + 3);
+    ctx.fillStyle = "white"; ctx.font = "900 8px ui-monospace, monospace"; ctx.textAlign = "center";
+    ctx.fillText(carrier ? "CARRYING CORE" : "CORE", x, carrier ? y - size / 2 - 7 : y + 3);
 }
 
 function drawShops() {
     SHOP_UNITS.filter(isUnlockedPoint)
-        .forEach(shop => drawStation(shop, shop.label, "#e8b84d"));
-    if (isUnlockedPoint(MED)) drawStation(MED, "MED BAY", "#ed6680");
-    if (isUnlockedPoint(WOODCUTTER)) drawStation(WOODCUTTER, "WOODCUTTER", "#b58a55");
-    if (isUnlockedPoint(QUARRY)) drawStation(QUARRY, "QUARRY", "#7f8a92");
-    if (isUnlockedPoint(WORKBENCH)) drawStation(WORKBENCH, "WORKBENCH", "#6ab9d5");
+        .forEach(shop => drawStation(shop, shop.label, "#d8d8d8"));
+    if (isUnlockedPoint(MED)) drawStation(MED, "MED BAY", "#ff5964");
+    if (isUnlockedPoint(WOODCUTTER)) drawStation(WOODCUTTER, "WOODCUTTER", "#a8a8a8");
+    if (isUnlockedPoint(QUARRY)) drawStation(QUARRY, "QUARRY", "#808080");
+    if (isUnlockedPoint(WORKBENCH)) drawStation(WORKBENCH, "WORKBENCH", "#79d8ff");
 }
 
 function isUnlockedPoint(point) {
@@ -1179,7 +1249,7 @@ function isUnlockedPoint(point) {
 
 function drawStation(station, label, color) {
     ctx.fillStyle = color; ctx.fillRect(station.x - 20, station.y - 20, 40, 40);
-    ctx.fillStyle = "#111a1f"; ctx.fillRect(station.x - 11, station.y - 11, 22, 22);
+    ctx.fillStyle = "#111"; ctx.fillRect(station.x - 11, station.y - 11, 22, 22);
     ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText(label, station.x, station.y + 31);
 }
 
@@ -1189,7 +1259,7 @@ function drawResources() {
         const bob = Math.sin(performance.now() / 260 + node.x * .01) * 3;
         ctx.save();
         ctx.translate(node.x, node.y + bob);
-        ctx.fillStyle = node.type === "wood" ? "#8b6038" : "#8e9aa2";
+        ctx.fillStyle = node.type === "wood" ? "#b0b0b0" : "#777";
         ctx.strokeStyle = "white";
         ctx.lineWidth = 1.5;
         if (node.type === "wood") {
@@ -1213,25 +1283,25 @@ function drawTrapSlots() {
 function drawDefense(slot) {
     const defense = slot.defense;
     if (defense.type === "block") {
-        ctx.fillStyle = "#64777f"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
-        ctx.fillStyle = "#81949b"; ctx.fillRect(slot.x - 14, slot.y - 14, 28, 7);
-        ctx.fillStyle = "#4d6068"; ctx.fillRect(slot.x - 14, slot.y - 3, 10, 13);
-        ctx.strokeStyle = "#a9bac0"; ctx.lineWidth = 2; ctx.strokeRect(slot.x - 18, slot.y - 18, 36, 36);
+        ctx.fillStyle = "#666"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
+        ctx.fillStyle = "#929292"; ctx.fillRect(slot.x - 14, slot.y - 14, 28, 7);
+        ctx.fillStyle = "#444"; ctx.fillRect(slot.x - 14, slot.y - 3, 10, 13);
+        ctx.strokeStyle = "#bbb"; ctx.lineWidth = 2; ctx.strokeRect(slot.x - 18, slot.y - 18, 36, 36);
     } else if (defense.type === "turret") {
-        ctx.fillStyle = "#6ab9d5"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
-        ctx.strokeStyle = "#bcecff"; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(slot.x, slot.y); ctx.lineTo(slot.x, slot.y - 29); ctx.stroke();
+        ctx.fillStyle = "#79d8ff"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(slot.x, slot.y); ctx.lineTo(slot.x, slot.y - 29); ctx.stroke();
     } else if (defense.type === "wire") {
-        ctx.strokeStyle = "#b5c2c7"; ctx.lineWidth = 3; ctx.beginPath();
+        ctx.strokeStyle = "#b8b8b8"; ctx.lineWidth = 3; ctx.beginPath();
         for (let i = -24; i <= 24; i += 8) { ctx.moveTo(slot.x + i, slot.y - 20); ctx.lineTo(slot.x + i + 10, slot.y + 20); }
         ctx.stroke();
     } else if (defense.type === "mine") {
-        ctx.fillStyle = "#d45746"; ctx.beginPath(); ctx.arc(slot.x, slot.y, 17, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#ffd060"; ctx.beginPath(); ctx.arc(slot.x, slot.y, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#ff5964"; ctx.beginPath(); ctx.arc(slot.x, slot.y, 17, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(slot.x, slot.y, 5, 0, Math.PI * 2); ctx.fill();
     } else {
-        ctx.fillStyle = "#a87443"; ctx.fillRect(slot.x - 30, slot.y - 12, 60, 24);
-        ctx.strokeStyle = "#e2af74"; ctx.lineWidth = 3; ctx.strokeRect(slot.x - 30, slot.y - 12, 60, 24);
+        ctx.fillStyle = "#666"; ctx.fillRect(slot.x - 30, slot.y - 12, 60, 24);
+        ctx.strokeStyle = "#bbb"; ctx.lineWidth = 3; ctx.strokeRect(slot.x - 30, slot.y - 12, 60, 24);
     }
-    if (defense.type !== "mine") drawBar(slot.x - 25, slot.y + 29, 50, 4, defense.hp / defense.maxHp, "#67d88c");
+    if (defense.type !== "mine") drawBar(slot.x - 25, slot.y + 29, 50, 4, defense.hp / defense.maxHp, "#fff");
 }
 
 function smoothEntity(prefix, entity) {
@@ -1246,7 +1316,7 @@ function enemyRadius(enemy) {
 }
 
 function drawEnemies() {
-    const colors = { grunt: "#b9474e", runner: "#e9823d", brute: "#8d579e", boss: "#d62f57" };
+    const colors = { grunt: "#707070", runner: "#999", brute: "#505050", boss: "#2f2f2f" };
     for (const enemy of state.enemies) {
         if (enemy.hp <= 0) continue;
         const p = smoothEntity("enemy", enemy), radius = enemyRadius(enemy);
@@ -1263,15 +1333,13 @@ function drawEnemies() {
             ctx.restore();
         }
         ctx.fillStyle = colors[enemy.type] || colors.grunt; ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = enemy.type === "boss" ? "#ffd36e" : "#f2b4ae"; ctx.lineWidth = enemy.type === "boss" ? 5 : 2; ctx.stroke();
-        ctx.fillStyle = "#ffe2d9"; ctx.beginPath(); ctx.arc(p.x - radius * .3, p.y - 3, 3, 0, Math.PI * 2); ctx.arc(p.x + radius * .3, p.y - 3, 3, 0, Math.PI * 2); ctx.fill();
-        drawBar(p.x - radius, p.y - radius - 11, radius * 2, 5, enemy.hp / enemy.maxHp, "#e45c58");
+        ctx.strokeStyle = enemy.type === "boss" ? "#fff" : "#c8c8c8"; ctx.lineWidth = enemy.type === "boss" ? 5 : 2; ctx.stroke();
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(p.x - radius * .3, p.y - 3, 3, 0, Math.PI * 2); ctx.arc(p.x + radius * .3, p.y - 3, 3, 0, Math.PI * 2); ctx.fill();
         if (enemy.type !== "grunt") { ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText(enemy.type.toUpperCase(), p.x, p.y + radius + 15); }
     }
 }
 
 function drawPlayers() {
-    const colors = ["#56b4e9", "#d486e8", "#70d58b", "#e6ae55"];
     for (const player of state.players) {
         const isLocal = player.id === myPlayerId && predictedLocal;
         const p = isLocal ? predictedLocal : smoothEntity("player", player);
@@ -1280,7 +1348,7 @@ function drawPlayers() {
         ctx.save();
         if (player.down) { ctx.translate(p.x, p.y + 8); ctx.scale(1.35, .65); }
         else ctx.translate(p.x, p.y);
-        ctx.fillStyle = colors[Number(player.id.at(-1)) - 1] || "#ddd";
+        ctx.fillStyle = player.down ? "#ff5964" : player.id === myPlayerId ? "#79d8ff" : "#d8d8d8";
         const playerSize = 10;
         ctx.fillRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize);
         if (player.id === myPlayerId) { ctx.strokeStyle = "white"; ctx.lineWidth = 1.5; ctx.strokeRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize); }
@@ -1288,7 +1356,7 @@ function drawPlayers() {
         if (player.id === myPlayerId) drawLocalWeaponCooldown(p.x, p.y, player);
         ctx.textAlign = "center"; ctx.fillStyle = "white"; ctx.font = "800 11px system-ui";
         ctx.fillText(player.down ? `${player.name} — DOWN` : player.name, p.x, p.y - 14);
-        if (player.action) drawBar(p.x - 30, p.y + 37, 60, 5, player.actionProgress / 4, "#f0c052");
+        if (player.action) drawBar(p.x - 30, p.y + 37, 60, 5, player.actionProgress / 4, "#79d8ff");
     }
     ctx.textAlign = "left";
 }
@@ -1330,22 +1398,22 @@ function drawLocalWeaponCooldown(x, y, player) {
 
 function drawReviveEffect(x, y, progress) {
     const pulse = (Math.sin(performance.now() / 110) + 1) / 2;
-    ctx.save(); ctx.strokeStyle = "#69ed9b"; ctx.lineWidth = 4; ctx.shadowColor = "#69ed9b"; ctx.shadowBlur = 14;
+    ctx.save(); ctx.strokeStyle = "#79d8ff"; ctx.lineWidth = 4; ctx.shadowColor = "#79d8ff"; ctx.shadowBlur = 14;
     ctx.beginPath(); ctx.arc(x, y, 34 + pulse * 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress); ctx.stroke(); ctx.restore();
-    ctx.fillStyle = "#83f1aa"; ctx.font = "900 10px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText(`REVIVING ${Math.round(progress * 100)}%`, x, y - 48);
+    ctx.fillStyle = "#79d8ff"; ctx.font = "900 10px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText(`REVIVING ${Math.round(progress * 100)}%`, x, y - 48);
 }
 
 function drawHitEffects() {
     const now = performance.now();
     hitEffects = hitEffects.filter(effect => now - effect.started
-        < (effect.effect === "core-pulse" ? 900 : effect.effect === "pickup" ? 900 : 360));
+        < (effect.effect === "core-pulse" || effect.effect === "pickup" || effect.credits > 0 ? 900 : 360));
     for (const effect of hitEffects) {
         if (effect.effect === "core-pulse") {
             const progress = (now - effect.started) / 900;
             ctx.save();
             ctx.globalAlpha = 1 - progress;
-            ctx.strokeStyle = "#c877ff";
-            ctx.shadowColor = "#c877ff";
+            ctx.strokeStyle = "#79d8ff";
+            ctx.shadowColor = "#79d8ff";
             ctx.shadowBlur = 22;
             ctx.lineWidth = 12 * (1 - progress) + 2;
             ctx.beginPath();
@@ -1366,43 +1434,50 @@ function drawHitEffects() {
             ctx.restore();
             continue;
         }
-        const duration = 360;
-        const progress = (now - effect.started) / duration;
-        const alpha = 1 - progress;
-        ctx.save(); ctx.globalAlpha = alpha; ctx.strokeStyle = "#ef334a";
-        if (!["bat", "mine"].includes(effect.weapon) && progress < .55) {
-            ctx.lineWidth = 1.35;
-            ctx.beginPath(); ctx.moveTo(effect.fromX, effect.fromY); ctx.lineTo(effect.x, effect.y); ctx.stroke();
+        const age = now - effect.started;
+        if (age < 360) {
+            const progress = age / 360;
+            ctx.save(); ctx.globalAlpha = 1 - progress; ctx.strokeStyle = "#ff5964";
+            if (!["bat", "mine"].includes(effect.weapon) && progress < .55) {
+                ctx.lineWidth = 1.35;
+                ctx.beginPath(); ctx.moveTo(effect.fromX, effect.fromY); ctx.lineTo(effect.x, effect.y); ctx.stroke();
+            }
+            ctx.restore();
         }
-        ctx.restore();
+        if (effect.credits > 0 && age < 900) {
+            const progress = age / 900;
+            ctx.save();
+            ctx.globalAlpha = 1 - progress;
+            ctx.fillStyle = "#79d8ff";
+            ctx.shadowColor = "#79d8ff";
+            ctx.shadowBlur = 8;
+            ctx.font = "950 13px ui-monospace, monospace";
+            ctx.textAlign = "center";
+            ctx.fillText(`+${effect.credits}g`, effect.x, effect.y - 24 - progress * 24);
+            ctx.restore();
+        }
     }
     ctx.textAlign = "left";
 }
 
 function drawBar(x, y, width, height, progress, color) {
-    ctx.fillStyle = "#182024"; ctx.fillRect(x, y, width, height);
+    ctx.fillStyle = "#181818"; ctx.fillRect(x, y, width, height);
     ctx.fillStyle = color; ctx.fillRect(x, y, width * clamp(progress, 0, 1), height);
 }
 
 function drawJoystick() {
     if (!joystick) return;
     const dprX = canvas.width / innerWidth, dprY = canvas.height / innerHeight;
-    ctx.globalAlpha = .6; ctx.strokeStyle = "#d8e2e5"; ctx.lineWidth = 3 * dprX;
+    ctx.globalAlpha = .6; ctx.strokeStyle = "#ddd"; ctx.lineWidth = 3 * dprX;
     ctx.beginPath(); ctx.arc(joystick.originX * dprX, joystick.originY * dprY, 58 * dprX, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = "#d8e2e5"; ctx.beginPath(); ctx.arc(joystick.x * dprX, joystick.y * dprY, 23 * dprX, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.fillStyle = "#ddd"; ctx.beginPath(); ctx.arc(joystick.x * dprX, joystick.y * dprY, 23 * dprX, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
 }
 
 function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" })[char]); }
 
 async function initialize() {
-    menuStatus.textContent = "マップデータを読み込んでいます…";
-    try {
-        await loadMap();
-    } catch (error) {
-        console.warn("HTTPからマップを読み込めないため、ゲームサーバーから取得します。", error);
-        menuStatus.textContent = "ゲームサーバーからマップデータを取得します…";
-    }
+    menuStatus.textContent = "ゲームサーバーに接続しています…";
     connect();
     await mapReadyPromise;
     animate();

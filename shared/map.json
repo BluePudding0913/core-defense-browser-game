@@ -18,16 +18,16 @@
     "rows": [
       "####################################################",
       "####################################################",
-      "##........#######.........##########################",
-      "##........#######.........##########################",
+      "##........................##########################",
       "##........#######.........##########################",
       "##........#######.........##########################",
       "##........................##########################",
       "##........................##########################",
-      "##........#######........................###########",
-      "##........#######........................###########",
+      "##.................................#################",
+      "##.......................................###########",
+      "##.......................................###########",
+      "##........################...................#######",
       "##........#########################..........#######",
-      "##........#########################..........#######",
       "###################################..........#######",
       "###################################..........#######",
       "###################################..........#######",
@@ -37,8 +37,8 @@
       "########################################..##########",
       "########################################..##########",
       "########################################..##########",
-      "#####################################........#######",
-      "#####################################........#######",
+      "#############################................#######",
+      "#############################................#######",
       "#####################################........#######",
       "#####################################........#######",
       "#####################################........#######",
@@ -71,32 +71,41 @@
     ]
   },
   "areas": [
-    {"id":"entry-room","name":"ENTRY ROOM","x":920,"y":1280,"width":240,"height":400,"terminalX":1020,"terminalY":1700,"color":"#ffffff","detail":"最初の6×10区画。MED BAYとWORKBENCHを利用可能"},
-    {"id":"armory-wing","name":"ARMORY WING","x":1480,"y":840,"width":320,"height":320,"terminalX":1460,"terminalY":1140,"color":"#ffffff","detail":"武器ショップと次の通路を解放"},
+    {"id":"entry-room","name":"ENTRY ROOM","x":920,"y":1280,"width":240,"height":400,"terminalX":1020,"terminalY":1700,"color":"#ffffff","detail":"最初の6×10区画。MED BAY、WORKBENCH、SHOTGUNを利用可能"},
+    {"id":"transit-hall","name":"TRANSIT HALL","x":1160,"y":1040,"width":320,"height":160,"terminalX":1140,"terminalY":1180,"color":"#ffffff","detail":"一本道上の中継防衛区画"},
+    {"id":"armory-wing","name":"ARMORY WING","x":1480,"y":840,"width":320,"height":320,"terminalX":1460,"terminalY":1140,"color":"#ffffff","detail":"SMGと次の通路を解放"},
     {"id":"forest","name":"FOREST LAB","x":1400,"y":400,"width":400,"height":320,"terminalX":1620,"terminalY":740,"color":"#ffffff","detail":"近づくだけで木材を回収できる森林区画"},
+    {"id":"relay-gallery","name":"RELAY GALLERY","x":1040,"y":280,"width":360,"height":160,"terminalX":1380,"terminalY":340,"color":"#ffffff","detail":"一本道を守る横長の中継区画"},
     {"id":"mine","name":"MINE LAB","x":680,"y":80,"width":360,"height":320,"terminalX":1060,"terminalY":340,"color":"#ffffff","detail":"近づくだけで鉱石を回収できる採掘区画"},
-    {"id":"command-room","name":"COMMAND ROOM","x":80,"y":80,"width":320,"height":400,"terminalX":420,"terminalY":260,"color":"#ffffff","detail":"最奥の防衛拠点。将来のショップ増設区画"}
+    {"id":"security-hall","name":"SECURITY HALL","x":400,"y":160,"width":280,"height":240,"terminalX":660,"terminalY":260,"color":"#ffffff","detail":"最奥手前の防衛区画"},
+    {"id":"command-room","name":"COMMAND ROOM","x":80,"y":80,"width":320,"height":400,"terminalX":420,"terminalY":260,"color":"#ffffff","detail":"最奥の防衛拠点。SNIPERを利用可能"}
   ],
   "spawnPoints": [
-    {"id":"south-gate","name":"SOUTH GATE","x":1020,"y":2020,"lane":"south","enemyBias":"balanced","speedMultiplier":1.0,"targetPriority":"core","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":420,"y":260},{"x":220,"y":260}]},
-    {"id":"west-field","name":"WEST FIELD","x":820,"y":1860,"lane":"west","enemyBias":"brute","speedMultiplier":0.94,"targetPriority":"defenses","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":420,"y":260},{"x":220,"y":260}]},
-    {"id":"east-field","name":"EAST FIELD","x":1260,"y":1860,"lane":"east","enemyBias":"runner","speedMultiplier":1.08,"targetPriority":"players","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":420,"y":260},{"x":220,"y":260}]},
-    {"id":"south-west","name":"SOUTHWEST","x":900,"y":1980,"lane":"south","enemyBias":"balanced","speedMultiplier":1.02,"targetPriority":"core","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":420,"y":260},{"x":220,"y":260}]},
-    {"id":"south-east","name":"SOUTHEAST","x":1220,"y":1980,"lane":"south","enemyBias":"runner","speedMultiplier":1.06,"targetPriority":"players","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":420,"y":260},{"x":220,"y":260}]},
-    {"id":"north-west","name":"NORTHWEST","x":860,"y":1780,"lane":"west","enemyBias":"brute","speedMultiplier":0.92,"targetPriority":"defenses","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":420,"y":260},{"x":220,"y":260}]},
-    {"id":"north-east","name":"NORTHEAST","x":1260,"y":1780,"lane":"east","enemyBias":"balanced","speedMultiplier":1.0,"targetPriority":"core","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":420,"y":260},{"x":220,"y":260}]}
+    {"id":"south-gate","name":"SOUTH GATE","x":1020,"y":2020,"lane":"south","enemyBias":"balanced","speedMultiplier":1.0,"targetPriority":"core","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1300,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1380,"y":340},{"x":1200,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":660,"y":260},{"x":420,"y":260},{"x":220,"y":260}]},
+    {"id":"west-field","name":"WEST FIELD","x":820,"y":1860,"lane":"west","enemyBias":"brute","speedMultiplier":0.94,"targetPriority":"defenses","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1300,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1380,"y":340},{"x":1200,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":660,"y":260},{"x":420,"y":260},{"x":220,"y":260}]},
+    {"id":"east-field","name":"EAST FIELD","x":1260,"y":1860,"lane":"east","enemyBias":"runner","speedMultiplier":1.08,"targetPriority":"players","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1300,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1380,"y":340},{"x":1200,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":660,"y":260},{"x":420,"y":260},{"x":220,"y":260}]},
+    {"id":"south-west","name":"SOUTHWEST","x":900,"y":1980,"lane":"south","enemyBias":"balanced","speedMultiplier":1.02,"targetPriority":"core","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1300,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1380,"y":340},{"x":1200,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":660,"y":260},{"x":420,"y":260},{"x":220,"y":260}]},
+    {"id":"south-east","name":"SOUTHEAST","x":1220,"y":1980,"lane":"south","enemyBias":"runner","speedMultiplier":1.06,"targetPriority":"players","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1300,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1380,"y":340},{"x":1200,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":660,"y":260},{"x":420,"y":260},{"x":220,"y":260}]},
+    {"id":"north-west","name":"NORTHWEST","x":860,"y":1780,"lane":"west","enemyBias":"brute","speedMultiplier":0.92,"targetPriority":"defenses","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1300,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1380,"y":340},{"x":1200,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":660,"y":260},{"x":420,"y":260},{"x":220,"y":260}]},
+    {"id":"north-east","name":"NORTHEAST","x":1260,"y":1780,"lane":"east","enemyBias":"balanced","speedMultiplier":1.0,"targetPriority":"core","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1300,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1380,"y":340},{"x":1200,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":660,"y":260},{"x":420,"y":260},{"x":220,"y":260}]}
   ],
   "trapSlots": [
     {"id":"outside-west","lane":"west","x":940,"y":1820,"requiredArea":null},
     {"id":"outside-east","lane":"east","x":1100,"y":1820,"requiredArea":null},
     {"id":"entry-west","lane":"north","x":940,"y":1580,"requiredArea":"entry-room"},
     {"id":"entry-east","lane":"north","x":1100,"y":1580,"requiredArea":"entry-room"},
+    {"id":"transit-west","lane":"west","x":1260,"y":1100,"requiredArea":"transit-hall"},
+    {"id":"transit-east","lane":"east","x":1380,"y":1100,"requiredArea":"transit-hall"},
     {"id":"armory-west","lane":"north","x":1540,"y":1100,"requiredArea":"armory-wing"},
     {"id":"armory-east","lane":"north","x":1740,"y":1100,"requiredArea":"armory-wing"},
     {"id":"forest-west","lane":"west","x":1460,"y":660,"requiredArea":"forest"},
-    {"id":"forest-east","lane":"east","x":1740,"y":660,"requiredArea":"forest"},
+    {"id":"forest-east","lane":"east","x":1580,"y":660,"requiredArea":"forest"},
+    {"id":"relay-west","lane":"west","x":1120,"y":420,"requiredArea":"relay-gallery"},
+    {"id":"relay-east","lane":"east","x":1260,"y":380,"requiredArea":"relay-gallery"},
     {"id":"mine-west","lane":"west","x":740,"y":340,"requiredArea":"mine"},
     {"id":"mine-east","lane":"east","x":980,"y":340,"requiredArea":"mine"},
+    {"id":"security-west","lane":"west","x":500,"y":180,"requiredArea":"security-hall"},
+    {"id":"security-east","lane":"east","x":540,"y":340,"requiredArea":"security-hall"},
     {"id":"command-west","lane":"west","x":140,"y":420,"requiredArea":"command-room"},
     {"id":"command-east","lane":"east","x":340,"y":420,"requiredArea":"command-room"}
   ],
@@ -104,15 +113,17 @@
     {"id":"wood-1","type":"wood","x":1460,"y":500,"requiredArea":"forest"},
     {"id":"wood-2","type":"wood","x":1740,"y":500,"requiredArea":"forest"},
     {"id":"wood-3","type":"wood","x":1460,"y":620,"requiredArea":"forest"},
-    {"id":"wood-4","type":"wood","x":1740,"y":620,"requiredArea":"forest"},
+    {"id":"wood-4","type":"wood","x":1660,"y":620,"requiredArea":"forest"},
     {"id":"ore-1","type":"ore","x":740,"y":140,"requiredArea":"mine"},
     {"id":"ore-2","type":"ore","x":980,"y":140,"requiredArea":"mine"},
     {"id":"ore-3","type":"ore","x":740,"y":300,"requiredArea":"mine"},
-    {"id":"ore-4","type":"ore","x":980,"y":300,"requiredArea":"mine"}
+    {"id":"ore-4","type":"ore","x":900,"y":300,"requiredArea":"mine"}
   ],
   "shopUnits": [
-    {"id":"shop-shotgun","item":"shotgun","label":"SHOTGUN","x":1540,"y":940,"cost":450,"detail":"範囲攻撃 / 30発"},
-    {"id":"shop-rifle","item":"rifle","label":"RIFLE","x":1660,"y":940,"cost":650,"detail":"長射程 / 24発"},
-    {"id":"shop-ammo","item":"ammo","label":"AMMO","x":1780,"y":940,"cost":100,"detail":"SG +16 / RF +12"}
+    {"id":"shop-shotgun","item":"shotgun","label":"SHOTGUN","x":940,"y":1340,"cost":450,"detail":"範囲攻撃 / 30発"},
+    {"id":"shop-smg","item":"smg","label":"SMG","x":1540,"y":940,"cost":550,"detail":"高速連射 / 90発"},
+    {"id":"shop-ammo","item":"ammo","label":"AMMO","x":1740,"y":660,"cost":120,"detail":"SG +16 / SMG +45 / RF +12 / SR +8"},
+    {"id":"shop-rifle","item":"rifle","label":"RIFLE","x":980,"y":220,"cost":650,"detail":"長射程 / 24発"},
+    {"id":"shop-sniper","item":"sniper","label":"SNIPER","x":140,"y":140,"cost":900,"detail":"超長射程・高威力 / 16発"}
   ]
 }

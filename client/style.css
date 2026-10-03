@@ -1,4 +1,6 @@
 :root {
+    --accent-blue: #79d8ff;
+    --accent-red: #ff5964;
     color-scheme: dark;
     font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
     background: #080808;
@@ -69,14 +71,15 @@ button, input { font: inherit; }
 }
 
 .teammate.self { border-color: rgb(255 255 255 / 70%); background: rgb(20 20 20 / 88%); }
-.teammate.down { border-color: rgb(255 95 105 / 65%); color: #ffb7bc; }
+.teammate.down { border-color: rgb(255 89 100 / 70%); color: var(--accent-red); }
 .teammate-label { display: flex; align-items: center; justify-content: space-between; gap: .45rem; font-size: clamp(.68rem, 1.4vw, .8rem); font-weight: 850; }
 .teammate-label > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .player-stats { display: flex; align-items: baseline; gap: .42rem; white-space: nowrap; font: 900 clamp(.68rem, 1.5vw, .86rem) ui-monospace, monospace; }
 .player-stats b { color: white; font-size: .9em; }
 .hp-line { height: 4px; margin-top: .35rem; background: rgb(255 255 255 / 16%); overflow: hidden; }
-.hp-line span { display: block; height: 100%; background: #65d68d; }
-.teammate.down .hp-line span { background: #ff656f; }
+.hp-line span { display: block; height: 100%; background: var(--accent-blue); box-shadow: 0 0 8px rgb(121 216 255 / 58%); }
+.teammate.low .hp-line span,
+.teammate.down .hp-line span { background: var(--accent-red); box-shadow: 0 0 8px rgb(255 89 100 / 58%); }
 .materials { margin-top: .28rem; color: rgb(255 255 255 / 62%); font: 800 .58rem ui-monospace, monospace; letter-spacing: .08em; }
 
 .self-vitals {
@@ -109,7 +112,7 @@ button, input { font: inherit; }
 
 .heart-base { color: #6c7075; }
 .heart-fill {
-    color: #e64c57;
+    color: var(--accent-red);
     clip-path: inset(calc(100% - var(--health)) 0 0 0);
 }
 
@@ -117,7 +120,7 @@ button, input { font: inherit; }
     display: flex;
     align-items: center;
     gap: .28rem;
-    color: #ffe18a;
+    color: #fff;
     font: 950 clamp(.9rem, 2.2vw, 1.2rem) ui-monospace, monospace;
 }
 
@@ -134,15 +137,13 @@ button, input { font: inherit; }
 
 .notice:empty { display: none; }
 .log-entry {
-    display: grid;
-    grid-template-columns: 2rem 1fr;
-    gap: .45rem;
+    display: block;
     color: #fff;
     text-shadow: 0 2px 5px #000, 0 0 9px #000;
     will-change: transform, opacity;
 }
-.log-entry > span { padding-top: .08rem; color: rgb(255 255 255 / 62%); font: 900 .76rem ui-monospace, monospace; letter-spacing: .05em; }
 .log-entry > p { margin: 0; font-size: clamp(.86rem, 1.9vw, 1.08rem); font-weight: 800; line-height: 1.32; }
+.log-entry.danger > p { color: var(--accent-red); }
 .feedback {
     position: absolute;
     top: 42%;
@@ -210,15 +211,19 @@ button, input { font: inherit; }
 #weapon-ammo { color: white; font: 900 1.12rem ui-monospace, monospace; }
 .weapon-cooldown { color: rgb(255 255 255 / 62%); font: 800 .62rem ui-monospace, monospace; }
 .weapon-icon { position: relative; width: 5.2rem; height: 2.6rem; transform: scale(1.24); transform-origin: center; image-rendering: pixelated; }
-.weapon-icon::before, .weapon-icon::after { content: ""; position: absolute; display: block; background: #e6edf0; }
-.weapon-icon.pistol::before { left: .45rem; top: .55rem; width: 3.2rem; height: .72rem; box-shadow: .45rem -.22rem 0 #a9b8bf; }
-.weapon-icon.pistol::after { left: 2.45rem; top: 1.2rem; width: .78rem; height: 1.05rem; transform: skew(-10deg); background: #879aa3; }
-.weapon-icon.bat::before { left: .55rem; top: 1rem; width: 3.8rem; height: .55rem; transform: rotate(-18deg); background: #d8ba83; }
-.weapon-icon.bat::after { left: .35rem; top: 1.42rem; width: 1rem; height: .38rem; transform: rotate(-18deg); background: #7e5c3a; }
-.weapon-icon.shotgun::before { left: .15rem; top: .72rem; width: 4.45rem; height: .62rem; box-shadow: .55rem .58rem 0 -.08rem #8b6844; }
-.weapon-icon.shotgun::after { left: 3.6rem; top: 1.25rem; width: .9rem; height: .7rem; transform: skew(-18deg); background: #8b6844; }
-.weapon-icon.rifle::before { left: .1rem; top: .7rem; width: 4.5rem; height: .52rem; box-shadow: 1.25rem -.34rem 0 -.08rem #8fa4ad, 2.2rem .55rem 0 -.08rem #748890; }
-.weapon-icon.rifle::after { left: 3.5rem; top: 1.15rem; width: .72rem; height: .85rem; transform: skew(-14deg); background: #748890; }
+.weapon-icon::before, .weapon-icon::after { content: ""; position: absolute; display: block; background: #e6e6e6; }
+.weapon-icon.pistol::before { left: .45rem; top: .55rem; width: 3.2rem; height: .72rem; box-shadow: .45rem -.22rem 0 #aaa; }
+.weapon-icon.pistol::after { left: 2.45rem; top: 1.2rem; width: .78rem; height: 1.05rem; transform: skew(-10deg); background: #8b8b8b; }
+.weapon-icon.bat::before { left: .55rem; top: 1rem; width: 3.8rem; height: .55rem; transform: rotate(-18deg); background: #d0d0d0; }
+.weapon-icon.bat::after { left: .35rem; top: 1.42rem; width: 1rem; height: .38rem; transform: rotate(-18deg); background: #707070; }
+.weapon-icon.shotgun::before { left: .15rem; top: .72rem; width: 4.45rem; height: .62rem; box-shadow: .55rem .58rem 0 -.08rem #777; }
+.weapon-icon.shotgun::after { left: 3.6rem; top: 1.25rem; width: .9rem; height: .7rem; transform: skew(-18deg); background: #777; }
+.weapon-icon.smg::before { left: .2rem; top: .72rem; width: 3.85rem; height: .7rem; box-shadow: 1rem -.3rem 0 -.1rem #aaa; }
+.weapon-icon.smg::after { left: 2.45rem; top: 1.32rem; width: .72rem; height: 1.08rem; transform: skew(-8deg); background: #777; }
+.weapon-icon.rifle::before { left: .1rem; top: .7rem; width: 4.5rem; height: .52rem; box-shadow: 1.25rem -.34rem 0 -.08rem #aaa, 2.2rem .55rem 0 -.08rem #777; }
+.weapon-icon.rifle::after { left: 3.5rem; top: 1.15rem; width: .72rem; height: .85rem; transform: skew(-14deg); background: #777; }
+.weapon-icon.sniper::before { left: 0; top: .72rem; width: 4.85rem; height: .42rem; box-shadow: 1.25rem -.42rem 0 -.08rem #aaa, 3rem .48rem 0 -.08rem #777; }
+.weapon-icon.sniper::after { left: 3.75rem; top: 1.05rem; width: .62rem; height: .92rem; transform: skew(-14deg); background: #777; }
 
 .inventory-menu {
     position: fixed;
@@ -249,7 +254,16 @@ button, input { font: inherit; }
     font: 950 1.08rem ui-monospace, monospace;
     letter-spacing: .08em;
 }
-.inventory-heading span { color: rgb(255 255 255 / 52%); font-size: .65rem; }
+.how-to-link {
+    padding: .38rem .55rem;
+    border: 1px solid rgb(255 255 255 / 32%);
+    border-radius: .3rem;
+    background: transparent;
+    color: #fff;
+    font: 850 .68rem ui-monospace, monospace;
+    letter-spacing: .04em;
+}
+.how-to-link:hover, .how-to-link:active { border-color: var(--accent-blue); color: var(--accent-blue); }
 .inventory-items { display: grid; gap: 1rem; padding: 1rem; }
 .inventory-section h3 { margin: 0 0 .5rem; color: rgb(255 255 255 / 58%); font: 850 .66rem ui-monospace, monospace; letter-spacing: .12em; }
 .inventory-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .5rem; }
@@ -370,7 +384,60 @@ button, input { font: inherit; }
 .menu input, .menu button { min-width: 15rem; padding: .72rem .9rem; border: 1px solid rgb(255 255 255 / 30%); border-radius: .3rem; background: rgb(255 255 255 / 8%); color: white; }
 .menu button { border-color: rgb(255 255 255 / 58%); font-weight: 900; }
 .menu button:disabled { opacity: .35; }
+.menu .secondary-button { border-color: rgb(255 255 255 / 28%); background: transparent; }
+.menu button:hover:not(:disabled), .menu button:active:not(:disabled) { border-color: var(--accent-blue); }
 .menu small { color: rgb(255 255 255 / 46%); }
+
+.how-to-menu {
+    position: fixed;
+    inset: 0;
+    z-index: 18;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    background: rgb(0 0 0 / 78%);
+    pointer-events: auto;
+    backdrop-filter: blur(10px);
+}
+.how-to-card {
+    width: min(48rem, 94vw);
+    max-height: min(88vh, 48rem);
+    overflow: auto;
+    border: 1px solid rgb(255 255 255 / 38%);
+    border-radius: .65rem;
+    background: #0c0c0c;
+    box-shadow: 0 24px 80px rgb(0 0 0 / 58%);
+}
+.how-to-card > header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.15rem;
+    border-bottom: 1px solid rgb(255 255 255 / 18%);
+    background: #0c0c0c;
+    font: 950 1.15rem ui-monospace, monospace;
+    letter-spacing: .08em;
+}
+.how-to-card > header button {
+    width: 2.35rem;
+    height: 2.35rem;
+    border: 1px solid rgb(255 255 255 / 30%);
+    border-radius: .25rem;
+    background: transparent;
+    color: #fff;
+    font-size: 1.35rem;
+}
+.how-to-content { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; padding: 1rem; }
+.how-to-content section { padding: .9rem; border: 1px solid rgb(255 255 255 / 16%); background: rgb(255 255 255 / 4%); }
+.how-to-content h2 { margin: 0 0 .55rem; color: var(--accent-blue); font: 900 .82rem ui-monospace, monospace; letter-spacing: .08em; }
+.how-to-content p { margin: 0; color: rgb(255 255 255 / 74%); font-size: .88rem; line-height: 1.65; }
+.how-to-content dl { display: grid; gap: .45rem; margin: 0; }
+.how-to-content dl div { display: grid; grid-template-columns: 5rem 1fr; gap: .5rem; }
+.how-to-content dt { color: #fff; font-size: .82rem; font-weight: 850; }
+.how-to-content dd { margin: 0; color: rgb(255 255 255 / 68%); font-size: .82rem; line-height: 1.45; }
 
 #rotate-message { display: none; position: fixed; inset: 0; z-index: 20; place-items: center; padding: 2rem; background: #080808; color: white; font-weight: 900; text-align: center; }
 
@@ -388,4 +455,8 @@ button, input { font: inherit; }
     .team { width: min(12.6rem, 29vw); gap: .22rem; }
     .teammate { padding: .34rem .45rem; }
     .weapon { width: 12rem; height: 5.25rem; grid-template-columns: 5.5rem 1fr; }
+}
+
+@media (max-width: 640px) {
+    .how-to-content { grid-template-columns: 1fr; }
 }

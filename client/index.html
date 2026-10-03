@@ -13,7 +13,7 @@
     <section id="hud" class="hidden" aria-live="polite">
         <div class="top-bar">
             <div class="round-status">
-                <strong id="round">ROUND 0 / 12</strong>
+                <strong id="round">ROUND 0</strong>
                 <span id="phase" class="hidden"></span>
                 <span id="phase-detail">next round in 0:20</span>
             </div>
@@ -43,7 +43,7 @@
         </div>
         <section id="inventory-menu" class="inventory-menu hidden" aria-label="所持品">
             <div class="inventory-card">
-                <div class="inventory-heading"><strong>INVENTORY</strong><span>E TO CLOSE</span></div>
+                <div class="inventory-heading"><strong>INVENTORY</strong><button id="how-to-inventory" class="how-to-link" type="button">遊び方</button></div>
                 <div id="inventory-items" class="inventory-items"></div>
             </div>
         </section>
@@ -63,7 +63,39 @@
         <p id="menu-status">サーバーに接続しています…</p>
         <label>名前 <input id="player-name" maxlength="16" value="Player" autocomplete="nickname"></label>
         <button id="start" type="button" disabled>CPUを補充して防衛開始</button>
+        <button id="how-to-start" class="secondary-button" type="button">遊び方</button>
         <small>横画面推奨 / PCではWASDでも移動できます</small>
+    </section>
+
+    <section id="how-to-menu" class="how-to-menu hidden" aria-label="遊び方" aria-modal="true">
+        <article class="how-to-card">
+            <header><strong>遊び方</strong><button id="how-to-close" type="button" aria-label="閉じる">×</button></header>
+            <div class="how-to-content">
+                <section>
+                    <h2>目的</h2>
+                    <p>屋外から侵入する敵を倒し、COREを12ラウンド守り切ります。攻撃を当てたプレイヤーはクレジットを獲得します。</p>
+                </section>
+                <section>
+                    <h2>基本操作</h2>
+                    <dl>
+                        <div><dt>移動</dt><dd>WASD／矢印キー、スマートフォンは画面左側をドラッグ</dd></div>
+                        <div><dt>攻撃</dt><dd>左クリック／画面右側をタッチ。長押しで連射</dd></div>
+                        <div><dt>調べる</dt><dd>Rでショップ、設備、端末、COREを操作</dd></div>
+                        <div><dt>所持品</dt><dd>Eで武器、素材、設置物を確認・選択</dd></div>
+                        <div><dt>切り替え</dt><dd>マウスホイール、または右下の武器表示を押す</dd></div>
+                        <div><dt>ダッシュ</dt><dd>移動しながらShift</dd></div>
+                    </dl>
+                </section>
+                <section>
+                    <h2>防衛を広げる</h2>
+                    <p>クレジットで一本道上のゲートを順に開き、森林や鉱山で素材を回収します。作業台で設備を作り、選択して床を右クリックすると設置できます。COREは持ち上げると移動が遅くなり、運搬者の被ダメージがCOREにも伝わります。</p>
+                </section>
+                <section>
+                    <h2>画面の見方</h2>
+                    <p>左下は自分の体力と所持金、右上は仲間、右下は現在の武器です。赤いログはプレイヤーのダウン、敵付近のライトブルー表示はその攻撃で得たクレジットです。</p>
+                </section>
+            </div>
+        </article>
     </section>
 
     <div id="rotate-message">端末を横向きにしてください</div>

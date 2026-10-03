@@ -89,6 +89,35 @@ class GameSessionTest {
     }
 
     @Test
+    void addedWeaponsCanBePurchasedAndRestockedAtTheirOwnUnits() {
+        startPreparing();
+        player.credits = 2_000;
+
+        ShopUnit smgShop = GameMap.shopByItem("smg");
+        player.x = smgShop.x();
+        player.y = smgShop.y();
+        game.handleMessage(player, "BUY:smg");
+        assertTrue(player.ownsSmg);
+        assertEquals("smg", player.weapon);
+        assertEquals(90, player.smgAmmo);
+
+        ShopUnit sniperShop = GameMap.shopByItem("sniper");
+        player.x = sniperShop.x();
+        player.y = sniperShop.y();
+        game.handleMessage(player, "BUY:sniper");
+        assertTrue(player.ownsSniper);
+        assertEquals("sniper", player.weapon);
+        assertEquals(16, player.sniperAmmo);
+
+        ShopUnit ammoShop = GameMap.shopByItem("ammo");
+        player.x = ammoShop.x();
+        player.y = ammoShop.y();
+        game.handleMessage(player, "BUY:ammo");
+        assertEquals(135, player.smgAmmo);
+        assertEquals(24, player.sniperAmmo);
+    }
+
+    @Test
     void attackRewardsOnlyThePlayersWhoLandHitsAndRespectsCooldown() {
         startWave();
         player.x = GameMap.CORE_X;
@@ -108,11 +137,16 @@ class GameSessionTest {
         game.handleMessage(player, "ATTACK:" + enemy.id);
 
         assertEquals(19, enemy.hp);
+        assertEquals(player.x + 50, enemy.x,
+                "ordinary pistol hits should not knock enemies backward");
         assertEquals(0.38, player.cooldown);
         assertEquals(initialCredits + 8, player.credits,
                 "the first attacker should immediately earn their damage share");
         assertEquals(teammateInitialCredits, teammate.credits);
         assertFalse(events.broadcasts.isEmpty(), "an attack should publish a hit effect");
+        assertTrue(events.broadcasts.stream().anyMatch(message ->
+                message.contains("\"effect\":\"hit\"") && message.contains("\"credits\":8")),
+                "the hit effect should report the credits earned by that hit");
 
         game.handleMessage(player, "ATTACK:" + enemy.id);
         assertEquals(19, enemy.hp, "cooldown must reject a second immediate attack");
@@ -125,6 +159,24 @@ class GameSessionTest {
         assertEquals(teammateInitialCredits + 7, teammate.credits);
         assertEquals(0, player.kills);
         assertEquals(1, teammate.kills);
+    }
+
+    @Test
+    void heavyMeleeWeaponStillKnocksEnemiesBackward() {
+        startWave();
+        player.x = GameMap.CORE_X;
+        player.y = GameMap.CORE_Y;
+        game.handleMessage(player, "WEAPON:bat");
+        Enemy enemy = new Enemy(9_002, "grunt", GameMap.SPAWN_POINTS.get(0),
+                500, 0, 0, 0);
+        enemy.x = player.x + 45;
+        enemy.y = player.y;
+        double initialX = enemy.x;
+        game.enemies.add(enemy);
+
+        game.handleMessage(player, "ATTACK:" + enemy.id);
+
+        assertTrue(enemy.x > initialX, "the bat should retain its deliberate knockback");
     }
 
     @Test
@@ -223,6 +275,54 @@ class GameSessionTest {
         assertEquals(1_900, game.coreY);
         assertFalse(player.movingCore);
         assertTrue(SnapshotBuilder.build(game).contains("\"core\":{\"x\":1180.0"));
+    }
+
+    @Test
+    void carryingCoreSlowsMovementDisablesDashAndMovesTheCoreWithTheCarrier() {
+        startPreparing();
+        player.x = game.coreX;
+        player.y = game.coreY;
+        game.handleMessage(player, "EQUIP_CORE");
+        game.handleMessage(player, "DASH:1");
+        game.handleMessage(player, "MOVE:1:0");
+        double startX = player.x;
+
+        game.update(0.5);
+
+        assertEquals(startX + 41, player.x, 0.01);
+        assertFalse(player.dashing);
+        assertEquals(player.x, game.coreX, 0.01);
+        assertEquals(player.y, game.coreY, 0.01);
+    }
+
+    @Test
+    void damageToTheCoreCarrierAlsoDamagesTheCore() {
+        startWave();
+        game.enemies.clear();
+        game.queuedEnemies = 0;
+        game.queuedBosses = 0;
+        game.players.forEach(candidate -> {
+            candidate.human = true;
+            candidate.x = 1_400;
+            candidate.y = 1_900;
+        });
+        player.x = game.coreX;
+        player.y = game.coreY;
+        game.handleMessage(player, "EQUIP_CORE");
+
+        SpawnPoint spawn = GameMap.spawnById("east-field");
+        Enemy enemy = new Enemy(9_040, "grunt", spawn, 500, 0, 10, 0);
+        enemy.x = player.x;
+        enemy.y = player.y;
+        enemy.routeIndex = enemy.route.size();
+        game.enemies.add(enemy);
+        double playerHp = player.hp;
+        double coreHp = game.coreHp;
+
+        game.update(0.05);
+
+        assertEquals(playerHp - 10, player.hp);
+        assertEquals(coreHp - 10, game.coreHp);
     }
 
     @Test

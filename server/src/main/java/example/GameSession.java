@@ -122,6 +122,7 @@ final class GameSession {
         player.dashing = false;
         player.firing = false;
         player.queuedShots.clear();
+        releaseCarriedCore(player);
         cancelAction(player);
         setNotice(displayName + " が切断され、CPUが一時交代しました");
     }
@@ -352,7 +353,8 @@ final class GameSession {
         for (Player player : players) {
             double input = Math.hypot(player.moveX, player.moveY);
             if (player.dashExhausted && player.stamina >= 28) player.dashExhausted = false;
-            player.dashing = !player.down && player.dashHeld && !player.dashExhausted
+            player.dashing = !player.down && !player.movingCore
+                    && player.dashHeld && !player.dashExhausted
                     && input > 0.12 && player.stamina > 0;
             if (player.dashing) {
                 player.stamina = Math.max(0, player.stamina - 38 * dt);
@@ -363,11 +365,15 @@ final class GameSession {
             } else {
                 player.stamina = Math.min(100, player.stamina + 24 * dt);
             }
-            double speed = player.down ? 45 : player.dashing ? 265 : 155;
+            double speed = player.down ? 45 : player.movingCore ? 82 : player.dashing ? 265 : 155;
             double nextX = clamp(player.x + player.moveX * speed * dt, 7, WORLD_W - 7);
             double nextY = clamp(player.y + player.moveY * speed * dt, 7, WORLD_H - 7);
             if (canOccupy(nextX, player.y, 5)) player.x = nextX;
             if (canOccupy(player.x, nextY, 5)) player.y = nextY;
+            if (player.movingCore) {
+                coreX = player.x;
+                coreY = player.y;
+            }
         }
     }
 
@@ -511,7 +517,7 @@ final class GameSession {
                 if (target != null) {
                     damageEnemy(target, 17 + round * 0.5, null);
                     sendHitEffect("trap", "turret", slot.x, slot.y, target.x, target.y,
-                            17 + round * 0.5, target.hp <= 0);
+                            17 + round * 0.5, target.hp <= 0, 0);
                     defense.cooldown = 0.7;
                 }
             } else if (defense.type.equals("mine")) {
@@ -523,7 +529,7 @@ final class GameSession {
                         if (enemy.hp > 0 && distance(slot.x, slot.y, enemy.x, enemy.y) < 120) {
                             damageEnemy(enemy, 90, null);
                             sendHitEffect("trap", "mine", slot.x, slot.y, enemy.x, enemy.y,
-                                    90, enemy.hp <= 0);
+                                    90, enemy.hp <= 0, 0);
                         }
                     }
                     slot.defense = null;
@@ -843,20 +849,20 @@ final class GameSession {
         if (!canMove() || player.down || player.cooldown > 0) return;
 
         WeaponStats weapon = weaponStats(player.weapon);
-        if (player.weapon.equals("shotgun") && player.shotgunAmmo <= 0) {
-            feedback(player, "NO AMMO");
-            player.firing = false;
-            player.queuedShots.clear();
-            return;
-        }
-        if (player.weapon.equals("rifle") && player.rifleAmmo <= 0) {
+        boolean empty = player.weapon.equals("shotgun") && player.shotgunAmmo <= 0
+                || player.weapon.equals("smg") && player.smgAmmo <= 0
+                || player.weapon.equals("rifle") && player.rifleAmmo <= 0
+                || player.weapon.equals("sniper") && player.sniperAmmo <= 0;
+        if (empty) {
             feedback(player, "NO AMMO");
             player.firing = false;
             player.queuedShots.clear();
             return;
         }
         if (player.weapon.equals("shotgun")) player.shotgunAmmo--;
+        if (player.weapon.equals("smg")) player.smgAmmo--;
         if (player.weapon.equals("rifle")) player.rifleAmmo--;
+        if (player.weapon.equals("sniper")) player.sniperAmmo--;
 
         cancelAction(player);
         player.cooldown = weapon.cooldown();
@@ -885,16 +891,16 @@ final class GameSession {
         List<Enemy> targets = player.weapon.equals("shotgun")
                 ? candidates : candidates.stream().limit(1).toList();
         if (targets.isEmpty()) {
-            sendHitEffect(player.id, player.weapon, player.x, player.y, endX, endY, 0, false);
+            sendHitEffect(player.id, player.weapon, player.x, player.y, endX, endY,
+                    0, false, 0);
             return;
         }
         for (Enemy hit : targets) {
-            double hitX = hit.x;
-            double hitY = hit.y;
+            int creditsBeforeHit = player.credits;
             damageEnemy(hit, weapon.damage(), player);
             knockbackEnemy(player.x, player.y, hit, weapon.knockback());
-            sendHitEffect(player.id, player.weapon, player.x, player.y, hitX, hitY,
-                    weapon.damage(), hit.hp <= 0);
+            sendHitEffect(player.id, player.weapon, player.x, player.y, hit.x, hit.y,
+                    weapon.damage(), hit.hp <= 0, player.credits - creditsBeforeHit);
         }
     }
 
@@ -918,9 +924,11 @@ final class GameSession {
     private static WeaponStats weaponStats(String weapon) {
         return switch (weapon) {
             case "bat" -> new WeaponStats(96, 20, 1.0, 115, 26);
-            case "shotgun" -> new WeaponStats(220, 46, 1.45, 75, 18);
-            case "rifle" -> new WeaponStats(430, 58, 1.15, 32, 8);
-            default -> new WeaponStats(285, 26, 0.38, 35, 10);
+            case "shotgun" -> new WeaponStats(220, 46, 1.45, 55, 18);
+            case "smg" -> new WeaponStats(270, 12, 0.14, 0, 11);
+            case "rifle" -> new WeaponStats(430, 58, 1.15, 0, 8);
+            case "sniper" -> new WeaponStats(650, 125, 1.8, 0, 5);
+            default -> new WeaponStats(285, 26, 0.38, 0, 10);
         };
     }
 
@@ -945,6 +953,7 @@ final class GameSession {
     }
 
     private void knockbackEnemy(double fromX, double fromY, Enemy enemy, double amount) {
+        if (amount <= 0) return;
         double dx = enemy.x - fromX;
         double dy = enemy.y - fromY;
         double length = Math.max(1, Math.hypot(dx, dy));
@@ -955,12 +964,12 @@ final class GameSession {
     }
 
     private void sendHitEffect(String playerId, String weapon, double fromX, double fromY,
-            double x, double y, double damage, boolean defeated) {
+            double x, double y, double damage, boolean defeated, int credits) {
         events.broadcast("{\"type\":\"effect\",\"effect\":\"hit\",\"playerId\":\"" + playerId
                 + "\",\"weapon\":\"" + weapon + "\",\"fromX\":" + roundOne(fromX)
                 + ",\"fromY\":" + roundOne(fromY) + ",\"x\":" + roundOne(x)
                 + ",\"y\":" + roundOne(y) + ",\"damage\":" + roundOne(damage)
-                + ",\"defeated\":" + defeated + "}");
+                + ",\"defeated\":" + defeated + ",\"credits\":" + credits + "}");
     }
 
     private void interact(Player player, String targetId) {
@@ -980,8 +989,11 @@ final class GameSession {
     private void switchWeapon(Player player, String weapon) {
         boolean owned = weapon.equals("pistol") || weapon.equals("bat")
                 || weapon.equals("shotgun") && player.ownsShotgun
-                || weapon.equals("rifle") && player.ownsRifle;
+                || weapon.equals("smg") && player.ownsSmg
+                || weapon.equals("rifle") && player.ownsRifle
+                || weapon.equals("sniper") && player.ownsSniper;
         if (owned) {
+            releaseCarriedCore(player);
             player.weapon = weapon;
             player.selectedBuild = null;
             player.movingCore = false;
@@ -1024,8 +1036,24 @@ final class GameSession {
                 if (spend(player, shop.cost())) {
                     player.ownsShotgun = true;
                     player.shotgunAmmo = 30;
+                    releaseCarriedCore(player);
                     player.weapon = "shotgun";
                     setNotice(player.name + " がSHOTGUNを購入しました");
+                } else {
+                    feedback(player, "NOT ENOUGH CREDIT");
+                }
+            }
+            case "smg" -> {
+                if (player.ownsSmg) {
+                    feedback(player, "ALREADY OWNED");
+                    return;
+                }
+                if (spend(player, shop.cost())) {
+                    player.ownsSmg = true;
+                    player.smgAmmo = 90;
+                    releaseCarriedCore(player);
+                    player.weapon = "smg";
+                    setNotice(player.name + " がSMGを購入しました");
                 } else {
                     feedback(player, "NOT ENOUGH CREDIT");
                 }
@@ -1038,20 +1066,39 @@ final class GameSession {
                 if (spend(player, shop.cost())) {
                     player.ownsRifle = true;
                     player.rifleAmmo = 24;
+                    releaseCarriedCore(player);
                     player.weapon = "rifle";
                     setNotice(player.name + " がRIFLEを購入しました");
                 } else {
                     feedback(player, "NOT ENOUGH CREDIT");
                 }
             }
+            case "sniper" -> {
+                if (player.ownsSniper) {
+                    feedback(player, "ALREADY OWNED");
+                    return;
+                }
+                if (spend(player, shop.cost())) {
+                    player.ownsSniper = true;
+                    player.sniperAmmo = 16;
+                    releaseCarriedCore(player);
+                    player.weapon = "sniper";
+                    setNotice(player.name + " がSNIPERを購入しました");
+                } else {
+                    feedback(player, "NOT ENOUGH CREDIT");
+                }
+            }
             case "ammo" -> {
-                if (!player.ownsShotgun && !player.ownsRifle) {
+                if (!player.ownsShotgun && !player.ownsSmg
+                        && !player.ownsRifle && !player.ownsSniper) {
                     feedback(player, "NO AMMO WEAPON");
                     return;
                 }
                 if (spend(player, shop.cost())) {
                     player.shotgunAmmo += player.ownsShotgun ? 16 : 0;
+                    player.smgAmmo += player.ownsSmg ? 45 : 0;
                     player.rifleAmmo += player.ownsRifle ? 12 : 0;
+                    player.sniperAmmo += player.ownsSniper ? 8 : 0;
                     setNotice(player.name + " が弾薬を補充しました");
                 } else {
                     feedback(player, "NOT ENOUGH CREDIT");
@@ -1104,15 +1151,16 @@ final class GameSession {
         player.ore -= oreCost;
         player.addBuildItem(type, 1);
         player.selectedBuild = type;
-        player.movingCore = false;
+        releaseCarriedCore(player);
         setNotice(player.name + " が " + type.toUpperCase(Locale.ROOT) + " をクラフトしました");
     }
 
     private void equipBuild(Player player, String type) {
-        player.movingCore = false;
         if (type.equals("none")) {
+            releaseCarriedCore(player);
             player.selectedBuild = null;
         } else if (BUILD_RECIPES.containsKey(type) && player.buildItemCount(type) > 0) {
+            releaseCarriedCore(player);
             player.selectedBuild = type;
         }
     }
@@ -1123,11 +1171,22 @@ final class GameSession {
             feedback(player, "MOVE TO CORE");
             return;
         }
+        Player carrier = players.stream()
+                .filter(other -> other != player && other.movingCore)
+                .findFirst().orElse(null);
+        if (carrier != null) {
+            feedback(player, "CORE ALREADY CARRIED");
+            return;
+        }
         player.movingCore = true;
+        player.dashHeld = false;
+        player.dashing = false;
         player.selectedBuild = null;
         player.firing = false;
         player.queuedShots.clear();
-        setNotice(player.name + " がCOREを移設する準備をしました");
+        coreX = player.x;
+        coreY = player.y;
+        setNotice(player.name + " がCOREを運搬しています");
     }
 
     private void placeCore(Player player, String[] parts) {
@@ -1225,7 +1284,7 @@ final class GameSession {
         trapSlots.remove(slot);
         player.addBuildItem(type, 1);
         player.selectedBuild = type;
-        player.movingCore = false;
+        releaseCarriedCore(player);
         setNotice(player.name + " が " + type.toUpperCase(Locale.ROOT)
                 + " を回収しました");
     }
@@ -1332,6 +1391,7 @@ final class GameSession {
 
     private void damagePlayer(Player player, double damage) {
         if (player.down) return;
+        if (player.movingCore) damageCore(damage);
         player.hp = Math.max(0, player.hp - damage);
         cancelAction(player);
         if (player.hp <= 0) {
@@ -1342,8 +1402,16 @@ final class GameSession {
             player.dashing = false;
             player.firing = false;
             player.queuedShots.clear();
+            releaseCarriedCore(player);
             setNotice(player.name + " がダウンしました");
         }
+    }
+
+    private void releaseCarriedCore(Player player) {
+        if (!player.movingCore) return;
+        coreX = player.x;
+        coreY = player.y;
+        player.movingCore = false;
     }
 
     private void resetWorld(boolean preserveHumans) {
@@ -1394,9 +1462,13 @@ final class GameSession {
             player.aimX = player.x + 100;
             player.aimY = player.y;
             player.ownsShotgun = false;
+            player.ownsSmg = false;
             player.ownsRifle = false;
+            player.ownsSniper = false;
             player.shotgunAmmo = 0;
+            player.smgAmmo = 0;
             player.rifleAmmo = 0;
+            player.sniperAmmo = 0;
             player.wood = 0;
             player.ore = 0;
             player.gatherCooldown = 0;

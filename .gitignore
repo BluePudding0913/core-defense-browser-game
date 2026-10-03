@@ -20,3 +20,8 @@ server/target/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Local Tailscale play helpers and runtime files
+run-tailscale.bat
+tailscale-*.log
+.tailscale/

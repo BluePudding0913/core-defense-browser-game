@@ -293,7 +293,8 @@ final class GameMap {
             }
         }
         for (ShopUnit shop : map.shopUnits()) {
-            if (!Set.of("shotgun", "rifle", "ammo").contains(shop.item()) || shop.cost() <= 0) {
+            if (!Set.of("shotgun", "smg", "rifle", "sniper", "ammo").contains(shop.item())
+                    || shop.cost() <= 0) {
                 throw new IllegalStateException("Invalid shop unit: " + shop.id());
             }
         }
