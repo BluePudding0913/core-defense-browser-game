@@ -12,32 +12,30 @@
 
     <section id="hud" class="hidden" aria-live="polite">
         <div class="top-bar">
-            <div class="core-status">
-                <div><strong>CORE</strong><span id="core-value">1000 / 1000</span></div>
-                <div class="meter"><span id="core-meter"></span></div>
-                <div id="shield-row" class="shield-row hidden">SHIELD <span id="shield-value"></span></div>
-            </div>
             <div class="round-status">
                 <strong id="round">ROUND 0 / 12</strong>
                 <span id="phase">PREPARING</span>
                 <span id="phase-detail">00:20</span>
             </div>
-            <div id="credits" class="credits">700 CR</div>
         </div>
         <div id="team" class="team"></div>
         <div id="notice" class="notice"></div>
         <div id="feedback" class="feedback"></div>
+        <div id="build-belt" class="build-belt"></div>
         <div class="controls-right">
-            <button id="ready" class="control-button ready hidden" type="button">準備完了</button>
-            <button id="dash" class="control-button dash" type="button">DASH</button>
-            <button id="weapon" class="control-button weapon" type="button">PISTOL</button>
+            <button id="interact" class="control-button interact hidden" type="button"><span>R</span><small>INTERACT</small></button>
+            <button id="weapon" class="control-button weapon" type="button">
+                <span id="weapon-icon" class="weapon-icon pistol" aria-hidden="true"></span>
+                <span class="weapon-meta">
+                    <strong id="weapon-name">PISTOL</strong>
+                    <small id="weapon-ammo">∞</small>
+                    <span id="weapon-cooldown" class="weapon-cooldown">READY</span>
+                </span>
+            </button>
         </div>
-        <div class="stamina-status">
-            <div><strong>DASH</strong><span id="stamina-value">100</span></div>
-            <div class="stamina-meter"><span id="stamina-meter"></span></div>
-        </div>
-        <div class="hint">左側を長押しして移動 ・ DASH長押し／Shift ・ 敵／設備をタップ</div>
     </section>
+
+    <div id="round-intro" class="round-intro" aria-live="assertive"></div>
 
     <section id="action-menu" class="action-menu hidden" aria-modal="true">
         <div class="action-card">

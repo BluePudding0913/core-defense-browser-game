@@ -7,103 +7,249 @@ const menuStatus = document.querySelector("#menu-status");
 const startButton = document.querySelector("#start");
 const nameInput = document.querySelector("#player-name");
 const hud = document.querySelector("#hud");
-const coreValue = document.querySelector("#core-value");
-const coreMeter = document.querySelector("#core-meter");
-const shieldRow = document.querySelector("#shield-row");
-const shieldValue = document.querySelector("#shield-value");
 const roundElement = document.querySelector("#round");
 const phaseElement = document.querySelector("#phase");
 const phaseDetail = document.querySelector("#phase-detail");
-const creditsElement = document.querySelector("#credits");
 const teamElement = document.querySelector("#team");
 const noticeElement = document.querySelector("#notice");
 const feedbackElement = document.querySelector("#feedback");
+const interactButton = document.querySelector("#interact");
 const weaponButton = document.querySelector("#weapon");
-const dashButton = document.querySelector("#dash");
-const staminaValue = document.querySelector("#stamina-value");
-const staminaMeter = document.querySelector("#stamina-meter");
-const readyButton = document.querySelector("#ready");
+const weaponName = document.querySelector("#weapon-name");
+const weaponAmmo = document.querySelector("#weapon-ammo");
+const weaponCooldown = document.querySelector("#weapon-cooldown");
+const weaponIcon = document.querySelector("#weapon-icon");
 const actionMenu = document.querySelector("#action-menu");
 const actionTitle = document.querySelector("#action-title");
 const actionOptions = document.querySelector("#action-options");
 const actionClose = document.querySelector("#action-close");
+const buildBelt = document.querySelector("#build-belt");
+const roundIntro = document.querySelector("#round-intro");
 
-const WORLD = { width: 1800, height: 1200 };
 const VIEW = { width: 900, height: 500 };
-const CORE = { x: 900, y: 600 };
-const ARMORY = { id: "armory", x: 790, y: 660 };
-const MED = { id: "med", x: 1010, y: 660 };
-const WALLS = [
-    { x: 60, y: 80, width: 180, height: 420, label: "COLD STORAGE" },
-    { x: 360, y: 80, width: 420, height: 420, label: "SPECIMEN LAB" },
-    { x: 1020, y: 80, width: 420, height: 420, label: "SECURITY WING" },
-    { x: 1560, y: 80, width: 180, height: 420, label: "REACTOR" },
-    { x: 60, y: 700, width: 180, height: 420, label: "WASTE" },
-    { x: 360, y: 700, width: 420, height: 420, label: "QUARANTINE" },
-    { x: 1020, y: 700, width: 420, height: 420, label: "FABRICATION" },
-    { x: 1560, y: 700, width: 180, height: 420, label: "UTILITIES" },
-];
-const AREAS = [
-    { id: "depot", name: "BIO LAB", x: 380, y: 320, width: 400, height: 180, terminalX: 740, terminalY: 535, color: "#74bf68", detail: "生体研究区画 / 防衛スロット×2" },
-    { id: "relay", name: "SECURITY LAB", x: 1020, y: 320, width: 400, height: 180, terminalX: 1060, terminalY: 535, color: "#4aaec7", detail: "保安研究区画 / 防衛スロット×2" },
-    { id: "workshop", name: "FABRICATION LAB", x: 1020, y: 700, width: 400, height: 180, terminalX: 1060, terminalY: 665, color: "#b778d0", detail: "製造研究区画 / 防衛スロット×2" },
-];
-const SPAWN_POINTS = [
-    { id: "north-airlock", name: "NORTH AIRLOCK", x: 900, y: 28 },
-    { id: "reactor-duct", name: "REACTOR DUCT", x: 1500, y: 28 },
-    { id: "east-loading", name: "LOADING BAY", x: 1772, y: 600 },
-    { id: "service-vent", name: "SERVICE VENT", x: 1500, y: 1172 },
-    { id: "south-lock", name: "QUARANTINE", x: 900, y: 1172 },
-    { id: "waste-tunnel", name: "WASTE TUNNEL", x: 300, y: 1172 },
-    { id: "west-access", name: "WEST ACCESS", x: 28, y: 600 },
-    { id: "specimen-vent", name: "SPECIMEN VENT", x: 300, y: 28 },
-];
+let WORLD = { width: 1, height: 1 };
+let CORE = { x: 0, y: 0 };
+let ARMORY = { id: "armory", x: 0, y: 0 };
+let MED = { id: "med", x: 0, y: 0 };
+let WOODCUTTER = { id: "woodcutter", x: 0, y: 0 };
+let QUARRY = { id: "quarry", x: 0, y: 0 };
+let WORKBENCH = { id: "workbench", x: 0, y: 0 };
+let TILE_MAP = { tileSize: 40, legend: {}, rows: [] };
+let AREAS = [];
+let SPAWN_POINTS = [];
 const BUILD_INFO = {
-    turret: { name: "AUTO TURRET", cost: 250, description: "自動射撃" },
-    wire: { name: "BARBED WIRE", cost: 120, description: "敵を減速" },
-    mine: { name: "MINE", cost: 100, description: "使い捨て範囲攻撃" },
-    barricade: { name: "BARRICADE", cost: 160, description: "進行を遮断" },
+    block: { name: "BLOCK", wood: 4, ore: 0, description: "通路を塞ぐ基本ブロック" },
+    turret: { name: "AUTO TURRET", wood: 4, ore: 8, description: "範囲内の敵を自動射撃" },
+    wire: { name: "BARBED WIRE", wood: 2, ore: 4, description: "通過する敵を減速" },
+    mine: { name: "MINE", wood: 1, ore: 5, description: "接近した敵へ範囲ダメージ" },
+    barricade: { name: "BARRICADE", wood: 6, ore: 2, description: "高耐久の進路妨害" },
 };
+const INTERACTION_RANGE = Object.freeze({
+    armory: 105,
+    medBay: 95,
+    core: 95,
+    trapSlot: 100,
+    areaTerminal: 100,
+    resource: 110,
+    workbench: 110,
+});
 
 let socket;
 let myPlayerId;
 let state;
 let scale = 1;
-let camera = { x: CORE.x, y: CORE.y };
+let camera = { x: 0, y: 0 };
 let lastNoticeVersion = -1;
 let lastCoreHp;
 let coreHitStarted = 0;
-let noticeTimer;
 let feedbackTimer;
+let roundIntroTimer;
+let previousRound = 0;
+let previousPhase = "lobby";
+const noticeEntries = [];
 let joystick = null;
 let pendingMove = null;
-let tapPointer = null;
-let dashPointer = null;
+let firingPointer = null;
+let activeMenuAccess = null;
 let dashKey = false;
 let hitEffects = [];
+let predictedLocal = null;
+let localMove = { x: 0, y: 0 };
+let dashRequested = false;
+let lastFrameAt = performance.now();
+let mapReady = false;
+let resolveMapReady;
+const mapReadyPromise = new Promise(resolve => { resolveMapReady = resolve; });
 const keys = new Set();
 const smoothed = new Map();
+const SESSION_STORAGE_KEY = "core-defense-session";
+const clientSessionId = loadClientSessionId();
+let nextInputSequence = 1;
+let lastAcknowledgedInput = 0;
+let pendingInputs = [];
+
+function loadClientSessionId() {
+    const create = () => globalThis.crypto?.randomUUID?.()
+        || `session-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    try {
+        let value = sessionStorage.getItem(SESSION_STORAGE_KEY);
+        if (!/^[A-Za-z0-9_-]{16,128}$/.test(value || "")) {
+            value = create();
+            sessionStorage.setItem(SESSION_STORAGE_KEY, value);
+        }
+        return value;
+    } catch {
+        return create();
+    }
+}
+
+async function loadMap() {
+    const response = await fetch("../shared/map.json", { cache: "no-store" });
+    if (!response.ok) throw new Error(`map.json: HTTP ${response.status}`);
+    applyMap(await response.json());
+}
+
+function applyMap(map) {
+    validateMap(map);
+
+    WORLD = { width: map.world.width, height: map.world.height };
+    CORE = { ...map.core };
+    ARMORY = { ...map.stations.armory };
+    MED = { ...map.stations.medBay };
+    WOODCUTTER = { ...map.stations.woodcutter };
+    QUARRY = { ...map.stations.quarry };
+    WORKBENCH = { ...map.stations.workbench };
+    TILE_MAP = {
+        tileSize: map.tileMap.tileSize,
+        legend: { ...map.tileMap.legend },
+        rows: [...map.tileMap.rows],
+    };
+    AREAS = map.areas.map(area => ({ ...area }));
+    SPAWN_POINTS = map.spawnPoints.map(spawn => ({ ...spawn }));
+    camera = { x: CORE.x, y: CORE.y };
+    if (!mapReady) {
+        mapReady = true;
+        resolveMapReady();
+    }
+}
+
+function validateMap(map) {
+    if (map?.version !== 4) throw new Error(`未対応のマップバージョン: ${map?.version}`);
+    if (!isPositiveNumber(map.world?.width) || !isPositiveNumber(map.world?.height)) {
+        throw new Error("マップの幅と高さが不正です");
+    }
+    if (!isPoint(map.core) || !isPoint(map.stations?.armory) || !isPoint(map.stations?.medBay)
+            || !isPoint(map.stations?.woodcutter) || !isPoint(map.stations?.quarry)
+            || !isPoint(map.stations?.workbench)) {
+        throw new Error("COREまたは施設の座標が不正です");
+    }
+    for (const [name, values] of [["areas", map.areas],
+        ["spawnPoints", map.spawnPoints], ["trapSlots", map.trapSlots]]) {
+        if (!Array.isArray(values)) throw new Error(`${name}が配列ではありません`);
+    }
+    const tiles = map.tileMap;
+    if (!Number.isInteger(tiles?.tileSize) || tiles.tileSize <= 0
+            || !Array.isArray(tiles.rows) || typeof tiles.legend !== "object") {
+        throw new Error("タイルマップ定義が不正です");
+    }
+    const columns = map.world.width / tiles.tileSize;
+    const rows = map.world.height / tiles.tileSize;
+    if (!Number.isInteger(columns) || tiles.rows.length !== rows
+            || tiles.rows.some(row => typeof row !== "string" || row.length !== columns
+                || [...row].some(symbol => !tiles.legend[symbol]))) {
+        throw new Error("タイルマップの行数、列数、または記号が不正です");
+    }
+    if (map.spawnPoints.length === 0) throw new Error("侵入口がありません");
+    requireUniqueIds(map.areas, "areas");
+    requireUniqueIds(map.spawnPoints, "spawnPoints");
+    requireUniqueIds(map.trapSlots, "trapSlots");
+    for (const spawn of map.spawnPoints) {
+        if (!Array.isArray(spawn.route) || spawn.route.length === 0 || !spawn.route.every(isPoint)) {
+            throw new Error(`侵入口${spawn.id}の経路が不正です`);
+        }
+        if (!Number.isFinite(spawn.speedMultiplier) || spawn.speedMultiplier <= 0) {
+            throw new Error(`侵入口${spawn.id}の速度補正が不正です`);
+        }
+        if (!["balanced", "runner", "brute"].includes(spawn.enemyBias)
+                || !["core", "players", "defenses"].includes(spawn.targetPriority)) {
+            throw new Error(`侵入口${spawn.id}の特性が不正です`);
+        }
+    }
+    const areaIds = new Set(map.areas.map(area => area.id));
+    for (const slot of map.trapSlots) {
+        if (slot.requiredArea != null && !areaIds.has(slot.requiredArea)) {
+            throw new Error(`防衛スロット${slot.id}の解放エリアが存在しません`);
+        }
+    }
+}
+
+function requireUniqueIds(values, name) {
+    const ids = new Set();
+    for (const value of values) {
+        if (typeof value?.id !== "string" || !value.id || ids.has(value.id)) {
+            throw new Error(`${name}に空または重複したIDがあります`);
+        }
+        ids.add(value.id);
+    }
+}
+
+function isPoint(value) {
+    return Number.isFinite(value?.x) && Number.isFinite(value?.y);
+}
+
+function isPositiveNumber(value) {
+    return Number.isFinite(value) && value > 0;
+}
 
 function connect() {
     const host = window.location.hostname || "localhost";
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    socket = new WebSocket(`${protocol}://${host}:8887`);
+    const serverPort = new URLSearchParams(window.location.search).get("serverPort") || "8887";
+    socket = new WebSocket(`${protocol}://${host}:${serverPort}/?session=${encodeURIComponent(clientSessionId)}`);
     socket.addEventListener("open", () => {
-        menuStatus.textContent = "接続しました。防衛を開始できます。";
-        startButton.disabled = false;
+        if (mapReady) {
+            menuStatus.textContent = "接続しました。防衛を開始できます。";
+            startButton.disabled = false;
+        } else {
+            menuStatus.textContent = "ゲームサーバーからマップデータを受信しています…";
+        }
     });
     socket.addEventListener("message", ({ data }) => {
         let message;
         try { message = JSON.parse(data); } catch { return; }
-        if (message.type === "welcome") myPlayerId = message.playerId;
+        if (message.type === "map") {
+            try {
+                applyMap(message.map);
+                menuStatus.textContent = "接続しました。防衛を開始できます。";
+                startButton.disabled = false;
+            } catch (error) {
+                console.error(error);
+                menuStatus.textContent = "サーバーのマップデータが不正です。サーバーを再ビルドしてください。";
+                startButton.disabled = true;
+            }
+            return;
+        }
+        if (message.type === "welcome") {
+            myPlayerId = message.playerId;
+            acknowledgeInputs(message.ackInput);
+            nextInputSequence = Math.max(nextInputSequence, lastAcknowledgedInput + 1);
+            lastMove = "";
+            sendMovement(true);
+        }
         if (message.type === "state") receiveState(message);
-        if (message.type === "effect" && message.effect === "hit") {
+        if (message.type === "log") receiveLog(message.version, message.message);
+        if (message.type === "effect" && ["hit", "core-pulse"].includes(message.effect)) {
             hitEffects.push({ ...message, started: performance.now() });
             if (hitEffects.length > 100) hitEffects.shift();
         }
         if (message.type === "feedback" || message.type === "error") showFeedback(message.message);
     });
     socket.addEventListener("close", () => {
+        predictedLocal = null;
+        localMove = { x: 0, y: 0 };
+        dashRequested = false;
+        pendingInputs = [];
+        lastMove = "";
         menu.classList.remove("hidden");
         hud.classList.add("hidden");
         closeActionMenu();
@@ -117,17 +263,34 @@ function connect() {
 }
 
 function send(message) {
-    if (socket?.readyState === WebSocket.OPEN) socket.send(message);
+    if (socket?.readyState !== WebSocket.OPEN) return;
+    const sequence = nextInputSequence++;
+    socket.send(`INPUT:${sequence}:${message}`);
+    pendingInputs.push({ sequence, kind: message.split(":", 1)[0] });
+    if (pendingInputs.length > 128) pendingInputs.shift();
+}
+
+function acknowledgeInputs(value) {
+    if (!Number.isSafeInteger(value) || value <= lastAcknowledgedInput) return;
+    lastAcknowledgedInput = value;
+    pendingInputs = pendingInputs.filter(input => input.sequence > value);
 }
 
 function receiveState(next) {
+    const beginsRound = next.phase === "wave"
+        && (previousPhase !== "wave" || next.round !== previousRound);
     if (lastCoreHp !== undefined && next.core.hp < lastCoreHp) coreHitStarted = performance.now();
     lastCoreHp = next.core.hp;
     state = next;
-    if (next.noticeVersion !== lastNoticeVersion) {
-        lastNoticeVersion = next.noticeVersion;
-        showNotice(next.notice);
+    if (beginsRound) showRoundIntro(next.round);
+    previousRound = next.round;
+    previousPhase = next.phase;
+    reconcileLocalPrediction(next);
+    if (activeMenuAccess
+            && !canUseNearby(activeMenuAccess.target, activeMenuAccess.range, false)) {
+        closeActionMenu();
     }
+    receiveLog(next.noticeVersion, next.notice);
     updateHud();
     if (["preparing", "wave"].includes(next.phase)) {
         menu.classList.add("hidden");
@@ -143,33 +306,38 @@ function receiveState(next) {
     if (!["preparing", "wave"].includes(next.phase)) closeActionMenu();
 }
 
+function showRoundIntro(round) {
+    roundIntro.textContent = `ROUND ${round}`;
+    roundIntro.classList.remove("show");
+    void roundIntro.offsetWidth;
+    roundIntro.classList.add("show");
+    clearTimeout(roundIntroTimer);
+    roundIntroTimer = setTimeout(() => roundIntro.classList.remove("show"), 2400);
+}
+
 startButton.addEventListener("click", () => {
     send(`HELLO:${nameInput.value || "Player"}`);
     send("START");
 });
 
-weaponButton.addEventListener("click", () => {
+function cycleWeapon(direction = 1) {
     const me = getMe();
     if (!me) return;
     const weapons = ["pistol", "bat"];
     if (me.ownsShotgun) weapons.push("shotgun");
     if (me.ownsRifle) weapons.push("rifle");
-    const next = weapons[(weapons.indexOf(me.weapon) + 1) % weapons.length];
+    const current = Math.max(0, weapons.indexOf(me.weapon));
+    const next = weapons[(current + direction + weapons.length) % weapons.length];
     send(`WEAPON:${next}`);
-});
-dashButton.addEventListener("pointerdown", event => {
+}
+
+weaponButton.addEventListener("click", () => cycleWeapon(1));
+interactButton.addEventListener("click", useNearestInteraction);
+window.addEventListener("wheel", event => {
+    if (!state || !["preparing", "wave"].includes(state.phase)) return;
     event.preventDefault();
-    dashPointer = event.pointerId;
-    dashButton.setPointerCapture(event.pointerId);
-    setDash(true);
-});
-dashButton.addEventListener("pointerup", event => {
-    if (dashPointer === event.pointerId) { dashPointer = null; setDash(false); }
-});
-dashButton.addEventListener("pointercancel", event => {
-    if (dashPointer === event.pointerId) { dashPointer = null; setDash(false); }
-});
-readyButton.addEventListener("click", () => send("READY"));
+    cycleWeapon(event.deltaY > 0 ? 1 : -1);
+}, { passive: false });
 actionClose.addEventListener("click", closeActionMenu);
 actionMenu.addEventListener("pointerdown", event => {
     if (event.target === actionMenu) closeActionMenu();
@@ -177,47 +345,80 @@ actionMenu.addEventListener("pointerdown", event => {
 
 function updateHud() {
     if (!state) return;
-    const core = state.core;
-    coreValue.textContent = `${Math.ceil(core.hp)} / ${Math.ceil(core.maxHp)}`;
-    coreMeter.style.width = `${Math.max(0, core.hp / core.maxHp * 100)}%`;
-    coreMeter.style.background = core.hp / core.maxHp < .3 ? "#f05252" : "#5ee08a";
-    shieldRow.classList.toggle("hidden", core.maxShield <= 0);
-    shieldValue.textContent = `${Math.ceil(core.shield)} / ${Math.ceil(core.maxShield)}`;
     roundElement.textContent = `ROUND ${state.round} / ${state.maxRounds}`;
-    phaseElement.textContent = state.phase === "preparing" ? "PREPARING" : state.phase === "wave" ? "DEFENDING" : state.phase.toUpperCase();
+    phaseElement.textContent = state.phase === "preparing" ? "PREPARING"
+        : state.phase === "wave" ? "DEFENDING"
+            : state.phase.toUpperCase();
     phaseDetail.textContent = state.phase === "preparing"
         ? `00:${String(Math.ceil(state.prepTime)).padStart(2, "0")}`
         : `${state.enemies.length + state.queued} HOSTILES`;
-    creditsElement.textContent = `${state.credits} CR`;
-    readyButton.classList.toggle("hidden", state.phase !== "preparing");
     teamElement.innerHTML = state.players.map(player => `
-        <div class="teammate ${player.down ? "down" : ""}">
-            ${escapeHtml(player.name)}${player.human ? "" : " [CPU]"} ${player.down ? "DOWN" : ""}
+        <div class="teammate ${player.down ? "down" : ""} ${player.id === myPlayerId ? "self" : ""}">
+            <div class="teammate-label">
+                <span>${player.id === myPlayerId ? "YOU" : player.human ? escapeHtml(player.name) : `CPU${player.id.at(-1)}`}</span>
+                <span class="player-stats">${player.down ? "DOWN" : `${Math.ceil(player.hp)} HP`}<b>${state.credits} CR</b></span>
+            </div>
             <div class="hp-line"><span style="width:${player.hp}%"></span></div>
+            ${player.id === myPlayerId ? `<div class="materials">WOOD ${player.wood} · ORE ${player.ore}</div>` : ""}
         </div>`).join("");
     const me = getMe();
     if (me) {
-        const ammo = me.weapon === "shotgun" ? ` ${me.shotgunAmmo}` : me.weapon === "rifle" ? ` ${me.rifleAmmo}` : " ∞";
-        weaponButton.textContent = `${me.weapon.toUpperCase()}${ammo}`;
-        weaponButton.style.opacity = String(Math.max(.38, 1 - me.cooldown));
-        staminaValue.textContent = String(Math.ceil(me.stamina));
-        staminaMeter.style.width = `${me.stamina}%`;
-        staminaMeter.style.background = me.stamina < 28 ? "#ef6b62" : "#59cce7";
-        dashButton.disabled = me.down || (me.stamina < 1 && !me.dashing);
-        dashButton.classList.toggle("active", me.dashing);
+        const ammo = me.weapon === "shotgun" ? String(me.shotgunAmmo) : me.weapon === "rifle" ? String(me.rifleAmmo) : "∞";
+        const cooldownMax = Math.max(.01, me.cooldownMax || me.cooldown || .01);
+        const cooldownProgress = 1 - Math.min(1, me.cooldown / cooldownMax);
+        weaponName.textContent = me.weapon.toUpperCase();
+        weaponAmmo.textContent = ammo;
+        weaponIcon.className = `weapon-icon ${me.weapon}`;
+        weaponCooldown.textContent = me.cooldown > 0 ? `${me.cooldown.toFixed(1)}s` : "READY";
+        weaponButton.style.setProperty("--cooldown-progress", `${cooldownProgress * 100}%`);
+        weaponButton.classList.toggle("cooling", me.cooldown > 0);
+        updateBuildBelt(me);
+        interactButton.classList.toggle("hidden", !findNearestInteraction());
     }
 }
 
+function updateBuildBelt(me) {
+    const available = Object.entries(BUILD_INFO).filter(([type]) => (me.buildItems?.[type] || 0) > 0);
+    buildBelt.classList.toggle("hidden", available.length === 0);
+    buildBelt.innerHTML = available.map(([type, info]) => `
+        <button type="button" data-build="${type}" class="${me.selectedBuild === type ? "selected" : ""}">
+            <strong>${info.name}</strong><span>×${me.buildItems[type]}</span>
+        </button>`).join("");
+    buildBelt.querySelectorAll("button").forEach(button => button.addEventListener("click", () => {
+        send(`EQUIP_BUILD:${button.dataset.build}`);
+    }));
+}
+
 function setDash(active) {
+    dashRequested = active;
     send(`DASH:${active ? 1 : 0}`);
-    dashButton.classList.toggle("active", active);
 }
 
 function showNotice(text) {
-    noticeElement.textContent = text;
-    noticeElement.classList.add("show");
-    clearTimeout(noticeTimer);
-    noticeTimer = setTimeout(() => noticeElement.classList.remove("show"), 2800);
+    const entry = {
+        id: `${Date.now()}-${Math.random()}`,
+        text: String(text),
+        round: state?.round > 0 ? `R${state.round}` : "SYS",
+    };
+    noticeEntries.unshift(entry);
+    if (noticeEntries.length > 4) noticeEntries.length = 4;
+    renderNotices();
+    setTimeout(() => {
+        const index = noticeEntries.findIndex(item => item.id === entry.id);
+        if (index >= 0) noticeEntries.splice(index, 1);
+        renderNotices();
+    }, 5200);
+}
+
+function renderNotices() {
+    noticeElement.innerHTML = noticeEntries.map(entry => `
+        <div class="log-entry"><span>${entry.round}</span><p>${escapeHtml(entry.text)}</p></div>`).join("");
+}
+
+function receiveLog(version, text) {
+    if (!Number.isFinite(version) || version <= lastNoticeVersion || typeof text !== "string") return;
+    lastNoticeVersion = version;
+    showNotice(text);
 }
 
 function showFeedback(text) {
@@ -228,6 +429,32 @@ function showFeedback(text) {
 }
 
 function getMe() { return state?.players.find(player => player.id === myPlayerId); }
+
+function reconcileLocalPrediction(snapshot) {
+    const serverMe = snapshot.players.find(player => player.id === myPlayerId);
+    if (!serverMe) return;
+    acknowledgeInputs(serverMe.ackInput);
+    if (!predictedLocal) {
+        predictedLocal = { x: serverMe.x, y: serverMe.y, stamina: serverMe.stamina, dashing: serverMe.dashing, exhausted: false };
+        return;
+    }
+    const errorX = serverMe.x - predictedLocal.x;
+    const errorY = serverMe.y - predictedLocal.y;
+    const error = Math.hypot(errorX, errorY);
+    if (error > 120 || !["preparing", "wave"].includes(snapshot.phase)) {
+        predictedLocal.x = serverMe.x;
+        predictedLocal.y = serverMe.y;
+    } else {
+        const waitingForMovement = pendingInputs.some(input => input.kind === "MOVE" || input.kind === "DASH");
+        const moving = Math.hypot(localMove.x, localMove.y) > .12;
+        const correction = waitingForMovement ? .14 : moving ? .38 : .72;
+        predictedLocal.x += errorX * correction;
+        predictedLocal.y += errorY * correction;
+    }
+    predictedLocal.stamina += (serverMe.stamina - predictedLocal.stamina) * .4;
+    if (serverMe.stamina >= 28) predictedLocal.exhausted = false;
+    if (serverMe.stamina <= 0) predictedLocal.exhausted = true;
+}
 
 function openActionMenu(title, options) {
     actionTitle.textContent = title;
@@ -242,28 +469,81 @@ function openActionMenu(title, options) {
     actionMenu.classList.remove("hidden");
 }
 
-function closeActionMenu() { actionMenu.classList.add("hidden"); }
+function openNearbyActionMenu(title, options, target, range) {
+    if (!canUseNearby(target, range, true)) return;
+    activeMenuAccess = { target: { x: target.x, y: target.y }, range };
+    openActionMenu(title, options);
+}
+
+function canUseNearby(target, range, showReason) {
+    const me = getMe();
+    if (!me || !state || !["preparing", "wave"].includes(state.phase)) return false;
+    if (me.down) {
+        if (showReason) showFeedback("ダウン中は利用できません");
+        return false;
+    }
+    if (distance(me, target) > range) {
+        if (showReason) showFeedback("もっと近づいてください");
+        return false;
+    }
+    return true;
+}
+
+function closeActionMenu() {
+    activeMenuAccess = null;
+    actionMenu.classList.add("hidden");
+}
 
 function openSlotMenu(slot) {
     if (slot.locked) {
-        openActionMenu("AREA LOCKED", [{ label: "入口の解放端末を操作してください", disabled: true }]);
+        openNearbyActionMenu("AREA LOCKED", [{ label: "入口の解放端末を操作してください", disabled: true }],
+            slot, INTERACTION_RANGE.trapSlot);
     } else if (!slot.defense) {
-        openActionMenu(`BUILD — ${slot.id.toUpperCase()}`, Object.entries(BUILD_INFO).map(([type, info]) => ({
-            label: info.name,
-            detail: `${info.cost} CR / ${info.description}`,
-            command: `BUILD:${slot.id}:${type}`,
-            disabled: state.credits < info.cost,
-        })));
+        openNearbyActionMenu("EMPTY TILE", [{
+            label: "CRAFT FIRST",
+            detail: "作業台でクラフトし、持った状態で近くの床を右クリック",
+            disabled: true,
+        }], slot, INTERACTION_RANGE.trapSlot);
     } else {
         const missing = slot.defense.maxHp - slot.defense.hp;
-        const cost = Math.max(25, Math.ceil(missing * .45));
-        openActionMenu(`${slot.defense.type.toUpperCase()} — HP ${Math.ceil(slot.defense.hp)}/${Math.ceil(slot.defense.maxHp)}`, [{
+        const metal = ["turret", "wire", "mine"].includes(slot.defense.type);
+        const me = getMe();
+        openNearbyActionMenu(`${slot.defense.type.toUpperCase()} — HP ${Math.ceil(slot.defense.hp)}/${Math.ceil(slot.defense.maxHp)}`, [{
             label: "REPAIR",
-            detail: slot.defense.hp >= slot.defense.maxHp ? "耐久値最大" : `${cost} CR`,
+            detail: slot.defense.hp >= slot.defense.maxHp ? "耐久値最大" : `${metal ? "ORE" : "WOOD"} 1`,
             command: `REPAIR:${slot.id}`,
-            disabled: slot.defense.hp >= slot.defense.maxHp || state.credits < cost,
-        }]);
+            disabled: slot.defense.hp >= slot.defense.maxHp || (metal ? me.ore : me.wood) < 1,
+        }, {
+            label: "PICK UP",
+            detail: "撤去してインベントリへ戻す",
+            command: `REMOVE:${slot.id}`,
+        }], slot, INTERACTION_RANGE.trapSlot);
     }
+}
+
+function snapToTile(point) {
+    const size = TILE_MAP.tileSize;
+    return {
+        x: (Math.floor(point.x / size) + .5) * size,
+        y: (Math.floor(point.y / size) + .5) * size,
+    };
+}
+
+function canBuildAt(point) {
+    const size = TILE_MAP.tileSize;
+    const column = Math.floor(point.x / size), row = Math.floor(point.y / size);
+    const symbol = TILE_MAP.rows[row]?.[column];
+    if (!symbol || !TILE_MAP.legend[symbol]?.buildable) return false;
+    if (AREAS.some(area => !state.areas[area.id]
+            && point.x >= area.x && point.x <= area.x + area.width
+            && point.y >= area.y && point.y <= area.y + area.height)) return false;
+    if (distance(point, CORE) < 90 || distance(point, ARMORY) < 70 || distance(point, MED) < 70
+            || distance(point, WOODCUTTER) < 70 || distance(point, QUARRY) < 70
+            || distance(point, WORKBENCH) < 70) return false;
+    if (SPAWN_POINTS.some(spawn => distance(point, spawn) < 80)) return false;
+    if (state.slots.some(slot => distance(point, slot) < 36)) return false;
+    return !state.players.some(player => distance(point, player) < (player.id === myPlayerId ? 30 : 48))
+        && !state.enemies.some(enemy => enemy.hp > 0 && distance(point, enemy) < 48);
 }
 
 function openCoreMenu() {
@@ -272,33 +552,65 @@ function openCoreMenu() {
     const shieldCost = 350 + Math.round(core.maxShield * .8);
     const defenseCost = 450 + core.defense * 250;
     const regenCost = 500 + core.regen * 300;
-    openActionMenu("CORE UPGRADES", [
+    openNearbyActionMenu("CORE UPGRADES", [
         option("MAX HP +250", hpCost, "UPGRADE:hp"),
         option("SHIELD +180", shieldCost, "UPGRADE:shield"),
         option(`DEFENSE Lv.${core.defense + 1}`, defenseCost, "UPGRADE:defense", core.defense >= 4),
         option(`AUTO REPAIR Lv.${core.regen + 1}`, regenCost, "UPGRADE:regen", core.regen >= 4),
-    ]);
+    ], CORE, INTERACTION_RANGE.core);
 }
 
 function openArmoryMenu() {
     const me = getMe();
-    openActionMenu("ARMORY", [
+    openNearbyActionMenu("ARMORY", [
         option("SHOTGUN", 450, "BUY:shotgun", me.ownsShotgun, me.ownsShotgun ? "購入済み" : "範囲攻撃 / 30発"),
         option("RIFLE", 650, "BUY:rifle", me.ownsRifle, me.ownsRifle ? "購入済み" : "長射程 / 24発"),
         option("AMMO PACK", 100, "BUY:ammo", !me.ownsShotgun && !me.ownsRifle, "SG +16 / RF +12"),
-    ]);
+    ], ARMORY, INTERACTION_RANGE.armory);
+}
+
+function openWoodcutterMenu() {
+    const me = getMe();
+    openNearbyActionMenu("WOODCUTTER", [{
+        label: "COLLECT WOOD",
+        detail: me.gatherCooldown > 0 ? `再採取まで ${me.gatherCooldown.toFixed(1)}秒` : "WOOD +4 / クラフト素材",
+        command: "GATHER:wood",
+        disabled: me.gatherCooldown > 0,
+    }], WOODCUTTER, INTERACTION_RANGE.resource);
+}
+
+function openQuarryMenu() {
+    const me = getMe();
+    openNearbyActionMenu("QUARRY", [{
+        label: "COLLECT ORE",
+        detail: me.gatherCooldown > 0 ? `再採取まで ${me.gatherCooldown.toFixed(1)}秒` : "ORE +3 / クラフト素材",
+        command: "GATHER:ore",
+        disabled: me.gatherCooldown > 0,
+    }], QUARRY, INTERACTION_RANGE.resource);
+}
+
+function openWorkbenchMenu() {
+    const me = getMe();
+    openNearbyActionMenu("WORKBENCH", Object.entries(BUILD_INFO).map(([type, info]) => ({
+        label: info.name,
+        detail: `${info.description} — WOOD ${info.wood} / ORE ${info.ore}`,
+        command: `CRAFT:${type}`,
+        disabled: me.wood < info.wood || me.ore < info.ore,
+    })), WORKBENCH, INTERACTION_RANGE.workbench);
 }
 
 function openMedMenu() {
     const me = getMe();
-    openActionMenu("MED BAY", [option("FULL HEAL", 80, "BUY:heal", me.hp >= 100, me.hp >= 100 ? "HP最大" : `HP ${Math.ceil(me.hp)} → 100`)]);
+    openNearbyActionMenu("MED BAY", [option("FULL HEAL", 80, "BUY:heal", me.hp >= 100, me.hp >= 100 ? "HP最大" : `HP ${Math.ceil(me.hp)} → 100`)],
+        MED, INTERACTION_RANGE.medBay);
 }
 
 function openUnlockMenu(area) {
     const openCount = Object.values(state.areas).filter(Boolean).length;
     const cost = 350 + openCount * 100;
     const unlocked = state.areas[area.id];
-    openActionMenu(area.name, [option("OPEN AREA", cost, `UNLOCK:${area.id}`, unlocked, unlocked ? "解放済み" : area.detail)]);
+    openNearbyActionMenu(area.name, [option("OPEN AREA", cost, `UNLOCK:${area.id}`, unlocked, unlocked ? "解放済み" : area.detail)],
+        { x: area.terminalX, y: area.terminalY }, INTERACTION_RANGE.areaTerminal);
 }
 
 function option(label, cost, command, extraDisabled = false, customDetail = "") {
@@ -324,41 +636,95 @@ function worldFromScreen(clientX, clientY) {
 }
 
 canvas.addEventListener("pointerdown", event => {
+    if (!state || !getMe()) return;
+    if (event.pointerType === "mouse" && event.button === 2) {
+        event.preventDefault();
+        placeHeldBuild(event.clientX, event.clientY);
+        return;
+    }
+    if (event.pointerType === "mouse" && event.button !== 0) return;
     canvas.setPointerCapture(event.pointerId);
-    const inMovementArea = event.clientX < innerWidth * .42 && event.clientY > innerHeight * .42;
-    const overTarget = isTappablePoint(worldFromScreen(event.clientX, event.clientY));
-    if (inMovementArea && !overTarget) {
+    const inMovementArea = event.pointerType !== "mouse"
+        && event.clientX < innerWidth * .42 && event.clientY > innerHeight * .42;
+    if (inMovementArea) {
         const pointer = { id: event.pointerId, originX: event.clientX, originY: event.clientY, x: event.clientX, y: event.clientY, timer: null };
         pointer.timer = setTimeout(() => activateJoystick(pointer.id), 170);
         pendingMove = pointer;
     } else {
-        tapPointer = { id: event.pointerId, x: event.clientX, y: event.clientY, time: performance.now() };
+        startFiring(event.pointerId, event.clientX, event.clientY);
     }
 });
 
 canvas.addEventListener("pointermove", event => {
     if (pendingMove?.id === event.pointerId) { pendingMove.x = event.clientX; pendingMove.y = event.clientY; }
     if (joystick?.id === event.pointerId) updateJoystick(event.clientX, event.clientY);
+    if (firingPointer?.id === event.pointerId) updateFiringAim(event.clientX, event.clientY);
 });
 
 canvas.addEventListener("pointerup", event => {
     if (joystick?.id === event.pointerId) {
         joystick = null; sendMovement();
     } else if (pendingMove?.id === event.pointerId) {
-        clearTimeout(pendingMove.timer); pendingMove = null; handleWorldTap(event.clientX, event.clientY, false);
-    } else if (tapPointer?.id === event.pointerId) {
-        const moved = Math.hypot(event.clientX - tapPointer.x, event.clientY - tapPointer.y);
-        const held = performance.now() - tapPointer.time;
-        if (moved < 18) handleWorldTap(event.clientX, event.clientY, held >= 450);
-        tapPointer = null;
+        clearTimeout(pendingMove.timer); pendingMove = null;
+        fireOnce(event.clientX, event.clientY);
+    } else if (firingPointer?.id === event.pointerId) {
+        stopFiring(event.clientX, event.clientY);
     }
 });
 
 canvas.addEventListener("pointercancel", event => {
     if (joystick?.id === event.pointerId) { joystick = null; sendMovement(); }
     if (pendingMove?.id === event.pointerId) { clearTimeout(pendingMove.timer); pendingMove = null; }
-    if (tapPointer?.id === event.pointerId) tapPointer = null;
+    if (firingPointer?.id === event.pointerId) stopFiring(event.clientX, event.clientY);
 });
+canvas.addEventListener("contextmenu", event => event.preventDefault());
+
+function startFiring(pointerId, clientX, clientY) {
+    const point = worldFromScreen(clientX, clientY);
+    firingPointer = { id: pointerId, clientX, clientY, lastAimSent: performance.now() };
+    send(`FIRE:${point.x.toFixed(1)}:${point.y.toFixed(1)}:1`);
+}
+
+function updateFiringAim(clientX, clientY) {
+    if (!firingPointer) return;
+    firingPointer.clientX = clientX;
+    firingPointer.clientY = clientY;
+    if (performance.now() - firingPointer.lastAimSent < 70) return;
+    const point = worldFromScreen(clientX, clientY);
+    firingPointer.lastAimSent = performance.now();
+    send(`FIRE:${point.x.toFixed(1)}:${point.y.toFixed(1)}:1`);
+}
+
+function stopFiring(clientX, clientY) {
+    const point = worldFromScreen(clientX, clientY);
+    send(`FIRE:${point.x.toFixed(1)}:${point.y.toFixed(1)}:0`);
+    firingPointer = null;
+}
+
+function fireOnce(clientX, clientY) {
+    const point = worldFromScreen(clientX, clientY);
+    send(`FIRE:${point.x.toFixed(1)}:${point.y.toFixed(1)}:1`);
+    send(`FIRE:${point.x.toFixed(1)}:${point.y.toFixed(1)}:0`);
+}
+
+function placeHeldBuild(clientX, clientY) {
+    const me = getMe();
+    const type = me?.selectedBuild;
+    if (!type || (me.buildItems?.[type] || 0) <= 0) {
+        showFeedback("作業台でクラフトしたアイテムを選択してください");
+        return;
+    }
+    const point = snapToTile(worldFromScreen(clientX, clientY));
+    if (distance(me, point) > 180) {
+        showFeedback("もっと近いタイルを右クリックしてください");
+        return;
+    }
+    if (!canBuildAt(point)) {
+        showFeedback("ここには配置できません");
+        return;
+    }
+    send(`PLACE:${point.x}:${point.y}:${type}`);
+}
 
 function activateJoystick(pointerId) {
     if (pendingMove?.id !== pointerId) return;
@@ -380,7 +746,7 @@ function updateJoystick(clientX, clientY) {
 }
 
 let lastMove = "";
-function sendMovement() {
+function sendMovement(force = false) {
     let x = 0, y = 0;
     if (joystick) { x = (joystick.x - joystick.originX) / 58; y = (joystick.y - joystick.originY) / 58; }
     if (keys.has("w") || keys.has("arrowup")) y -= 1;
@@ -389,12 +755,19 @@ function sendMovement() {
     if (keys.has("d") || keys.has("arrowright")) x += 1;
     const length = Math.hypot(x, y);
     if (length > 1) { x /= length; y /= length; }
-    const message = `MOVE:${x.toFixed(2)}:${y.toFixed(2)}`;
-    if (message !== lastMove) { lastMove = message; send(message); }
+    localMove.x = Number(x.toFixed(2));
+    localMove.y = Number(y.toFixed(2));
+    const message = `MOVE:${localMove.x.toFixed(2)}:${localMove.y.toFixed(2)}`;
+    if (force || message !== lastMove) { lastMove = message; send(message); }
 }
 
 window.addEventListener("keydown", event => {
     const key = event.key.toLowerCase();
+    if (key === "r") {
+        event.preventDefault();
+        if (!event.repeat) useNearestInteraction();
+        return;
+    }
     if (key === "shift") {
         event.preventDefault();
         if (!dashKey) { dashKey = true; setDash(true); }
@@ -410,35 +783,45 @@ window.addEventListener("keyup", event => {
 });
 window.addEventListener("blur", () => {
     keys.clear(); joystick = null;
-    dashKey = false; dashPointer = null; setDash(false);
+    dashKey = false; setDash(false);
     if (pendingMove) clearTimeout(pendingMove.timer);
-    pendingMove = null; sendMovement();
+    pendingMove = null;
+    if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
+    sendMovement();
 });
 
-function isTappablePoint(point) {
-    if (!state) return false;
-    if (state.enemies.some(enemy => enemy.hp > 0 && distance(point, enemy) < enemyRadius(enemy) + 18)) return true;
-    if (state.players.some(player => player.down && player.id !== myPlayerId && distance(point, player) < 50)) return true;
-    if (state.slots.some(slot => distance(point, slot) < 38)) return true;
-    if (distance(point, CORE) < 72 || distance(point, ARMORY) < 48 || distance(point, MED) < 48) return true;
-    return AREAS.some(area => distance(point, { x: area.terminalX, y: area.terminalY }) < 38);
+function findNearestInteraction() {
+    const me = getMe();
+    if (!me || me.down || !state || !["preparing", "wave"].includes(state.phase)) return null;
+    const choices = [];
+    const add = (kind, target, range, label, action) => {
+        const separation = distance(me, target);
+        if (separation <= range) choices.push({ kind, target, label, action, separation });
+    };
+    state.players.filter(player => player.down && player.id !== myPlayerId)
+        .forEach(player => add("revive", player, 78, "REVIVE", () => send(`INTERACT:${player.id}`)));
+    state.slots.filter(slot => slot.defense)
+        .forEach(slot => add("defense", slot, INTERACTION_RANGE.trapSlot, "MANAGE", () => openSlotMenu(slot)));
+    add("armory", ARMORY, INTERACTION_RANGE.armory, "ARMORY", openArmoryMenu);
+    add("med", MED, INTERACTION_RANGE.medBay, "MED BAY", openMedMenu);
+    add("wood", WOODCUTTER, INTERACTION_RANGE.resource, "WOODCUTTER", openWoodcutterMenu);
+    add("ore", QUARRY, INTERACTION_RANGE.resource, "QUARRY", openQuarryMenu);
+    add("craft", WORKBENCH, INTERACTION_RANGE.workbench, "CRAFT", openWorkbenchMenu);
+    add("core", CORE, INTERACTION_RANGE.core, "CORE", openCoreMenu);
+    for (const area of AREAS) {
+        const terminal = { x: area.terminalX, y: area.terminalY };
+        add("area", terminal, INTERACTION_RANGE.areaTerminal, "UNLOCK", () => openUnlockMenu(area));
+    }
+    return choices.sort((a, b) => a.separation - b.separation)[0] || null;
 }
 
-function handleWorldTap(clientX, clientY, longPress) {
-    if (!state || !getMe()) return;
-    const point = worldFromScreen(clientX, clientY);
-    const downed = nearestAt(state.players.filter(player => player.down && player.id !== myPlayerId), point);
-    if (longPress && downed && distance(point, downed) < 50) { send(`INTERACT:${downed.id}`); return; }
-    const enemy = nearestAt(state.enemies.filter(item => item.hp > 0), point);
-    if (enemy && distance(point, enemy) < enemyRadius(enemy) + 18) { send(`ATTACK:${enemy.id}`); return; }
-    if (downed && distance(point, downed) < 42) { send(`INTERACT:${downed.id}`); return; }
-    const slot = nearestAt(state.slots, point);
-    if (slot && distance(point, slot) < 40) { openSlotMenu(slot); return; }
-    if (distance(point, ARMORY) < 50) { openArmoryMenu(); return; }
-    if (distance(point, MED) < 50) { openMedMenu(); return; }
-    const area = AREAS.slice().sort((a, b) => distance(point, { x: a.terminalX, y: a.terminalY }) - distance(point, { x: b.terminalX, y: b.terminalY }))[0];
-    if (area && distance(point, { x: area.terminalX, y: area.terminalY }) < 40) { openUnlockMenu(area); return; }
-    if (distance(point, CORE) < 76) openCoreMenu();
+function useNearestInteraction() {
+    const interaction = findNearestInteraction();
+    if (!interaction) {
+        showFeedback("操作できる物体の近くに移動してください");
+        return;
+    }
+    interaction.action();
 }
 
 function nearestAt(items, point) {
@@ -446,15 +829,68 @@ function nearestAt(items, point) {
 }
 function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
-function animate() { requestAnimationFrame(animate); draw(); }
+function updateLocalPrediction(dt) {
+    const serverMe = getMe();
+    if (!predictedLocal || !serverMe || !["preparing", "wave"].includes(state.phase)) return;
+    const input = Math.hypot(localMove.x, localMove.y);
+    if (predictedLocal.exhausted && predictedLocal.stamina >= 28) predictedLocal.exhausted = false;
+    predictedLocal.dashing = !serverMe.down && dashRequested && !predictedLocal.exhausted && input > .12 && predictedLocal.stamina > 0;
+    if (predictedLocal.dashing) {
+        predictedLocal.stamina = Math.max(0, predictedLocal.stamina - 38 * dt);
+        if (predictedLocal.stamina <= 0) {
+            predictedLocal.exhausted = true;
+            predictedLocal.dashing = false;
+        }
+    } else {
+        predictedLocal.stamina = Math.min(100, predictedLocal.stamina + 24 * dt);
+    }
+
+    const speed = serverMe.down ? 45 : predictedLocal.dashing ? 265 : 155;
+    const nextX = clamp(predictedLocal.x + localMove.x * speed * dt, 25, WORLD.width - 25);
+    const nextY = clamp(predictedLocal.y + localMove.y * speed * dt, 25, WORLD.height - 25);
+    if (canPredictOccupy(nextX, predictedLocal.y, 21)) predictedLocal.x = nextX;
+    if (canPredictOccupy(predictedLocal.x, nextY, 21)) predictedLocal.y = nextY;
+}
+
+function canPredictOccupy(x, y, radius) {
+    if (x - radius < 0 || y - radius < 0 || x + radius > WORLD.width || y + radius > WORLD.height) return false;
+    for (const area of AREAS) {
+        const overlaps = x + radius > area.x && x - radius < area.x + area.width
+            && y + radius > area.y && y - radius < area.y + area.height;
+        if (overlaps && !state.areas[area.id]) return false;
+    }
+    const size = TILE_MAP.tileSize;
+    const minColumn = Math.floor((x - radius) / size);
+    const maxColumn = Math.floor((x + radius) / size);
+    const minRow = Math.floor((y - radius) / size);
+    const maxRow = Math.floor((y + radius) / size);
+    for (let row = minRow; row <= maxRow; row++) {
+        for (let column = minColumn; column <= maxColumn; column++) {
+            const symbol = TILE_MAP.rows[row]?.[column];
+            if (!symbol || TILE_MAP.legend[symbol]?.solid) return false;
+        }
+    }
+    if (state.slots.some(slot => slot.defense && ["block", "barricade"].includes(slot.defense.type)
+            && Math.hypot(x - slot.x, y - slot.y) < radius + 18)) return false;
+    return true;
+}
+
+function animate(now = performance.now()) {
+    const dt = Math.min(.05, Math.max(0, (now - lastFrameAt) / 1000));
+    lastFrameAt = now;
+    updateLocalPrediction(dt);
+    draw();
+    requestAnimationFrame(animate);
+}
 
 function draw() {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const me = getMe();
-    if (me) {
-        camera.x += (me.x - camera.x) * .12;
-        camera.y += (me.y - camera.y) * .12;
+    const cameraTarget = predictedLocal || me;
+    if (cameraTarget) {
+        camera.x += (cameraTarget.x - camera.x) * .12;
+        camera.y += (cameraTarget.y - camera.y) * .12;
         const halfW = canvas.width / scale / 2, halfH = canvas.height / scale / 2;
         camera.x = clamp(camera.x, halfW, WORLD.width - halfW);
         camera.y = clamp(camera.y, halfH, WORLD.height - halfH);
@@ -468,106 +904,101 @@ function draw() {
         drawTrapSlots();
         drawEnemies();
         drawPlayers();
+        drawInteractionPrompt();
         drawHitEffects();
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (state?.phase === "wave" && state.roundEvent === "blackout") drawBlackout();
     drawJoystick();
 }
 
+function drawBlackout() {
+    const me = predictedLocal || getMe();
+    if (!me) return;
+    const x = (me.x - camera.x) * scale + canvas.width / 2;
+    const y = (me.y - camera.y) * scale + canvas.height / 2;
+    const flicker = Math.sin(performance.now() / 83) * 5;
+    const light = ctx.createRadialGradient(x, y, 55, x, y, 235 + flicker);
+    light.addColorStop(0, "rgb(1 5 8 / 0%)");
+    light.addColorStop(.48, "rgb(1 5 8 / 20%)");
+    light.addColorStop(1, "rgb(1 5 8 / 88%)");
+    ctx.fillStyle = light;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
 function drawWorld() {
-    ctx.fillStyle = "#0b1318"; ctx.fillRect(0, 0, WORLD.width, WORLD.height);
-    ctx.fillStyle = "#26373e";
-    ctx.fillRect(780, 0, 240, WORLD.height);
-    ctx.fillRect(0, 500, WORLD.width, 200);
-    ctx.fillRect(240, 0, 120, WORLD.height);
-    ctx.fillRect(1440, 0, 120, WORLD.height);
-
-    ctx.strokeStyle = "#3e555e"; ctx.lineWidth = 2; ctx.setLineDash([18, 22]);
-    for (const x of [300, 900, 1500]) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, WORLD.height); ctx.stroke(); }
-    ctx.beginPath(); ctx.moveTo(0, 600); ctx.lineTo(WORLD.width, 600); ctx.stroke();
-    ctx.setLineDash([]);
-    WALLS.forEach((wall, index) => drawBlock(wall, index));
-    drawFacilityDetails();
+    ctx.imageSmoothingEnabled = false;
+    const size = TILE_MAP.tileSize;
+    const viewWidth = canvas.width / scale;
+    const viewHeight = canvas.height / scale;
+    const minColumn = clamp(Math.floor((camera.x - viewWidth / 2) / size) - 1, 0, TILE_MAP.rows[0].length - 1);
+    const maxColumn = clamp(Math.ceil((camera.x + viewWidth / 2) / size) + 1, 0, TILE_MAP.rows[0].length - 1);
+    const minRow = clamp(Math.floor((camera.y - viewHeight / 2) / size) - 1, 0, TILE_MAP.rows.length - 1);
+    const maxRow = clamp(Math.ceil((camera.y + viewHeight / 2) / size) + 1, 0, TILE_MAP.rows.length - 1);
+    ctx.fillStyle = "#080808";
+    ctx.fillRect(camera.x - viewWidth / 2 - size, camera.y - viewHeight / 2 - size,
+        viewWidth + size * 2, viewHeight + size * 2);
+    for (let row = minRow; row <= maxRow; row++) {
+        for (let column = minColumn; column <= maxColumn; column++) {
+            const symbol = TILE_MAP.rows[row][column];
+            const tile = TILE_MAP.legend[symbol];
+            const x = column * size, y = row * size;
+            ctx.fillStyle = tile.color;
+            ctx.fillRect(x, y, size, size);
+            if (!tile.solid) {
+                ctx.strokeStyle = "rgb(0 0 0 / 5%)";
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x + .5, y + .5, size - 1, size - 1);
+            }
+        }
+    }
     SPAWN_POINTS.forEach(drawSpawn);
-    ctx.strokeStyle = "#465760"; ctx.lineWidth = 4; ctx.strokeRect(1, 1, WORLD.width - 2, WORLD.height - 2);
-}
-
-function drawFacilityDetails() {
-    ctx.save();
-    ctx.fillStyle = "#40535a";
-    for (const x of [110, 430, 1190, 1630]) {
-        ctx.fillRect(x, 535, 82, 9);
-        ctx.fillRect(x + 28, 656, 82, 9);
-    }
-    for (const x of [300, 900, 1500]) {
-        for (const y of [155, 355, 805, 1005]) {
-            ctx.fillRect(x - 45, y, 90, 8);
-        }
-    }
-
-    ctx.fillStyle = "#b89638";
-    for (const [x, y, vertical] of [[300, 492, false], [900, 492, false], [1500, 492, false], [300, 700, false], [900, 700, false], [1500, 700, false]]) {
-        for (let i = -42; i <= 42; i += 14) {
-            if (vertical) ctx.fillRect(x, y + i, 6, 9);
-            else ctx.fillRect(x + i, y, 8, 6);
-        }
-    }
-
-    ctx.fillStyle = "#17242a"; ctx.strokeStyle = "#50666f"; ctx.lineWidth = 2;
-    for (const [x, y] of [[690, 535], [1110, 655], [380, 655], [1420, 545]]) {
-        ctx.fillRect(x - 20, y - 14, 40, 28); ctx.strokeRect(x - 20, y - 14, 40, 28);
-    }
-    ctx.restore();
-}
-
-function drawBlock(wall, index) {
-    ctx.fillStyle = index % 2 ? "#101a20" : "#121e24";
-    ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
-    ctx.strokeStyle = "#40535c"; ctx.lineWidth = 6; ctx.strokeRect(wall.x, wall.y, wall.width, wall.height);
-    ctx.fillStyle = "#203038";
-    for (let y = wall.y + 55; y < wall.y + wall.height - 18; y += 62) {
-        for (let x = wall.x + 24; x < wall.x + wall.width - 18; x += 68) ctx.fillRect(x, y, 38, 18);
-    }
-    ctx.fillStyle = "#78909a"; ctx.font = "800 10px ui-monospace, monospace"; ctx.textAlign = "center";
-    ctx.fillText(wall.label, wall.x + wall.width / 2, wall.y + 25);
+    ctx.strokeStyle = "#5a7079"; ctx.lineWidth = 3; ctx.strokeRect(1, 1, WORLD.width - 2, WORLD.height - 2);
 }
 
 function drawSpawn(spawn) {
     const incoming = Boolean(state && state.phase === "wave" && state.activeSpawns.includes(spawn.id));
+    const failed = incoming && state.roundEvent === "door_failure" && state.failedSpawn === spawn.id;
     const pulse = (Math.sin(performance.now() / 130) + 1) / 2;
     ctx.save();
-    if (incoming) { ctx.shadowColor = "#ff4f58"; ctx.shadowBlur = 14 + pulse * 15; }
-    ctx.fillStyle = incoming ? "#e23f49" : "#3a464b"; ctx.beginPath(); ctx.arc(spawn.x, spawn.y, incoming ? 25 + pulse * 3 : 17, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = incoming ? "#ffc0b8" : "#8c686b"; ctx.lineWidth = incoming ? 4 : 2; ctx.stroke();
+    if (incoming) { ctx.shadowColor = failed ? "#ff9b3d" : "#ff4f58"; ctx.shadowBlur = 14 + pulse * 15; }
+    ctx.fillStyle = failed ? "#ef8a2f" : incoming ? "#e23f49" : "#3a464b"; ctx.beginPath(); ctx.arc(spawn.x, spawn.y, incoming ? 25 + pulse * 3 : 17, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = failed ? "#ffe0a8" : incoming ? "#ffc0b8" : "#8c686b"; ctx.lineWidth = incoming ? 4 : 2; ctx.stroke();
     ctx.restore();
-    ctx.fillStyle = incoming ? "#ffd1c9" : "#75858b"; ctx.font = "900 10px ui-monospace, monospace"; ctx.textAlign = "center";
-    const labelY = spawn.y < 60 ? spawn.y + 43 : spawn.y > 1140 ? spawn.y - 34 : spawn.y - 31;
-    ctx.fillText(incoming ? `BREACH: ${spawn.name}` : spawn.name, spawn.x, labelY);
+    ctx.fillStyle = failed ? "#ffe0a8" : incoming ? "#ffd1c9" : "#75858b"; ctx.font = "900 10px ui-monospace, monospace"; ctx.textAlign = "center";
+    const labelY = spawn.y < 60 ? spawn.y + 43 : spawn.y > WORLD.height - 60 ? spawn.y - 34 : spawn.y - 31;
+    ctx.fillText(failed ? `FAILED DOOR: ${spawn.name}` : incoming ? `BREACH: ${spawn.name}` : spawn.name, spawn.x, labelY);
 }
 
 function drawAreas() {
     for (const area of AREAS) {
         const unlocked = state.areas[area.id];
+        const tileSize = TILE_MAP.tileSize;
         ctx.save();
-        ctx.fillStyle = unlocked ? "#22363d" : "#11191e";
+        ctx.fillStyle = unlocked ? "rgb(24 48 56 / 18%)" : "rgb(7 12 16 / 56%)";
         ctx.fillRect(area.x, area.y, area.width, area.height);
-        ctx.strokeStyle = unlocked ? area.color : "#5f4b50";
-        ctx.lineWidth = unlocked ? 5 : 3;
+        ctx.strokeStyle = unlocked ? area.color : "#80525b";
+        ctx.lineWidth = 3;
         ctx.strokeRect(area.x + 2, area.y + 2, area.width - 4, area.height - 4);
 
         if (unlocked) {
-            ctx.globalAlpha = .32; ctx.strokeStyle = area.color; ctx.lineWidth = 1;
-            for (let x = area.x + 25; x < area.x + area.width; x += 42) {
-                ctx.beginPath(); ctx.moveTo(x, area.y + 12); ctx.lineTo(x, area.y + area.height - 12); ctx.stroke();
-            }
-            for (let y = area.y + 25; y < area.y + area.height; y += 42) {
-                ctx.beginPath(); ctx.moveTo(area.x + 12, y); ctx.lineTo(area.x + area.width - 12, y); ctx.stroke();
-            }
-            ctx.globalAlpha = 1;
+            ctx.fillStyle = `${area.color}24`;
+            ctx.fillRect(area.x + 7, area.y + 7, area.width - 14, 3);
         } else {
-            ctx.strokeStyle = "#4c353b"; ctx.lineWidth = 7;
-            for (let x = area.x + 25; x < area.x + area.width; x += 48) {
-                ctx.beginPath(); ctx.moveTo(x, area.y + 10); ctx.lineTo(x + 75, area.y + area.height - 10); ctx.stroke();
+            ctx.fillStyle = "rgb(207 103 121 / 16%)";
+            const startColumn = Math.floor(area.x / tileSize);
+            const endColumn = Math.ceil((area.x + area.width) / tileSize);
+            const startRow = Math.floor(area.y / tileSize);
+            const endRow = Math.ceil((area.y + area.height) / tileSize);
+            for (let row = startRow; row < endRow; row++) {
+                for (let column = startColumn; column < endColumn; column++) {
+                    if ((row + column) % 2 === 0) continue;
+                    const x = Math.max(area.x + 4, column * tileSize + 14);
+                    const y = Math.max(area.y + 4, row * tileSize + 14);
+                    if (x + 12 < area.x + area.width && y + 12 < area.y + area.height) {
+                        ctx.fillRect(x, y, 12, 12);
+                    }
+                }
             }
         }
 
@@ -588,28 +1019,34 @@ function drawAreas() {
 }
 
 function drawCore() {
-    const pulse = (Math.sin(performance.now() / 180) + 1) / 2;
     ctx.save();
-    ctx.shadowColor = "#58d9ff"; ctx.shadowBlur = 18 + pulse * 10;
-    ctx.fillStyle = "#153f50"; ctx.beginPath(); ctx.arc(CORE.x, CORE.y, 60, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = "#68dcff"; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(CORE.x, CORE.y, 49, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = "#161616";
+    ctx.fillRect(CORE.x - 19, CORE.y - 19, 38, 38);
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(CORE.x - 19, CORE.y - 19, 38, 38);
     if (state.core.shield > 0) {
-        ctx.strokeStyle = "#67aef7"; ctx.globalAlpha = .45 + pulse * .25; ctx.lineWidth = 7;
-        ctx.beginPath(); ctx.arc(CORE.x, CORE.y, 70 + pulse * 4, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = "#70bfff";
+        ctx.globalAlpha = .8;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(CORE.x - 24, CORE.y - 24, 48, 48);
     }
     const hitAge = performance.now() - coreHitStarted;
     if (hitAge < 350) {
         ctx.strokeStyle = "#ff4e58"; ctx.globalAlpha = 1 - hitAge / 350; ctx.lineWidth = 9;
-        ctx.beginPath(); ctx.arc(CORE.x, CORE.y, 72 + hitAge / 12, 0, Math.PI * 2); ctx.stroke();
+        const size = 48 + hitAge / 8;
+        ctx.strokeRect(CORE.x - size / 2, CORE.y - size / 2, size, size);
     }
     ctx.restore();
-    ctx.fillStyle = "white"; ctx.font = "900 14px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText("CORE", CORE.x, CORE.y + 5);
-    drawBar(CORE.x - 65, CORE.y + 79, 130, 8, state.core.hp / state.core.maxHp, "#58df88");
+    ctx.fillStyle = "white"; ctx.font = "900 8px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText("CORE", CORE.x, CORE.y + 3);
 }
 
 function drawShops() {
     drawStation(ARMORY, "ARMORY", "#e8b84d");
     drawStation(MED, "MED BAY", "#ed6680");
+    drawStation(WOODCUTTER, "WOODCUTTER", "#b58a55");
+    drawStation(QUARRY, "QUARRY", "#7f8a92");
+    drawStation(WORKBENCH, "WORKBENCH", "#6ab9d5");
 }
 
 function drawStation(station, label, color) {
@@ -636,7 +1073,12 @@ function drawTrapSlots() {
 
 function drawDefense(slot) {
     const defense = slot.defense;
-    if (defense.type === "turret") {
+    if (defense.type === "block") {
+        ctx.fillStyle = "#64777f"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
+        ctx.fillStyle = "#81949b"; ctx.fillRect(slot.x - 14, slot.y - 14, 28, 7);
+        ctx.fillStyle = "#4d6068"; ctx.fillRect(slot.x - 14, slot.y - 3, 10, 13);
+        ctx.strokeStyle = "#a9bac0"; ctx.lineWidth = 2; ctx.strokeRect(slot.x - 18, slot.y - 18, 36, 36);
+    } else if (defense.type === "turret") {
         ctx.fillStyle = "#6ab9d5"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
         ctx.strokeStyle = "#bcecff"; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(slot.x, slot.y); ctx.lineTo(slot.x, slot.y - 29); ctx.stroke();
     } else if (defense.type === "wire") {
@@ -680,28 +1122,60 @@ function drawEnemies() {
 function drawPlayers() {
     const colors = ["#56b4e9", "#d486e8", "#70d58b", "#e6ae55"];
     for (const player of state.players) {
-        const p = smoothEntity("player", player);
+        const isLocal = player.id === myPlayerId && predictedLocal;
+        const p = isLocal ? predictedLocal : smoothEntity("player", player);
         const rescuers = state.players.filter(worker => worker.action === player.id);
         if (rescuers.length) drawReviveEffect(p.x, p.y, Math.max(...rescuers.map(worker => worker.actionProgress / 4)));
-        if (player.dashing) {
-            const pulse = (Math.sin(performance.now() / 55) + 1) / 2;
-            ctx.save(); ctx.strokeStyle = "#76e5ff"; ctx.globalAlpha = .55 + pulse * .3; ctx.lineWidth = 5;
-            ctx.beginPath(); ctx.arc(p.x, p.y, 29 + pulse * 7, 0, Math.PI * 2); ctx.stroke();
-            ctx.restore();
-        }
         ctx.save();
         if (player.down) { ctx.translate(p.x, p.y + 8); ctx.scale(1.35, .65); }
         else ctx.translate(p.x, p.y);
         ctx.fillStyle = colors[Number(player.id.at(-1)) - 1] || "#ddd";
-        ctx.beginPath(); ctx.arc(0, 0, player.id === myPlayerId ? 24 : 20, 0, Math.PI * 2); ctx.fill();
-        if (player.id === myPlayerId) { ctx.strokeStyle = "white"; ctx.lineWidth = 3; ctx.stroke(); }
+        const playerSize = player.id === myPlayerId ? 44 : 38;
+        ctx.fillRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize);
+        if (player.id === myPlayerId) { ctx.strokeStyle = "white"; ctx.lineWidth = 3; ctx.strokeRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize); }
         ctx.restore();
+        if (player.id === myPlayerId) drawLocalWeaponCooldown(p.x, p.y, player);
         ctx.textAlign = "center"; ctx.fillStyle = "white"; ctx.font = "800 11px system-ui";
         ctx.fillText(player.down ? `${player.name} — DOWN` : player.name, p.x, p.y - 31);
         drawBar(p.x - 24, p.y + 28, 48, 4, player.hp / 100, player.down ? "#d94b4b" : "#54d286");
         if (player.action) drawBar(p.x - 30, p.y + 37, 60, 5, player.actionProgress / 4, "#f0c052");
     }
     ctx.textAlign = "left";
+}
+
+function drawInteractionPrompt() {
+    const interaction = findNearestInteraction();
+    if (!interaction || !actionMenu.classList.contains("hidden")) return;
+    const x = interaction.target.x;
+    const y = interaction.target.y - 48;
+    ctx.save();
+    ctx.fillStyle = "white";
+    ctx.strokeStyle = "#111";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(x, y, 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#111";
+    ctx.font = "900 15px ui-monospace, monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("R", x, y + 1);
+    ctx.font = "800 9px ui-monospace, monospace";
+    ctx.fillText(interaction.label, x, y - 25);
+    ctx.restore();
+}
+
+function drawLocalWeaponCooldown(x, y, player) {
+    if (player.down || player.cooldown <= 0) return;
+    const duration = Math.max(.01, player.cooldownMax || player.cooldown);
+    const progress = 1 - Math.min(1, player.cooldown / duration);
+    ctx.save();
+    ctx.fillStyle = "rgb(5 12 16 / 72%)";
+    ctx.fillRect(x - 20, y - 42, 40, 4);
+    ctx.fillStyle = "rgb(255 255 255 / 82%)";
+    ctx.fillRect(x - 20, y - 42, 40 * progress, 4);
+    ctx.restore();
 }
 
 function drawReviveEffect(x, y, progress) {
@@ -713,8 +1187,23 @@ function drawReviveEffect(x, y, progress) {
 
 function drawHitEffects() {
     const now = performance.now();
-    hitEffects = hitEffects.filter(effect => now - effect.started < (effect.weapon === "mine" ? 650 : 420));
+    hitEffects = hitEffects.filter(effect => now - effect.started
+        < (effect.effect === "core-pulse" ? 900 : effect.weapon === "mine" ? 650 : 420));
     for (const effect of hitEffects) {
+        if (effect.effect === "core-pulse") {
+            const progress = (now - effect.started) / 900;
+            ctx.save();
+            ctx.globalAlpha = 1 - progress;
+            ctx.strokeStyle = "#c877ff";
+            ctx.shadowColor = "#c877ff";
+            ctx.shadowBlur = 22;
+            ctx.lineWidth = 12 * (1 - progress) + 2;
+            ctx.beginPath();
+            ctx.arc(effect.x, effect.y, 65 + progress * 210, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+            continue;
+        }
         const duration = effect.weapon === "mine" ? 650 : 420;
         const progress = (now - effect.started) / duration;
         const alpha = 1 - progress;
@@ -724,13 +1213,18 @@ function drawHitEffects() {
             ctx.lineWidth = 4 * (1 - progress); ctx.beginPath(); ctx.moveTo(effect.fromX, effect.fromY); ctx.lineTo(effect.x, effect.y); ctx.stroke();
         }
         const radius = effect.weapon === "mine" ? 24 + progress * 100 : 8 + progress * (effect.defeated ? 42 : 25);
-        ctx.lineWidth = effect.defeated ? 5 : 3; ctx.beginPath(); ctx.arc(effect.x, effect.y, radius, 0, Math.PI * 2); ctx.stroke();
-        for (let i = 0; i < 6; i++) {
-            const angle = i * Math.PI / 3, inner = radius * .5, outer = radius * .9 + 12;
-            ctx.beginPath(); ctx.moveTo(effect.x + Math.cos(angle) * inner, effect.y + Math.sin(angle) * inner); ctx.lineTo(effect.x + Math.cos(angle) * outer, effect.y + Math.sin(angle) * outer); ctx.stroke();
+        if (effect.damage > 0 || effect.weapon === "mine") {
+            ctx.lineWidth = effect.defeated ? 5 : 3; ctx.beginPath(); ctx.arc(effect.x, effect.y, radius, 0, Math.PI * 2); ctx.stroke();
+            for (let i = 0; i < 6; i++) {
+                const angle = i * Math.PI / 3, inner = radius * .5, outer = radius * .9 + 12;
+                ctx.beginPath(); ctx.moveTo(effect.x + Math.cos(angle) * inner, effect.y + Math.sin(angle) * inner); ctx.lineTo(effect.x + Math.cos(angle) * outer, effect.y + Math.sin(angle) * outer); ctx.stroke();
+            }
         }
-        ctx.fillStyle = "white"; ctx.font = "900 15px ui-monospace, monospace"; ctx.textAlign = "center";
-        ctx.fillText(`-${Math.round(effect.damage)}`, effect.x, effect.y - 28 - progress * 25); ctx.restore();
+        if (effect.damage > 0) {
+            ctx.fillStyle = "white"; ctx.font = "900 15px ui-monospace, monospace"; ctx.textAlign = "center";
+            ctx.fillText(`-${Math.round(effect.damage)}`, effect.x, effect.y - 28 - progress * 25);
+        }
+        ctx.restore();
     }
     ctx.textAlign = "left";
 }
@@ -751,5 +1245,17 @@ function drawJoystick() {
 function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" })[char]); }
 
-connect();
-animate();
+async function initialize() {
+    menuStatus.textContent = "マップデータを読み込んでいます…";
+    try {
+        await loadMap();
+    } catch (error) {
+        console.warn("HTTPからマップを読み込めないため、ゲームサーバーから取得します。", error);
+        menuStatus.textContent = "ゲームサーバーからマップデータを取得します…";
+    }
+    connect();
+    await mapReadyPromise;
+    animate();
+}
+
+initialize();
