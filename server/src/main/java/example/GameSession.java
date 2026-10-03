@@ -6,8 +6,6 @@ import static example.GameConfig.MAX_ROUNDS;
 import static example.GameConfig.PLAYER_COUNT;
 import static example.GameConfig.PREP_SECONDS;
 import static example.GameConfig.RECONNECT_GRACE_SECONDS;
-import static example.GameMap.ARMORY_X;
-import static example.GameMap.ARMORY_Y;
 import static example.GameMap.CORE_X;
 import static example.GameMap.CORE_Y;
 import static example.GameMap.MED_X;
@@ -187,7 +185,7 @@ final class GameSession {
         }
         if (phase == GamePhase.LOBBY || phase == GamePhase.WON || phase == GamePhase.LOST) return;
 
-        updateBots();
+        updateBots(dt);
         updatePlayers(dt);
         updateRevives(dt);
         updateResources(dt);
@@ -706,7 +704,7 @@ final class GameSession {
         coreHp = Math.max(0, coreHp - damage);
     }
 
-    private void updateBots() {
+    private void updateBots(double dt) {
         for (Player bot : players) {
             if (bot.human) continue;
             if (bot.down) {
@@ -731,13 +729,36 @@ final class GameSession {
 
             if (phase == GamePhase.WAVE) {
                 String lane = assignedLane(bot.slot, activeLanes);
-                Enemy target = enemies.stream().filter(enemy -> enemy.hp > 0 && enemy.lane.equals(lane))
-                        .min(Comparator.comparingDouble(enemy -> distance(enemy.x, enemy.y, coreX, coreY)))
-                        .orElse(null);
+                Enemy target = enemies.stream()
+                        .filter(enemy -> enemy.id == bot.botTargetEnemyId && enemy.hp > 0
+                                && distance(bot.x, bot.y, enemy.x, enemy.y) <= 620)
+                        .findFirst().orElse(null);
                 if (target == null) {
-                    target = enemies.stream().filter(enemy -> enemy.hp > 0)
-                            .min(Comparator.comparingDouble(enemy -> distance(enemy.x, enemy.y, coreX, coreY)))
-                            .orElse(null);
+                    bot.botTargetEnemyId = -1;
+                    Enemy candidate = enemies.stream()
+                            .filter(enemy -> enemy.hp > 0 && enemy.lane.equals(lane)
+                                    && distance(bot.x, bot.y, enemy.x, enemy.y) <= 360)
+                            .min(Comparator.comparingDouble(enemy -> distance(bot.x, bot.y, enemy.x, enemy.y)))
+                            .orElseGet(() -> enemies.stream()
+                                    .filter(enemy -> enemy.hp > 0
+                                            && distance(bot.x, bot.y, enemy.x, enemy.y) <= 300)
+                                    .min(Comparator.comparingDouble(enemy ->
+                                            distance(bot.x, bot.y, enemy.x, enemy.y)))
+                                    .orElse(null));
+                    if (candidate != null) {
+                        if (bot.botObservedEnemyId != candidate.id) {
+                            bot.botObservedEnemyId = candidate.id;
+                            bot.botRecognitionTimer = 0.9 + bot.slot * 0.15;
+                        }
+                        bot.botRecognitionTimer = Math.max(0, bot.botRecognitionTimer - dt);
+                        if (bot.botRecognitionTimer <= 0) {
+                            bot.botTargetEnemyId = candidate.id;
+                            target = candidate;
+                        }
+                    } else {
+                        bot.botObservedEnemyId = -1;
+                        bot.botRecognitionTimer = 0;
+                    }
                 }
                 if (target != null) {
                     double targetDistance = distance(bot.x, bot.y, target.x, target.y);
@@ -748,8 +769,19 @@ final class GameSession {
                         bot.moveX = 0;
                         bot.moveY = 0;
                     }
+                } else {
+                    double[] guard = guardPoint(laneForSlot(bot.slot));
+                    if (distance(bot.x, bot.y, guard[0], guard[1]) > 35) {
+                        moveBotToward(bot, guard[0], guard[1]);
+                    } else {
+                        bot.moveX = 0;
+                        bot.moveY = 0;
+                    }
                 }
             } else {
+                bot.botTargetEnemyId = -1;
+                bot.botObservedEnemyId = -1;
+                bot.botRecognitionTimer = 0;
                 double[] guard = guardPoint(laneForSlot(bot.slot));
                 if (distance(bot.x, bot.y, guard[0], guard[1]) > 35) {
                     moveBotToward(bot, guard[0], guard[1]);
@@ -978,8 +1010,9 @@ final class GameSession {
             }
             return;
         }
-        if (distance(player.x, player.y, ARMORY_X, ARMORY_Y) > 105) {
-            feedback(player, "MOVE TO ARMORY");
+        ShopUnit shop = GameMap.shopByItem(item);
+        if (shop == null || distance(player.x, player.y, shop.x(), shop.y()) > 70) {
+            feedback(player, "MOVE TO SHOP UNIT");
             return;
         }
         switch (item) {
@@ -988,7 +1021,7 @@ final class GameSession {
                     feedback(player, "ALREADY OWNED");
                     return;
                 }
-                if (spend(player, 450)) {
+                if (spend(player, shop.cost())) {
                     player.ownsShotgun = true;
                     player.shotgunAmmo = 30;
                     player.weapon = "shotgun";
@@ -1002,7 +1035,7 @@ final class GameSession {
                     feedback(player, "ALREADY OWNED");
                     return;
                 }
-                if (spend(player, 650)) {
+                if (spend(player, shop.cost())) {
                     player.ownsRifle = true;
                     player.rifleAmmo = 24;
                     player.weapon = "rifle";
@@ -1016,7 +1049,7 @@ final class GameSession {
                     feedback(player, "NO AMMO WEAPON");
                     return;
                 }
-                if (spend(player, 100)) {
+                if (spend(player, shop.cost())) {
                     player.shotgunAmmo += player.ownsShotgun ? 16 : 0;
                     player.rifleAmmo += player.ownsRifle ? 12 : 0;
                     setNotice(player.name + " が弾薬を補充しました");
@@ -1376,6 +1409,9 @@ final class GameSession {
             player.selectedBuild = null;
             player.movingCore = false;
             player.kills = 0;
+            player.botTargetEnemyId = -1;
+            player.botObservedEnemyId = -1;
+            player.botRecognitionTimer = 0;
             cancelAction(player);
             if (!preserveHumans && !player.human) player.name = "CPU " + player.slot;
             index++;

@@ -26,7 +26,8 @@ const actionMenu = document.querySelector("#action-menu");
 const actionTitle = document.querySelector("#action-title");
 const actionOptions = document.querySelector("#action-options");
 const actionClose = document.querySelector("#action-close");
-const buildBelt = document.querySelector("#build-belt");
+const inventoryMenu = document.querySelector("#inventory-menu");
+const inventoryItems = document.querySelector("#inventory-items");
 const roundIntro = document.querySelector("#round-intro");
 const URL_PARAMETERS = new URLSearchParams(window.location.search);
 const DEBUG_MODE = URL_PARAMETERS.get("debug") === "1";
@@ -42,6 +43,7 @@ let WORKBENCH = { id: "workbench", x: 0, y: 0 };
 let TILE_MAP = { tileSize: 40, legend: {}, rows: [] };
 let AREAS = [];
 let SPAWN_POINTS = [];
+let SHOP_UNITS = [];
 const BUILD_INFO = {
     block: { name: "BLOCK", wood: 4, ore: 0, description: "通路を塞ぐ基本ブロック" },
     turret: { name: "AUTO TURRET", wood: 4, ore: 8, description: "範囲内の敵を自動射撃" },
@@ -50,7 +52,7 @@ const BUILD_INFO = {
     barricade: { name: "BARRICADE", wood: 6, ore: 2, description: "高耐久の進路妨害" },
 };
 const INTERACTION_RANGE = Object.freeze({
-    armory: 105,
+    shop: 70,
     medBay: 95,
     core: 95,
     trapSlot: 100,
@@ -131,6 +133,7 @@ function applyMap(map) {
     };
     AREAS = map.areas.map(area => ({ ...area }));
     SPAWN_POINTS = map.spawnPoints.map(spawn => ({ ...spawn }));
+    SHOP_UNITS = map.shopUnits.map(shop => ({ ...shop }));
     camera = { x: CORE.x, y: CORE.y };
     if (!mapReady) {
         mapReady = true;
@@ -150,7 +153,7 @@ function validateMap(map) {
     }
     for (const [name, values] of [["areas", map.areas],
         ["spawnPoints", map.spawnPoints], ["trapSlots", map.trapSlots],
-        ["resourceNodes", map.resourceNodes]]) {
+        ["resourceNodes", map.resourceNodes], ["shopUnits", map.shopUnits]]) {
         if (!Array.isArray(values)) throw new Error(`${name}が配列ではありません`);
     }
     const tiles = map.tileMap;
@@ -170,6 +173,7 @@ function validateMap(map) {
     requireUniqueIds(map.spawnPoints, "spawnPoints");
     requireUniqueIds(map.trapSlots, "trapSlots");
     requireUniqueIds(map.resourceNodes, "resourceNodes");
+    requireUniqueIds(map.shopUnits, "shopUnits");
     for (const spawn of map.spawnPoints) {
         if (!Array.isArray(spawn.route) || spawn.route.length === 0 || !spawn.route.every(isPoint)) {
             throw new Error(`侵入口${spawn.id}の経路が不正です`);
@@ -306,6 +310,7 @@ function receiveState(next) {
         hud.classList.remove("hidden");
     } else if (["won", "lost"].includes(next.phase)) {
         closeActionMenu();
+        inventoryMenu.classList.add("hidden");
         menu.classList.remove("hidden");
         hud.classList.remove("hidden");
         menuStatus.textContent = next.phase === "won" ? "防衛成功：CORE SECURED" : `防衛失敗：${next.notice}`;
@@ -359,7 +364,7 @@ function cycleEquipment(direction = 1) {
 }
 
 weaponButton.addEventListener("click", () => cycleEquipment(1));
-interactButton.addEventListener("click", useNearestInteraction);
+interactButton.addEventListener("click", toggleNearestInteraction);
 window.addEventListener("wheel", event => {
     if (!state || !["preparing", "wave"].includes(state.phase)) return;
     event.preventDefault();
@@ -368,6 +373,9 @@ window.addEventListener("wheel", event => {
 actionClose.addEventListener("click", closeActionMenu);
 actionMenu.addEventListener("pointerdown", event => {
     if (event.target === actionMenu) closeActionMenu();
+});
+inventoryMenu.addEventListener("pointerdown", event => {
+    if (event.target === inventoryMenu) inventoryMenu.classList.add("hidden");
 });
 
 function updateHud() {
@@ -403,24 +411,42 @@ function updateHud() {
         weaponCooldown.textContent = me.cooldown > 0 ? `${me.cooldown.toFixed(1)}s` : "READY";
         weaponButton.style.setProperty("--cooldown-progress", `${cooldownProgress * 100}%`);
         weaponButton.classList.toggle("cooling", me.cooldown > 0);
-        updateBuildBelt(me);
+        updateInventory(me);
         interactButton.classList.toggle("hidden", !findNearestInteraction());
     }
 }
 
-function updateBuildBelt(me) {
+function updateInventory(me) {
     const entries = equipmentEntries(me);
     const selectedKey = me.movingCore ? "core"
         : me.selectedBuild ? `build:${me.selectedBuild}` : `weapon:${me.weapon}`;
-    buildBelt.classList.toggle("hidden", entries.length === 0);
-    buildBelt.innerHTML = entries.map(entry => `
-        <button type="button" data-key="${entry.key}" class="${selectedKey === entry.key ? "selected" : ""}">
-            <strong>${entry.label}</strong><span>${entry.kind === "build" ? `×${me.buildItems[entry.value]}` : entry.kind === "core" ? "MOVE" : "WEAPON"}</span>
-        </button>`).join("");
-    buildBelt.querySelectorAll("button").forEach(button => button.addEventListener("click", () => {
+    const equipment = entries.map(entry => {
+        const amount = entry.kind === "build" ? `×${me.buildItems[entry.value]}`
+            : entry.kind === "core" ? "MOVE" : entry.value === "shotgun" ? `${me.shotgunAmmo} AMMO`
+                : entry.value === "rifle" ? `${me.rifleAmmo} AMMO` : "WEAPON";
+        return `<button type="button" data-key="${entry.key}" class="${selectedKey === entry.key ? "selected" : ""}">
+            <strong>${entry.label}</strong><span>${amount}</span>
+        </button>`;
+    }).join("");
+    inventoryItems.innerHTML = `
+        <div class="inventory-section"><h3>EQUIPMENT</h3><div class="inventory-grid">${equipment}</div></div>
+        <div class="inventory-section"><h3>MATERIALS</h3><div class="inventory-grid materials-grid">
+            <div class="inventory-resource"><strong>WOOD</strong><span>×${me.wood}</span></div>
+            <div class="inventory-resource"><strong>ORE</strong><span>×${me.ore}</span></div>
+        </div></div>`;
+    inventoryItems.querySelectorAll("button").forEach(button => button.addEventListener("click", () => {
         const entry = entries.find(candidate => candidate.key === button.dataset.key);
         if (entry) selectEquipment(entry);
     }));
+}
+
+function toggleInventory() {
+    if (!inventoryMenu.classList.contains("hidden")) {
+        inventoryMenu.classList.add("hidden");
+        return;
+    }
+    closeActionMenu();
+    inventoryMenu.classList.remove("hidden");
 }
 
 function setDash(active) {
@@ -434,19 +460,43 @@ function showNotice(text) {
         text: String(text),
         round: state?.round > 0 ? `R${state.round}` : "SYS",
     };
-    noticeEntries.unshift(entry);
-    if (noticeEntries.length > 4) noticeEntries.length = 4;
-    renderNotices();
+    const previousPositions = new Map([...noticeElement.children]
+        .map(element => [element.dataset.logId, element.getBoundingClientRect().top]));
+    noticeEntries.push(entry);
+    const element = document.createElement("div");
+    element.className = "log-entry";
+    element.dataset.logId = entry.id;
+    element.innerHTML = `<span>${entry.round}</span><p>${escapeHtml(entry.text)}</p>`;
+    noticeElement.append(element);
+    while (noticeEntries.length > 6) {
+        const removed = noticeEntries.shift();
+        noticeElement.querySelector(`[data-log-id="${CSS.escape(removed.id)}"]`)?.remove();
+    }
+    for (const existing of noticeElement.children) {
+        const oldTop = previousPositions.get(existing.dataset.logId);
+        if (oldTop === undefined) continue;
+        const delta = oldTop - existing.getBoundingClientRect().top;
+        if (Math.abs(delta) > .5) {
+            existing.animate([
+                { transform: `translateY(${delta}px)` },
+                { transform: "translateY(0)" },
+            ], { duration: 280, easing: "cubic-bezier(.2,.8,.2,1)" });
+        }
+    }
+    element.animate([
+        { opacity: 0, transform: "translateY(8px)" },
+        { opacity: 1, transform: "translateY(0)" },
+    ], { duration: 220, easing: "ease-out" });
+    element.animate([
+        { opacity: 1, offset: 0 },
+        { opacity: 1, offset: .62 },
+        { opacity: 0, offset: 1 },
+    ], { duration: 15600, easing: "linear", fill: "forwards" });
     setTimeout(() => {
         const index = noticeEntries.findIndex(item => item.id === entry.id);
         if (index >= 0) noticeEntries.splice(index, 1);
-        renderNotices();
+        element.remove();
     }, 15600);
-}
-
-function renderNotices() {
-    noticeElement.innerHTML = noticeEntries.map(entry => `
-        <div class="log-entry"><span>${entry.round}</span><p>${escapeHtml(entry.text)}</p></div>`).join("");
 }
 
 function receiveLog(version, text) {
@@ -575,6 +625,7 @@ function canBuildAt(point, forCore = false) {
     if (distance(point, ARMORY) < 70 || distance(point, MED) < 70
             || distance(point, WOODCUTTER) < 70 || distance(point, QUARRY) < 70
             || distance(point, WORKBENCH) < 70) return false;
+    if (SHOP_UNITS.some(shop => distance(point, shop) < 55)) return false;
     if (SPAWN_POINTS.some(spawn => distance(point, spawn) < 80)) return false;
     if (state.slots.some(slot => (forCore ? slot.defense : true) && distance(point, slot) < 36)) return false;
     return !state.players.some(player => distance(point, player) < (player.id === myPlayerId ? 30 : 48))
@@ -596,13 +647,20 @@ function openCoreMenu() {
     ], CORE, INTERACTION_RANGE.core);
 }
 
-function openArmoryMenu() {
+function openShopPurchase(shop) {
     const me = getMe();
-    openNearbyActionMenu("ARMORY", [
-        option("SHOTGUN", 450, "BUY:shotgun", me.ownsShotgun, me.ownsShotgun ? "購入済み" : "範囲攻撃 / 30発"),
-        option("RIFLE", 650, "BUY:rifle", me.ownsRifle, me.ownsRifle ? "購入済み" : "長射程 / 24発"),
-        option("AMMO PACK", 100, "BUY:ammo", !me.ownsShotgun && !me.ownsRifle, "SG +16 / RF +12"),
-    ], ARMORY, INTERACTION_RANGE.armory);
+    const alreadyOwned = shop.item === "shotgun" && me.ownsShotgun
+        || shop.item === "rifle" && me.ownsRifle;
+    const unavailable = shop.item === "ammo" && !me.ownsShotgun && !me.ownsRifle;
+    const detail = alreadyOwned ? "購入済み"
+        : unavailable ? "弾薬武器を先に購入してください"
+            : `${shop.cost}g — ${shop.detail}`;
+    openNearbyActionMenu(`${shop.label} — PURCHASE?`, [{
+        label: `BUY ${shop.label}`,
+        detail,
+        command: `BUY:${shop.item}`,
+        disabled: alreadyOwned || unavailable || me.credits < shop.cost,
+    }], shop, INTERACTION_RANGE.shop);
 }
 
 function openWoodcutterMenu() {
@@ -819,9 +877,14 @@ function isTypingTarget(target) {
 window.addEventListener("keydown", event => {
     if (isTypingTarget(event.target)) return;
     const key = event.key.toLowerCase();
+    if (key === "e") {
+        event.preventDefault();
+        if (!event.repeat) toggleInventory();
+        return;
+    }
     if (key === "r") {
         event.preventDefault();
-        if (!event.repeat) useNearestInteraction();
+        if (!event.repeat) toggleNearestInteraction();
         return;
     }
     if (key === "shift") {
@@ -859,11 +922,13 @@ function findNearestInteraction() {
         .forEach(player => add("revive", player, 78, "REVIVE", () => send(`INTERACT:${player.id}`)));
     state.slots.filter(slot => slot.defense)
         .forEach(slot => add("defense", slot, INTERACTION_RANGE.trapSlot, "MANAGE", () => openSlotMenu(slot)));
-    add("armory", ARMORY, INTERACTION_RANGE.armory, "ARMORY", openArmoryMenu);
+    SHOP_UNITS.forEach(shop => add("shop", shop, INTERACTION_RANGE.shop,
+        shop.label, () => openShopPurchase(shop)));
     add("med", MED, INTERACTION_RANGE.medBay, "MED BAY", openMedMenu);
     add("craft", WORKBENCH, INTERACTION_RANGE.workbench, "CRAFT", openWorkbenchMenu);
     add("core", state.core, INTERACTION_RANGE.core, "CORE", openCoreMenu);
     for (const area of AREAS) {
+        if (state.areas[area.id]) continue;
         const terminal = { x: area.terminalX, y: area.terminalY };
         add("area", terminal, INTERACTION_RANGE.areaTerminal, "UNLOCK", () => openUnlockMenu(area));
     }
@@ -877,6 +942,15 @@ function useNearestInteraction() {
         return;
     }
     interaction.action();
+}
+
+function toggleNearestInteraction() {
+    if (!actionMenu.classList.contains("hidden")) {
+        closeActionMenu();
+        return;
+    }
+    inventoryMenu.classList.add("hidden");
+    useNearestInteraction();
 }
 
 function nearestAt(items, point) {
@@ -1048,12 +1122,14 @@ function drawAreas() {
         ctx.font = "900 13px ui-monospace, monospace"; ctx.textAlign = "center";
         ctx.fillText(area.name, area.x + area.width / 2, area.y + 27);
 
-        ctx.fillStyle = unlocked ? "#48c77a" : "#d8d8d8";
-        ctx.fillRect(area.terminalX - 15, area.terminalY - 15, 30, 30);
-        ctx.strokeStyle = unlocked ? "#8af0ad" : "#ffe09a"; ctx.lineWidth = 2;
-        ctx.strokeRect(area.terminalX - 18, area.terminalY - 18, 36, 36);
-        ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace";
-        ctx.fillText(unlocked ? "OPEN" : "UNLOCK", area.terminalX, area.terminalY - 24);
+        if (!unlocked) {
+            ctx.fillStyle = "#d8d8d8";
+            ctx.fillRect(area.terminalX - 15, area.terminalY - 15, 30, 30);
+            ctx.strokeStyle = "#ffe09a"; ctx.lineWidth = 2;
+            ctx.strokeRect(area.terminalX - 18, area.terminalY - 18, 36, 36);
+            ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace";
+            ctx.fillText("UNLOCK", area.terminalX, area.terminalY - 24);
+        }
         ctx.restore();
     }
 }
@@ -1086,7 +1162,8 @@ function drawCore() {
 }
 
 function drawShops() {
-    if (isUnlockedPoint(ARMORY)) drawStation(ARMORY, "ARMORY", "#e8b84d");
+    SHOP_UNITS.filter(isUnlockedPoint)
+        .forEach(shop => drawStation(shop, shop.label, "#e8b84d"));
     if (isUnlockedPoint(MED)) drawStation(MED, "MED BAY", "#ed6680");
     if (isUnlockedPoint(WOODCUTTER)) drawStation(WOODCUTTER, "WOODCUTTER", "#b58a55");
     if (isUnlockedPoint(QUARRY)) drawStation(QUARRY, "QUARRY", "#7f8a92");

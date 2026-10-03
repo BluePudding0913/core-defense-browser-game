@@ -33,9 +33,13 @@ record TrapSlotDefinition(String id, String lane, double x, double y, String req
 
 record ResourceNodeDefinition(String id, String type, double x, double y, String requiredArea) { }
 
+record ShopUnit(String id, String item, String label, double x, double y, int cost,
+        String detail) { }
+
 record MapDefinition(int version, WorldSize world, MapPoint core, Stations stations,
         TileMapDefinition tileMap, List<UnlockArea> areas, List<SpawnPoint> spawnPoints,
-        List<TrapSlotDefinition> trapSlots, List<ResourceNodeDefinition> resourceNodes) { }
+        List<TrapSlotDefinition> trapSlots, List<ResourceNodeDefinition> resourceNodes,
+        List<ShopUnit> shopUnits) { }
 
 /** Static research-facility layout loaded from the shared map resource. */
 final class GameMap {
@@ -62,6 +66,7 @@ final class GameMap {
     static final TileMapDefinition TILE_MAP = DEFINITION.tileMap();
     static final List<UnlockArea> AREAS = List.copyOf(DEFINITION.areas());
     static final List<SpawnPoint> SPAWN_POINTS = List.copyOf(DEFINITION.spawnPoints());
+    static final List<ShopUnit> SHOP_UNITS = List.copyOf(DEFINITION.shopUnits());
 
     private GameMap() { }
 
@@ -85,6 +90,11 @@ final class GameMap {
     static SpawnPoint spawnById(String id) {
         return SPAWN_POINTS.stream().filter(spawn -> spawn.id().equals(id))
                 .findFirst().orElse(SPAWN_POINTS.get(0));
+    }
+
+    static ShopUnit shopByItem(String item) {
+        return SHOP_UNITS.stream().filter(shop -> shop.item().equals(item))
+                .findFirst().orElse(null);
     }
 
     static String clientMapMessage() {
@@ -134,6 +144,8 @@ final class GameMap {
                 || GameSupport.distance(point.x(), point.y(), WORKBENCH_X, WORKBENCH_Y) < 70) {
             return false;
         }
+        if (SHOP_UNITS.stream().anyMatch(shop ->
+                GameSupport.distance(point.x(), point.y(), shop.x(), shop.y()) < 55)) return false;
         return SPAWN_POINTS.stream().noneMatch(spawn ->
                 GameSupport.distance(point.x(), point.y(), spawn.x(), spawn.y()) < 80);
     }
@@ -153,6 +165,8 @@ final class GameMap {
                 || GameSupport.distance(point.x(), point.y(), WORKBENCH_X, WORKBENCH_Y) < 70) {
             return false;
         }
+        if (SHOP_UNITS.stream().anyMatch(shop ->
+                GameSupport.distance(point.x(), point.y(), shop.x(), shop.y()) < 55)) return false;
         return SPAWN_POINTS.stream().noneMatch(spawn ->
                 GameSupport.distance(point.x(), point.y(), spawn.x(), spawn.y()) < 80);
     }
@@ -237,6 +251,7 @@ final class GameMap {
         }
         if (map.tileMap() == null || map.areas() == null || map.spawnPoints() == null
                 || map.trapSlots() == null || map.resourceNodes() == null
+                || map.shopUnits() == null
                 || map.spawnPoints().isEmpty()) {
             throw new IllegalStateException("Map lists and at least one spawn point are required");
         }
@@ -246,6 +261,7 @@ final class GameMap {
         uniqueIds(map.spawnPoints().stream().map(SpawnPoint::id).toList(), "spawn point");
         uniqueIds(map.trapSlots().stream().map(TrapSlotDefinition::id).toList(), "trap slot");
         uniqueIds(map.resourceNodes().stream().map(ResourceNodeDefinition::id).toList(), "resource node");
+        uniqueIds(map.shopUnits().stream().map(ShopUnit::id).toList(), "shop unit");
 
         for (SpawnPoint spawn : map.spawnPoints()) {
             if (spawn.route() == null || spawn.route().isEmpty()
@@ -274,6 +290,11 @@ final class GameMap {
             }
             if (node.requiredArea() != null && !areaIds.contains(node.requiredArea())) {
                 throw new IllegalStateException("Unknown area for resource node " + node.id());
+            }
+        }
+        for (ShopUnit shop : map.shopUnits()) {
+            if (!Set.of("shotgun", "rifle", "ammo").contains(shop.item()) || shop.cost() <= 0) {
+                throw new IllegalStateException("Invalid shop unit: " + shop.id());
             }
         }
     }

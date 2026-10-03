@@ -109,5 +109,10 @@
     {"id":"ore-2","type":"ore","x":980,"y":140,"requiredArea":"mine"},
     {"id":"ore-3","type":"ore","x":740,"y":300,"requiredArea":"mine"},
     {"id":"ore-4","type":"ore","x":980,"y":300,"requiredArea":"mine"}
+  ],
+  "shopUnits": [
+    {"id":"shop-shotgun","item":"shotgun","label":"SHOTGUN","x":1540,"y":940,"cost":450,"detail":"範囲攻撃 / 30発"},
+    {"id":"shop-rifle","item":"rifle","label":"RIFLE","x":1660,"y":940,"cost":650,"detail":"長射程 / 24発"},
+    {"id":"shop-ammo","item":"ammo","label":"AMMO","x":1780,"y":940,"cost":100,"detail":"SG +16 / RF +12"}
   ]
 }

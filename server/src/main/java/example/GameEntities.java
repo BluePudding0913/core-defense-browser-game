@@ -47,6 +47,9 @@ final class Player {
     String actionTarget;
     double actionProgress;
     int kills;
+    int botTargetEnemyId = -1;
+    int botObservedEnemyId = -1;
+    double botRecognitionTimer;
 
     Player(int slot) {
         this.slot = slot;

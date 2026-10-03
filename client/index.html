@@ -30,7 +30,6 @@
         </div>
         <div id="notice" class="notice"></div>
         <div id="feedback" class="feedback"></div>
-        <div id="build-belt" class="build-belt"></div>
         <div class="controls-right">
             <button id="interact" class="control-button interact hidden" type="button"><span>R</span><small>INTERACT</small></button>
             <button id="weapon" class="control-button weapon" type="button">
@@ -42,6 +41,12 @@
                 </span>
             </button>
         </div>
+        <section id="inventory-menu" class="inventory-menu hidden" aria-label="所持品">
+            <div class="inventory-card">
+                <div class="inventory-heading"><strong>INVENTORY</strong><span>E TO CLOSE</span></div>
+                <div id="inventory-items" class="inventory-items"></div>
+            </div>
+        </section>
     </section>
 
     <div id="round-intro" class="round-intro" aria-live="assertive"></div>

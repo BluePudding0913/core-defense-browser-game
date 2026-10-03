@@ -35,6 +35,7 @@ class GameMapTest {
         assertEquals(definition.spawnPoints(), GameMap.SPAWN_POINTS);
         assertEquals(definition.trapSlots().size(), GameMap.createTrapSlots().size());
         assertEquals(definition.resourceNodes().size(), GameMap.createResourceNodes().size());
+        assertEquals(definition.shopUnits(), GameMap.SHOP_UNITS);
         assertTrue(definition.spawnPoints().size() >= 7,
                 "the outdoor field should provide several spawn candidates");
         assertTrue(definition.spawnPoints().stream().allMatch(spawn -> spawn.y() >= 1_760),
@@ -74,6 +75,7 @@ class GameMapTest {
         assertEquals(GameMap.SPAWN_POINTS.size(), message.path("map").path("spawnPoints").size());
         assertEquals(GameMap.createTrapSlots().size(), message.path("map").path("trapSlots").size());
         assertEquals(GameMap.createResourceNodes().size(), message.path("map").path("resourceNodes").size());
+        assertEquals(GameMap.SHOP_UNITS.size(), message.path("map").path("shopUnits").size());
     }
 
     @Test

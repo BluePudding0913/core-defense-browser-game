@@ -61,8 +61,9 @@ class GameSessionTest {
     @Test
     void purchaseRequiresTheFacilityAndChargesOnlyOnce() {
         startPreparing();
-        player.x = GameMap.ARMORY_X;
-        player.y = GameMap.ARMORY_Y;
+        ShopUnit shotgunShop = GameMap.shopByItem("shotgun");
+        player.x = shotgunShop.x();
+        player.y = shotgunShop.y();
 
         game.handleMessage(player, "BUY:shotgun");
 
@@ -74,11 +75,16 @@ class GameSessionTest {
         game.handleMessage(player, "BUY:shotgun");
         assertEquals(250, player.credits, "an owned weapon must not be charged twice");
 
-        player.x = GameMap.CORE_X;
-        player.y = GameMap.CORE_Y;
         player.credits = 1_000;
         game.handleMessage(player, "BUY:rifle");
         assertFalse(player.ownsRifle);
+        assertEquals(1_000, player.credits,
+                "a shop unit must sell only the item assigned to that unit");
+
+        player.x = GameMap.CORE_X;
+        player.y = GameMap.CORE_Y;
+        game.handleMessage(player, "BUY:ammo");
+        assertEquals(30, player.shotgunAmmo);
         assertEquals(1_000, player.credits, "a remote purchase must be rejected");
     }
 
@@ -368,6 +374,11 @@ class GameSessionTest {
     @Test
     void enemiesUseSlightlyDifferentLinesTowardTheSameRoutePoint() {
         startWave();
+        game.players.forEach(candidate -> {
+            candidate.human = true;
+            candidate.moveX = 0;
+            candidate.moveY = 0;
+        });
         game.enemies.clear();
         game.queuedEnemies = 0;
         game.queuedBosses = 0;
@@ -381,6 +392,26 @@ class GameSessionTest {
 
         assertTrue(GameSupport.distance(first.x, first.y, second.x, second.y) > 0.1,
                 "enemy drift should stop identical single-file movement");
+    }
+
+    @Test
+    void cpuNeedsTimeToRecognizeANewEnemyBeforeAttacking() {
+        startWave();
+        game.enemies.clear();
+        game.queuedEnemies = 0;
+        game.queuedBosses = 0;
+        Player bot = game.players.get(1);
+        SpawnPoint spawn = GameMap.spawnById("south-gate");
+        Enemy enemy = new Enemy(9_030, "grunt", spawn, 500, 0, 0, 0);
+        enemy.x = bot.x + 100;
+        enemy.y = bot.y;
+        game.enemies.add(enemy);
+
+        game.update(0.6);
+        assertEquals(500, enemy.hp, "CPU should not attack on the first sighting");
+
+        game.update(0.7);
+        assertTrue(enemy.hp < 500, "CPU should attack after its recognition delay");
     }
 
     @Test
