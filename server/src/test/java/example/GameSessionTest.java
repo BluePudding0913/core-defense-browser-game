@@ -842,6 +842,15 @@ class GameSessionTest {
         beginSpecificRound(8);
         assertEquals("boss_assault", game.roundEvent);
         assertEquals(2, game.queuedBosses);
+
+        beginSpecificRound(20);
+        assertEquals("boss_assault", game.roundEvent);
+        assertEquals(5, game.queuedBosses);
+        game.queuedEnemies = 0;
+        game.queuedBosses = 0;
+        game.enemies.clear();
+        game.update(0.05);
+        assertEquals(GamePhase.WON, game.phase, "clearing round 20 should win the match");
     }
 
     @Test

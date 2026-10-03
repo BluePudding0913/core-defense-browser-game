@@ -329,18 +329,10 @@ final class GameSession {
         selectRoundSpawns(round);
         phase = GamePhase.WAVE;
         queuedEnemies = 8 + round * 4;
-        queuedBosses = switch (round) {
-            case 4 -> 1;
-            case 8 -> 2;
-            case 12 -> 3;
-            default -> 0;
-        };
-        roundEvent = switch (round) {
-            case 3, 7, 11 -> "blackout";
-            case 5, 9 -> "door_failure";
-            case 4, 8, 12 -> "boss_assault";
-            default -> "none";
-        };
+        queuedBosses = round % 4 == 0 ? round / 4 : 0;
+        roundEvent = round % 4 == 3 ? "blackout"
+                : round >= 5 && round % 4 == 1 ? "door_failure"
+                : round % 4 == 0 ? "boss_assault" : "none";
         failedSpawnId = roundEvent.equals("door_failure")
                 ? activeSpawnIds.get(random.nextInt(activeSpawnIds.size())) : null;
         if (roundEvent.equals("blackout") && !blackoutActive) startBlackout();

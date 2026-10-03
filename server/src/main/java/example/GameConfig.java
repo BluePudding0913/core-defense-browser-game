@@ -5,7 +5,7 @@ import java.util.Map;
 /** Values shared by the server loop and the game simulation. */
 final class GameConfig {
     static final int PLAYER_COUNT = 4;
-    static final int MAX_ROUNDS = 12;
+    static final int MAX_ROUNDS = 20;
     static final double TICK_SECONDS = 0.05;
     static final double SNAPSHOT_INTERVAL = 0.1;
     static final double PREP_SECONDS = 20;
