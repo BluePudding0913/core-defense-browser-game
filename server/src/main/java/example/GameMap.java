@@ -66,10 +66,11 @@ final class GameMap {
     static final double WORKBENCH_X = DEFINITION.stations().workbench().x();
     static final double WORKBENCH_Y = DEFINITION.stations().workbench().y();
     static final int TILE_SIZE = DEFINITION.tileMap().tileSize();
-    static final TileMapDefinition TILE_MAP = DEFINITION.tileMap();
-    static final List<UnlockArea> AREAS = List.copyOf(DEFINITION.areas());
+    static final TileMapDefinition TILE_MAP = buildGameplayTileMap();
+    static final List<UnlockArea> AREAS = buildGameplayAreas();
     static final List<SpawnPoint> SPAWN_POINTS = List.copyOf(DEFINITION.spawnPoints());
     static final List<ShopUnit> SHOP_UNITS = List.copyOf(DEFINITION.shopUnits());
+    static final List<ResourceNodeDefinition> RESOURCE_NODES = buildResourceNodeDefinitions();
     static final List<BreakerTerminal> BREAKER_TERMINALS = List.of(
             new BreakerTerminal("breaker-outside", "OUTSIDE", 820, 1940, null),
             new BreakerTerminal("breaker-entry", "ENTRY ROOM", 1140, 1620, "entry-room"),
@@ -91,7 +92,7 @@ final class GameMap {
     }
 
     static List<ResourceNode> createResourceNodes() {
-        return new ArrayList<>(DEFINITION.resourceNodes().stream()
+        return new ArrayList<>(RESOURCE_NODES.stream()
                 .map(node -> new ResourceNode(node.id(), node.type(), node.x(), node.y(),
                         node.requiredArea()))
                 .toList());
@@ -167,6 +168,8 @@ final class GameMap {
                 GameSupport.distance(point.x(), point.y(), shop.x(), shop.y()) < 55)) return false;
         if (BREAKER_TERMINALS.stream().anyMatch(breaker ->
                 GameSupport.distance(point.x(), point.y(), breaker.x(), breaker.y()) < 55)) return false;
+        if (RESOURCE_NODES.stream().anyMatch(node ->
+                GameSupport.distance(point.x(), point.y(), node.x(), node.y()) < 36)) return false;
         return SPAWN_POINTS.stream().noneMatch(spawn ->
                 GameSupport.distance(point.x(), point.y(), spawn.x(), spawn.y()) < 80);
     }
@@ -190,6 +193,8 @@ final class GameMap {
                 GameSupport.distance(point.x(), point.y(), shop.x(), shop.y()) < 55)) return false;
         if (BREAKER_TERMINALS.stream().anyMatch(breaker ->
                 GameSupport.distance(point.x(), point.y(), breaker.x(), breaker.y()) < 55)) return false;
+        if (RESOURCE_NODES.stream().anyMatch(node ->
+                GameSupport.distance(point.x(), point.y(), node.x(), node.y()) < 36)) return false;
         return SPAWN_POINTS.stream().noneMatch(spawn ->
                 GameSupport.distance(point.x(), point.y(), spawn.x(), spawn.y()) < 80);
     }
@@ -255,12 +260,52 @@ final class GameMap {
     private static String buildClientMapMessage() {
         try {
             ObjectNode clientMap = JSON.valueToTree(DEFINITION);
+            clientMap.set("tileMap", JSON.valueToTree(TILE_MAP));
+            clientMap.set("areas", JSON.valueToTree(AREAS));
             clientMap.set("breakerTerminals", JSON.valueToTree(BREAKER_TERMINALS));
+            clientMap.set("resourceNodes", JSON.valueToTree(RESOURCE_NODES));
             return "{\"type\":\"map\",\"map\":" + JSON.writeValueAsString(clientMap) + "}";
         } catch (IOException error) {
             throw new ExceptionInInitializerError(
                     "Could not serialize shared map resource: " + error.getMessage());
         }
+    }
+
+    private static List<ResourceNodeDefinition> buildResourceNodeDefinitions() {
+        List<ResourceNodeDefinition> nodes = new ArrayList<>(DEFINITION.resourceNodes());
+        nodes.add(new ResourceNodeDefinition("early-wood-1", "wood", 1180, 980,
+                "transit-hall"));
+        nodes.add(new ResourceNodeDefinition("early-wood-2", "wood", 1300, 1060,
+                "transit-hall"));
+        nodes.add(new ResourceNodeDefinition("early-ore-1", "ore", 1340, 1260,
+                "transit-hall"));
+        nodes.add(new ResourceNodeDefinition("early-ore-2", "ore", 1460, 1340,
+                "transit-hall"));
+        return List.copyOf(nodes);
+    }
+
+    private static TileMapDefinition buildGameplayTileMap() {
+        List<String> rows = new ArrayList<>(DEFINITION.tileMap().rows());
+        for (int row = 24; row <= 26; row++) rows.set(row, carveFloor(rows.get(row), 29, 32));
+        rows.set(27, carveFloor(rows.get(27), 30, 31));
+        rows.set(30, carveFloor(rows.get(30), 34, 35));
+        for (int row = 31; row <= 33; row++) rows.set(row, carveFloor(rows.get(row), 33, 36));
+        return new TileMapDefinition(DEFINITION.tileMap().tileSize(),
+                DEFINITION.tileMap().legend(), List.copyOf(rows));
+    }
+
+    private static String carveFloor(String row, int firstColumn, int lastColumn) {
+        char[] cells = row.toCharArray();
+        for (int column = firstColumn; column <= lastColumn; column++) cells[column] = '.';
+        return new String(cells);
+    }
+
+    private static List<UnlockArea> buildGameplayAreas() {
+        return DEFINITION.areas().stream().map(area -> area.id().equals("transit-hall")
+                ? new UnlockArea(area.id(), area.name(), area.x(), 960, area.width(), 400,
+                        area.terminalX(), area.terminalY(), area.labelX(), area.labelY(),
+                        area.color(), area.detail())
+                : area).toList();
     }
 
     private static void validate(MapDefinition map) {

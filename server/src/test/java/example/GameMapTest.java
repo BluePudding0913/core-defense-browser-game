@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.io.InputStream;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -30,11 +31,11 @@ class GameMapTest {
         assertEquals(definition.stations().woodcutter().x(), GameMap.WOODCUTTER_X);
         assertEquals(definition.stations().quarry().y(), GameMap.QUARRY_Y);
         assertEquals(definition.stations().workbench().x(), GameMap.WORKBENCH_X);
-        assertEquals(definition.tileMap(), GameMap.TILE_MAP);
-        assertEquals(definition.areas(), GameMap.AREAS);
+        assertEquals(definition.tileMap().tileSize(), GameMap.TILE_MAP.tileSize());
+        assertEquals(definition.areas().size(), GameMap.AREAS.size());
         assertEquals(definition.spawnPoints(), GameMap.SPAWN_POINTS);
         assertEquals(definition.trapSlots().size(), GameMap.createTrapSlots().size());
-        assertEquals(definition.resourceNodes().size(), GameMap.createResourceNodes().size());
+        assertEquals(definition.resourceNodes().size() + 4, GameMap.createResourceNodes().size());
         assertEquals(definition.shopUnits(), GameMap.SHOP_UNITS);
         assertEquals(9, GameMap.BREAKER_TERMINALS.size());
         assertTrue(definition.spawnPoints().size() >= 7,
@@ -75,7 +76,7 @@ class GameMapTest {
                 message.path("map").path("tileMap").path("rows").size());
         assertEquals(GameMap.SPAWN_POINTS.size(), message.path("map").path("spawnPoints").size());
         assertEquals(GameMap.createTrapSlots().size(), message.path("map").path("trapSlots").size());
-        assertEquals(GameMap.createResourceNodes().size(), message.path("map").path("resourceNodes").size());
+        assertEquals(GameMap.RESOURCE_NODES.size(), message.path("map").path("resourceNodes").size());
         assertEquals(GameMap.SHOP_UNITS.size(), message.path("map").path("shopUnits").size());
         assertEquals(GameMap.BREAKER_TERMINALS.size(),
                 message.path("map").path("breakerTerminals").size());
@@ -121,6 +122,27 @@ class GameMapTest {
         assertEquals(5, GameMap.SHOP_UNITS.size());
         assertEquals(GameMap.SHOP_UNITS.size(), shopAreas.size(),
                 "each shop should occupy a different progression area");
+    }
+
+    @Test
+    void secondUnlockedAreaProvidesEarlyWoodAndOrePockets() {
+        List<ResourceNodeDefinition> earlyNodes = GameMap.RESOURCE_NODES.stream()
+                .filter(node -> node.id().startsWith("early-"))
+                .toList();
+
+        assertEquals(4, earlyNodes.size());
+        assertEquals(Set.of("wood", "ore"), earlyNodes.stream()
+                .map(ResourceNodeDefinition::type).collect(Collectors.toSet()));
+        assertTrue(earlyNodes.stream()
+                .allMatch(node -> "transit-hall".equals(node.requiredArea())));
+        assertTrue(earlyNodes.stream().noneMatch(node -> node.y() == 1_140 || node.y() == 1_180),
+                "resource nodes must not remain in the main corridor");
+        for (ResourceNodeDefinition node : earlyNodes) {
+            assertFalse(GameMap.canOccupy(node.x(), node.y(), 5, Set.of()),
+                    () -> node.id() + " must stay sealed before the second area opens");
+            assertTrue(GameMap.canOccupy(node.x(), node.y(), 5, Set.of("transit-hall")),
+                    () -> node.id() + " must be reachable inside its side room");
+        }
     }
 
     @Test

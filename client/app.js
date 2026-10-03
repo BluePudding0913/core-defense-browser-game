@@ -689,6 +689,7 @@ function canBuildAt(point, forCore = false) {
             || distance(point, WORKBENCH) < 70) return false;
     if (SHOP_UNITS.some(shop => distance(point, shop) < 55)) return false;
     if (BREAKER_TERMINALS.some(breaker => distance(point, breaker) < 55)) return false;
+    if ((state.resources || []).some(node => distance(point, node) < 36)) return false;
     if (SPAWN_POINTS.some(spawn => distance(point, spawn) < 80)) return false;
     if (state.slots.some(slot => (forCore ? slot.defense : true) && distance(point, slot) < 36)) return false;
     return !state.players.some(player => distance(point, player) < (player.id === myPlayerId ? 30 : 48))
@@ -1377,6 +1378,21 @@ function drawStation(station, label, color, labelColor = "#111") {
 }
 
 function drawResources() {
+    if (state.areas["transit-hall"]) {
+        for (const type of ["wood", "ore"]) {
+            const pocket = (state.resources || []).filter(node =>
+                node.id.startsWith(`early-${type}-`));
+            if (!pocket.length) continue;
+            const centerX = pocket.reduce((sum, node) => sum + node.x, 0) / pocket.length;
+            const labelY = type === "wood"
+                ? Math.min(...pocket.map(node => node.y)) - 35
+                : Math.max(...pocket.map(node => node.y)) + 47;
+            ctx.fillStyle = "#a8a8a8";
+            ctx.font = "900 11px ui-monospace, monospace";
+            ctx.textAlign = "center";
+            ctx.fillText(`${type.toUpperCase()} ROOM`, centerX, labelY);
+        }
+    }
     for (const node of state.resources || []) {
         if (!node.available) continue;
         const bob = Math.sin(performance.now() / 260 + node.x * .01) * 3;

@@ -277,6 +277,31 @@ class GameSessionTest {
     }
 
     @Test
+    void earlyResourcePocketsActivateWithTheSecondArea() {
+        startPreparing();
+        ResourceNode wood = game.resourceNodes.stream()
+                .filter(candidate -> candidate.id.equals("early-wood-1"))
+                .findFirst().orElseThrow();
+        ResourceNode ore = game.resourceNodes.stream()
+                .filter(candidate -> candidate.id.equals("early-ore-1"))
+                .findFirst().orElseThrow();
+
+        player.x = wood.x;
+        player.y = wood.y;
+        game.update(0.05);
+        assertEquals(0, player.wood, "the side pocket must stay sealed before transit opens");
+
+        game.unlockedAreas.add("transit-hall");
+        game.update(0.05);
+        assertEquals(1, player.wood);
+
+        player.x = ore.x;
+        player.y = ore.y;
+        game.update(0.05);
+        assertEquals(1, player.ore);
+    }
+
+    @Test
     void coreCanBePlacedOnTheFacingUnlockedFloorTile() {
         startPreparing();
         player.x = game.coreX;

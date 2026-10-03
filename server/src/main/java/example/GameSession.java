@@ -322,7 +322,7 @@ final class GameSession {
             case "boss_assault" -> " / BOSS×" + queuedBosses;
             default -> "";
         };
-        setNotice("ROUND " + round + "：施設内 " + activeSpawnIds.size() + " か所で侵入を検知 / "
+        setNotice("施設内 " + activeSpawnIds.size() + " か所で侵入を検知 / "
                 + queuedEnemies + (queuedBosses > 0 ? "+" + queuedBosses + " BOSS" : "")
                 + " HOSTILES" + eventText);
     }
@@ -342,7 +342,7 @@ final class GameSession {
         roundEvent = "none";
         failedSpawnId = null;
         clearBlackout();
-        setNotice("ROUND " + round + " CLEAR：全員 +" + reward + " GOLD");
+        setNotice("CLEAR：全員 +" + reward + " GOLD");
     }
 
     private void selectRoundSpawns(int currentRound) {
