@@ -121,7 +121,6 @@ final class GameSession {
         player.dashHeld = false;
         player.dashing = false;
         player.firing = false;
-        player.queuedShots.clear();
         releaseCarriedCore(player);
         cancelAction(player);
         setNotice(displayName + " が切断され、CPUが一時交代しました");
@@ -176,11 +175,8 @@ final class GameSession {
         for (Player player : players) {
             player.cooldown = Math.max(0, player.cooldown - dt);
             player.gatherCooldown = Math.max(0, player.gatherCooldown - dt);
-            if ((player.firing || !player.queuedShots.isEmpty())
-                    && player.cooldown <= 0 && canMove()) {
-                MapPoint queuedAim = player.queuedShots.pollFirst();
-                attackAt(player, queuedAim == null ? player.aimX : queuedAim.x(),
-                        queuedAim == null ? player.aimY : queuedAim.y());
+            if (player.firing && player.cooldown <= 0 && canMove()) {
+                attackAt(player, player.aimX, player.aimY);
             }
         }
         if (phase == GamePhase.LOBBY || phase == GamePhase.WON || phase == GamePhase.LOST) return;
@@ -272,14 +268,16 @@ final class GameSession {
         double y = Double.parseDouble(parts[2]);
         if (!Double.isFinite(x) || !Double.isFinite(y)) return;
         boolean active = parts[3].equals("1") || parts[3].equalsIgnoreCase("true");
+        if (player.movingCore) {
+            player.firing = false;
+            return;
+        }
         boolean beginsPress = active && !player.firing;
         player.aimX = x;
         player.aimY = y;
         player.firing = active;
         if (beginsPress && player.cooldown <= 0) {
             attackAt(player, x, y);
-        } else if (beginsPress && player.queuedShots.size() < 8) {
-            player.queuedShots.addLast(new MapPoint(x, y));
         }
     }
 
@@ -859,7 +857,7 @@ final class GameSession {
     }
 
     private void attackAt(Player player, double aimX, double aimY) {
-        if (!canMove() || player.down || player.cooldown > 0) return;
+        if (!canMove() || player.down || player.movingCore || player.cooldown > 0) return;
 
         WeaponStats weapon = weaponStats(player.weapon);
         boolean empty = player.weapon.equals("shotgun") && player.shotgunAmmo <= 0
@@ -869,7 +867,6 @@ final class GameSession {
         if (empty) {
             feedback(player, "NO AMMO");
             player.firing = false;
-            player.queuedShots.clear();
             return;
         }
         if (player.weapon.equals("shotgun")) player.shotgunAmmo--;
@@ -1011,7 +1008,6 @@ final class GameSession {
             player.selectedBuild = null;
             player.movingCore = false;
             player.firing = false;
-            player.queuedShots.clear();
             cancelAction(player);
         }
     }
@@ -1196,7 +1192,6 @@ final class GameSession {
         player.dashing = false;
         player.selectedBuild = null;
         player.firing = false;
-        player.queuedShots.clear();
         coreX = player.x;
         coreY = player.y;
         setNotice(player.name + " がCOREを運搬しています");
@@ -1430,7 +1425,6 @@ final class GameSession {
             player.dashHeld = false;
             player.dashing = false;
             player.firing = false;
-            player.queuedShots.clear();
             releaseCarriedCore(player);
             setNotice(player.name + " がダウンしました");
         }
@@ -1489,7 +1483,6 @@ final class GameSession {
             player.cooldown = 0;
             player.cooldownMax = 0;
             player.firing = false;
-            player.queuedShots.clear();
             player.aimX = player.x + 100;
             player.aimY = player.y;
             player.ownsShotgun = false;

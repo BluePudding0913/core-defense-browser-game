@@ -214,7 +214,7 @@ class GameSessionTest {
     }
 
     @Test
-    void clickDuringCooldownQueuesAShotInsteadOfDroppingTheInput() {
+    void releasedClickDuringCooldownIsNotQueued() {
         startWave();
         game.players.forEach(candidate -> candidate.human = true);
         player.x = GameMap.CORE_X;
@@ -231,7 +231,31 @@ class GameSessionTest {
         assertEquals(500, enemy.hp);
 
         game.update(0.2);
-        assertEquals(474, enemy.hp, "a click made during cooldown must fire when ready");
+        assertEquals(500, enemy.hp, "a released click made during cooldown must not be queued");
+    }
+
+    @Test
+    void coreCarrierCannotFireWeapons() {
+        startWave();
+        game.players.forEach(candidate -> candidate.human = true);
+        game.enemies.clear();
+        game.queuedEnemies = 0;
+        game.queuedBosses = 0;
+        player.x = game.coreX;
+        player.y = game.coreY;
+        game.handleMessage(player, "EQUIP_CORE");
+        assertTrue(player.movingCore);
+
+        Enemy enemy = new Enemy(9_012, "grunt", GameMap.SPAWN_POINTS.get(0),
+                500, 0, 0, 0);
+        enemy.x = player.x + 100;
+        enemy.y = player.y;
+        game.enemies.add(enemy);
+
+        game.handleMessage(player, "FIRE:" + (player.x + 500) + ":" + player.y + ":1");
+        game.update(1);
+
+        assertEquals(500, enemy.hp, "a core carrier must not fire any weapon");
     }
 
     @Test

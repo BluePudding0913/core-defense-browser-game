@@ -371,6 +371,11 @@ function equipmentEntries(me) {
 }
 
 function selectEquipment(entry) {
+    const me = getMe();
+    if (me?.movingCore && entry.kind === "weapon") {
+        showFeedback("CORE運搬中は武器を使用できません");
+        return;
+    }
     if (entry.kind === "weapon") send(`WEAPON:${entry.value}`);
     else if (entry.kind === "build") send(`EQUIP_BUILD:${entry.value}`);
 }
@@ -378,6 +383,7 @@ function selectEquipment(entry) {
 function cycleEquipment(direction = 1) {
     const me = getMe();
     if (!me) return;
+    if (me.movingCore) return;
     const entries = equipmentEntries(me);
     const selectedKey = me.movingCore ? "core"
         : me.selectedBuild ? `build:${me.selectedBuild}` : `weapon:${me.weapon}`;
@@ -447,6 +453,8 @@ function updateHud() {
         weaponCooldown.textContent = me.cooldown > 0 ? `${me.cooldown.toFixed(1)}s` : "READY";
         weaponButton.style.setProperty("--cooldown-progress", `${cooldownProgress * 100}%`);
         weaponButton.classList.toggle("cooling", me.cooldown > 0);
+        weaponButton.classList.toggle("locked", me.movingCore);
+        weaponButton.disabled = me.movingCore;
         updateInventory(me);
         const placing = Boolean(placementSelection(me));
         interactLabel.textContent = placing ? "PLACE" : "INTERACT";
@@ -460,7 +468,7 @@ function updateInventory(me) {
         : me.selectedBuild ? `build:${me.selectedBuild}` : `weapon:${me.weapon}`;
     const equipment = entries.map(entry => {
         const amount = entry.kind === "build" ? `×${me.buildItems[entry.value]}`
-            : entry.kind === "core" ? "CARRYING"
+            : entry.kind === "core" ? ""
                 : WEAPON_FIELDS[entry.value] ? `${ammoForWeapon(me, entry.value)} AMMO` : "WEAPON";
         return `<button type="button" data-key="${entry.key}" class="${selectedKey === entry.key ? "selected" : ""}">
             <strong>${entry.label}</strong><span>${amount}</span>
@@ -587,8 +595,9 @@ function reconcileLocalPrediction(snapshot) {
     if (serverMe.stamina <= 0) predictedLocal.exhausted = true;
 }
 
-function openActionMenu(title, options) {
+function openActionMenu(title, options, layout = "default") {
     actionTitle.textContent = title;
+    actionMenu.classList.toggle("single-action", layout === "single");
     actionOptions.replaceChildren();
     for (const option of options) {
         const button = document.createElement("button");
@@ -600,10 +609,10 @@ function openActionMenu(title, options) {
     actionMenu.classList.remove("hidden");
 }
 
-function openNearbyActionMenu(title, options, target, range) {
+function openNearbyActionMenu(title, options, target, range, layout = "default") {
     if (!canUseNearby(target, range, true)) return;
     activeMenuAccess = { target: { x: target.x, y: target.y }, range };
-    openActionMenu(title, options);
+    openActionMenu(title, options, layout);
 }
 
 function canUseNearby(target, range, showReason) {
@@ -623,6 +632,7 @@ function canUseNearby(target, range, showReason) {
 function closeActionMenu() {
     activeMenuAccess = null;
     actionMenu.classList.add("hidden");
+    actionMenu.classList.remove("single-action");
 }
 
 function openSlotMenu(slot) {
@@ -700,15 +710,12 @@ function openShopPurchase(shop) {
     const alreadyOwned = Boolean(weaponFields && me[weaponFields.owned]);
     const unavailable = shop.item === "ammo"
         && !Object.values(WEAPON_FIELDS).some(fields => me[fields.owned]);
-    const detail = alreadyOwned ? "購入済み"
-        : unavailable ? "弾薬武器を先に購入してください"
-            : `${shop.cost}g — ${shop.detail}`;
-    openNearbyActionMenu(`${shop.label} — PURCHASE?`, [{
-        label: `BUY ${shop.label}`,
-        detail,
+    openNearbyActionMenu(shop.label, [{
+        label: alreadyOwned ? "OWNED" : unavailable ? "LOCKED" : "BUY",
+        detail: `${shop.cost}G`,
         command: `BUY:${shop.item}`,
         disabled: alreadyOwned || unavailable || me.credits < shop.cost,
-    }], shop, INTERACTION_RANGE.shop);
+    }], shop, INTERACTION_RANGE.shop, "single");
 }
 
 function openWoodcutterMenu() {
@@ -751,8 +758,12 @@ function openUnlockMenu(area) {
     const openCount = Object.values(state.areas).filter(Boolean).length;
     const cost = 350 + openCount * 100;
     const unlocked = state.areas[area.id];
-    openNearbyActionMenu(area.name, [option("OPEN AREA", cost, `UNLOCK:${area.id}`, unlocked, unlocked ? "解放済み" : area.detail)],
-        { x: area.terminalX, y: area.terminalY }, INTERACTION_RANGE.areaTerminal);
+    openNearbyActionMenu(area.name, [{
+        label: unlocked ? "OPENED" : "OPEN",
+        detail: `${cost}G`,
+        command: `UNLOCK:${area.id}`,
+        disabled: unlocked || !getMe() || getMe().credits < cost,
+    }], { x: area.terminalX, y: area.terminalY }, INTERACTION_RANGE.areaTerminal, "single");
 }
 
 function option(label, cost, command, extraDisabled = false, customDetail = "") {
@@ -819,6 +830,10 @@ canvas.addEventListener("pointercancel", event => {
 canvas.addEventListener("contextmenu", event => event.preventDefault());
 
 function startFiring(pointerId, clientX, clientY) {
+    if (getMe()?.movingCore) {
+        showFeedback("CORE運搬中は武器を使用できません");
+        return;
+    }
     const point = worldFromScreen(clientX, clientY);
     firingPointer = { id: pointerId, clientX, clientY, lastAimSent: performance.now() };
     send(`FIRE:${point.x.toFixed(1)}:${point.y.toFixed(1)}:1`);
@@ -826,6 +841,10 @@ function startFiring(pointerId, clientX, clientY) {
 
 function updateFiringAim(clientX, clientY) {
     if (!firingPointer) return;
+    if (getMe()?.movingCore) {
+        firingPointer = null;
+        return;
+    }
     firingPointer.clientX = clientX;
     firingPointer.clientY = clientY;
     if (performance.now() - firingPointer.lastAimSent < 70) return;
@@ -841,6 +860,10 @@ function stopFiring(clientX, clientY) {
 }
 
 function fireOnce(clientX, clientY) {
+    if (getMe()?.movingCore) {
+        showFeedback("CORE運搬中は武器を使用できません");
+        return;
+    }
     const point = worldFromScreen(clientX, clientY);
     send(`FIRE:${point.x.toFixed(1)}:${point.y.toFixed(1)}:1`);
     send(`FIRE:${point.x.toFixed(1)}:${point.y.toFixed(1)}:0`);
@@ -1265,8 +1288,10 @@ function drawCore() {
         ctx.strokeRect(x - hitSize / 2, y - hitSize / 2, hitSize, hitSize);
     }
     ctx.restore();
-    ctx.fillStyle = "white"; ctx.font = "900 8px ui-monospace, monospace"; ctx.textAlign = "center";
-    ctx.fillText(carrier ? "CARRYING CORE" : "CORE", x, carrier ? y - size / 2 - 7 : y + 3);
+    if (!carrier) {
+        ctx.fillStyle = "white"; ctx.font = "900 8px ui-monospace, monospace"; ctx.textAlign = "center";
+        ctx.fillText("CORE", x, y + 3);
+    }
 }
 
 function drawShops() {
@@ -1392,7 +1417,7 @@ function drawPlayers() {
         if (player.id === myPlayerId) { ctx.strokeStyle = "white"; ctx.lineWidth = 1.5; ctx.strokeRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize); }
         ctx.restore();
         if (player.id === myPlayerId) drawLocalWeaponCooldown(p.x, p.y, player);
-        ctx.textAlign = "center"; ctx.fillStyle = "white"; ctx.font = "800 11px system-ui";
+        ctx.textAlign = "center"; ctx.fillStyle = "#a8a8a8"; ctx.font = "800 11px system-ui";
         ctx.fillText(player.down ? `${player.name} — DOWN` : player.name, p.x, p.y - 14);
         if (player.action) drawBar(p.x - 30, p.y + 37, 60, 5, player.actionProgress / 4, "#79d8ff");
     }

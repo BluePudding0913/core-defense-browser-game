@@ -1,6 +1,5 @@
 package example;
 
-import java.util.ArrayDeque;
 import java.util.List;
 
 /** Mutable entities owned exclusively by the single game-loop thread. */
@@ -30,7 +29,6 @@ final class Player {
     boolean firing;
     double aimX;
     double aimY;
-    final ArrayDeque<MapPoint> queuedShots = new ArrayDeque<>();
     boolean ownsShotgun;
     boolean ownsSmg;
     boolean ownsRifle;
