@@ -253,7 +253,7 @@ class GameSessionTest {
     }
 
     @Test
-    void coreCanBeCarriedToAnyNearbyUnlockedFloorTile() {
+    void coreCanBePlacedOnTheFacingUnlockedFloorTile() {
         startPreparing();
         player.x = game.coreX;
         player.y = game.coreY;
@@ -263,18 +263,20 @@ class GameSessionTest {
 
         player.x = 1_020;
         player.y = 1_700;
-        game.handleMessage(player, "PLACE_CORE:1020:1660");
+        game.handleMessage(player, "MOVE:0:-1");
+        game.handleMessage(player, "PLACE_FRONT");
         assertEquals(GameMap.CORE_X, game.coreX,
                 "a sealed room must reject core placement");
         assertTrue(player.movingCore);
 
         player.x = GameMap.CORE_X;
         player.y = GameMap.CORE_Y;
-        game.handleMessage(player, "PLACE_CORE:1180:1900");
-        assertEquals(1_180, game.coreX);
+        game.handleMessage(player, "MOVE:1:0");
+        game.handleMessage(player, "PLACE_FRONT");
+        assertEquals(1_060, game.coreX);
         assertEquals(1_900, game.coreY);
         assertFalse(player.movingCore);
-        assertTrue(SnapshotBuilder.build(game).contains("\"core\":{\"x\":1180.0"));
+        assertTrue(SnapshotBuilder.build(game).contains("\"core\":{\"x\":1060.0"));
     }
 
     @Test
@@ -377,7 +379,10 @@ class GameSessionTest {
         assertEquals(1, player.ore);
         assertEquals("mine", player.selectedBuild);
         int initialSlots = game.trapSlots.size();
-        game.handleMessage(player, "PLACE:1060:1380:mine");
+        player.x = 1_020;
+        player.y = 1_380;
+        game.handleMessage(player, "MOVE:1:0");
+        game.handleMessage(player, "PLACE_FRONT");
 
         assertEquals(initialSlots + 1, game.trapSlots.size());
         TrapSlot placed = game.trapSlots.get(game.trapSlots.size() - 1);
@@ -396,7 +401,8 @@ class GameSessionTest {
         player.blockItems = 1;
         player.selectedBuild = "block";
         int initialSlots = game.trapSlots.size();
-        game.handleMessage(player, "PLACE:1180:1900:block");
+        game.handleMessage(player, "MOVE:1:0");
+        game.handleMessage(player, "PLACE_FRONT");
 
         assertEquals(initialSlots + 1, game.trapSlots.size());
         TrapSlot block = game.trapSlots.get(game.trapSlots.size() - 1);

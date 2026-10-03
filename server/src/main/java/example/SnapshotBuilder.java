@@ -72,7 +72,9 @@ final class SnapshotBuilder {
                     .append(",\"ackInput\":").append(player.lastProcessedInput)
                     .append(",\"x\":").append(roundOne(player.x));
             json.append(",\"y\":").append(roundOne(player.y))
-                    .append(",\"hp\":").append(roundOne(player.hp));
+                    .append(",\"hp\":").append(roundOne(player.hp))
+                    .append(",\"facingX\":").append(player.facingX)
+                    .append(",\"facingY\":").append(player.facingY);
             json.append(",\"down\":").append(player.down)
                     .append(",\"weapon\":\"").append(player.weapon);
             json.append("\",\"cooldown\":").append(roundOne(player.cooldown));

@@ -17,6 +17,7 @@ const selfCredits = document.querySelector("#self-credits");
 const noticeElement = document.querySelector("#notice");
 const feedbackElement = document.querySelector("#feedback");
 const interactButton = document.querySelector("#interact");
+const interactLabel = interactButton.querySelector("small");
 const weaponButton = document.querySelector("#weapon");
 const weaponName = document.querySelector("#weapon-name");
 const weaponAmmo = document.querySelector("#weapon-ammo");
@@ -93,6 +94,7 @@ let dashKey = false;
 let hitEffects = [];
 let predictedLocal = null;
 let localMove = { x: 0, y: 0 };
+let localFacing = { x: 0, y: -1 };
 let dashRequested = false;
 let lastFrameAt = performance.now();
 let mapReady = false;
@@ -446,7 +448,9 @@ function updateHud() {
         weaponButton.style.setProperty("--cooldown-progress", `${cooldownProgress * 100}%`);
         weaponButton.classList.toggle("cooling", me.cooldown > 0);
         updateInventory(me);
-        interactButton.classList.toggle("hidden", !findNearestInteraction());
+        const placing = Boolean(placementSelection(me));
+        interactLabel.textContent = placing ? "PLACE" : "INTERACT";
+        interactButton.classList.toggle("hidden", !placing && !findNearestInteraction());
     }
 }
 
@@ -559,6 +563,7 @@ function reconcileLocalPrediction(snapshot) {
     acknowledgeInputs(serverMe.ackInput);
     if (!predictedLocal) {
         predictedLocal = { x: serverMe.x, y: serverMe.y, stamina: serverMe.stamina, dashing: serverMe.dashing, exhausted: false };
+        localFacing = { x: serverMe.facingX, y: serverMe.facingY };
         return;
     }
     const errorX = serverMe.x - predictedLocal.x;
@@ -575,6 +580,9 @@ function reconcileLocalPrediction(snapshot) {
         predictedLocal.y += errorY * correction;
     }
     predictedLocal.stamina += (serverMe.stamina - predictedLocal.stamina) * .4;
+    if (Math.hypot(localMove.x, localMove.y) <= .12) {
+        localFacing = { x: serverMe.facingX, y: serverMe.facingY };
+    }
     if (serverMe.stamina >= 28) predictedLocal.exhausted = false;
     if (serverMe.stamina <= 0) predictedLocal.exhausted = true;
 }
@@ -624,7 +632,7 @@ function openSlotMenu(slot) {
     } else if (!slot.defense) {
         openNearbyActionMenu("EMPTY TILE", [{
             label: "CRAFT FIRST",
-            detail: "作業台でクラフトし、持った状態で近くの床を右クリック",
+            detail: "作業台でクラフトし、正面の色付きタイルへRで設置",
             disabled: true,
         }], slot, INTERACTION_RANGE.trapSlot);
     } else {
@@ -682,7 +690,7 @@ function openCoreMenu() {
         option("SHIELD +180", shieldCost, "UPGRADE:shield"),
         option(`DEFENSE Lv.${core.defense + 1}`, defenseCost, "UPGRADE:defense", core.defense >= 4),
         option(`AUTO REPAIR Lv.${core.regen + 1}`, regenCost, "UPGRADE:regen", core.regen >= 4),
-        { label: "MOVE CORE", detail: "選択後、解放済みの床を右クリック", command: "EQUIP_CORE" },
+        { label: "MOVE CORE", detail: "運搬後、正面の色付きタイルへRで設置", command: "EQUIP_CORE" },
     ], CORE, INTERACTION_RANGE.core);
 }
 
@@ -773,11 +781,6 @@ function worldFromScreen(clientX, clientY) {
 
 canvas.addEventListener("pointerdown", event => {
     if (!state || !getMe()) return;
-    if (event.pointerType === "mouse" && event.button === 2) {
-        event.preventDefault();
-        placeHeldBuild(event.clientX, event.clientY);
-        return;
-    }
     if (event.pointerType === "mouse" && event.button !== 0) return;
     canvas.setPointerCapture(event.pointerId);
     const inMovementArea = event.pointerType !== "mouse"
@@ -843,37 +846,6 @@ function fireOnce(clientX, clientY) {
     send(`FIRE:${point.x.toFixed(1)}:${point.y.toFixed(1)}:0`);
 }
 
-function placeHeldBuild(clientX, clientY) {
-    const me = getMe();
-    const point = snapToTile(worldFromScreen(clientX, clientY));
-    if (me?.movingCore) {
-        if (distance(me, point) > 180) {
-            showFeedback("もっと近いタイルを右クリックしてください");
-            return;
-        }
-        if (!canBuildAt(point, true)) {
-            showFeedback("ここにはCOREを配置できません");
-            return;
-        }
-        send(`PLACE_CORE:${point.x}:${point.y}`);
-        return;
-    }
-    const type = me?.selectedBuild;
-    if (!type || (me.buildItems?.[type] || 0) <= 0) {
-        showFeedback("作業台でクラフトしたアイテムを選択してください");
-        return;
-    }
-    if (distance(me, point) > 180) {
-        showFeedback("もっと近いタイルを右クリックしてください");
-        return;
-    }
-    if (!canBuildAt(point)) {
-        showFeedback("ここには配置できません");
-        return;
-    }
-    send(`PLACE:${point.x}:${point.y}:${type}`);
-}
-
 function activateJoystick(pointerId) {
     if (pendingMove?.id !== pointerId) return;
     const pointer = pendingMove;
@@ -905,6 +877,7 @@ function sendMovement(force = false) {
     if (length > 1) { x /= length; y /= length; }
     localMove.x = Number(x.toFixed(2));
     localMove.y = Number(y.toFixed(2));
+    if (length > .12) localFacing = quantizeFacing(localMove.x, localMove.y);
     const message = `MOVE:${localMove.x.toFixed(2)}:${localMove.y.toFixed(2)}`;
     if (force || message !== lastMove) { lastMove = message; send(message); }
 }
@@ -995,7 +968,52 @@ function toggleNearestInteraction() {
         return;
     }
     inventoryMenu.classList.add("hidden");
+    if (placeSelectedInFront()) return;
     useNearestInteraction();
+}
+
+function placementSelection(player) {
+    if (!player || player.down) return null;
+    if (player.movingCore) return { forCore: true, type: "core" };
+    const type = player.selectedBuild;
+    if (type && (player.buildItems?.[type] || 0) > 0) return { forCore: false, type };
+    return null;
+}
+
+function quantizeFacing(x, y) {
+    let facingX = Math.abs(x) >= .38 ? Math.sign(x) : 0;
+    let facingY = Math.abs(y) >= .38 ? Math.sign(y) : 0;
+    if (facingX === 0 && facingY === 0) {
+        if (Math.abs(x) >= Math.abs(y)) facingX = x >= 0 ? 1 : -1;
+        else facingY = y >= 0 ? 1 : -1;
+    }
+    return { x: facingX, y: facingY };
+}
+
+function frontPlacementTile(player) {
+    const origin = snapToTile(player);
+    const facing = player.id === myPlayerId ? localFacing
+        : {
+            x: Number.isFinite(player.facingX) ? player.facingX : 0,
+            y: Number.isFinite(player.facingY) ? player.facingY : -1,
+        };
+    return {
+        x: origin.x + facing.x * TILE_MAP.tileSize,
+        y: origin.y + facing.y * TILE_MAP.tileSize,
+    };
+}
+
+function placeSelectedInFront() {
+    const me = getMe();
+    const selection = placementSelection(me);
+    if (!selection) return false;
+    const point = frontPlacementTile(me);
+    if (!canBuildAt(point, selection.forCore)) {
+        showFeedback(selection.forCore ? "目の前にはCOREを置けません" : "目の前には配置できません");
+        return true;
+    }
+    send("PLACE_FRONT");
+    return true;
 }
 
 function nearestAt(items, point) {
@@ -1074,6 +1092,7 @@ function draw() {
     drawWorld();
     if (state) {
         drawAreas();
+        drawPlacementPreview();
         drawCore();
         drawShops();
         drawResources();
@@ -1160,13 +1179,12 @@ function drawAreas() {
             ctx.fillStyle = "rgb(7 8 9 / 72%)";
             ctx.fillRect(area.x, area.y, area.width, area.height);
         }
-        ctx.strokeStyle = unlocked ? "rgb(255 255 255 / 28%)" : "rgb(255 255 255 / 58%)";
-        ctx.lineWidth = unlocked ? 1 : 2;
-        ctx.strokeRect(area.x + 2, area.y + 2, area.width - 4, area.height - 4);
-
-        ctx.fillStyle = unlocked ? "rgb(255 255 255 / 68%)" : "rgb(255 255 255 / 82%)";
+        ctx.fillStyle = unlocked ? "rgb(255 255 255 / 72%)" : "#ffffff";
+        ctx.shadowColor = "#000";
+        ctx.shadowBlur = 5;
         ctx.font = "900 13px ui-monospace, monospace"; ctx.textAlign = "center";
-        ctx.fillText(area.name, area.x + area.width / 2, area.y + 27);
+        ctx.fillText(area.name, area.labelX, area.labelY);
+        ctx.shadowBlur = 0;
 
         if (!unlocked) {
             ctx.fillStyle = "#d8d8d8";
@@ -1178,6 +1196,26 @@ function drawAreas() {
         }
         ctx.restore();
     }
+}
+
+function drawPlacementPreview() {
+    const me = getMe();
+    const selection = placementSelection(me);
+    if (!selection) return;
+    const point = frontPlacementTile(me);
+    const valid = canBuildAt(point, selection.forCore);
+    const size = TILE_MAP.tileSize;
+    ctx.save();
+    ctx.fillStyle = valid ? "rgb(121 216 255 / 38%)" : "rgb(255 89 100 / 32%)";
+    ctx.fillRect(point.x - size / 2 + 2, point.y - size / 2 + 2, size - 4, size - 4);
+    ctx.strokeStyle = valid ? "#79d8ff" : "#ff5964";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(point.x - size / 2 + 2, point.y - size / 2 + 2, size - 4, size - 4);
+    ctx.fillStyle = valid ? "#111" : "#fff";
+    ctx.font = "950 9px ui-monospace, monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(valid ? "R PLACE" : "BLOCKED", point.x, point.y + 3);
+    ctx.restore();
 }
 
 function drawCore() {
@@ -1233,7 +1271,7 @@ function drawCore() {
 
 function drawShops() {
     SHOP_UNITS.filter(isUnlockedPoint)
-        .forEach(shop => drawStation(shop, shop.label, "#d8d8d8"));
+        .forEach(shop => drawStation(shop, shop.label, "#d8d8d8", "#111"));
     if (isUnlockedPoint(MED)) drawStation(MED, "MED BAY", "#ff5964");
     if (isUnlockedPoint(WOODCUTTER)) drawStation(WOODCUTTER, "WOODCUTTER", "#a8a8a8");
     if (isUnlockedPoint(QUARRY)) drawStation(QUARRY, "QUARRY", "#808080");
@@ -1247,10 +1285,10 @@ function isUnlockedPoint(point) {
     return !area || state.areas[area.id];
 }
 
-function drawStation(station, label, color) {
+function drawStation(station, label, color, labelColor = "#111") {
     ctx.fillStyle = color; ctx.fillRect(station.x - 20, station.y - 20, 40, 40);
     ctx.fillStyle = "#111"; ctx.fillRect(station.x - 11, station.y - 11, 22, 22);
-    ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText(label, station.x, station.y + 31);
+    ctx.fillStyle = labelColor; ctx.font = "900 9px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText(label, station.x, station.y + 31);
 }
 
 function drawResources() {

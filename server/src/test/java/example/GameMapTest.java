@@ -104,6 +104,16 @@ class GameMapTest {
     }
 
     @Test
+    void areaLabelsArePositionedOnSolidBlackTiles() {
+        Set<String> allAreas = GameMap.AREAS.stream().map(UnlockArea::id)
+                .collect(Collectors.toSet());
+        for (UnlockArea area : GameMap.AREAS) {
+            assertFalse(GameMap.canOccupy(area.labelX(), area.labelY(), 1, allAreas),
+                    () -> area.id() + " label must stay on a black wall tile");
+        }
+    }
+
+    @Test
     void enemyRoutesStayInsideWalkableCorridors() {
         Set<String> allAreas = GameMap.AREAS.stream().map(UnlockArea::id)
                 .collect(Collectors.toSet());

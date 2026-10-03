@@ -23,7 +23,8 @@ record TileType(String name, boolean solid, boolean buildable, String color) { }
 record TileMapDefinition(int tileSize, Map<String, TileType> legend, List<String> rows) { }
 
 record UnlockArea(String id, String name, double x, double y, double width, double height,
-        double terminalX, double terminalY, String color, String detail) { }
+        double terminalX, double terminalY, double labelX, double labelY,
+        String color, String detail) { }
 
 record SpawnPoint(String id, String name, double x, double y, String lane,
         String enemyBias, double speedMultiplier, String targetPriority,

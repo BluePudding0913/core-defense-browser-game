@@ -157,7 +157,6 @@ final class GameSession {
             case "WEAPON" -> { if (parts.length >= 2) switchWeapon(player, parts[1]); }
             case "BUY" -> { if (parts.length >= 2) buy(player, parts[1]); }
             case "BUILD" -> { if (parts.length >= 3) build(player, parts[1], parts[2]); }
-            case "PLACE" -> { if (parts.length >= 4) placeDefense(player, parts); }
             case "REMOVE" -> { if (parts.length >= 2) removeDefense(player, parts[1]); }
             case "REPAIR" -> { if (parts.length >= 2) repair(player, parts[1]); }
             case "UPGRADE" -> { if (parts.length >= 2) upgradeCore(player, parts[1]); }
@@ -166,7 +165,7 @@ final class GameSession {
             case "CRAFT" -> { if (parts.length >= 2) craft(player, parts[1]); }
             case "EQUIP_BUILD" -> { if (parts.length >= 2) equipBuild(player, parts[1]); }
             case "EQUIP_CORE" -> equipCore(player);
-            case "PLACE_CORE" -> { if (parts.length >= 3) placeCore(player, parts); }
+            case "PLACE_FRONT" -> placeInFacingTile(player);
             case "READY" -> { if (phase == GamePhase.PREPARING) prepTime = 0; }
             default -> { }
         }
@@ -244,7 +243,21 @@ final class GameSession {
             player.moveX /= length;
             player.moveY /= length;
         }
-        if (length > 0.12) cancelAction(player);
+        if (length > 0.12) {
+            updateFacing(player, player.moveX, player.moveY);
+            cancelAction(player);
+        }
+    }
+
+    private static void updateFacing(Player player, double x, double y) {
+        int facingX = Math.abs(x) >= 0.38 ? (x > 0 ? 1 : -1) : 0;
+        int facingY = Math.abs(y) >= 0.38 ? (y > 0 ? 1 : -1) : 0;
+        if (facingX == 0 && facingY == 0) {
+            if (Math.abs(x) >= Math.abs(y)) facingX = x >= 0 ? 1 : -1;
+            else facingY = y >= 0 ? 1 : -1;
+        }
+        player.facingX = facingX;
+        player.facingY = facingY;
     }
 
     private void handleDash(Player player, String[] parts) {
@@ -323,7 +336,7 @@ final class GameSession {
         activeSpawnIds.clear();
         roundEvent = "none";
         failedSpawnId = null;
-        setNotice("ROUND " + round + " CLEAR：全員 +" + reward + " CREDIT");
+        setNotice("ROUND " + round + " CLEAR：全員 +" + reward + " GOLD");
     }
 
     private void selectRoundSpawns(int currentRound) {
@@ -1018,7 +1031,7 @@ final class GameSession {
                 player.hp = 100;
                 setNotice(player.name + " が回復しました");
             } else {
-                feedback(player, "NOT ENOUGH CREDIT");
+                feedback(player, "NOT ENOUGH GOLD");
             }
             return;
         }
@@ -1040,7 +1053,7 @@ final class GameSession {
                     player.weapon = "shotgun";
                     setNotice(player.name + " がSHOTGUNを購入しました");
                 } else {
-                    feedback(player, "NOT ENOUGH CREDIT");
+                    feedback(player, "NOT ENOUGH GOLD");
                 }
             }
             case "smg" -> {
@@ -1055,7 +1068,7 @@ final class GameSession {
                     player.weapon = "smg";
                     setNotice(player.name + " がSMGを購入しました");
                 } else {
-                    feedback(player, "NOT ENOUGH CREDIT");
+                    feedback(player, "NOT ENOUGH GOLD");
                 }
             }
             case "rifle" -> {
@@ -1070,7 +1083,7 @@ final class GameSession {
                     player.weapon = "rifle";
                     setNotice(player.name + " がRIFLEを購入しました");
                 } else {
-                    feedback(player, "NOT ENOUGH CREDIT");
+                    feedback(player, "NOT ENOUGH GOLD");
                 }
             }
             case "sniper" -> {
@@ -1085,7 +1098,7 @@ final class GameSession {
                     player.weapon = "sniper";
                     setNotice(player.name + " がSNIPERを購入しました");
                 } else {
-                    feedback(player, "NOT ENOUGH CREDIT");
+                    feedback(player, "NOT ENOUGH GOLD");
                 }
             }
             case "ammo" -> {
@@ -1101,7 +1114,7 @@ final class GameSession {
                     player.sniperAmmo += player.ownsSniper ? 8 : 0;
                     setNotice(player.name + " が弾薬を補充しました");
                 } else {
-                    feedback(player, "NOT ENOUGH CREDIT");
+                    feedback(player, "NOT ENOUGH GOLD");
                 }
             }
             default -> { }
@@ -1214,6 +1227,22 @@ final class GameSession {
         setNotice(player.name + " がCOREを新しい防衛地点へ移設しました");
     }
 
+    private void placeInFacingTile(Player player) {
+        if (!canUseFacilities() || player.down) return;
+        MapPoint origin = GameMap.snapToTile(player.x, player.y);
+        double targetX = origin.x() + player.facingX * GameMap.TILE_SIZE;
+        double targetY = origin.y() + player.facingY * GameMap.TILE_SIZE;
+        if (player.movingCore) {
+            placeCore(player, new String[] {"PLACE_CORE",
+                    Double.toString(targetX), Double.toString(targetY)});
+        } else if (player.selectedBuild != null) {
+            placeDefense(player, new String[] {"PLACE",
+                    Double.toString(targetX), Double.toString(targetY), player.selectedBuild});
+        } else {
+            feedback(player, "SELECT AN ITEM FIRST");
+        }
+    }
+
     private void build(Player player, String slotId, String type) {
         if (!canUseFacilities() || player.down || !BUILD_RECIPES.containsKey(type)) return;
         TrapSlot slot = slotById(slotId);
@@ -1319,7 +1348,7 @@ final class GameSession {
                     coreHp += 250;
                     setNotice("CORE最大HPを強化しました");
                 } else {
-                    feedback(player, "NOT ENOUGH CREDIT");
+                    feedback(player, "NOT ENOUGH GOLD");
                 }
             }
             case "shield" -> {
@@ -1329,7 +1358,7 @@ final class GameSession {
                     coreShield = coreMaxShield;
                     setNotice("COREシールドを強化しました");
                 } else {
-                    feedback(player, "NOT ENOUGH CREDIT");
+                    feedback(player, "NOT ENOUGH GOLD");
                 }
             }
             case "defense" -> {
@@ -1342,7 +1371,7 @@ final class GameSession {
                     coreDefenseLevel++;
                     setNotice("CORE防御を強化しました");
                 } else {
-                    feedback(player, "NOT ENOUGH CREDIT");
+                    feedback(player, "NOT ENOUGH GOLD");
                 }
             }
             case "regen" -> {
@@ -1355,7 +1384,7 @@ final class GameSession {
                     coreRegenLevel++;
                     setNotice("CORE自動修復を強化しました");
                 } else {
-                    feedback(player, "NOT ENOUGH CREDIT");
+                    feedback(player, "NOT ENOUGH GOLD");
                 }
             }
             default -> { }
@@ -1379,7 +1408,7 @@ final class GameSession {
             unlockedAreas.add(areaId);
             setNotice(area.name() + " OPEN：防衛スロットを解放しました");
         } else {
-            feedback(player, "NOT ENOUGH CREDIT");
+            feedback(player, "NOT ENOUGH GOLD");
         }
     }
 
@@ -1448,6 +1477,8 @@ final class GameSession {
             player.y = coreY - 28 + (index / 2) * 56;
             player.moveX = 0;
             player.moveY = 0;
+            player.facingX = 0;
+            player.facingY = -1;
             player.hp = 100;
             player.down = false;
             player.dashHeld = false;

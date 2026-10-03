@@ -16,6 +16,8 @@ final class Player {
     double y;
     double moveX;
     double moveY;
+    int facingX;
+    int facingY = -1;
     double hp;
     boolean down;
     boolean dashHeld;
