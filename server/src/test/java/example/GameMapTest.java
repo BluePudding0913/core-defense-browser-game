@@ -158,6 +158,9 @@ class GameMapTest {
     void timeControlRoomConnectsToTransitImmediatelyAfterUnlock() {
         assertTrue(GameMap.canOccupy(1_220, 1_100, 5, Set.of("transit-hall")),
                 "the two-tile doorway from transit must be open");
+        assertFalse(GameMap.canOccupy(1_220, 900, 5,
+                Set.of("transit-hall", "operations-room", "armory-wing")),
+                "the upper edge of TIME CONTROL must not leak into the neighboring area");
         assertFalse(GameMap.canOccupy(GameMap.PREP_CONSOLE.x(), GameMap.PREP_CONSOLE.y(), 5,
                 Set.of("transit-hall")), "the room must remain locked before purchase");
         assertTrue(GameMap.canOccupy(GameMap.PREP_CONSOLE.x(), GameMap.PREP_CONSOLE.y(), 5,

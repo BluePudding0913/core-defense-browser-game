@@ -70,6 +70,7 @@ final class GameSession {
     boolean blackoutActive;
     int blackoutBreakerTotal;
     int nextPrepBonusSeconds;
+    String roomOwnerId;
 
     private final GameEventSink events;
     private final List<String> activeLanes = new ArrayList<>();
@@ -105,6 +106,7 @@ final class GameSession {
         }
         if (assigned != null) {
             assigned.human = true;
+            assigned.roomReady = false;
             assigned.reconnectGrace = 0;
             if (!rejoining) {
                 assigned.sessionId = reconnectId;
@@ -120,6 +122,7 @@ final class GameSession {
         if (!player.human) return;
         String displayName = player.name;
         player.human = false;
+        player.roomReady = false;
         player.reconnectGrace = player.sessionId == null ? 0 : RECONNECT_GRACE_SECONDS;
         if (player.sessionId == null) player.name = "CPU " + player.slot;
         player.moveX = 0;
@@ -151,9 +154,16 @@ final class GameSession {
             case "HELLO" -> updateName(player, parts);
             case "START" -> {
                 if (phase == GamePhase.LOBBY || phase == GamePhase.WON || phase == GamePhase.LOST) {
-                    startMatch();
+                    if (!player.id.equals(roomOwnerId)) {
+                        feedback(player, "ONLY ROOM OWNER CAN START");
+                    } else if (!roomReadyForStart()) {
+                        feedback(player, "WAITING FOR OK");
+                    } else {
+                        startMatch();
+                    }
                 }
             }
+            case "ROOM_READY" -> setRoomReady(player, parts);
             case "MOVE" -> handleMove(player, parts);
             case "DASH" -> handleDash(player, parts);
             case "ATTACK" -> { if (parts.length >= 2) attack(player, Integer.parseInt(parts[1])); }
@@ -295,6 +305,23 @@ final class GameSession {
         phase = GamePhase.PREPARING;
         prepTime = 12;
         setNotice("準備開始");
+    }
+
+    void setRoomOwner(Player player) {
+        if (player != null) roomOwnerId = player.id;
+    }
+
+    boolean roomReadyForStart() {
+        return players.stream().anyMatch(player -> player.human)
+                && players.stream().filter(player -> player.human)
+                        .allMatch(player -> player.roomReady);
+    }
+
+    private void setRoomReady(Player player, String[] parts) {
+        if (phase != GamePhase.LOBBY && phase != GamePhase.WON && phase != GamePhase.LOST) return;
+        boolean ready = parts.length < 2 || parts[1].equals("1")
+                || parts[1].equalsIgnoreCase("true");
+        player.roomReady = ready;
     }
 
     private void beginRound() {
@@ -536,6 +563,7 @@ final class GameSession {
             } else if (defense.type.equals("turret") && defense.cooldown <= 0) {
                 Enemy target = enemies.stream()
                         .filter(enemy -> enemy.hp > 0 && distance(slot.x, slot.y, enemy.x, enemy.y) <= 270)
+                        .filter(enemy -> GameMap.hasClearLine(slot.x, slot.y, enemy.x, enemy.y))
                         .min(Comparator.comparingDouble(enemy -> distance(enemy.x, enemy.y, coreX, coreY)))
                         .orElse(null);
                 if (target != null) {
@@ -744,61 +772,37 @@ final class GameSession {
                 continue;
             }
 
-            Player downed = players.stream().filter(player -> player.down && player != bot)
-                    .min(Comparator.comparingDouble(player -> distance(bot.x, bot.y, player.x, player.y)))
-                    .orElse(null);
-            if (downed != null) {
+            Player downed = bestBotRescueTarget(bot);
+            if (downed != null && shouldBotRescue(bot, downed)) {
                 if (distance(bot.x, bot.y, downed.x, downed.y) < 70) interact(bot, downed.id);
                 else moveBotToward(bot, downed.x, downed.y);
                 continue;
             }
             if (bot.actionTarget != null) {
-                bot.moveX = 0;
-                bot.moveY = 0;
-                continue;
+                cancelAction(bot);
             }
 
             if (phase == GamePhase.WAVE) {
-                String lane = assignedLane(bot.slot, activeLanes);
                 Enemy target = enemies.stream()
                         .filter(enemy -> enemy.id == bot.botTargetEnemyId && enemy.hp > 0
-                                && distance(bot.x, bot.y, enemy.x, enemy.y) <= 620)
+                                && distance(bot.x, bot.y, enemy.x, enemy.y) <= 760)
                         .findFirst().orElse(null);
-                if (target == null) {
-                    bot.botTargetEnemyId = -1;
-                    Enemy candidate = enemies.stream()
-                            .filter(enemy -> enemy.hp > 0 && enemy.lane.equals(lane)
-                                    && distance(bot.x, bot.y, enemy.x, enemy.y) <= 360)
-                            .min(Comparator.comparingDouble(enemy -> distance(bot.x, bot.y, enemy.x, enemy.y)))
-                            .orElseGet(() -> enemies.stream()
-                                    .filter(enemy -> enemy.hp > 0
-                                            && distance(bot.x, bot.y, enemy.x, enemy.y) <= 300)
-                                    .min(Comparator.comparingDouble(enemy ->
-                                            distance(bot.x, bot.y, enemy.x, enemy.y)))
-                                    .orElse(null));
-                    if (candidate != null) {
-                        if (bot.botObservedEnemyId != candidate.id) {
-                            bot.botObservedEnemyId = candidate.id;
-                            bot.botRecognitionTimer = 0.9 + bot.slot * 0.15;
-                        }
-                        bot.botRecognitionTimer = Math.max(0, bot.botRecognitionTimer - dt);
-                        if (bot.botRecognitionTimer <= 0) {
-                            bot.botTargetEnemyId = candidate.id;
-                            target = candidate;
-                        }
-                    } else {
-                        bot.botObservedEnemyId = -1;
-                        bot.botRecognitionTimer = 0;
-                    }
+                Enemy candidate = bestBotCombatTarget(bot);
+                boolean shouldChangeTarget = target == null || candidate != null
+                        && candidate.id != target.id
+                        && botThreatScore(bot, candidate) > botThreatScore(bot, target) + 160;
+                if (shouldChangeTarget && candidate != null) {
+                    if (recognizeBotTarget(bot, candidate, dt)) target = candidate;
+                } else if (target != null) {
+                    bot.botObservedEnemyId = target.id;
+                    bot.botRecognitionTimer = 0;
+                } else {
+                    clearBotTarget(bot);
                 }
                 if (target != null) {
-                    double targetDistance = distance(bot.x, bot.y, target.x, target.y);
-                    if (targetDistance <= 260 && bot.cooldown <= 0) attack(bot, target.id);
-                    if (targetDistance > 205) moveBotToward(bot, target.x, target.y);
-                    else if (targetDistance < 72) moveBotAway(bot, target.x, target.y);
-                    else moveBotAround(bot, target.x, target.y);
+                    engageBotTarget(bot, target);
                 } else {
-                    double[] guard = guardPoint(laneForSlot(bot.slot), bot.slot);
+                    double[] guard = guardPoint(assignedLane(bot.slot, activeLanes), bot.slot);
                     if (distance(bot.x, bot.y, guard[0], guard[1]) > 35) {
                         moveBotToward(bot, guard[0], guard[1]);
                     } else {
@@ -817,6 +821,157 @@ final class GameSession {
                 }
             }
         }
+    }
+
+    private Player bestBotRescueTarget(Player bot) {
+        Player downed = players.stream().filter(player -> player.down && player != bot)
+                .min(Comparator.comparingDouble(player ->
+                        distance(bot.x, bot.y, player.x, player.y))).orElse(null);
+        if (downed == null) return null;
+        Player assignedRescuer = players.stream()
+                .filter(player -> !player.human && !player.down)
+                .min(Comparator.comparingDouble((Player player) ->
+                        distance(player.x, player.y, downed.x, downed.y))
+                        .thenComparingInt(player -> player.slot)).orElse(null);
+        return assignedRescuer == bot ? downed : null;
+    }
+
+    private boolean shouldBotRescue(Player bot, Player downed) {
+        if (distance(bot.x, bot.y, downed.x, downed.y) > 720) return false;
+        if (phase != GamePhase.WAVE) return true;
+        boolean rescueAreaSafe = enemies.stream().filter(enemy -> enemy.hp > 0)
+                .noneMatch(enemy -> distance(enemy.x, enemy.y, downed.x, downed.y) < 145);
+        boolean coreCritical = enemies.stream().filter(enemy -> enemy.hp > 0)
+                .anyMatch(enemy -> distance(enemy.x, enemy.y, coreX, coreY) < 125);
+        return rescueAreaSafe && !coreCritical;
+    }
+
+    private Enemy bestBotCombatTarget(Player bot) {
+        return enemies.stream().filter(enemy -> enemy.hp > 0
+                        && distance(bot.x, bot.y, enemy.x, enemy.y) <= 720)
+                .max(Comparator.comparingDouble(enemy -> botThreatScore(bot, enemy)))
+                .orElse(null);
+    }
+
+    private double botThreatScore(Player bot, Enemy enemy) {
+        double score = 1_050 - Math.min(1_050, distance(enemy.x, enemy.y, coreX, coreY));
+        score += enemy.routeIndex * 85;
+        score += switch (enemy.type) {
+            case "boss" -> 460;
+            case "brute" -> 180;
+            case "runner" -> 125;
+            default -> 70;
+        };
+        if (enemy.lane.equals(assignedLane(bot.slot, activeLanes))) score += 90;
+        if (GameMap.hasClearLine(bot.x, bot.y, enemy.x, enemy.y)) score += 75;
+        score += (1 - enemy.hp / enemy.maxHp) * 55;
+        score -= distance(bot.x, bot.y, enemy.x, enemy.y) * 0.34;
+        long otherClaims = players.stream().filter(player -> player != bot && !player.human
+                && player.botTargetEnemyId == enemy.id).count();
+        score -= otherClaims * (enemy.type.equals("boss") ? 35 : 145);
+        return score;
+    }
+
+    private boolean recognizeBotTarget(Player bot, Enemy candidate, double dt) {
+        if (bot.botObservedEnemyId != candidate.id) {
+            bot.botObservedEnemyId = candidate.id;
+            bot.botRecognitionTimer = 0.9 + bot.slot * 0.15;
+        }
+        bot.botRecognitionTimer = Math.max(0, bot.botRecognitionTimer - dt);
+        if (bot.botRecognitionTimer > 0) return false;
+        bot.botTargetEnemyId = candidate.id;
+        return true;
+    }
+
+    private static void clearBotTarget(Player bot) {
+        bot.botTargetEnemyId = -1;
+        bot.botObservedEnemyId = -1;
+        bot.botRecognitionTimer = 0;
+    }
+
+    private void engageBotTarget(Player bot, Enemy target) {
+        double targetDistance = distance(bot.x, bot.y, target.x, target.y);
+        selectBotWeapon(bot, targetDistance);
+        WeaponStats weapon = weaponStats(bot.weapon);
+        double effectiveRange = weapon.range() - 8;
+        boolean clearShot = GameMap.hasClearLine(bot.x, bot.y, target.x, target.y);
+        if (clearShot && targetDistance <= effectiveRange && bot.cooldown <= 0) {
+            attack(bot, target.id);
+        }
+
+        double preferredRange = switch (bot.weapon) {
+            case "bat" -> 54;
+            case "shotgun" -> 135;
+            case "smg" -> 210;
+            case "rifle" -> 315;
+            case "sniper" -> 450;
+            default -> 215;
+        };
+        if (!clearShot || targetDistance > effectiveRange * 0.92) {
+            moveBotToward(bot, target.x, target.y);
+        } else if (targetDistance < Math.min(90, preferredRange * 0.52)) {
+            moveBotToSaferPosition(bot, target);
+        } else if (Math.abs(targetDistance - preferredRange) > 45) {
+            if (targetDistance > preferredRange) moveBotToward(bot, target.x, target.y);
+            else moveBotToSaferPosition(bot, target);
+        } else {
+            moveBotAround(bot, target.x, target.y);
+        }
+    }
+
+    private static void selectBotWeapon(Player bot, double targetDistance) {
+        if (targetDistance <= 72 && (!hasBotRangedAmmo(bot) || bot.hp > 70)) {
+            bot.weapon = "bat";
+        } else if (targetDistance > 390 && bot.ownsSniper && bot.sniperAmmo > 0) {
+            bot.weapon = "sniper";
+        } else if (targetDistance > 260 && bot.ownsRifle && bot.rifleAmmo > 0) {
+            bot.weapon = "rifle";
+        } else if (targetDistance > 155 && bot.ownsSmg && bot.smgAmmo > 0) {
+            bot.weapon = "smg";
+        } else if (targetDistance <= 190 && bot.ownsShotgun && bot.shotgunAmmo > 0) {
+            bot.weapon = "shotgun";
+        } else if (bot.ownsSmg && bot.smgAmmo > 0) {
+            bot.weapon = "smg";
+        } else if (bot.ownsRifle && bot.rifleAmmo > 0) {
+            bot.weapon = "rifle";
+        } else if (bot.ownsSniper && bot.sniperAmmo > 0) {
+            bot.weapon = "sniper";
+        } else {
+            bot.weapon = "pistol";
+        }
+        bot.selectedBuild = null;
+    }
+
+    private static boolean hasBotRangedAmmo(Player bot) {
+        return bot.ownsShotgun && bot.shotgunAmmo > 0
+                || bot.ownsSmg && bot.smgAmmo > 0
+                || bot.ownsRifle && bot.rifleAmmo > 0
+                || bot.ownsSniper && bot.sniperAmmo > 0;
+    }
+
+    private void moveBotToSaferPosition(Player bot, Enemy enemy) {
+        double bestX = bot.x;
+        double bestY = bot.y;
+        double bestScore = Double.NEGATIVE_INFINITY;
+        for (int index = 0; index < 12; index++) {
+            double angle = Math.PI * 2 * index / 12.0 + bot.slot * 0.31;
+            double candidateX = bot.x + Math.cos(angle) * 86;
+            double candidateY = bot.y + Math.sin(angle) * 86;
+            if (!canOccupy(candidateX, candidateY, 5)) continue;
+            double enemyDistance = distance(candidateX, candidateY, enemy.x, enemy.y);
+            double teamSpacing = players.stream().filter(player -> player != bot && !player.down)
+                    .mapToDouble(player -> distance(candidateX, candidateY, player.x, player.y))
+                    .min().orElse(120);
+            double score = enemyDistance + Math.min(100, teamSpacing) * 0.45
+                    + (GameMap.hasClearLine(candidateX, candidateY, enemy.x, enemy.y) ? 45 : -35);
+            if (score > bestScore) {
+                bestScore = score;
+                bestX = candidateX;
+                bestY = candidateY;
+            }
+        }
+        if (bestScore > Double.NEGATIVE_INFINITY) moveBotToward(bot, bestX, bestY);
+        else moveBotAway(bot, enemy.x, enemy.y);
     }
 
     private static String laneForSlot(int slot) {
@@ -1002,16 +1157,14 @@ final class GameSession {
             giveBotWeapon(bot, item);
             return;
         }
-        ShopUnit ammoShop = GameMap.shopByItem("ammo");
-        int ammunition = bot.shotgunAmmo + bot.smgAmmo + bot.rifleAmmo + bot.sniperAmmo;
-        if (ammoShop != null && isPointUnlocked(ammoShop.x(), ammoShop.y())
-                && ammunition < 24 && bot.credits >= ammoShop.cost()
-                && (bot.ownsShotgun || bot.ownsSmg || bot.ownsRifle || bot.ownsSniper)) {
-            bot.credits -= ammoShop.cost();
-            bot.shotgunAmmo += bot.ownsShotgun ? 16 : 0;
-            bot.smgAmmo += bot.ownsSmg ? 45 : 0;
-            bot.rifleAmmo += bot.ownsRifle ? 12 : 0;
-            bot.sniperAmmo += bot.ownsSniper ? 8 : 0;
+        for (String item : preference) {
+            if (!botOwnsWeapon(bot, item)) continue;
+            int capacity = weaponAmmoCapacity(item);
+            if (weaponAmmo(bot, item) > capacity / 4
+                    || bot.credits < WEAPON_AMMO_REFILL_COST) continue;
+            bot.credits -= WEAPON_AMMO_REFILL_COST;
+            setWeaponAmmo(bot, item, capacity);
+            return;
         }
     }
 
@@ -1793,6 +1946,7 @@ final class GameSession {
             player.facingX = 0;
             player.facingY = -1;
             player.hp = 100;
+            player.roomReady = false;
             player.down = false;
             player.dashHeld = false;
             player.dashing = false;

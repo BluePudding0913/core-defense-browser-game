@@ -23,6 +23,10 @@ final class SnapshotBuilder {
         json.append("\",\"roomId\":\"").append(escapeJson(roomId)).append('"');
         json.append(",\"roomPlayers\":").append(humans)
                 .append(",\"roomCapacity\":").append(capacity);
+        json.append(",\"roomOwnerId\":")
+                .append(game.roomOwnerId == null ? "null"
+                        : "\"" + escapeJson(game.roomOwnerId) + "\"")
+                .append(",\"allReady\":").append(game.roomReadyForStart());
         json.append(",\"round\":").append(game.round).append(",\"maxRounds\":").append(MAX_ROUNDS);
         json.append(",\"prepTime\":").append(roundOne(game.prepTime));
         json.append(",\"nextPrepBonus\":").append(game.nextPrepBonusSeconds);
@@ -75,6 +79,7 @@ final class SnapshotBuilder {
             json.append("{\"id\":\"").append(player.id)
                     .append("\",\"name\":\"").append(escapeJson(player.name));
             json.append("\",\"human\":").append(player.human)
+                    .append(",\"ready\":").append(player.roomReady)
                     .append(",\"ackInput\":").append(player.lastProcessedInput)
                     .append(",\"x\":").append(roundOne(player.x));
             json.append(",\"y\":").append(roundOne(player.y))
@@ -159,7 +164,8 @@ final class SnapshotBuilder {
                     .append(",\"type\":\"").append(drop.type)
                     .append("\",\"x\":").append(roundOne(drop.x))
                     .append(",\"y\":").append(roundOne(drop.y))
-                    .append(",\"amount\":").append(drop.amount).append('}');
+                    .append(",\"amount\":").append(drop.amount)
+                    .append(",\"pickupDelay\":").append(roundOne(drop.pickupDelay)).append('}');
         }
         json.append(']');
     }

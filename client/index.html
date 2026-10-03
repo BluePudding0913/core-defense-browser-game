@@ -63,7 +63,18 @@
         <h1>CORE DEFENSE</h1>
         <p id="menu-status">サーバーに接続しています…</p>
         <label>名前 <input id="player-name" maxlength="16" value="Player" autocomplete="nickname"></label>
-        <button id="start" type="button" disabled>CPUを補充して防衛開始</button>
+        <section id="room-browser" class="room-panel">
+            <div class="room-heading"><strong>ROOMS</strong><button id="refresh-rooms" type="button">更新</button></div>
+            <div id="room-list" class="room-list"><p>ルームを読み込んでいます…</p></div>
+            <button id="create-room" class="primary-button" type="button" disabled>新しいルームを作成</button>
+        </section>
+        <section id="room-lobby" class="room-panel hidden">
+            <div class="room-heading"><strong id="room-code">ROOM</strong><span id="room-owner"></span></div>
+            <div id="room-members" class="room-members"></div>
+            <button id="ready-room" type="button" disabled>OK</button>
+            <button id="start" class="primary-button hidden" type="button" disabled>START</button>
+            <button id="leave-room" class="secondary-button" type="button">ルーム一覧へ戻る</button>
+        </section>
         <button id="how-to-start" class="secondary-button" type="button">遊び方</button>
         <small>横画面推奨 / PCではWASDでも移動できます</small>
     </section>
@@ -75,6 +86,10 @@
                 <section>
                     <h2>目的</h2>
                     <p>屋外から侵入する敵を倒し、COREを12ラウンド守り切ります。攻撃を当てたプレイヤーはゴールドを獲得します。</p>
+                </section>
+                <section>
+                    <h2>ルーム</h2>
+                    <p>名前を入力して新しいルームを作るか、一覧から参加します。参加者全員がOKを選択すると、ルーム作成者がSTARTを押してゲームを開始できます。</p>
                 </section>
                 <section>
                     <h2>基本操作</h2>

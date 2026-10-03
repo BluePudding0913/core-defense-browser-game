@@ -312,6 +312,7 @@ final class GameMap {
 
     private static TileMapDefinition buildGameplayTileMap() {
         List<String> rows = new ArrayList<>(DEFINITION.tileMap().rows());
+        rows.set(22, fillWall(rows.get(22), 29, 32));
         for (int row = 23; row <= 25; row++) rows.set(row, carveFloor(rows.get(row), 29, 32));
         for (int row = 26; row <= 27; row++) rows.set(row, carveFloor(rows.get(row), 30, 31));
         rows.set(30, carveFloor(rows.get(30), 34, 35));
@@ -325,6 +326,12 @@ final class GameMap {
     private static String carveFloor(String row, int firstColumn, int lastColumn) {
         char[] cells = row.toCharArray();
         for (int column = firstColumn; column <= lastColumn; column++) cells[column] = '.';
+        return new String(cells);
+    }
+
+    private static String fillWall(String row, int firstColumn, int lastColumn) {
+        char[] cells = row.toCharArray();
+        for (int column = firstColumn; column <= lastColumn; column++) cells[column] = '#';
         return new String(cells);
     }
 

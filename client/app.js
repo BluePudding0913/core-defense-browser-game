@@ -6,6 +6,16 @@ const menu = document.querySelector("#menu");
 const menuStatus = document.querySelector("#menu-status");
 const startButton = document.querySelector("#start");
 const nameInput = document.querySelector("#player-name");
+const roomBrowser = document.querySelector("#room-browser");
+const roomLobby = document.querySelector("#room-lobby");
+const roomList = document.querySelector("#room-list");
+const roomMembers = document.querySelector("#room-members");
+const roomCode = document.querySelector("#room-code");
+const roomOwner = document.querySelector("#room-owner");
+const createRoomButton = document.querySelector("#create-room");
+const refreshRoomsButton = document.querySelector("#refresh-rooms");
+const readyRoomButton = document.querySelector("#ready-room");
+const leaveRoomButton = document.querySelector("#leave-room");
 const hud = document.querySelector("#hud");
 const roundElement = document.querySelector("#round");
 const phaseElement = document.querySelector("#phase");
@@ -79,6 +89,8 @@ const INTERACTION_RANGE = Object.freeze({
 });
 
 let socket;
+let connectionTarget = { mode: "directory", roomId: null };
+let reconnectTimer;
 let myPlayerId;
 let state;
 let scale = 1;
@@ -236,10 +248,14 @@ function connect() {
     const host = window.location.hostname || "localhost";
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const serverPort = URL_PARAMETERS.get("serverPort") || "8887";
-    menuStatus.textContent = mapReady
-        ? "ゲームサーバーに再接続しています…"
-        : "ゲームサーバーに接続しています…";
-    socket = new WebSocket(`${protocol}://${host}:${serverPort}/?session=${encodeURIComponent(clientSessionId)}`);
+    const parameters = new URLSearchParams({ session: clientSessionId });
+    const access = URL_PARAMETERS.get("access");
+    if (access) parameters.set("access", access);
+    if (connectionTarget.mode === "directory") parameters.set("directory", "1");
+    else parameters.set("room", connectionTarget.roomId);
+    menuStatus.textContent = connectionTarget.mode === "directory"
+        ? "ルーム一覧に接続しています…" : "ルームに接続しています…";
+    socket = new WebSocket(`${protocol}://${host}:${serverPort}/?${parameters}`);
     const connectingSocket = socket;
     clearTimeout(connectionAttemptTimer);
     connectionAttemptTimer = setTimeout(() => {
@@ -248,22 +264,32 @@ function connect() {
         }
     }, 6000);
     socket.addEventListener("open", () => {
+        if (socket !== connectingSocket) return;
         clearTimeout(connectionAttemptTimer);
-        if (mapReady) {
-            menuStatus.textContent = "接続しました。防衛を開始できます。";
-            startButton.disabled = false;
+        if (connectionTarget.mode === "directory") {
+            menuStatus.textContent = "参加するルームを選択してください";
+            createRoomButton.disabled = false;
+            connectingSocket.send("LIST_ROOMS");
         } else {
             menuStatus.textContent = "ゲームサーバーからマップデータを受信しています…";
         }
     });
     socket.addEventListener("message", ({ data }) => {
+        if (socket !== connectingSocket) return;
         let message;
         try { message = JSON.parse(data); } catch { return; }
+        if (message.type === "rooms") {
+            renderRoomList(message.rooms || []);
+            return;
+        }
+        if (message.type === "room-created") {
+            enterRoom(message.roomId);
+            return;
+        }
         if (message.type === "map") {
             try {
                 applyMap(message.map);
-                menuStatus.textContent = "接続しました。防衛を開始できます。";
-                startButton.disabled = false;
+                menuStatus.textContent = "参加者全員がOKを押すと開始できます";
             } catch (error) {
                 console.error(error);
                 menuStatus.textContent = "サーバーのマップデータが不正です。サーバーを再ビルドしてください。";
@@ -273,9 +299,11 @@ function connect() {
         }
         if (message.type === "welcome") {
             myPlayerId = message.playerId;
+            connectionTarget.roomId = message.roomId;
             acknowledgeInputs(message.ackInput);
             nextInputSequence = Math.max(nextInputSequence, lastAcknowledgedInput + 1);
             lastMove = "";
+            send(`HELLO:${nameInput.value || "Player"}`);
             sendMovement(true);
         }
         if (message.type === "state") receiveState(message);
@@ -285,8 +313,12 @@ function connect() {
             if (hitEffects.length > 100) hitEffects.shift();
         }
         if (message.type === "feedback" || message.type === "error") showFeedback(message.message);
+        if (message.type === "error" && connectionTarget.mode === "directory") {
+            createRoomButton.disabled = false;
+        }
     });
     socket.addEventListener("close", () => {
+        if (socket !== connectingSocket) return;
         clearTimeout(connectionAttemptTimer);
         smoothed.clear();
         predictedLocal = null;
@@ -297,14 +329,66 @@ function connect() {
         menu.classList.remove("hidden");
         hud.classList.add("hidden");
         closeActionMenu();
-        menuStatus.textContent = "サーバーから切断されました。再接続します…";
+        menuStatus.textContent = connectionTarget.mode === "directory"
+            ? "ルーム一覧から切断されました。再接続します…"
+            : "ルームから切断されました。再接続します…";
+        createRoomButton.disabled = true;
         startButton.disabled = true;
-        setTimeout(connect, 2000);
+        clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(connect, 2000);
     });
     socket.addEventListener("error", () => {
+        if (socket !== connectingSocket) return;
         clearTimeout(connectionAttemptTimer);
         menuStatus.textContent = "接続できません。Javaサーバーを起動してください。";
     });
+}
+
+function switchConnection(target) {
+    connectionTarget = target;
+    clearTimeout(reconnectTimer);
+    const previousSocket = socket;
+    socket = undefined;
+    if (previousSocket && previousSocket.readyState < WebSocket.CLOSING) previousSocket.close();
+    connect();
+}
+
+function enterRoom(roomId) {
+    if (typeof roomId !== "string" || !roomId) return;
+    state = undefined;
+    myPlayerId = undefined;
+    roomBrowser.classList.add("hidden");
+    roomLobby.classList.remove("hidden");
+    roomCode.textContent = `ROOM ${roomId.toUpperCase()}`;
+    roomMembers.innerHTML = "";
+    readyRoomButton.disabled = true;
+    startButton.classList.add("hidden");
+    switchConnection({ mode: "room", roomId });
+}
+
+function leaveRoom() {
+    state = undefined;
+    myPlayerId = undefined;
+    predictedLocal = null;
+    roomLobby.classList.add("hidden");
+    roomBrowser.classList.remove("hidden");
+    menu.classList.remove("hidden");
+    hud.classList.add("hidden");
+    switchConnection({ mode: "directory", roomId: null });
+}
+
+function renderRoomList(rooms) {
+    if (!rooms.length) {
+        roomList.innerHTML = "<p>参加できるルームはありません</p>";
+        return;
+    }
+    roomList.innerHTML = rooms.map(room => `<button type="button" class="room-entry"
+            data-room="${escapeHtml(room.id)}" ${room.joinable ? "" : "disabled"}>
+        <strong>${escapeHtml(room.owner)} のルーム</strong>
+        <small>${room.players}/${room.capacity} · ${room.joinable ? "WAITING" : "IN GAME"}</small>
+    </button>`).join("");
+    roomList.querySelectorAll("button[data-room]").forEach(button =>
+        button.addEventListener("click", () => enterRoom(button.dataset.room)));
 }
 
 function send(message) {
@@ -340,19 +424,42 @@ function receiveState(next) {
     }
     receiveLog(next.noticeVersion, next.notice);
     updateHud();
+    updateRoomLobby(next);
     if (["preparing", "wave"].includes(next.phase)) {
         menu.classList.add("hidden");
         hud.classList.remove("hidden");
-    } else if (["won", "lost"].includes(next.phase)) {
+    } else if (["lobby", "won", "lost"].includes(next.phase)) {
         closeActionMenu();
         inventoryMenu.classList.add("hidden");
         menu.classList.remove("hidden");
-        hud.classList.remove("hidden");
-        menuStatus.textContent = next.phase === "won" ? "防衛成功：CORE SECURED" : `防衛失敗：${next.notice}`;
-        startButton.textContent = "もう一度プレイ";
-        startButton.disabled = false;
+        hud.classList.toggle("hidden", next.phase === "lobby");
     }
     if (!["preparing", "wave"].includes(next.phase)) closeActionMenu();
+}
+
+function updateRoomLobby(snapshot) {
+    if (!["lobby", "won", "lost"].includes(snapshot.phase)) return;
+    roomBrowser.classList.add("hidden");
+    roomLobby.classList.remove("hidden");
+    roomCode.textContent = `ROOM ${String(snapshot.roomId || "").toUpperCase()}`;
+    const owner = snapshot.players.find(player => player.id === snapshot.roomOwnerId);
+    roomOwner.textContent = `作成者: ${owner?.name || "接続待ち"}`;
+    const humans = snapshot.players.filter(player => player.human);
+    roomMembers.innerHTML = humans.map(player => `<div class="room-member ${player.ready ? "ready" : ""}">
+        <strong>${escapeHtml(player.name)}${player.id === snapshot.roomOwnerId ? " · HOST" : ""}</strong>
+        <span>${player.ready ? "OK" : "WAITING"}</span>
+    </div>`).join("");
+    const me = snapshot.players.find(player => player.id === myPlayerId);
+    readyRoomButton.disabled = !me;
+    readyRoomButton.textContent = me?.ready ? "OKを取り消す" : "OK";
+    const isOwner = myPlayerId === snapshot.roomOwnerId;
+    startButton.classList.toggle("hidden", !isOwner);
+    startButton.textContent = snapshot.phase === "lobby" ? "START" : "もう一度 START";
+    startButton.disabled = !isOwner || !snapshot.allReady;
+    menuStatus.textContent = snapshot.phase === "won" ? "防衛成功 — 再戦する場合は全員OK"
+        : snapshot.phase === "lost" ? "防衛失敗 — 再戦する場合は全員OK"
+            : snapshot.allReady ? isOwner ? "全員OK — STARTできます" : "作成者のSTARTを待っています"
+                : "参加者全員がOKを押してください";
 }
 
 function reconcileEnemySmoothing(next) {
@@ -383,10 +490,23 @@ function showRoundIntro(round) {
     roundIntroTimer = setTimeout(() => roundIntro.classList.remove("show"), 2400);
 }
 
-startButton.addEventListener("click", () => {
-    send(`HELLO:${nameInput.value || "Player"}`);
-    send("START");
+startButton.addEventListener("click", () => send("START"));
+readyRoomButton.addEventListener("click", () => {
+    const me = getMe();
+    if (me) send(`ROOM_READY:${me.ready ? 0 : 1}`);
 });
+createRoomButton.addEventListener("click", () => {
+    if (connectionTarget.mode !== "directory" || socket?.readyState !== WebSocket.OPEN) return;
+    socket.send(`CREATE_ROOM:${nameInput.value || "Player"}`);
+    createRoomButton.disabled = true;
+    menuStatus.textContent = "ルームを作成しています…";
+});
+refreshRoomsButton.addEventListener("click", () => {
+    if (connectionTarget.mode === "directory" && socket?.readyState === WebSocket.OPEN) {
+        socket.send("LIST_ROOMS");
+    }
+});
+leaveRoomButton.addEventListener("click", leaveRoom);
 
 function equipmentEntries(me) {
     const entries = [
@@ -1512,6 +1632,11 @@ function drawDroppedResources() {
         ctx.font = "900 10px ui-monospace, monospace";
         ctx.textAlign = "center";
         ctx.fillText(`${drop.type.toUpperCase()} ×${drop.amount}`, 0, -18);
+        if (drop.pickupDelay > 0) {
+            ctx.fillStyle = "rgb(255 255 255 / 68%)";
+            ctx.font = "850 8px ui-monospace, monospace";
+            ctx.fillText(`${drop.pickupDelay.toFixed(1)}s`, 0, 21);
+        }
         ctx.restore();
     }
 }

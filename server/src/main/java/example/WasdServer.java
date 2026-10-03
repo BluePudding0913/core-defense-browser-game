@@ -17,6 +17,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -35,6 +36,8 @@ public final class WasdServer extends WebSocketServer {
     private final Object gameLock = new Object();
     private final Map<String, GameRoom> rooms = new ConcurrentHashMap<>();
     private final Map<WebSocket, ConnectionAssignment> assignments = new ConcurrentHashMap<>();
+    private final Set<WebSocket> directoryConnections = ConcurrentHashMap.newKeySet();
+    private final Map<WebSocket, String> directorySessions = new ConcurrentHashMap<>();
     private final ScheduledExecutorService ticker = Executors.newSingleThreadScheduledExecutor(runnable -> {
         Thread thread = new Thread(runnable, "core-defense-loop");
         thread.setDaemon(true);
@@ -45,6 +48,7 @@ public final class WasdServer extends WebSocketServer {
     private final Set<String> allowedOrigins;
     private final String bindHost;
     private boolean tlsEnabled;
+    private double directoryBroadcastTimer;
 
     public WasdServer(int port) {
         this(null, port);
@@ -62,17 +66,28 @@ public final class WasdServer extends WebSocketServer {
 
     @Override
     public void onOpen(WebSocket connection, ClientHandshake handshake) {
-        String roomId = normalizeRoomId(readQueryParameter(handshake.getResourceDescriptor(), "room"));
-        if (roomId == null) {
-            reject(connection, "部屋IDが不正です");
-            return;
-        }
         if (!originAllowed(handshake.getFieldValue("Origin"))) {
             reject(connection, "この接続元は許可されていません");
             return;
         }
         if (!tokenMatches(readQueryParameter(handshake.getResourceDescriptor(), "access"))) {
             reject(connection, "アクセスキーが必要です");
+            return;
+        }
+        String sessionId = readSessionId(handshake);
+        if ("1".equals(readQueryParameter(handshake.getResourceDescriptor(), "directory"))) {
+            if (sessionId == null) {
+                reject(connection, "セッションIDが必要です");
+                return;
+            }
+            directoryConnections.add(connection);
+            directorySessions.put(connection, sessionId);
+            sendRoomList(connection);
+            return;
+        }
+        String roomId = normalizeRoomId(readQueryParameter(handshake.getResourceDescriptor(), "room"));
+        if (roomId == null) {
+            reject(connection, "部屋IDが不正です");
             return;
         }
 
@@ -86,14 +101,17 @@ public final class WasdServer extends WebSocketServer {
                     reject(connection, "作成できる部屋数の上限に達しました");
                     return;
                 }
-                room = createRoom(roomId);
+                room = createRoom(roomId, sessionId, "Player");
                 rooms.put(roomId, room);
             }
-            assigned = room.game.connectPlayer(readSessionId(handshake));
+            assigned = room.game.connectPlayer(sessionId);
             if (assigned != null) {
                 assignments.put(connection, new ConnectionAssignment(room, assigned));
                 previous = room.playerConnections.put(assigned, connection);
                 room.emptySinceNanos = 0;
+                if (sessionId != null && sessionId.equals(room.ownerSession)) {
+                    room.game.setRoomOwner(assigned);
+                }
             }
         }
         if (assigned == null) {
@@ -108,19 +126,29 @@ public final class WasdServer extends WebSocketServer {
         connection.send("{\"type\":\"welcome\",\"playerId\":\"" + assigned.id
                 + "\",\"ackInput\":" + assigned.lastProcessedInput
                 + ",\"roomId\":\"" + escapeRoom(roomId) + "\",\"players\":"
-                + humanCount(room) + ",\"capacity\":" + PLAYER_COUNT + "}");
+                + humanCount(room) + ",\"capacity\":" + PLAYER_COUNT
+                + ",\"owner\":" + assigned.id.equals(room.game.roomOwnerId) + "}");
         sendSnapshot(room);
+        broadcastRoomLists();
         System.out.println(roomId + "/" + assigned.id + " connected from "
                 + connection.getRemoteSocketAddress());
     }
 
     @Override
     public void onMessage(WebSocket connection, String message) {
+        if (directoryConnections.contains(connection)) {
+            handleDirectoryMessage(connection, message);
+            return;
+        }
         ConnectionAssignment assignment = assignments.get(connection);
         if (assignment == null || message == null || message.length() > 160) return;
         synchronized (gameLock) {
             try {
                 assignment.room.game.handleMessage(assignment.player, message.trim());
+                if (assignment.player.sessionId != null
+                        && assignment.player.sessionId.equals(assignment.room.ownerSession)) {
+                    assignment.room.ownerName = assignment.player.name;
+                }
             } catch (RuntimeException ignored) {
                 connection.send("{\"type\":\"error\",\"message\":\"入力を処理できません\"}");
             }
@@ -129,6 +157,10 @@ public final class WasdServer extends WebSocketServer {
 
     @Override
     public void onClose(WebSocket connection, int code, String reason, boolean remote) {
+        if (directoryConnections.remove(connection)) {
+            directorySessions.remove(connection);
+            return;
+        }
         synchronized (gameLock) {
             ConnectionAssignment assignment = assignments.remove(connection);
             if (assignment == null) return;
@@ -136,8 +168,20 @@ public final class WasdServer extends WebSocketServer {
             if (room.playerConnections.remove(assignment.player, connection)) {
                 room.game.disconnectPlayer(assignment.player);
             }
+            if (assignment.player.sessionId != null
+                    && assignment.player.sessionId.equals(room.ownerSession)
+                    && !room.playerConnections.isEmpty()) {
+                Player nextOwner = room.playerConnections.keySet().stream()
+                        .min(java.util.Comparator.comparingInt(player -> player.slot)).orElse(null);
+                if (nextOwner != null) {
+                    room.ownerSession = nextOwner.sessionId;
+                    room.ownerName = nextOwner.name;
+                    room.game.setRoomOwner(nextOwner);
+                }
+            }
             if (room.playerConnections.isEmpty()) room.emptySinceNanos = System.nanoTime();
         }
+        broadcastRoomLists();
     }
 
     @Override
@@ -153,8 +197,8 @@ public final class WasdServer extends WebSocketServer {
                 + "://" + bindHost + ":" + getPort() + " (rooms=" + maxRooms + ")");
     }
 
-    private GameRoom createRoom(String id) {
-        GameRoom room = new GameRoom(id);
+    private GameRoom createRoom(String id, String ownerSession, String ownerName) {
+        GameRoom room = new GameRoom(id, ownerSession, ownerName);
         room.game = new GameSession(new GameEventSink() {
             @Override
             public void broadcast(String message) {
@@ -188,6 +232,11 @@ public final class WasdServer extends WebSocketServer {
                     }
                 }
                 expiredRooms.forEach(rooms::remove);
+                directoryBroadcastTimer -= TICK_SECONDS;
+                if (directoryBroadcastTimer <= 0) {
+                    directoryBroadcastTimer = 0.5;
+                    broadcastRoomLists();
+                }
             }
         } catch (RuntimeException error) {
             error.printStackTrace();
@@ -207,6 +256,65 @@ public final class WasdServer extends WebSocketServer {
 
     private static int humanCount(GameRoom room) {
         return (int) room.game.players.stream().filter(player -> player.human).count();
+    }
+
+    private void handleDirectoryMessage(WebSocket connection, String message) {
+        if (message == null || message.length() > 96) return;
+        if (message.equals("LIST_ROOMS")) {
+            sendRoomList(connection);
+            return;
+        }
+        if (!message.startsWith("CREATE_ROOM:")) return;
+        String ownerSession = directorySessions.get(connection);
+        if (ownerSession == null) return;
+        String ownerName = cleanPlayerName(message.substring("CREATE_ROOM:".length()));
+        synchronized (gameLock) {
+            if (rooms.size() >= maxRooms) {
+                connection.send("{\"type\":\"error\",\"message\":\"作成できる部屋数の上限に達しました\"}");
+                return;
+            }
+            String roomId;
+            do {
+                roomId = UUID.randomUUID().toString().substring(0, 6);
+            } while (rooms.containsKey(roomId));
+            rooms.put(roomId, createRoom(roomId, ownerSession, ownerName));
+            connection.send("{\"type\":\"room-created\",\"roomId\":\"" + roomId + "\"}");
+        }
+        broadcastRoomLists();
+    }
+
+    private void broadcastRoomLists() {
+        for (WebSocket connection : directoryConnections) sendRoomList(connection);
+    }
+
+    private void sendRoomList(WebSocket connection) {
+        if (!connection.isOpen()) return;
+        ArrayList<GameRoom> visibleRooms = new ArrayList<>(rooms.values());
+        visibleRooms.sort(java.util.Comparator.comparing(room -> room.id));
+        StringBuilder json = new StringBuilder("{\"type\":\"rooms\",\"rooms\":[");
+        for (int index = 0; index < visibleRooms.size(); index++) {
+            GameRoom room = visibleRooms.get(index);
+            if (index > 0) json.append(',');
+            int players = humanCount(room);
+            String phase = room.game.phase.name().toLowerCase(java.util.Locale.ROOT);
+            boolean joinable = room.game.phase == GamePhase.LOBBY
+                    && players > 0 && players < PLAYER_COUNT;
+            json.append("{\"id\":\"").append(escapeRoom(room.id))
+                    .append("\",\"owner\":\"").append(escapeRoom(room.ownerName))
+                    .append("\",\"players\":").append(players)
+                    .append(",\"capacity\":").append(PLAYER_COUNT)
+                    .append(",\"phase\":\"").append(phase)
+                    .append("\",\"joinable\":").append(joinable).append('}');
+        }
+        json.append("]}");
+        connection.send(json.toString());
+    }
+
+    private static String cleanPlayerName(String value) {
+        String cleaned = value == null ? "" : value
+                .replaceAll("[^\\p{L}\\p{N} _-]", "").trim();
+        if (cleaned.isEmpty()) return "Player";
+        return cleaned.substring(0, Math.min(16, cleaned.length()));
     }
 
     private boolean originAllowed(String origin) {
@@ -314,11 +422,15 @@ public final class WasdServer extends WebSocketServer {
         final String id;
         final Map<Player, WebSocket> playerConnections = new ConcurrentHashMap<>();
         GameSession game;
+        String ownerSession;
+        String ownerName;
         double snapshotTimer;
         long emptySinceNanos;
 
-        GameRoom(String id) {
+        GameRoom(String id, String ownerSession, String ownerName) {
             this.id = id;
+            this.ownerSession = ownerSession;
+            this.ownerName = ownerName;
         }
     }
 }

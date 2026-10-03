@@ -9,6 +9,7 @@ final class Player {
     String name;
     boolean human;
     String sessionId;
+    boolean roomReady;
     double reconnectGrace;
     long lastProcessedInput;
     double x;
@@ -94,12 +95,14 @@ final class Player {
 }
 
 final class DroppedResource {
+    static final double PICKUP_DELAY_SECONDS = 2.5;
+
     final int id;
     final String type;
     final double x;
     final double y;
     final int amount;
-    double pickupDelay = 0.7;
+    double pickupDelay = PICKUP_DELAY_SECONDS;
 
     DroppedResource(int id, String type, double x, double y, int amount) {
         this.id = id;

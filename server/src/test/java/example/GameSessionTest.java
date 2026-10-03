@@ -24,10 +24,12 @@ class GameSessionTest {
         game = new GameSession(events);
         player = game.connectPlayer("test-session-a");
         assertNotNull(player);
+        game.setRoomOwner(player);
     }
 
     @Test
     void startReadyClearAndNextRoundProgressThroughExpectedPhases() {
+        game.handleMessage(player, "ROOM_READY:1");
         game.handleMessage(player, "START");
         assertEquals(GamePhase.PREPARING, game.phase);
         assertEquals(0, game.round);
@@ -58,6 +60,26 @@ class GameSessionTest {
         assertEquals(GamePhase.WAVE, game.phase);
         assertEquals(2, game.round);
         assertEquals(16, game.queuedEnemies);
+    }
+
+    @Test
+    void onlyTheOwnerCanStartAfterEveryHumanPlayerIsReady() {
+        Player guest = game.connectPlayer("test-session-b");
+        assertNotNull(guest);
+
+        game.handleMessage(player, "ROOM_READY:1");
+        game.handleMessage(player, "START");
+        assertEquals(GamePhase.LOBBY, game.phase,
+                "the owner must wait until every connected player is ready");
+
+        game.handleMessage(guest, "ROOM_READY:1");
+        game.handleMessage(guest, "START");
+        assertEquals(GamePhase.LOBBY, game.phase, "a guest must not be able to start the room");
+
+        game.handleMessage(player, "START");
+        assertEquals(GamePhase.PREPARING, game.phase);
+        assertTrue(game.players.stream().noneMatch(candidate -> candidate.roomReady),
+                "ready flags should reset once the match starts");
     }
 
     @Test
@@ -344,7 +366,11 @@ class GameSessionTest {
         assertEquals(1, game.droppedResources.size());
         assertTrue(SnapshotBuilder.build(game).contains("\"drops\":[{\"id\":"));
 
-        game.update(0.8);
+        game.update(2.4);
+        assertEquals(0, collector.wood, "a dropped item must remain visible during its pickup delay");
+        assertEquals(1, game.droppedResources.size());
+
+        game.update(0.2);
         assertEquals(2, collector.wood);
         assertTrue(game.droppedResources.isEmpty());
     }
@@ -567,6 +593,7 @@ class GameSessionTest {
 
     @Test
     void noticesAreBroadcastImmediatelyAsLogEvents() {
+        game.handleMessage(player, "ROOM_READY:1");
         events.broadcasts.clear();
 
         game.handleMessage(player, "START");
@@ -577,6 +604,7 @@ class GameSessionTest {
 
     @Test
     void staleOrDuplicateInputSequenceIsIgnoredAndAcknowledgedInSnapshots() {
+        game.handleMessage(player, "INPUT:1:ROOM_READY:1");
         game.handleMessage(player, "INPUT:2:START");
         assertEquals(GamePhase.PREPARING, game.phase);
         assertEquals(2, player.lastProcessedInput);
@@ -608,6 +636,7 @@ class GameSessionTest {
     @Test
     void enemyFollowsTheEntryCorridorBeforeTurningTowardTheCore() {
         startWave();
+        game.players.forEach(candidate -> candidate.human = true);
         game.enemies.clear();
         game.queuedEnemies = 0;
         game.queuedBosses = 0;
@@ -665,6 +694,34 @@ class GameSessionTest {
     }
 
     @Test
+    void cpuPrioritizesAnEnemyThreateningTheCoreOverANearbyDecoy() {
+        startWave();
+        game.enemies.clear();
+        game.queuedEnemies = 0;
+        game.queuedBosses = 0;
+        Player bot = game.players.get(1);
+        game.players.get(2).human = true;
+        game.players.get(3).human = true;
+        bot.x = game.coreX + 500;
+        bot.y = game.coreY;
+        SpawnPoint spawn = GameMap.SPAWN_POINTS.get(0);
+        Enemy nearbyDecoy = new Enemy(9_031, "grunt", spawn, 500, 0, 0, 0);
+        nearbyDecoy.x = bot.x + 70;
+        nearbyDecoy.y = bot.y;
+        Enemy coreThreat = new Enemy(9_032, "runner", spawn, 500, 0, 0, 0);
+        coreThreat.x = game.coreX + 70;
+        coreThreat.y = game.coreY;
+        coreThreat.routeIndex = coreThreat.route.size();
+        game.enemies.add(nearbyDecoy);
+        game.enemies.add(coreThreat);
+
+        game.update(1.3);
+
+        assertEquals(coreThreat.id, bot.botTargetEnemyId,
+                "CPU threat scoring should protect the core instead of chasing the nearest enemy");
+    }
+
+    @Test
     void cpuSpendsPersonalGoldOnAvailableWeapons() {
         startPreparing();
         game.unlockedAreas.add("entry-room");
@@ -715,6 +772,29 @@ class GameSessionTest {
                 < initialDistance - 700,
                 "CPU should navigate the corridor instead of walking into a wall");
         assertTrue(GameMap.canOccupy(bot.x, bot.y, 5, game.unlockedAreas));
+    }
+
+    @Test
+    void turretCannotShootAnEnemyThroughAWall() {
+        startWave();
+        game.players.forEach(candidate -> candidate.human = true);
+        game.enemies.clear();
+        game.queuedEnemies = 0;
+        game.queuedBosses = 0;
+        TrapSlot slot = new TrapSlot("wall-test-turret", "south", 1_200, 1_900, null);
+        slot.defense = new Defense("turret");
+        game.trapSlots.add(slot);
+        Enemy enemy = new Enemy(9_040, "grunt", GameMap.SPAWN_POINTS.get(0),
+                500, 0, 0, 0);
+        enemy.x = 1_200;
+        enemy.y = 1_650;
+        game.enemies.add(enemy);
+        assertFalse(GameMap.hasClearLine(slot.x, slot.y, enemy.x, enemy.y));
+
+        game.update(0.1);
+
+        assertEquals(500, enemy.hp, 0.001,
+                "a turret must ignore targets hidden behind solid map tiles");
     }
 
     @Test
@@ -889,6 +969,7 @@ class GameSessionTest {
     }
 
     private void startPreparing() {
+        game.handleMessage(player, "ROOM_READY:1");
         game.handleMessage(player, "START");
         assertEquals(GamePhase.PREPARING, game.phase);
     }

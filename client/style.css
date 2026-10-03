@@ -466,6 +466,41 @@ button, input { font: inherit; }
 .menu .secondary-button { border-color: rgb(255 255 255 / 28%); background: transparent; }
 .menu button:hover:not(:disabled), .menu button:active:not(:disabled) { border-color: var(--accent-blue); }
 .menu small { color: rgb(255 255 255 / 46%); }
+.room-panel {
+    display: grid;
+    gap: .55rem;
+    width: min(31rem, 92vw);
+    max-height: min(48vh, 25rem);
+    padding: .75rem;
+    border: 1px solid rgb(255 255 255 / 24%);
+    border-radius: .5rem;
+    background: rgb(0 0 0 / 28%);
+}
+.room-heading { display: flex; align-items: center; justify-content: space-between; gap: .6rem; color: #fff; font: 900 .86rem ui-monospace, monospace; letter-spacing: .08em; }
+.room-heading button { min-width: 0; padding: .38rem .62rem; font-size: .72rem; }
+.room-heading span { color: rgb(255 255 255 / 68%); font-size: .74rem; }
+.room-list, .room-members { display: grid; gap: .4rem; min-height: 4.2rem; max-height: 12rem; overflow: auto; }
+.room-list p { align-self: center; color: rgb(255 255 255 / 52%); font-size: .82rem; }
+.room-entry, .room-member {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: .7rem;
+    min-width: 0;
+    padding: .62rem .7rem;
+    border: 1px solid rgb(255 255 255 / 18%);
+    background: rgb(255 255 255 / 5%);
+    text-align: left;
+}
+.room-entry { width: 100%; min-width: 0 !important; }
+.room-entry strong, .room-member strong { overflow: hidden; color: #fff; font: 900 .84rem ui-monospace, monospace; text-overflow: ellipsis; white-space: nowrap; }
+.room-entry small, .room-member span { color: rgb(255 255 255 / 60%); font: 800 .7rem ui-monospace, monospace; white-space: nowrap; }
+.room-entry:disabled { opacity: .4; }
+.room-member.ready { border-color: rgb(121 216 255 / 65%); }
+.room-member.ready span { color: var(--accent-blue); }
+.room-panel > button { width: 100%; }
+.menu .primary-button { border-color: #fff; background: #fff; color: #111; }
+.menu .primary-button:hover:not(:disabled), .menu .primary-button:active:not(:disabled) { border-color: var(--accent-blue); background: var(--accent-blue); }
 
 .how-to-menu {
     position: fixed;
