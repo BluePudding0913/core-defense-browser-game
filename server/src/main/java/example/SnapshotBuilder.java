@@ -27,6 +27,10 @@ final class SnapshotBuilder {
         json.append(",\"prepTime\":").append(roundOne(game.prepTime));
         json.append(",\"queued\":").append(game.queuedEnemies + game.queuedBosses);
         json.append(",\"roundEvent\":\"").append(game.roundEvent).append('"');
+        json.append(",\"blackoutActive\":").append(game.blackoutActive)
+                .append(",\"blackoutBreakerTotal\":").append(game.blackoutBreakerTotal);
+        appendStringArray(json, "trippedBreakers",
+                game.trippedBreakers.stream().sorted().toList());
         json.append(",\"failedSpawn\":")
                 .append(game.failedSpawnId == null ? "null"
                         : "\"" + escapeJson(game.failedSpawnId) + "\"");

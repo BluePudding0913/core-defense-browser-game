@@ -1,6 +1,7 @@
 package example;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -37,6 +38,8 @@ record ResourceNodeDefinition(String id, String type, double x, double y, String
 record ShopUnit(String id, String item, String label, double x, double y, int cost,
         String detail) { }
 
+record BreakerTerminal(String id, String label, double x, double y, String requiredArea) { }
+
 record MapDefinition(int version, WorldSize world, MapPoint core, Stations stations,
         TileMapDefinition tileMap, List<UnlockArea> areas, List<SpawnPoint> spawnPoints,
         List<TrapSlotDefinition> trapSlots, List<ResourceNodeDefinition> resourceNodes,
@@ -47,7 +50,6 @@ final class GameMap {
     private static final String RESOURCE_PATH = "/map.json";
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final MapDefinition DEFINITION = loadDefinition();
-    private static final String CLIENT_MAP_MESSAGE = buildClientMapMessage();
 
     static final int WORLD_W = DEFINITION.world().width();
     static final int WORLD_H = DEFINITION.world().height();
@@ -68,6 +70,17 @@ final class GameMap {
     static final List<UnlockArea> AREAS = List.copyOf(DEFINITION.areas());
     static final List<SpawnPoint> SPAWN_POINTS = List.copyOf(DEFINITION.spawnPoints());
     static final List<ShopUnit> SHOP_UNITS = List.copyOf(DEFINITION.shopUnits());
+    static final List<BreakerTerminal> BREAKER_TERMINALS = List.of(
+            new BreakerTerminal("breaker-outside", "OUTSIDE", 820, 1940, null),
+            new BreakerTerminal("breaker-entry", "ENTRY ROOM", 1140, 1620, "entry-room"),
+            new BreakerTerminal("breaker-transit", "TRANSIT HALL", 1300, 1180, "transit-hall"),
+            new BreakerTerminal("breaker-armory", "ARMORY WING", 1780, 1020, "armory-wing"),
+            new BreakerTerminal("breaker-forest", "FOREST LAB", 1660, 420, "forest"),
+            new BreakerTerminal("breaker-relay", "RELAY GALLERY", 1220, 300, "relay-gallery"),
+            new BreakerTerminal("breaker-mine", "MINE LAB", 820, 100, "mine"),
+            new BreakerTerminal("breaker-security", "SECURITY HALL", 580, 220, "security-hall"),
+            new BreakerTerminal("breaker-command", "COMMAND ROOM", 100, 300, "command-room"));
+    private static final String CLIENT_MAP_MESSAGE = buildClientMapMessage();
 
     private GameMap() { }
 
@@ -95,6 +108,11 @@ final class GameMap {
 
     static ShopUnit shopByItem(String item) {
         return SHOP_UNITS.stream().filter(shop -> shop.item().equals(item))
+                .findFirst().orElse(null);
+    }
+
+    static BreakerTerminal breakerById(String id) {
+        return BREAKER_TERMINALS.stream().filter(breaker -> breaker.id().equals(id))
                 .findFirst().orElse(null);
     }
 
@@ -147,6 +165,8 @@ final class GameMap {
         }
         if (SHOP_UNITS.stream().anyMatch(shop ->
                 GameSupport.distance(point.x(), point.y(), shop.x(), shop.y()) < 55)) return false;
+        if (BREAKER_TERMINALS.stream().anyMatch(breaker ->
+                GameSupport.distance(point.x(), point.y(), breaker.x(), breaker.y()) < 55)) return false;
         return SPAWN_POINTS.stream().noneMatch(spawn ->
                 GameSupport.distance(point.x(), point.y(), spawn.x(), spawn.y()) < 80);
     }
@@ -168,6 +188,8 @@ final class GameMap {
         }
         if (SHOP_UNITS.stream().anyMatch(shop ->
                 GameSupport.distance(point.x(), point.y(), shop.x(), shop.y()) < 55)) return false;
+        if (BREAKER_TERMINALS.stream().anyMatch(breaker ->
+                GameSupport.distance(point.x(), point.y(), breaker.x(), breaker.y()) < 55)) return false;
         return SPAWN_POINTS.stream().noneMatch(spawn ->
                 GameSupport.distance(point.x(), point.y(), spawn.x(), spawn.y()) < 80);
     }
@@ -232,7 +254,9 @@ final class GameMap {
 
     private static String buildClientMapMessage() {
         try {
-            return "{\"type\":\"map\",\"map\":" + JSON.writeValueAsString(DEFINITION) + "}";
+            ObjectNode clientMap = JSON.valueToTree(DEFINITION);
+            clientMap.set("breakerTerminals", JSON.valueToTree(BREAKER_TERMINALS));
+            return "{\"type\":\"map\",\"map\":" + JSON.writeValueAsString(clientMap) + "}";
         } catch (IOException error) {
             throw new ExceptionInInitializerError(
                     "Could not serialize shared map resource: " + error.getMessage());

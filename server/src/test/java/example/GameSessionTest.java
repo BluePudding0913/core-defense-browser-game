@@ -578,6 +578,9 @@ class GameSessionTest {
 
         beginSpecificRound(3);
         assertEquals("blackout", game.roundEvent);
+        assertTrue(game.blackoutActive);
+        assertEquals(1, game.blackoutBreakerTotal,
+                "the always-accessible outdoor breaker must make a blackout solvable");
 
         beginSpecificRound(5);
         assertEquals("door_failure", game.roundEvent);
@@ -586,6 +589,40 @@ class GameSessionTest {
         beginSpecificRound(8);
         assertEquals("boss_assault", game.roundEvent);
         assertEquals(2, game.queuedBosses);
+    }
+
+    @Test
+    void nearbyBreakerRestoresPowerAfterBlackout() {
+        startPreparing();
+        beginSpecificRound(3);
+        BreakerTerminal breaker = GameMap.BREAKER_TERMINALS.stream()
+                .filter(candidate -> candidate.requiredArea() == null)
+                .findFirst().orElseThrow();
+
+        game.handleMessage(player, "BREAKER:" + breaker.id());
+        assertTrue(game.blackoutActive, "a remote player must not reset the breaker");
+
+        player.x = breaker.x();
+        player.y = breaker.y();
+        game.handleMessage(player, "BREAKER:" + breaker.id());
+
+        assertFalse(game.blackoutActive);
+        assertTrue(game.trippedBreakers.isEmpty());
+        assertTrue(game.notice.contains("電力復旧"));
+    }
+
+    @Test
+    void coreCanExtendPreparationByThreeMinutesForThirtyGold() {
+        startPreparing();
+        player.x = game.coreX;
+        player.y = game.coreY;
+        double previousTime = game.prepTime;
+        int previousGold = player.credits;
+
+        game.handleMessage(player, "EXTEND_PREP");
+
+        assertEquals(previousTime + 180, game.prepTime);
+        assertEquals(previousGold - 30, player.credits);
     }
 
     @Test

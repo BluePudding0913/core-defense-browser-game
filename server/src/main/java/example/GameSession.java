@@ -47,6 +47,7 @@ final class GameSession {
     final List<ResourceNode> resourceNodes = GameMap.createResourceNodes();
     final Set<String> unlockedAreas = new HashSet<>();
     final List<String> activeSpawnIds = new ArrayList<>();
+    final Set<String> trippedBreakers = new HashSet<>();
 
     GamePhase phase = GamePhase.LOBBY;
     int round;
@@ -65,6 +66,8 @@ final class GameSession {
     String notice = "プレイヤーを待っています";
     String roundEvent = "none";
     String failedSpawnId;
+    boolean blackoutActive;
+    int blackoutBreakerTotal;
 
     private final GameEventSink events;
     private final List<String> activeLanes = new ArrayList<>();
@@ -159,7 +162,9 @@ final class GameSession {
             case "REMOVE" -> { if (parts.length >= 2) removeDefense(player, parts[1]); }
             case "REPAIR" -> { if (parts.length >= 2) repair(player, parts[1]); }
             case "UPGRADE" -> { if (parts.length >= 2) upgradeCore(player, parts[1]); }
+            case "EXTEND_PREP" -> extendPrepTime(player);
             case "UNLOCK" -> { if (parts.length >= 2) unlockArea(player, parts[1]); }
+            case "BREAKER" -> { if (parts.length >= 2) resetBreaker(player, parts[1]); }
             case "GATHER" -> { if (parts.length >= 2) gather(player, parts[1]); }
             case "CRAFT" -> { if (parts.length >= 2) craft(player, parts[1]); }
             case "EQUIP_BUILD" -> { if (parts.length >= 2) equipBuild(player, parts[1]); }
@@ -307,6 +312,8 @@ final class GameSession {
         };
         failedSpawnId = roundEvent.equals("door_failure")
                 ? activeSpawnIds.get(random.nextInt(activeSpawnIds.size())) : null;
+        if (roundEvent.equals("blackout")) startBlackout();
+        else clearBlackout();
         spawnTimer = 0;
         coreShield = coreMaxShield;
         String eventText = switch (roundEvent) {
@@ -334,6 +341,7 @@ final class GameSession {
         activeSpawnIds.clear();
         roundEvent = "none";
         failedSpawnId = null;
+        clearBlackout();
         setNotice("ROUND " + round + " CLEAR：全員 +" + reward + " GOLD");
     }
 
@@ -1386,6 +1394,70 @@ final class GameSession {
         }
     }
 
+    private void extendPrepTime(Player player) {
+        if (phase != GamePhase.PREPARING || player.down) {
+            feedback(player, "PREP PHASE ONLY");
+            return;
+        }
+        if (distance(player.x, player.y, coreX, coreY) > 130) {
+            feedback(player, "MOVE TO CORE");
+            return;
+        }
+        if (!spend(player, 30)) {
+            feedback(player, "NOT ENOUGH GOLD");
+            return;
+        }
+        prepTime += 180;
+        setNotice(player.name + " が準備時間を3分延長しました");
+    }
+
+    private void startBlackout() {
+        trippedBreakers.clear();
+        for (BreakerTerminal breaker : GameMap.BREAKER_TERMINALS) {
+            if (breaker.requiredArea() == null || unlockedAreas.contains(breaker.requiredArea())) {
+                trippedBreakers.add(breaker.id());
+            }
+        }
+        blackoutBreakerTotal = trippedBreakers.size();
+        blackoutActive = blackoutBreakerTotal > 0;
+    }
+
+    private void clearBlackout() {
+        blackoutActive = false;
+        blackoutBreakerTotal = 0;
+        trippedBreakers.clear();
+    }
+
+    private void resetBreaker(Player player, String breakerId) {
+        if (!canUseFacilities() || player.down) return;
+        BreakerTerminal breaker = GameMap.breakerById(breakerId);
+        if (breaker == null
+                || breaker.requiredArea() != null
+                && !unlockedAreas.contains(breaker.requiredArea())) return;
+        if (!blackoutActive) {
+            feedback(player, "POWER ONLINE");
+            return;
+        }
+        if (distance(player.x, player.y, breaker.x(), breaker.y()) > 95) {
+            feedback(player, "MOVE TO BREAKER");
+            return;
+        }
+        if (!trippedBreakers.remove(breaker.id())) {
+            feedback(player, "BREAKER ONLINE");
+            return;
+        }
+        int remaining = trippedBreakers.size();
+        if (remaining == 0) {
+            blackoutActive = false;
+            feedback(player, "POWER RESTORED");
+            setNotice(player.name + " が最後のブレーカーを復旧しました / 電力復旧");
+        } else {
+            feedback(player, "BREAKERS LEFT " + remaining);
+            setNotice(player.name + " が " + breaker.label()
+                    + " のブレーカーを復旧しました / 残り" + remaining);
+        }
+    }
+
     private void unlockArea(Player player, String areaId) {
         if (!canUseFacilities() || player.down) return;
         UnlockArea area = GameMap.areaById(areaId);
@@ -1401,7 +1473,15 @@ final class GameSession {
         int cost = 350 + unlockedAreas.size() * 100;
         if (spend(player, cost)) {
             unlockedAreas.add(areaId);
-            setNotice(area.name() + " OPEN：防衛スロットを解放しました");
+            BreakerTerminal breaker = GameMap.BREAKER_TERMINALS.stream()
+                    .filter(candidate -> areaId.equals(candidate.requiredArea()))
+                    .findFirst().orElse(null);
+            if (blackoutActive && breaker != null && trippedBreakers.add(breaker.id())) {
+                blackoutBreakerTotal++;
+                setNotice(area.name() + " OPEN：停電中 / BREAKER RESET REQUIRED");
+            } else {
+                setNotice(area.name() + " OPEN：防衛スロットを解放しました");
+            }
         } else {
             feedback(player, "NOT ENOUGH GOLD");
         }
@@ -1445,6 +1525,7 @@ final class GameSession {
         queuedBosses = 0;
         roundEvent = "none";
         failedSpawnId = null;
+        clearBlackout();
         spawnTimer = 0;
         coreMaxHp = 1000;
         coreHp = coreMaxHp;

@@ -36,6 +36,7 @@ class GameMapTest {
         assertEquals(definition.trapSlots().size(), GameMap.createTrapSlots().size());
         assertEquals(definition.resourceNodes().size(), GameMap.createResourceNodes().size());
         assertEquals(definition.shopUnits(), GameMap.SHOP_UNITS);
+        assertEquals(9, GameMap.BREAKER_TERMINALS.size());
         assertTrue(definition.spawnPoints().size() >= 7,
                 "the outdoor field should provide several spawn candidates");
         assertTrue(definition.spawnPoints().stream().allMatch(spawn -> spawn.y() >= 1_760),
@@ -76,6 +77,8 @@ class GameMapTest {
         assertEquals(GameMap.createTrapSlots().size(), message.path("map").path("trapSlots").size());
         assertEquals(GameMap.createResourceNodes().size(), message.path("map").path("resourceNodes").size());
         assertEquals(GameMap.SHOP_UNITS.size(), message.path("map").path("shopUnits").size());
+        assertEquals(GameMap.BREAKER_TERMINALS.size(),
+                message.path("map").path("breakerTerminals").size());
     }
 
     @Test
@@ -87,6 +90,23 @@ class GameMapTest {
                 assertTrue(separation >= 60,
                         () -> area.id() + " terminal overlaps defense slot " + slot.id);
             }
+        }
+    }
+
+    @Test
+    void breakersAreReachableAndMountedBesideWalls() {
+        Set<String> allAreas = GameMap.AREAS.stream().map(UnlockArea::id)
+                .collect(Collectors.toSet());
+        for (BreakerTerminal breaker : GameMap.BREAKER_TERMINALS) {
+            assertTrue(GameMap.canOccupy(breaker.x(), breaker.y(), 5, allAreas),
+                    () -> breaker.id() + " must be reachable");
+            double nearestWall = Math.min(
+                    Math.min(GameMap.distanceToWall(breaker.x(), breaker.y(), 1, 0, 80),
+                            GameMap.distanceToWall(breaker.x(), breaker.y(), -1, 0, 80)),
+                    Math.min(GameMap.distanceToWall(breaker.x(), breaker.y(), 0, 1, 80),
+                            GameMap.distanceToWall(breaker.x(), breaker.y(), 0, -1, 80)));
+            assertTrue(nearestWall <= 20,
+                    () -> breaker.id() + " must be mounted beside a wall");
         }
     }
 

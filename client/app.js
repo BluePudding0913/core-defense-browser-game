@@ -49,6 +49,7 @@ let TILE_MAP = { tileSize: 40, legend: {}, rows: [] };
 let AREAS = [];
 let SPAWN_POINTS = [];
 let SHOP_UNITS = [];
+let BREAKER_TERMINALS = [];
 const BUILD_INFO = {
     block: { name: "BLOCK", wood: 4, ore: 0, description: "通路を塞ぐ基本ブロック" },
     turret: { name: "AUTO TURRET", wood: 4, ore: 8, description: "範囲内の敵を自動射撃" },
@@ -70,6 +71,7 @@ const INTERACTION_RANGE = Object.freeze({
     areaTerminal: 100,
     resource: 110,
     workbench: 110,
+    breaker: 95,
 });
 
 let socket;
@@ -141,6 +143,7 @@ function applyMap(map) {
     AREAS = map.areas.map(area => ({ ...area }));
     SPAWN_POINTS = map.spawnPoints.map(spawn => ({ ...spawn }));
     SHOP_UNITS = map.shopUnits.map(shop => ({ ...shop }));
+    BREAKER_TERMINALS = (map.breakerTerminals || []).map(breaker => ({ ...breaker }));
     camera = { x: CORE.x, y: CORE.y };
     if (!mapReady) {
         mapReady = true;
@@ -426,9 +429,11 @@ function updateHud() {
     phaseElement.textContent = "";
     phaseElement.classList.add("hidden");
     const prepSeconds = Math.max(0, Math.ceil(state.prepTime));
+    const blackoutStatus = state.blackoutActive
+        ? ` / BREAKER:${(state.trippedBreakers || []).length}` : "";
     phaseDetail.textContent = state.phase === "preparing"
         ? `next round in ${Math.floor(prepSeconds / 60)}:${String(prepSeconds % 60).padStart(2, "0")}`
-        : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}` : "";
+        : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}` : "";
     const me = getMe();
     teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">
@@ -683,6 +688,7 @@ function canBuildAt(point, forCore = false) {
             || distance(point, WOODCUTTER) < 70 || distance(point, QUARRY) < 70
             || distance(point, WORKBENCH) < 70) return false;
     if (SHOP_UNITS.some(shop => distance(point, shop) < 55)) return false;
+    if (BREAKER_TERMINALS.some(breaker => distance(point, breaker) < 55)) return false;
     if (SPAWN_POINTS.some(spawn => distance(point, spawn) < 80)) return false;
     if (state.slots.some(slot => (forCore ? slot.defense : true) && distance(point, slot) < 36)) return false;
     return !state.players.some(player => distance(point, player) < (player.id === myPlayerId ? 30 : 48))
@@ -691,6 +697,7 @@ function canBuildAt(point, forCore = false) {
 
 function openCoreMenu() {
     const core = state.core;
+    const me = getMe();
     const hpCost = 300 + Math.round((core.maxHp - 1000) * .6);
     const shieldCost = 350 + Math.round(core.maxShield * .8);
     const defenseCost = 450 + core.defense * 250;
@@ -700,6 +707,12 @@ function openCoreMenu() {
         option("SHIELD +180", shieldCost, "UPGRADE:shield"),
         option(`DEFENSE Lv.${core.defense + 1}`, defenseCost, "UPGRADE:defense", core.defense >= 4),
         option(`AUTO REPAIR Lv.${core.regen + 1}`, regenCost, "UPGRADE:regen", core.regen >= 4),
+        {
+            label: "PREP TIME +3:00",
+            detail: "30G",
+            command: "EXTEND_PREP",
+            disabled: state.phase !== "preparing" || !me || me.credits < 30,
+        },
         { label: "MOVE CORE", detail: "運搬後、正面の色付きタイルへRで設置", command: "EQUIP_CORE" },
     ], CORE, INTERACTION_RANGE.core);
 }
@@ -968,6 +981,14 @@ function findNearestInteraction() {
     add("med", MED, INTERACTION_RANGE.medBay, "MED BAY", openMedMenu);
     add("craft", WORKBENCH, INTERACTION_RANGE.workbench, "CRAFT", openWorkbenchMenu);
     add("core", state.core, INTERACTION_RANGE.core, "CORE", openCoreMenu);
+    if (state.blackoutActive) {
+        const tripped = new Set(state.trippedBreakers || []);
+        BREAKER_TERMINALS
+            .filter(breaker => tripped.has(breaker.id)
+                && (!breaker.requiredArea || state.areas[breaker.requiredArea]))
+            .forEach(breaker => add("breaker", breaker, INTERACTION_RANGE.breaker,
+                "RESET", () => send(`BREAKER:${breaker.id}`)));
+    }
     for (const area of AREAS) {
         if (state.areas[area.id]) continue;
         const terminal = { x: area.terminalX, y: area.terminalY };
@@ -1115,6 +1136,7 @@ function draw() {
     drawWorld();
     if (state) {
         drawAreas();
+        drawBreakers();
         drawPlacementPreview();
         drawCore();
         drawShops();
@@ -1126,7 +1148,7 @@ function draw() {
         drawHitEffects();
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    if (state?.phase === "wave" && state.roundEvent === "blackout") drawBlackout();
+    if (state?.phase === "wave" && state.blackoutActive) drawBlackout();
     drawJoystick();
 }
 
@@ -1135,11 +1157,16 @@ function drawBlackout() {
     if (!me) return;
     const x = (me.x - camera.x) * scale + canvas.width / 2;
     const y = (me.y - camera.y) * scale + canvas.height / 2;
+    const remaining = (state.trippedBreakers || []).length;
+    const total = Math.max(1, state.blackoutBreakerTotal || remaining);
+    const severity = remaining / total;
     const flicker = Math.sin(performance.now() / 83) * 5;
-    const light = ctx.createRadialGradient(x, y, 55, x, y, 235 + flicker);
+    const lightRadius = 235 + (1 - severity) * 110 + flicker;
+    const edgeDarkness = Math.round(54 + severity * 34);
+    const light = ctx.createRadialGradient(x, y, 55, x, y, lightRadius);
     light.addColorStop(0, "rgb(1 5 8 / 0%)");
     light.addColorStop(.48, "rgb(1 5 8 / 20%)");
-    light.addColorStop(1, "rgb(1 5 8 / 88%)");
+    light.addColorStop(1, `rgb(1 5 8 / ${edgeDarkness}%)`);
     ctx.fillStyle = light;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
@@ -1216,6 +1243,39 @@ function drawAreas() {
             ctx.strokeRect(area.terminalX - 18, area.terminalY - 18, 36, 36);
             ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace";
             ctx.fillText("UNLOCK", area.terminalX, area.terminalY - 24);
+        }
+        ctx.restore();
+    }
+}
+
+function drawBreakers() {
+    const tripped = new Set(state.trippedBreakers || []);
+    for (const breaker of BREAKER_TERMINALS) {
+        if (breaker.requiredArea && !state.areas[breaker.requiredArea]) continue;
+        const needsReset = state.blackoutActive && tripped.has(breaker.id);
+        const pulse = (Math.sin(performance.now() / 130) + 1) / 2;
+        ctx.save();
+        ctx.fillStyle = needsReset ? "#ff5964" : "#8b8b8b";
+        ctx.strokeStyle = needsReset ? "#fff" : "#d8d8d8";
+        ctx.lineWidth = 2;
+        if (needsReset) {
+            ctx.shadowColor = "#ff5964";
+            ctx.shadowBlur = 10 + pulse * 8;
+        }
+        ctx.fillRect(breaker.x - 10, breaker.y - 14, 20, 28);
+        ctx.strokeRect(breaker.x - 10, breaker.y - 14, 20, 28);
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = "#111";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(breaker.x, breaker.y - 7);
+        ctx.lineTo(breaker.x, breaker.y + 6);
+        ctx.stroke();
+        if (needsReset) {
+            ctx.fillStyle = "#ff5964";
+            ctx.font = "900 9px ui-monospace, monospace";
+            ctx.textAlign = "center";
+            ctx.fillText("RESET", breaker.x, breaker.y - 22);
         }
         ctx.restore();
     }
@@ -1442,8 +1502,6 @@ function drawInteractionPrompt() {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText("R", x, y + 1);
-    ctx.font = "800 7px ui-monospace, monospace";
-    ctx.fillText(interaction.label, x, y - 17);
     ctx.restore();
 }
 
