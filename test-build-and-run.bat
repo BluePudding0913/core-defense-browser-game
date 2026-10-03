@@ -27,11 +27,9 @@ start "CORE DEFENSE Server" /D "%~dp0server" cmd /k java -jar target\core-defens
 
 echo [5/5] Starting browser client...
 start "CORE DEFENSE Web" /D "%~dp0" cmd /k jwebserver -d "%~dp0" -p 8080
-timeout /t 2 /nobreak >nul
-start "" "http://localhost:8080/client/"
 
 echo.
-echo Build complete. The test game is opening in your browser.
+echo Build complete. Open http://localhost:8080/client/ when you want to play.
 echo Close the two command windows to stop the test servers.
 timeout /t 3 /nobreak >nul
 exit /b 0

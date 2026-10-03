@@ -46,6 +46,7 @@ final class GameSession {
     final List<Player> players = new ArrayList<>();
     final List<Enemy> enemies = new ArrayList<>();
     final List<TrapSlot> trapSlots = GameMap.createTrapSlots();
+    final List<ResourceNode> resourceNodes = GameMap.createResourceNodes();
     final Set<String> unlockedAreas = new HashSet<>();
     final List<String> activeSpawnIds = new ArrayList<>();
 
@@ -56,6 +57,8 @@ final class GameSession {
     int queuedBosses;
     double coreHp;
     double coreMaxHp;
+    double coreX;
+    double coreY;
     double coreShield;
     double coreMaxShield;
     int coreDefenseLevel;
@@ -163,6 +166,8 @@ final class GameSession {
             case "GATHER" -> { if (parts.length >= 2) gather(player, parts[1]); }
             case "CRAFT" -> { if (parts.length >= 2) craft(player, parts[1]); }
             case "EQUIP_BUILD" -> { if (parts.length >= 2) equipBuild(player, parts[1]); }
+            case "EQUIP_CORE" -> equipCore(player);
+            case "PLACE_CORE" -> { if (parts.length >= 3) placeCore(player, parts); }
             case "READY" -> { if (phase == GamePhase.PREPARING) prepTime = 0; }
             default -> { }
         }
@@ -185,6 +190,7 @@ final class GameSession {
         updateBots();
         updatePlayers(dt);
         updateRevives(dt);
+        updateResources(dt);
 
         if (phase == GamePhase.PREPARING) {
             prepTime = Math.max(0, prepTime - dt);
@@ -322,9 +328,11 @@ final class GameSession {
     }
 
     private void selectRoundSpawns(int currentRound) {
-        int[] spawnCounts = {1, 1, 2, 1, 2, 3, 2, 3, 4, 3, 4, 5};
-        int count = spawnCounts[Math.max(0, Math.min(spawnCounts.length - 1, currentRound - 1))];
-        List<SpawnPoint> candidates = new ArrayList<>(GameMap.SPAWN_POINTS);
+        int[] spawnCounts = {1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 7};
+        int availableCount = Math.min(GameMap.SPAWN_POINTS.size(), 2 + (currentRound - 1) / 2);
+        int count = Math.min(availableCount,
+                spawnCounts[Math.max(0, Math.min(spawnCounts.length - 1, currentRound - 1))]);
+        List<SpawnPoint> candidates = new ArrayList<>(GameMap.SPAWN_POINTS.subList(0, availableCount));
         Collections.shuffle(candidates, random);
         String signature = candidates.subList(0, count).stream().map(SpawnPoint::id).sorted()
                 .reduce((a, b) -> a + "," + b).orElse("");
@@ -358,10 +366,10 @@ final class GameSession {
                 player.stamina = Math.min(100, player.stamina + 24 * dt);
             }
             double speed = player.down ? 45 : player.dashing ? 265 : 155;
-            double nextX = clamp(player.x + player.moveX * speed * dt, 25, WORLD_W - 25);
-            double nextY = clamp(player.y + player.moveY * speed * dt, 25, WORLD_H - 25);
-            if (canOccupy(nextX, player.y, 21)) player.x = nextX;
-            if (canOccupy(player.x, nextY, 21)) player.y = nextY;
+            double nextX = clamp(player.x + player.moveX * speed * dt, 7, WORLD_W - 7);
+            double nextY = clamp(player.y + player.moveY * speed * dt, 7, WORLD_H - 7);
+            if (canOccupy(nextX, player.y, 5)) player.x = nextX;
+            if (canOccupy(player.x, nextY, 5)) player.y = nextY;
         }
     }
 
@@ -384,6 +392,28 @@ final class GameSession {
                 cancelAction(player);
                 setNotice(player.name + " が " + target.name + " を蘇生しました");
             }
+        }
+    }
+
+    private void updateResources(double dt) {
+        for (ResourceNode node : resourceNodes) {
+            if (node.requiredArea != null && !unlockedAreas.contains(node.requiredArea)) continue;
+            if (!node.available) {
+                node.respawnTimer = Math.max(0, node.respawnTimer - dt);
+                if (node.respawnTimer <= 0) node.available = true;
+                continue;
+            }
+            Player collector = players.stream()
+                    .filter(player -> !player.down && distance(player.x, player.y, node.x, node.y) <= 24)
+                    .findFirst().orElse(null);
+            if (collector == null) continue;
+            if (node.type.equals("wood")) collector.wood++;
+            else collector.ore++;
+            node.available = false;
+            node.respawnTimer = 7 + Math.floorMod(node.id.hashCode(), 5);
+            events.broadcast("{\"type\":\"effect\",\"effect\":\"pickup\",\"resource\":\""
+                    + node.type + "\",\"playerId\":\"" + collector.id + "\",\"x\":"
+                    + roundOne(node.x) + ",\"y\":" + roundOne(node.y) + "}");
         }
     }
 
@@ -478,7 +508,7 @@ final class GameSession {
             } else if (defense.type.equals("turret") && defense.cooldown <= 0) {
                 Enemy target = enemies.stream()
                         .filter(enemy -> enemy.hp > 0 && distance(slot.x, slot.y, enemy.x, enemy.y) <= 270)
-                        .min(Comparator.comparingDouble(enemy -> distance(enemy.x, enemy.y, CORE_X, CORE_Y)))
+                        .min(Comparator.comparingDouble(enemy -> distance(enemy.x, enemy.y, coreX, coreY)))
                         .orElse(null);
                 if (target != null) {
                     damageEnemy(target, 17 + round * 0.5, null);
@@ -514,6 +544,7 @@ final class GameSession {
         for (Enemy enemy : enemies) {
             if (enemy.hp <= 0) continue;
             enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
+            updateEnemyWander(enemy, dt);
 
             TrapSlot barricade = trapSlots.stream()
                     .filter(slot -> slot.defense != null
@@ -530,7 +561,7 @@ final class GameSession {
             if (enemy.type.equals("boss")) {
                 enemy.specialCooldown = Math.max(0, enemy.specialCooldown - dt);
                 if (enemy.specialCooldown <= 0
-                        && distance(enemy.x, enemy.y, CORE_X, CORE_Y) <= 260) {
+                        && distance(enemy.x, enemy.y, coreX, coreY) <= 260) {
                     useBossCorePulse(enemy);
                     enemy.specialCooldown = 6;
                 }
@@ -573,21 +604,32 @@ final class GameSession {
                 continue;
             }
 
-            MapPoint routeTarget = enemy.routeIndex < enemy.route.size()
+            boolean canSeeCore = distance(enemy.x, enemy.y, coreX, coreY) <= 520
+                    && GameMap.hasClearLine(enemy.x, enemy.y, coreX, coreY);
+            MapPoint routeTarget = !canSeeCore && enemy.routeIndex < enemy.route.size()
                     ? enemy.route.get(enemy.routeIndex) : null;
-            double targetX = routeTarget == null ? CORE_X : routeTarget.x();
-            double targetY = routeTarget == null ? CORE_Y : routeTarget.y();
+            double targetX = routeTarget == null ? coreX : routeTarget.x();
+            double targetY = routeTarget == null ? coreY : routeTarget.y();
             double targetDistance = distance(enemy.x, enemy.y, targetX, targetY);
 
-            if (routeTarget == null && distance(enemy.x, enemy.y, CORE_X, CORE_Y) <= 72) {
+            if (routeTarget == null && distance(enemy.x, enemy.y, coreX, coreY) <= 72) {
                 if (enemy.attackCooldown <= 0) {
                     damageCore(enemy.damage);
                     enemy.attackCooldown = 0.9;
                 }
             } else {
-                moveEnemyToward(enemy, targetX, targetY, enemy.speed * enemy.slow * dt);
+                moveEnemyToward(enemy, targetX + enemy.wanderX, targetY + enemy.wanderY,
+                        enemy.speed * enemy.slow * dt);
             }
         }
+    }
+
+    private void updateEnemyWander(Enemy enemy, double dt) {
+        enemy.wanderTimer -= dt;
+        if (enemy.wanderTimer > 0) return;
+        enemy.wanderX = random.nextDouble(-20, 20);
+        enemy.wanderY = random.nextDouble(-20, 20);
+        enemy.wanderTimer = random.nextDouble(0.65, 1.35);
     }
 
     private void advanceEnemyRoute(Enemy enemy) {
@@ -635,12 +677,12 @@ final class GameSession {
     private void useBossCorePulse(Enemy enemy) {
         damageCore(enemy.damage * 0.55);
         for (Player player : players) {
-            if (!player.down && distance(player.x, player.y, CORE_X, CORE_Y) <= 175) {
+            if (!player.down && distance(player.x, player.y, coreX, coreY) <= 175) {
                 damagePlayer(player, 12 + round * 0.6);
             }
         }
         events.broadcast("{\"type\":\"effect\",\"effect\":\"core-pulse\",\"x\":"
-                + CORE_X + ",\"y\":" + CORE_Y + "}");
+                + roundOne(coreX) + ",\"y\":" + roundOne(coreY) + "}");
         setNotice("BOSSのCOREパルス攻撃を検知しました");
     }
 
@@ -690,11 +732,11 @@ final class GameSession {
             if (phase == GamePhase.WAVE) {
                 String lane = assignedLane(bot.slot, activeLanes);
                 Enemy target = enemies.stream().filter(enemy -> enemy.hp > 0 && enemy.lane.equals(lane))
-                        .min(Comparator.comparingDouble(enemy -> distance(enemy.x, enemy.y, CORE_X, CORE_Y)))
+                        .min(Comparator.comparingDouble(enemy -> distance(enemy.x, enemy.y, coreX, coreY)))
                         .orElse(null);
                 if (target == null) {
                     target = enemies.stream().filter(enemy -> enemy.hp > 0)
-                            .min(Comparator.comparingDouble(enemy -> distance(enemy.x, enemy.y, CORE_X, CORE_Y)))
+                            .min(Comparator.comparingDouble(enemy -> distance(enemy.x, enemy.y, coreX, coreY)))
                             .orElse(null);
                 }
                 if (target != null) {
@@ -733,12 +775,12 @@ final class GameSession {
         return lanes.get((slot - 1) % lanes.size());
     }
 
-    private static double[] guardPoint(String lane) {
+    private double[] guardPoint(String lane) {
         return switch (lane) {
-            case "north" -> new double[] {CORE_X, CORE_Y - 300};
-            case "east" -> new double[] {CORE_X + 300, CORE_Y};
-            case "south" -> new double[] {CORE_X, CORE_Y + 300};
-            default -> new double[] {CORE_X - 300, CORE_Y};
+            case "north" -> new double[] {coreX, coreY - 100};
+            case "east" -> new double[] {coreX + 100, coreY};
+            case "south" -> new double[] {coreX, coreY + 100};
+            default -> new double[] {coreX - 100, coreY};
         };
     }
 
@@ -797,11 +839,15 @@ final class GameSession {
         }
         double directionX = dx / length;
         double directionY = dy / length;
-        double endX = player.x + directionX * weapon.range();
-        double endY = player.y + directionY * weapon.range();
+        double shotDistance = GameMap.distanceToWall(player.x, player.y,
+                directionX, directionY, weapon.range());
+        double endX = player.x + directionX * shotDistance;
+        double endY = player.y + directionY * shotDistance;
 
         List<Enemy> candidates = enemies.stream().filter(enemy -> enemy.hp > 0)
-                .filter(enemy -> isInsideAttack(enemy, player, directionX, directionY, weapon))
+                .filter(enemy -> isInsideAttack(enemy, player, directionX, directionY,
+                        weapon, shotDistance))
+                .filter(enemy -> GameMap.hasClearLine(player.x, player.y, enemy.x, enemy.y))
                 .sorted(Comparator.comparingDouble(enemy ->
                         distance(player.x, player.y, enemy.x, enemy.y))).toList();
         List<Enemy> targets = player.weapon.equals("shotgun")
@@ -821,11 +867,11 @@ final class GameSession {
     }
 
     private boolean isInsideAttack(Enemy enemy, Player player, double directionX,
-            double directionY, WeaponStats weapon) {
+            double directionY, WeaponStats weapon, double shotDistance) {
         double toEnemyX = enemy.x - player.x;
         double toEnemyY = enemy.y - player.y;
         double projection = toEnemyX * directionX + toEnemyY * directionY;
-        if (projection < 0 || projection > weapon.range()) return false;
+        if (projection < 0 || projection > shotDistance) return false;
         double perpendicular = Math.abs(toEnemyX * directionY - toEnemyY * directionX);
         double enemyRadius = switch (enemy.type) {
             case "boss" -> 42;
@@ -905,6 +951,8 @@ final class GameSession {
                 || weapon.equals("rifle") && player.ownsRifle;
         if (owned) {
             player.weapon = weapon;
+            player.selectedBuild = null;
+            player.movingCore = false;
             player.firing = false;
             player.queuedShots.clear();
             cancelAction(player);
@@ -1023,15 +1071,55 @@ final class GameSession {
         player.ore -= oreCost;
         player.addBuildItem(type, 1);
         player.selectedBuild = type;
+        player.movingCore = false;
         setNotice(player.name + " が " + type.toUpperCase(Locale.ROOT) + " をクラフトしました");
     }
 
     private void equipBuild(Player player, String type) {
+        player.movingCore = false;
         if (type.equals("none")) {
             player.selectedBuild = null;
         } else if (BUILD_RECIPES.containsKey(type) && player.buildItemCount(type) > 0) {
             player.selectedBuild = type;
         }
+    }
+
+    private void equipCore(Player player) {
+        if (!canUseFacilities() || player.down
+                || distance(player.x, player.y, coreX, coreY) > 130) {
+            feedback(player, "MOVE TO CORE");
+            return;
+        }
+        player.movingCore = true;
+        player.selectedBuild = null;
+        player.firing = false;
+        player.queuedShots.clear();
+        setNotice(player.name + " がCOREを移設する準備をしました");
+    }
+
+    private void placeCore(Player player, String[] parts) {
+        if (!canUseFacilities() || player.down || !player.movingCore) return;
+        double requestedX = Double.parseDouble(parts[1]);
+        double requestedY = Double.parseDouble(parts[2]);
+        MapPoint point = GameMap.snapToTile(requestedX, requestedY);
+        if (distance(player.x, player.y, point.x(), point.y()) > 180) {
+            feedback(player, "MOVE CLOSER");
+            return;
+        }
+        if (!GameMap.canPlaceCore(point.x(), point.y(), unlockedAreas)
+                || trapSlots.stream().anyMatch(slot -> slot.defense != null
+                        && distance(point.x(), point.y(), slot.x, slot.y) < 45)
+                || players.stream().anyMatch(other -> other != player && !other.down
+                        && distance(point.x(), point.y(), other.x, other.y) < 24)
+                || enemies.stream().anyMatch(enemy -> enemy.hp > 0
+                        && distance(point.x(), point.y(), enemy.x, enemy.y) < 55)) {
+            feedback(player, "CANNOT PLACE CORE HERE");
+            return;
+        }
+        coreX = point.x();
+        coreY = point.y();
+        player.movingCore = false;
+        setNotice(player.name + " がCOREを新しい防衛地点へ移設しました");
     }
 
     private void build(Player player, String slotId, String type) {
@@ -1068,6 +1156,7 @@ final class GameSession {
             return;
         }
         if (!GameMap.canPlaceDefense(point.x(), point.y(), unlockedAreas)
+                || distance(point.x(), point.y(), coreX, coreY) < 90
                 || trapSlots.stream().anyMatch(slot -> distance(point.x(), point.y(), slot.x, slot.y) < 36)
                 || players.stream().anyMatch(other -> distance(point.x(), point.y(), other.x, other.y)
                         < (other == player ? 30 : 48))
@@ -1103,6 +1192,7 @@ final class GameSession {
         trapSlots.remove(slot);
         player.addBuildItem(type, 1);
         player.selectedBuild = type;
+        player.movingCore = false;
         setNotice(player.name + " が " + type.toUpperCase(Locale.ROOT)
                 + " を回収しました");
     }
@@ -1128,7 +1218,7 @@ final class GameSession {
 
     private void upgradeCore(Player player, String type) {
         if (!canUseFacilities() || player.down
-                || distance(player.x, player.y, CORE_X, CORE_Y) > 130) return;
+                || distance(player.x, player.y, coreX, coreY) > 130) return;
         switch (type) {
             case "hp" -> {
                 int cost = 300 + (int) ((coreMaxHp - 1000) * 0.6);
@@ -1234,6 +1324,8 @@ final class GameSession {
         spawnTimer = 0;
         coreMaxHp = 1000;
         coreHp = coreMaxHp;
+        coreX = CORE_X;
+        coreY = CORE_Y;
         coreMaxShield = 0;
         coreShield = 0;
         coreDefenseLevel = 0;
@@ -1247,10 +1339,12 @@ final class GameSession {
         nextDefenseId = 1;
         trapSlots.clear();
         trapSlots.addAll(GameMap.createTrapSlots());
+        resourceNodes.clear();
+        resourceNodes.addAll(GameMap.createResourceNodes());
         int index = 0;
         for (Player player : players) {
-            player.x = CORE_X - 45 + (index % 2) * 90;
-            player.y = CORE_Y - 45 + (index / 2) * 90;
+            player.x = coreX - 28 + (index % 2) * 56;
+            player.y = coreY - 28 + (index / 2) * 56;
             player.moveX = 0;
             player.moveY = 0;
             player.hp = 100;
@@ -1280,6 +1374,7 @@ final class GameSession {
             player.barricadeItems = 0;
             player.credits = 700;
             player.selectedBuild = null;
+            player.movingCore = false;
             player.kills = 0;
             cancelAction(player);
             if (!preserveHumans && !player.human) player.name = "CPU " + player.slot;

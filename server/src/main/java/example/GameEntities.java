@@ -43,6 +43,7 @@ final class Player {
     int barricadeItems;
     int credits;
     String selectedBuild;
+    boolean movingCore;
     String actionTarget;
     double actionProgress;
     int kills;
@@ -76,6 +77,24 @@ final class Player {
     }
 }
 
+final class ResourceNode {
+    final String id;
+    final String type;
+    final double x;
+    final double y;
+    final String requiredArea;
+    boolean available = true;
+    double respawnTimer;
+
+    ResourceNode(String id, String type, double x, double y, String requiredArea) {
+        this.id = id;
+        this.type = type;
+        this.x = x;
+        this.y = y;
+        this.requiredArea = requiredArea;
+    }
+}
+
 final class Enemy {
     final int id;
     final String type;
@@ -91,6 +110,9 @@ final class Enemy {
     double attackCooldown;
     double specialCooldown;
     double slow = 1;
+    double wanderX;
+    double wanderY;
+    double wanderTimer;
     double creditProgress;
     int paidCredits;
     final List<MapPoint> route;
@@ -112,6 +134,9 @@ final class Enemy {
         this.route = List.copyOf(spawn.route());
         this.targetPriority = spawn.targetPriority();
         this.specialCooldown = type.equals("boss") ? 4.5 : 0;
+        this.wanderX = Math.floorMod(id * 47, 41) - 20;
+        this.wanderY = Math.floorMod(id * 71, 41) - 20;
+        this.wanderTimer = 0.55 + Math.floorMod(id, 7) * 0.11;
     }
 }
 

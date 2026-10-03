@@ -1,8 +1,6 @@
 package example;
 
 import static example.GameConfig.MAX_ROUNDS;
-import static example.GameMap.CORE_X;
-import static example.GameMap.CORE_Y;
 import static example.GameSupport.escapeJson;
 import static example.GameSupport.roundOne;
 
@@ -35,7 +33,8 @@ final class SnapshotBuilder {
         appendStringArray(json, "activeSpawns", game.activeSpawnIds);
         json.append(",\"noticeVersion\":").append(game.noticeVersion)
                 .append(",\"notice\":\"").append(escapeJson(game.notice)).append('"');
-        json.append(",\"core\":{\"x\":").append(CORE_X).append(",\"y\":").append(CORE_Y);
+        json.append(",\"core\":{\"x\":").append(roundOne(game.coreX))
+                .append(",\"y\":").append(roundOne(game.coreY));
         json.append(",\"hp\":").append(roundOne(game.coreHp))
                 .append(",\"maxHp\":").append(roundOne(game.coreMaxHp));
         json.append(",\"shield\":").append(roundOne(game.coreShield))
@@ -46,6 +45,7 @@ final class SnapshotBuilder {
         appendPlayers(json, game.players);
         appendEnemies(json, game.enemies);
         appendSlots(json, game);
+        appendResources(json, game);
         json.append('}');
         return json.toString();
     }
@@ -90,6 +90,7 @@ final class SnapshotBuilder {
             json.append(",\"selectedBuild\":")
                     .append(player.selectedBuild == null ? "null"
                             : "\"" + escapeJson(player.selectedBuild) + "\"");
+            json.append(",\"movingCore\":").append(player.movingCore);
             json.append(",\"buildItems\":{\"block\":").append(player.blockItems)
                     .append(",\"turret\":").append(player.turretItems)
                     .append(",\"wire\":").append(player.wireItems)
@@ -99,6 +100,22 @@ final class SnapshotBuilder {
             json.append(",\"action\":")
                     .append(player.actionTarget == null ? "null" : "\"" + player.actionTarget + "\"");
             json.append(",\"actionProgress\":").append(roundOne(player.actionProgress)).append('}');
+        }
+        json.append(']');
+    }
+
+    private static void appendResources(StringBuilder json, GameSession game) {
+        json.append(",\"resources\":[");
+        for (int i = 0; i < game.resourceNodes.size(); i++) {
+            ResourceNode node = game.resourceNodes.get(i);
+            if (i > 0) json.append(',');
+            boolean unlocked = node.requiredArea == null
+                    || game.unlockedAreas.contains(node.requiredArea);
+            json.append("{\"id\":\"").append(escapeJson(node.id))
+                    .append("\",\"type\":\"").append(node.type)
+                    .append("\",\"x\":").append(roundOne(node.x))
+                    .append(",\"y\":").append(roundOne(node.y))
+                    .append(",\"available\":").append(node.available && unlocked).append('}');
         }
         json.append(']');
     }

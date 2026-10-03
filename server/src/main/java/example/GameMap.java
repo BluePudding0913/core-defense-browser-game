@@ -31,9 +31,11 @@ record SpawnPoint(String id, String name, double x, double y, String lane,
 
 record TrapSlotDefinition(String id, String lane, double x, double y, String requiredArea) { }
 
+record ResourceNodeDefinition(String id, String type, double x, double y, String requiredArea) { }
+
 record MapDefinition(int version, WorldSize world, MapPoint core, Stations stations,
         TileMapDefinition tileMap, List<UnlockArea> areas, List<SpawnPoint> spawnPoints,
-        List<TrapSlotDefinition> trapSlots) { }
+        List<TrapSlotDefinition> trapSlots, List<ResourceNodeDefinition> resourceNodes) { }
 
 /** Static research-facility layout loaded from the shared map resource. */
 final class GameMap {
@@ -66,6 +68,13 @@ final class GameMap {
     static List<TrapSlot> createTrapSlots() {
         return new ArrayList<>(DEFINITION.trapSlots().stream()
                 .map(slot -> new TrapSlot(slot.id(), slot.lane(), slot.x(), slot.y(), slot.requiredArea()))
+                .toList());
+    }
+
+    static List<ResourceNode> createResourceNodes() {
+        return new ArrayList<>(DEFINITION.resourceNodes().stream()
+                .map(node -> new ResourceNode(node.id(), node.type(), node.x(), node.y(),
+                        node.requiredArea()))
                 .toList());
     }
 
@@ -118,8 +127,7 @@ final class GameMap {
         if (tile == null || !tile.buildable() || !canOccupy(point.x(), point.y(), 15, unlockedAreas)) {
             return false;
         }
-        if (GameSupport.distance(point.x(), point.y(), CORE_X, CORE_Y) < 90
-                || GameSupport.distance(point.x(), point.y(), ARMORY_X, ARMORY_Y) < 70
+        if (GameSupport.distance(point.x(), point.y(), ARMORY_X, ARMORY_Y) < 70
                 || GameSupport.distance(point.x(), point.y(), MED_X, MED_Y) < 70
                 || GameSupport.distance(point.x(), point.y(), WOODCUTTER_X, WOODCUTTER_Y) < 70
                 || GameSupport.distance(point.x(), point.y(), QUARRY_X, QUARRY_Y) < 70
@@ -128,6 +136,59 @@ final class GameMap {
         }
         return SPAWN_POINTS.stream().noneMatch(spawn ->
                 GameSupport.distance(point.x(), point.y(), spawn.x(), spawn.y()) < 80);
+    }
+
+    static boolean canPlaceCore(double x, double y, Set<String> unlockedAreas) {
+        MapPoint point = snapToTile(x, y);
+        int column = (int) (point.x() / TILE_SIZE);
+        int row = (int) (point.y() / TILE_SIZE);
+        TileType tile = tileTypeAt(column, row);
+        if (tile == null || !tile.buildable() || !canOccupy(point.x(), point.y(), 15, unlockedAreas)) {
+            return false;
+        }
+        if (GameSupport.distance(point.x(), point.y(), ARMORY_X, ARMORY_Y) < 70
+                || GameSupport.distance(point.x(), point.y(), MED_X, MED_Y) < 70
+                || GameSupport.distance(point.x(), point.y(), WOODCUTTER_X, WOODCUTTER_Y) < 70
+                || GameSupport.distance(point.x(), point.y(), QUARRY_X, QUARRY_Y) < 70
+                || GameSupport.distance(point.x(), point.y(), WORKBENCH_X, WORKBENCH_Y) < 70) {
+            return false;
+        }
+        return SPAWN_POINTS.stream().noneMatch(spawn ->
+                GameSupport.distance(point.x(), point.y(), spawn.x(), spawn.y()) < 80);
+    }
+
+    static double distanceToWall(double x, double y, double directionX,
+            double directionY, double maxDistance) {
+        if (maxDistance <= 0) return 0;
+        double step = Math.max(4, TILE_SIZE / 8.0);
+        double lastClear = 0;
+        for (double traveled = step; traveled <= maxDistance; traveled += step) {
+            if (isSolidAt(x + directionX * traveled, y + directionY * traveled)) {
+                return lastClear;
+            }
+            lastClear = traveled;
+        }
+        if (lastClear < maxDistance
+                && isSolidAt(x + directionX * maxDistance, y + directionY * maxDistance)) {
+            return lastClear;
+        }
+        return maxDistance;
+    }
+
+    static boolean hasClearLine(double fromX, double fromY, double toX, double toY) {
+        double dx = toX - fromX;
+        double dy = toY - fromY;
+        double distance = Math.hypot(dx, dy);
+        if (distance < 0.001) return true;
+        return distanceToWall(fromX, fromY, dx / distance, dy / distance, distance)
+                >= distance - 0.001;
+    }
+
+    private static boolean isSolidAt(double x, double y) {
+        if (x < 0 || y < 0 || x >= WORLD_W || y >= WORLD_H) return true;
+        TileType tile = tileTypeAt((int) Math.floor(x / TILE_SIZE),
+                (int) Math.floor(y / TILE_SIZE));
+        return tile == null || tile.solid();
     }
 
     private static TileType tileTypeAt(int column, int row) {
@@ -175,7 +236,8 @@ final class GameMap {
             throw new IllegalStateException("Map core and stations are required");
         }
         if (map.tileMap() == null || map.areas() == null || map.spawnPoints() == null
-                || map.trapSlots() == null || map.spawnPoints().isEmpty()) {
+                || map.trapSlots() == null || map.resourceNodes() == null
+                || map.spawnPoints().isEmpty()) {
             throw new IllegalStateException("Map lists and at least one spawn point are required");
         }
         validateTileMap(map);
@@ -183,6 +245,7 @@ final class GameMap {
         Set<String> areaIds = uniqueIds(map.areas().stream().map(UnlockArea::id).toList(), "area");
         uniqueIds(map.spawnPoints().stream().map(SpawnPoint::id).toList(), "spawn point");
         uniqueIds(map.trapSlots().stream().map(TrapSlotDefinition::id).toList(), "trap slot");
+        uniqueIds(map.resourceNodes().stream().map(ResourceNodeDefinition::id).toList(), "resource node");
 
         for (SpawnPoint spawn : map.spawnPoints()) {
             if (spawn.route() == null || spawn.route().isEmpty()
@@ -203,6 +266,14 @@ final class GameMap {
             if (slot.requiredArea() != null && !areaIds.contains(slot.requiredArea())) {
                 throw new IllegalStateException("Unknown area for trap slot " + slot.id()
                         + ": " + slot.requiredArea());
+            }
+        }
+        for (ResourceNodeDefinition node : map.resourceNodes()) {
+            if (!Set.of("wood", "ore").contains(node.type())) {
+                throw new IllegalStateException("Unknown resource type for " + node.id());
+            }
+            if (node.requiredArea() != null && !areaIds.contains(node.requiredArea())) {
+                throw new IllegalStateException("Unknown area for resource node " + node.id());
             }
         }
     }

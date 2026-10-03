@@ -177,19 +177,46 @@ class GameSessionTest {
     }
 
     @Test
-    void resourceSitesProvidePersonalCraftingMaterialsWithACooldown() {
+    void unlockedResourceNodesAreCollectedAutomaticallyAndRespawn() {
         startPreparing();
-        player.x = GameMap.WOODCUTTER_X;
-        player.y = GameMap.WOODCUTTER_Y;
+        game.unlockedAreas.add("forest");
+        ResourceNode node = game.resourceNodes.stream()
+                .filter(candidate -> candidate.type.equals("wood")).findFirst().orElseThrow();
+        player.x = node.x;
+        player.y = node.y;
 
-        game.handleMessage(player, "GATHER:wood");
-        assertEquals(4, player.wood);
-        game.handleMessage(player, "GATHER:wood");
-        assertEquals(4, player.wood, "a resource site cannot be spammed during cooldown");
+        game.update(0.05);
+        assertEquals(1, player.wood);
+        assertFalse(node.available);
 
-        game.update(GameConfig.GATHER_COOLDOWN_SECONDS);
-        game.handleMessage(player, "GATHER:wood");
-        assertEquals(8, player.wood);
+        game.update(12);
+        game.update(0.05);
+        assertEquals(2, player.wood);
+    }
+
+    @Test
+    void coreCanBeCarriedToAnyNearbyUnlockedFloorTile() {
+        startPreparing();
+        player.x = game.coreX;
+        player.y = game.coreY;
+
+        game.handleMessage(player, "EQUIP_CORE");
+        assertTrue(player.movingCore);
+
+        player.x = 1_020;
+        player.y = 1_700;
+        game.handleMessage(player, "PLACE_CORE:1020:1660");
+        assertEquals(GameMap.CORE_X, game.coreX,
+                "a sealed room must reject core placement");
+        assertTrue(player.movingCore);
+
+        player.x = GameMap.CORE_X;
+        player.y = GameMap.CORE_Y;
+        game.handleMessage(player, "PLACE_CORE:1180:1900");
+        assertEquals(1_180, game.coreX);
+        assertEquals(1_900, game.coreY);
+        assertFalse(player.movingCore);
+        assertTrue(SnapshotBuilder.build(game).contains("\"core\":{\"x\":1180.0"));
     }
 
     @Test
@@ -219,19 +246,20 @@ class GameSessionTest {
     @Test
     void movementStopsAtAMapWall() {
         startPreparing();
-        player.x = 330;
-        player.y = 200;
+        player.x = 805;
+        player.y = 1_860;
 
-        game.handleMessage(player, "MOVE:1:0");
+        game.handleMessage(player, "MOVE:-1:0");
         game.update(0.1);
 
-        assertEquals(330, player.x, "the player radius must not cross the wall at x=360");
-        assertEquals(200, player.y);
+        assertEquals(805, player.x, "the player collision must not cross the map wall");
+        assertEquals(1_860, player.y);
     }
 
     @Test
     void craftedDefenseConsumesMaterialsAndCanBePlaced() {
         startPreparing();
+        game.unlockedAreas.add("entry-room");
         player.x = GameMap.WORKBENCH_X;
         player.y = GameMap.WORKBENCH_Y;
         player.wood = 2;
@@ -242,12 +270,14 @@ class GameSessionTest {
         assertEquals(1, player.wood);
         assertEquals(1, player.ore);
         assertEquals("mine", player.selectedBuild);
-        player.x = 2_460;
-        player.y = 1_940;
-        game.handleMessage(player, "PLACE:2460:2020:mine");
+        int initialSlots = game.trapSlots.size();
+        game.handleMessage(player, "PLACE:1060:1380:mine");
 
-        assertEquals(1, game.trapSlots.size());
-        assertEquals("mine", game.trapSlots.get(0).defense.type);
+        assertEquals(initialSlots + 1, game.trapSlots.size());
+        TrapSlot placed = game.trapSlots.get(game.trapSlots.size() - 1);
+        assertEquals(1_060, placed.x);
+        assertEquals(1_380, placed.y);
+        assertEquals("mine", placed.defense.type);
         assertEquals(0, player.mineItems);
         assertNull(player.selectedBuild);
     }
@@ -255,26 +285,27 @@ class GameSessionTest {
     @Test
     void placedBlockSnapsToTheGridBlocksMovementAndCanBeRemoved() {
         startPreparing();
-        player.x = 2_410;
-        player.y = 2_020;
+        player.x = 1_140;
+        player.y = 1_900;
         player.blockItems = 1;
         player.selectedBuild = "block";
-        game.handleMessage(player, "PLACE:2479:2039:block");
+        int initialSlots = game.trapSlots.size();
+        game.handleMessage(player, "PLACE:1180:1900:block");
 
-        assertEquals(1, game.trapSlots.size());
-        TrapSlot block = game.trapSlots.get(0);
-        assertEquals(2_460, block.x);
-        assertEquals(2_020, block.y);
+        assertEquals(initialSlots + 1, game.trapSlots.size());
+        TrapSlot block = game.trapSlots.get(game.trapSlots.size() - 1);
+        assertEquals(1_180, block.x);
+        assertEquals(1_900, block.y);
         assertEquals("block", block.defense.type);
 
-        player.x = 2_410;
-        player.y = 2_020;
+        player.x = 1_140;
+        player.y = 1_900;
         game.handleMessage(player, "MOVE:1:0");
         game.update(0.2);
-        assertEquals(2_410, player.x, "a placed block must stop player movement");
+        assertEquals(1_140, player.x, "a placed block must stop player movement");
 
         game.handleMessage(player, "REMOVE:" + block.id);
-        assertTrue(game.trapSlots.isEmpty());
+        assertEquals(initialSlots, game.trapSlots.size());
         assertEquals(1, player.blockItems, "removing a block returns it to the owner");
     }
 
@@ -324,16 +355,32 @@ class GameSessionTest {
         game.enemies.clear();
         game.queuedEnemies = 0;
         game.queuedBosses = 0;
-        SpawnPoint spawn = GameMap.spawnById("north-east-tunnel");
+        SpawnPoint spawn = GameMap.spawnById("south-gate");
         Enemy enemy = new Enemy(9_002, "grunt", spawn, 500, 100, 0, 0);
         game.enemies.add(enemy);
 
         game.update(1);
 
-        assertEquals(spawn.x(), enemy.x, 0.01,
-                "the enemy must travel down the reactor corridor before turning toward CORE");
-        assertTrue(enemy.y > spawn.y());
-        assertEquals(110, enemy.speed, 0.01, "the entry speed characteristic must be applied");
+        assertTrue(enemy.y < spawn.y());
+        assertEquals(100, enemy.speed, 0.01, "the entry speed characteristic must be applied");
+    }
+
+    @Test
+    void enemiesUseSlightlyDifferentLinesTowardTheSameRoutePoint() {
+        startWave();
+        game.enemies.clear();
+        game.queuedEnemies = 0;
+        game.queuedBosses = 0;
+        SpawnPoint spawn = GameMap.spawnById("south-gate");
+        Enemy first = new Enemy(9_020, "grunt", spawn, 500, 100, 0, 0);
+        Enemy second = new Enemy(9_021, "grunt", spawn, 500, 100, 0, 0);
+        game.enemies.add(first);
+        game.enemies.add(second);
+
+        game.update(0.5);
+
+        assertTrue(GameSupport.distance(first.x, first.y, second.x, second.y) > 0.1,
+                "enemy drift should stop identical single-file movement");
     }
 
     @Test
@@ -349,7 +396,7 @@ class GameSessionTest {
         double initialDefenseHp = slot.defense.hp;
         player.x = slot.x + 34;
         player.y = slot.y;
-        SpawnPoint spawn = GameMap.spawnById("east-gate");
+        SpawnPoint spawn = GameMap.spawnById("west-field");
         Enemy enemy = new Enemy(9_003, "brute", spawn, 500, 0, 25, 0);
         enemy.x = player.x;
         enemy.y = player.y;
@@ -389,7 +436,7 @@ class GameSessionTest {
         game.players.forEach(candidate -> candidate.human = true);
         player.x = GameMap.CORE_X;
         player.y = GameMap.CORE_Y;
-        Enemy boss = new Enemy(9_004, "boss", GameMap.spawnById("north-service-hatch"),
+        Enemy boss = new Enemy(9_004, "boss", GameMap.spawnById("south-gate"),
                 1_000, 0, 48, 0);
         boss.x = GameMap.CORE_X + 200;
         boss.y = GameMap.CORE_Y;

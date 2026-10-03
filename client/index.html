@@ -14,8 +14,8 @@
         <div class="top-bar">
             <div class="round-status">
                 <strong id="round">ROUND 0 / 12</strong>
-                <span id="phase">PREPARING</span>
-                <span id="phase-detail">00:20</span>
+                <span id="phase" class="hidden"></span>
+                <span id="phase-detail">next round in 0:20</span>
             </div>
         </div>
         <div id="team" class="team"></div>
@@ -24,10 +24,8 @@
                 <span class="heart-base" aria-hidden="true">♥</span>
                 <span class="heart-fill" aria-hidden="true">♥</span>
             </div>
-            <div class="self-vitals-meta">
-                <strong id="self-health-label">100 HP</strong>
-                <b id="self-credits">700 CR</b>
-                <small id="self-materials">WOOD 0 · ORE 0</small>
+            <div class="credit-balance" aria-label="クレジット">
+                <b id="self-credits">700g</b>
             </div>
         </div>
         <div id="notice" class="notice"></div>

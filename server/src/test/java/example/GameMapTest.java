@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.io.InputStream;
+import java.util.stream.Collectors;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -33,12 +34,11 @@ class GameMapTest {
         assertEquals(definition.areas(), GameMap.AREAS);
         assertEquals(definition.spawnPoints(), GameMap.SPAWN_POINTS);
         assertEquals(definition.trapSlots().size(), GameMap.createTrapSlots().size());
-        assertTrue(definition.spawnPoints().size() >= 16,
-                "the facility should provide spawn candidates across the map");
-        assertTrue(definition.spawnPoints().stream().filter(spawn ->
-                spawn.x() > 80 && spawn.x() < GameMap.WORLD_W - 80
-                        && spawn.y() > 80 && spawn.y() < GameMap.WORLD_H - 80).count() >= 8,
-                "at least half of the spawn candidates should be inside the facility");
+        assertEquals(definition.resourceNodes().size(), GameMap.createResourceNodes().size());
+        assertTrue(definition.spawnPoints().size() >= 7,
+                "the outdoor field should provide several spawn candidates");
+        assertTrue(definition.spawnPoints().stream().allMatch(spawn -> spawn.y() >= 1_760),
+                "every enemy spawn should remain in the compact outdoor field");
         assertTrue(definition.spawnPoints().stream().allMatch(spawn -> spawn.route().size() >= 3),
                 "every enemy entry should include a corridor route");
         assertTrue(definition.spawnPoints().stream()
@@ -48,13 +48,19 @@ class GameMapTest {
 
     @Test
     void collisionUsesTilesBoundsAndUnlockedAreasFromMap() {
-        assertEquals(5_400, GameMap.WORLD_W);
-        assertEquals(3_600, GameMap.WORLD_H);
-        assertTrue(GameMap.canOccupy(GameMap.CORE_X, GameMap.CORE_Y, 21, Set.of()));
-        assertFalse(GameMap.canOccupy(100, 100, 21, Set.of()), "a wall must block movement");
-        assertFalse(GameMap.canOccupy(10, GameMap.CORE_Y, 21, Set.of()),
+        assertEquals(2_080, GameMap.WORLD_W);
+        assertEquals(2_080, GameMap.WORLD_H);
+        assertTrue(GameMap.canOccupy(GameMap.CORE_X, GameMap.CORE_Y, 5, Set.of()));
+        assertTrue(GameMap.canOccupy(1_020, 1_220, 5, Set.of()),
+                "the single route to the first room should remain walkable");
+        assertFalse(GameMap.canOccupy(1_020, 1_460, 5, Set.of()),
+                "the first room should be sealed before it is unlocked");
+        assertTrue(GameMap.canOccupy(1_020, 1_460, 5, Set.of("entry-room")));
+        assertFalse(GameMap.canOccupy(1_300, 1_300, 5, Set.of()),
+                "terrain beside the route must block movement");
+        assertFalse(GameMap.canOccupy(3, GameMap.CORE_Y, 5, Set.of()),
                 "the world boundary must block movement");
-        assertTrue(GameMap.AREAS.isEmpty(), "the map must not be divided into unlock districts");
+        assertEquals(5, GameMap.AREAS.size());
     }
 
     @Test
@@ -67,6 +73,7 @@ class GameMapTest {
                 message.path("map").path("tileMap").path("rows").size());
         assertEquals(GameMap.SPAWN_POINTS.size(), message.path("map").path("spawnPoints").size());
         assertEquals(GameMap.createTrapSlots().size(), message.path("map").path("trapSlots").size());
+        assertEquals(GameMap.createResourceNodes().size(), message.path("map").path("resourceNodes").size());
     }
 
     @Test
@@ -83,9 +90,11 @@ class GameMapTest {
 
     @Test
     void enemyRoutesStayInsideWalkableCorridors() {
+        Set<String> allAreas = GameMap.AREAS.stream().map(UnlockArea::id)
+                .collect(Collectors.toSet());
         for (SpawnPoint spawn : GameMap.SPAWN_POINTS) {
             for (MapPoint point : spawn.route()) {
-                assertTrue(GameMap.canOccupy(point.x(), point.y(), 17, Set.of()),
+                assertTrue(GameMap.canOccupy(point.x(), point.y(), 17, allAreas),
                         () -> spawn.id() + " route crosses a wall at " + point);
             }
         }
@@ -93,10 +102,17 @@ class GameMapTest {
 
     @Test
     void freeBuildingAcceptsFloorTilesAndRejectsWallTiles() {
-        assertTrue(GameMap.canPlaceDefense(2_460, 2_020, Set.of()));
-        assertFalse(GameMap.canPlaceDefense(100, 100, Set.of()));
-        MapPoint snapped = GameMap.snapToTile(2_479, 2_039);
-        assertEquals(2_460, snapped.x());
-        assertEquals(2_020, snapped.y());
+        assertTrue(GameMap.canPlaceDefense(1_180, 1_900, Set.of()));
+        assertFalse(GameMap.canPlaceDefense(1_300, 1_300, Set.of()));
+        MapPoint snapped = GameMap.snapToTile(1_179, 1_899);
+        assertEquals(1_180, snapped.x());
+        assertEquals(1_900, snapped.y());
+    }
+
+    @Test
+    void wallsBlockWeaponLinesWhileTheDefenseRoadRemainsClear() {
+        assertTrue(GameMap.hasClearLine(1_020, 1_900, 1_020, 1_700));
+        assertFalse(GameMap.hasClearLine(1_200, 1_900, 1_200, 1_500));
+        assertTrue(GameMap.distanceToWall(1_200, 1_900, 0, -1, 400) < 400);
     }
 }

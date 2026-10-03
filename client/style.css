@@ -44,7 +44,7 @@ button, input { font: inherit; }
 .round-status span:last-child {
     margin-top: .22rem;
     color: #fff;
-    font-size: clamp(.72rem, 1.8vw, .95rem);
+    font-size: clamp(1rem, 2.4vw, 1.35rem);
     letter-spacing: .08em;
 }
 
@@ -61,11 +61,11 @@ button, input { font: inherit; }
 .teammate {
     width: 100%;
     padding: .48rem .6rem;
-    border: 1px solid rgb(255 255 255 / 24%);
-    border-radius: .38rem;
-    background: rgb(8 8 8 / 78%);
-    box-shadow: 0 5px 18px rgb(0 0 0 / 25%);
-    backdrop-filter: blur(10px);
+    border: 1px solid rgb(255 255 255 / 45%);
+    border-radius: .55rem;
+    background: rgb(255 255 255 / 12%);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%), 0 7px 24px rgb(0 0 0 / 20%);
+    backdrop-filter: blur(16px);
 }
 
 .teammate.self { border-color: rgb(255 255 255 / 70%); background: rgb(20 20 20 / 88%); }
@@ -73,7 +73,7 @@ button, input { font: inherit; }
 .teammate-label { display: flex; align-items: center; justify-content: space-between; gap: .45rem; font-size: clamp(.68rem, 1.4vw, .8rem); font-weight: 850; }
 .teammate-label > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .player-stats { display: flex; align-items: baseline; gap: .42rem; white-space: nowrap; font: 900 clamp(.68rem, 1.5vw, .86rem) ui-monospace, monospace; }
-.player-stats b { color: #ffe18a; font-size: .78em; }
+.player-stats b { color: white; font-size: .9em; }
 .hp-line { height: 4px; margin-top: .35rem; background: rgb(255 255 255 / 16%); overflow: hidden; }
 .hp-line span { display: block; height: 100%; background: #65d68d; }
 .teammate.down .hp-line span { background: #ff656f; }
@@ -86,7 +86,7 @@ button, input { font: inherit; }
     z-index: 5;
     display: flex;
     align-items: center;
-    gap: .65rem;
+    gap: .3rem;
     filter: drop-shadow(0 3px 7px rgb(0 0 0 / 88%));
 }
 
@@ -113,10 +113,13 @@ button, input { font: inherit; }
     clip-path: inset(calc(100% - var(--health)) 0 0 0);
 }
 
-.self-vitals-meta { display: grid; gap: .12rem; font-family: ui-monospace, monospace; }
-.self-vitals-meta strong { font-size: clamp(.82rem, 1.9vw, 1.05rem); }
-.self-vitals-meta b { color: #ffe18a; font-size: clamp(.7rem, 1.55vw, .86rem); }
-.self-vitals-meta small { color: rgb(255 255 255 / 64%); font-size: clamp(.52rem, 1.2vw, .65rem); font-weight: 800; letter-spacing: .06em; }
+.credit-balance {
+    display: flex;
+    align-items: center;
+    gap: .28rem;
+    color: #ffe18a;
+    font: 950 clamp(.9rem, 2.2vw, 1.2rem) ui-monospace, monospace;
+}
 
 .notice {
     position: absolute;
@@ -125,7 +128,7 @@ button, input { font: inherit; }
     z-index: 3;
     display: grid;
     gap: .22rem;
-    width: min(24rem, 48vw);
+    width: min(32rem, 58vw);
     pointer-events: none;
 }
 
@@ -136,10 +139,10 @@ button, input { font: inherit; }
     gap: .45rem;
     color: #fff;
     text-shadow: 0 2px 5px #000, 0 0 9px #000;
-    animation: activity-life 5.2s ease forwards;
+    animation: activity-life 15.6s ease forwards;
 }
-.log-entry > span { padding-top: .08rem; color: rgb(255 255 255 / 58%); font: 900 .62rem ui-monospace, monospace; letter-spacing: .05em; }
-.log-entry > p { margin: 0; font-size: clamp(.68rem, 1.5vw, .84rem); font-weight: 750; line-height: 1.28; }
+.log-entry > span { padding-top: .08rem; color: rgb(255 255 255 / 62%); font: 900 .76rem ui-monospace, monospace; letter-spacing: .05em; }
+.log-entry > p { margin: 0; font-size: clamp(.86rem, 1.9vw, 1.08rem); font-weight: 800; line-height: 1.32; }
 @keyframes activity-life {
     0% { opacity: 0; transform: translateY(5px); }
     9%, 66% { opacity: 1; transform: translateY(0); }
@@ -191,25 +194,28 @@ button, input { font: inherit; }
 .weapon {
     --cooldown-progress: 100%;
     position: relative;
-    display: flex;
+    display: grid;
+    grid-template-columns: 6.3rem 1fr;
     align-items: center;
-    gap: .65rem;
-    width: 10rem;
-    height: 4.5rem;
-    padding: .55rem .7rem;
-    border: 1px solid rgb(255 255 255 / 28%);
-    border-radius: .4rem;
-    background: rgb(8 8 8 / 86%);
+    gap: .85rem;
+    width: 14rem;
+    height: 6.25rem;
+    padding: .75rem .85rem;
+    border: 1px solid rgb(255 255 255 / 48%);
+    border-radius: .62rem;
+    background: rgb(255 255 255 / 13%);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 24%), 0 9px 28px rgb(0 0 0 / 24%);
+    backdrop-filter: blur(16px);
     overflow: hidden;
     text-align: left;
 }
 .weapon::after { content: ""; position: absolute; left: 0; bottom: 0; width: var(--cooldown-progress); height: 3px; background: #fff; transition: width .08s linear; }
 .weapon:active { transform: scale(.98); }
-.weapon-meta { display: grid; gap: .1rem; min-width: 0; }
-#weapon-name { font: 900 .72rem ui-monospace, monospace; letter-spacing: .08em; }
-#weapon-ammo { color: rgb(255 255 255 / 64%); font: 800 .68rem ui-monospace, monospace; }
-.weapon-cooldown { color: rgb(255 255 255 / 48%); font: 800 .55rem ui-monospace, monospace; }
-.weapon-icon { position: relative; flex: 0 0 4.8rem; width: 4.8rem; height: 2.4rem; image-rendering: pixelated; }
+.weapon-meta { display: grid; align-content: center; gap: .24rem; min-width: 0; }
+#weapon-name { font: 900 .88rem ui-monospace, monospace; letter-spacing: .08em; }
+#weapon-ammo { color: white; font: 900 1.12rem ui-monospace, monospace; }
+.weapon-cooldown { color: rgb(255 255 255 / 62%); font: 800 .62rem ui-monospace, monospace; }
+.weapon-icon { position: relative; width: 5.2rem; height: 2.6rem; transform: scale(1.24); transform-origin: center; image-rendering: pixelated; }
 .weapon-icon::before, .weapon-icon::after { content: ""; position: absolute; display: block; background: #e6edf0; }
 .weapon-icon.pistol::before { left: .45rem; top: .55rem; width: 3.2rem; height: .72rem; box-shadow: .45rem -.22rem 0 #a9b8bf; }
 .weapon-icon.pistol::after { left: 2.45rem; top: 1.2rem; width: .78rem; height: 1.05rem; transform: skew(-10deg); background: #879aa3; }
@@ -235,7 +241,7 @@ button, input { font: inherit; }
     padding: .48rem .55rem;
     border: 1px solid rgb(255 255 255 / 22%);
     border-radius: .3rem;
-    background: rgb(8 8 8 / 82%);
+    background: rgb(255 255 255 / 13%);
     color: rgb(255 255 255 / 66%);
     text-align: left;
 }
@@ -359,7 +365,6 @@ button, input { font: inherit; }
     .round-status strong { font-size: 1.55rem; }
     .team { width: min(12.6rem, 29vw); gap: .22rem; }
     .teammate { padding: .34rem .45rem; }
-    .self-vitals-meta small { display: none; }
-    .weapon { width: 9rem; height: 4rem; }
+    .weapon { width: 12rem; height: 5.25rem; grid-template-columns: 5.5rem 1fr; }
     .build-belt button { min-width: 4.3rem; padding: .36rem .42rem; }
 }
