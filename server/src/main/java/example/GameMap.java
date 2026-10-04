@@ -23,9 +23,24 @@ record TileType(String name, boolean solid, boolean buildable, String color) { }
 
 record TileMapDefinition(int tileSize, Map<String, TileType> legend, List<String> rows) { }
 
-record UnlockArea(String id, String name, double x, double y, double width, double height,
+record AreaTile(int column, int row) { }
+
+record UnlockArea(String id, String name, List<AreaTile> tiles,
         double terminalX, double terminalY, double labelX, double labelY,
-        String color, String detail) { }
+        String color, String detail) {
+    boolean contains(double x, double y) {
+        return tiles.contains(new AreaTile((int) Math.floor(x / GameMap.TILE_SIZE),
+                (int) Math.floor(y / GameMap.TILE_SIZE)));
+    }
+
+    boolean overlaps(double x, double y, double radius) {
+        return tiles.stream().anyMatch(tile ->
+                x + radius > tile.column() * GameMap.TILE_SIZE
+                && x - radius < (tile.column() + 1) * GameMap.TILE_SIZE
+                && y + radius > tile.row() * GameMap.TILE_SIZE
+                && y - radius < (tile.row() + 1) * GameMap.TILE_SIZE);
+    }
+}
 
 record SpawnPoint(String id, String name, double x, double y, String lane,
         String enemyBias, double speedMultiplier, String targetPriority,
@@ -71,7 +86,7 @@ final class GameMap {
     static final double WORKBENCH_X = DEFINITION.stations().workbench().x();
     static final double WORKBENCH_Y = DEFINITION.stations().workbench().y();
     static final int TILE_SIZE = DEFINITION.tileMap().tileSize();
-    static final TileMapDefinition TILE_MAP = buildGameplayTileMap();
+    static final TileMapDefinition TILE_MAP = DEFINITION.tileMap();
     static final List<UnlockArea> AREAS = buildGameplayAreas();
     static final List<SpawnPoint> SPAWN_POINTS = buildSpawnPoints();
     static final List<ShopUnit> SHOP_UNITS = List.copyOf(DEFINITION.shopUnits());
@@ -140,7 +155,7 @@ final class GameMap {
         }
         for (UnlockArea area : AREAS) {
             if (!unlockedAreas.contains(area.id())
-                    && overlaps(x, y, radius, area.x(), area.y(), area.width(), area.height())) {
+                    && area.overlaps(x, y, radius)) {
                 return false;
             }
         }
@@ -265,12 +280,6 @@ final class GameMap {
         return TILE_MAP.legend().get(String.valueOf(cells.charAt(column)));
     }
 
-    private static boolean overlaps(double x, double y, double radius,
-            double left, double top, double width, double height) {
-        return x + radius > left && x - radius < left + width
-                && y + radius > top && y - radius < top + height;
-    }
-
     private static MapDefinition loadDefinition() {
         try (InputStream input = GameMap.class.getResourceAsStream(RESOURCE_PATH)) {
             if (input == null) throw new IllegalStateException("Missing shared map resource: " + RESOURCE_PATH);
@@ -312,46 +321,8 @@ final class GameMap {
         return List.copyOf(nodes);
     }
 
-    private static TileMapDefinition buildGameplayTileMap() {
-        List<String> rows = new ArrayList<>(DEFINITION.tileMap().rows());
-        rows.set(22, fillWall(rows.get(22), 29, 32));
-        for (int row = 23; row <= 25; row++) rows.set(row, carveFloor(rows.get(row), 29, 32));
-        for (int row = 26; row <= 27; row++) rows.set(row, carveFloor(rows.get(row), 30, 31));
-        rows.set(30, carveFloor(rows.get(30), 34, 35));
-        for (int row = 31; row <= 33; row++) rows.set(row, carveFloor(rows.get(row), 33, 36));
-        for (int row = 35; row <= 38; row++) rows.set(row, carveFloor(rows.get(row), 18, 21));
-        for (int row = 36; row <= 37; row++) rows.set(row, carveFloor(rows.get(row), 22, 22));
-        return new TileMapDefinition(DEFINITION.tileMap().tileSize(),
-                DEFINITION.tileMap().legend(), List.copyOf(rows));
-    }
-
-    private static String carveFloor(String row, int firstColumn, int lastColumn) {
-        char[] cells = row.toCharArray();
-        for (int column = firstColumn; column <= lastColumn; column++) cells[column] = '.';
-        return new String(cells);
-    }
-
-    private static String fillWall(String row, int firstColumn, int lastColumn) {
-        char[] cells = row.toCharArray();
-        for (int column = firstColumn; column <= lastColumn; column++) cells[column] = '#';
-        return new String(cells);
-    }
-
     private static List<UnlockArea> buildGameplayAreas() {
-        List<UnlockArea> areas = new ArrayList<>(DEFINITION.areas().stream()
-                .map(area -> area.id().equals("entry-room")
-                        ? new UnlockArea(area.id(), area.name(), area.x(), area.y(),
-                                area.width(), area.height(), area.terminalX(), area.terminalY(),
-                                900, 1340, area.color(), area.detail())
-                        : area)
-                .toList());
-        areas.add(new UnlockArea("wood-room", "WOOD ROOM", 720, 1400, 160, 160,
-                940, 1500, 820, 1380, "#ffffff", "木材を回収できる小部屋"));
-        areas.add(new UnlockArea("ore-room", "ORE ROOM", 1320, 1240, 160, 120,
-                1420, 1180, 1400, 1380, "#ffffff", "鉱石を回収できる小部屋"));
-        areas.add(new UnlockArea("operations-room", "TIME CONTROL", 1160, 920, 160, 120,
-                1180, 1100, 1140, 980, "#ffffff", "次の準備時間を延長できる小部屋"));
-        return areas.stream().map(GameMap::embedTerminal).toList();
+        return DEFINITION.areas().stream().map(GameMap::embedTerminal).toList();
     }
 
     private static UnlockArea embedTerminal(UnlockArea area) {
@@ -365,7 +336,7 @@ final class GameMap {
                 for (int[] offset : new int[][]{{1,0},{-1,0},{0,1},{0,-1}}) {
                     double ax = x + offset[0] * TILE_SIZE, ay = y + offset[1] * TILE_SIZE;
                     if (!tileTypeAt(col + offset[0], row + offset[1]).solid()
-                            && !overlaps(ax, ay, 5, area.x(), area.y(), area.width(), area.height())) hasApproach = true;
+                            && !area.overlaps(ax, ay, 5)) hasApproach = true;
                 }
                 double distance = GameSupport.distance(x, y, area.terminalX(), area.terminalY());
                 boolean clearOfSlots = DEFINITION.trapSlots().stream().allMatch(slot ->
@@ -374,7 +345,7 @@ final class GameMap {
             }
         }
         if (best == null) throw new IllegalStateException("No wall for terminal " + area.id());
-        return new UnlockArea(area.id(), area.name(), area.x(), area.y(), area.width(), area.height(),
+        return new UnlockArea(area.id(), area.name(), area.tiles(),
                 best.x(), best.y(), area.labelX(), area.labelY(), area.color(), area.detail());
     }
 
@@ -383,12 +354,12 @@ final class GameMap {
         for (UnlockArea area : AREAS) {
             MapPoint best = null;
             double farthest = -1;
-            for (double y = area.y() + 20; y < area.y() + area.height(); y += 40) {
-                for (double x = area.x() + 20; x < area.x() + area.width(); x += 40) {
-                    if (!canOccupy(x, y, 17, AREAS.stream().map(UnlockArea::id).collect(java.util.stream.Collectors.toSet()))) continue;
-                    double distance = GameSupport.distance(x, y, area.terminalX(), area.terminalY());
-                    if (distance > farthest) { farthest = distance; best = new MapPoint(x, y); }
-                }
+            for (AreaTile tile : area.tiles()) {
+                double x = (tile.column() + .5) * TILE_SIZE;
+                double y = (tile.row() + .5) * TILE_SIZE;
+                if (!canOccupy(x, y, 17, AREAS.stream().map(UnlockArea::id).collect(java.util.stream.Collectors.toSet()))) continue;
+                double distance = GameSupport.distance(x, y, area.terminalX(), area.terminalY());
+                if (distance > farthest) { farthest = distance; best = new MapPoint(x, y); }
             }
             if (best != null) spawns.add(new SpawnPoint("area-" + area.id(), area.name(), best.x(), best.y(),
                     "interior", "balanced", 1, "core", List.of(best)));
@@ -401,7 +372,7 @@ final class GameMap {
     }
 
     private static void validate(MapDefinition map) {
-        if (map.version() != 4) throw new IllegalStateException("Unsupported map version: " + map.version());
+        if (map.version() != 5) throw new IllegalStateException("Unsupported map version: " + map.version());
         if (map.world() == null || map.world().width() <= 0 || map.world().height() <= 0) {
             throw new IllegalStateException("Map world size must be positive");
         }
@@ -418,6 +389,7 @@ final class GameMap {
             throw new IllegalStateException("Map lists and at least one spawn point are required");
         }
         validateTileMap(map);
+        validateAreas(map.areas(), map.tileMap());
 
         Set<String> areaIds = uniqueIds(map.areas().stream().map(UnlockArea::id).toList(), "area");
         uniqueIds(map.spawnPoints().stream().map(SpawnPoint::id).toList(), "spawn point");
@@ -458,6 +430,23 @@ final class GameMap {
             if (!Set.of("shotgun", "smg", "rifle", "sniper", "ammo").contains(shop.item())
                     || shop.cost() <= 0) {
                 throw new IllegalStateException("Invalid shop unit: " + shop.id());
+            }
+        }
+    }
+
+    static void validateAreas(List<UnlockArea> areas, TileMapDefinition tiles) {
+        Set<AreaTile> occupied = new HashSet<>();
+        for (UnlockArea area : areas) {
+            if (area.tiles() == null || area.tiles().isEmpty()) {
+                throw new IllegalStateException("Area requires tiles: " + area.id());
+            }
+            for (AreaTile tile : area.tiles()) {
+                if (tile == null || tile.row() < 0 || tile.row() >= tiles.rows().size()
+                        || tile.column() < 0 || tile.column() >= tiles.rows().get(tile.row()).length()
+                        || tiles.legend().get(String.valueOf(tiles.rows().get(tile.row()).charAt(tile.column()))).solid()
+                        || !occupied.add(tile)) {
+                    throw new IllegalStateException("Invalid or overlapping area tile: " + area.id());
+                }
             }
         }
     }

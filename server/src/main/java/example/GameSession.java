@@ -358,7 +358,7 @@ final class GameSession {
             setNotice("ALL HOSTILES ELIMINATED — CORE SECURED");
             return;
         }
-        int reward = 180 + round * 30;
+        int reward = 18 + round * 3;
         players.forEach(player -> player.credits += reward);
         phase = GamePhase.PREPARING;
         prepTime = PREP_SECONDS + nextPrepBonusSeconds;
@@ -589,8 +589,8 @@ final class GameSession {
             spawn = new SpawnPoint(spawn.id(), spawn.name(), spawn.x(), spawn.y(), spawn.lane(),
                     spawn.enemyBias(), spawn.speedMultiplier(), spawn.targetPriority(), route);
         }
-        // Total gold per enemy stays unchanged despite doubled health.
-        enemies.add(new Enemy(nextEnemyId++, type, spawn, hp * 2, speed * 0.5, damage, reward));
+        // Damage-based gold is 2.5 times the previous reward (rounded to whole gold).
+        enemies.add(new Enemy(nextEnemyId++, type, spawn, hp * 2, speed * 0.5, damage, (int) Math.round(reward * 2.5)));
     }
 
     private void updateDefenses(double dt) {
@@ -1376,9 +1376,7 @@ final class GameSession {
     }
 
     private boolean isPointUnlocked(double x, double y) {
-        return GameMap.AREAS.stream().filter(area -> x >= area.x()
-                && x <= area.x() + area.width() && y >= area.y()
-                && y <= area.y() + area.height())
+        return GameMap.AREAS.stream().filter(area -> area.contains(x, y))
                 .allMatch(area -> unlockedAreas.contains(area.id()));
     }
 

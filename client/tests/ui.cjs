@@ -10,8 +10,24 @@ function extract(name) {
  const end = source.indexOf('\nfunction ',begin+1);
  return source.slice(begin,end < 0 ? undefined : end);
 }
-vm.runInContext('let visibleFloorCache=null; let floorOrigin={x:1020,y:1900};'+extract('reachableFloorTiles')+extract('canPredictOccupy')+extract('hasInteractionPath'), context);
+vm.runInContext('let visibleFloorCache=null; let floorOrigin={x:1020,y:1900};'+extract('areaContains')+extract('reachableFloorTiles')+extract('canPredictOccupy')+extract('hasInteractionPath'), context);
 const floors=()=>vm.runInContext('reachableFloorTiles()',context);
+vm.runInContext(extract('validateAreaTiles'),context);
+vm.runInContext('validateAreaTiles(AREAS, TILE_MAP)',context);
+const concave={id:'concave',tiles:[{column:25,row:47},{column:26,row:47},{column:25,row:48}]};
+context.concave=concave;
+assert(vm.runInContext('areaContains(concave,1020,1940)',context));
+assert(!vm.runInContext('areaContains(concave,1060,1940)',context));
+context.corner={id:'corner',tiles:[{column:26,row:48}]};
+vm.runInContext('validateAreaTiles([concave,corner],TILE_MAP)',context);
+assert.throws(()=>vm.runInContext('validateAreaTiles([concave,concave],TILE_MAP)',context));
+const originalAreas=context.AREAS;
+context.AREAS=[concave,context.corner];
+context.state.areas.corner=true;
+assert(vm.runInContext('canPredictOccupy(1060,1940,5)',context));
+assert(!vm.runInContext('canPredictOccupy(1042,1940,5)',context));
+context.AREAS=originalAreas;
+delete context.state.areas.corner;
 assert(floors().has('47:25'));
 assert(!floors().has('30:25'), 'Corridor beyond locked entry must be dark');
 context.state.areas['entry-room']=true;
@@ -26,6 +42,7 @@ assert(!vm.runInContext('hasInteractionPath({x:1380,y:435},{x:1380,y:340})',cont
 let bars=[];
 context.ctx=new Proxy({}, {get:(_,key)=>()=>{}});
 context.myPlayerId='me'; context.predictedLocal=null;
+context.hitEffects=[];
 context.smoothEntity=(_,p)=>p;
 context.drawLocalWeaponCooldown=()=>{};
 context.drawReviveEffect=(...args)=>bars.push(args);

@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "world": { "width": 2080, "height": 2080 },
   "core": { "x": 1020, "y": 1900 },
   "stations": {
@@ -38,23 +38,23 @@
       "########################################..##########",
       "########################################..##########",
       "#############################................#######",
-      "#############################................#######",
-      "#####################################........#######",
-      "#####################################........#######",
-      "#####################################........#######",
-      "#####################################........#######",
-      "#####################################........#######",
+      "#################################............#######",
+      "#############################....####........#######",
+      "#############################....####........#######",
+      "#############################....####........#######",
+      "##############################..#####........#######",
+      "##############################..#####........#######",
       "#########################....................#######",
       "#########################............###############",
-      "#########################..#########################",
-      "#########################..#########################",
+      "#########################..#######..################",
+      "#########################..######....###############",
+      "#######################......####....###############",
+      "#######################......####....###############",
       "#######################......#######################",
-      "#######################......#######################",
-      "#######################......#######################",
-      "#######################......#######################",
-      "#######################......#######################",
-      "#######################......#######################",
-      "#######################......#######################",
+      "##################....#......#######################",
+      "##################...........#######################",
+      "##################...........#######################",
+      "##################....#......#######################",
       "#######################......#######################",
       "#######################......#######################",
       "#######################......#######################",
@@ -71,14 +71,117 @@
     ]
   },
   "areas": [
-    {"id":"entry-room","name":"ENTRY ROOM","x":920,"y":1280,"width":240,"height":400,"terminalX":1020,"terminalY":1700,"labelX":1260,"labelY":1540,"color":"#ffffff","detail":"最初の6×10区画。MED BAY、WORKBENCH、SHOTGUNを利用可能"},
-    {"id":"transit-hall","name":"TRANSIT HALL","x":1160,"y":1040,"width":320,"height":160,"terminalX":1140,"terminalY":1180,"labelX":1250,"labelY":1220,"color":"#ffffff","detail":"一本道上の中継防衛区画"},
-    {"id":"armory-wing","name":"ARMORY WING","x":1480,"y":840,"width":320,"height":320,"terminalX":1460,"terminalY":1140,"labelX":1860,"labelY":1100,"color":"#ffffff","detail":"SMGと次の通路を解放"},
-    {"id":"forest","name":"FOREST LAB","x":1400,"y":400,"width":400,"height":320,"terminalX":1620,"terminalY":740,"labelX":1280,"labelY":560,"color":"#ffffff","detail":"近づくだけで木材を回収できる森林区画"},
-    {"id":"relay-gallery","name":"RELAY GALLERY","x":1040,"y":280,"width":360,"height":160,"terminalX":1380,"terminalY":340,"labelX":1220,"labelY":460,"color":"#ffffff","detail":"一本道を守る横長の中継区画"},
-    {"id":"mine","name":"MINE LAB","x":680,"y":80,"width":360,"height":320,"terminalX":1060,"terminalY":340,"labelX":860,"labelY":420,"color":"#ffffff","detail":"近づくだけで鉱石を回収できる採掘区画"},
-    {"id":"security-hall","name":"SECURITY HALL","x":400,"y":160,"width":280,"height":240,"terminalX":660,"terminalY":260,"labelX":540,"labelY":140,"color":"#ffffff","detail":"最奥手前の防衛区画"},
-    {"id":"command-room","name":"COMMAND ROOM","x":80,"y":80,"width":320,"height":400,"terminalX":420,"terminalY":260,"labelX":240,"labelY":60,"color":"#ffffff","detail":"最奥の防衛拠点。SNIPERを利用可能"}
+    {"id":"entry-room","name":"ENTRY ROOM","terminalX":1020,"terminalY":1700,"labelX":900,"labelY":1340,"color":"#ffffff","detail":"最初の6×10区画。MED BAY、WORKBENCH、SHOTGUNを利用可能",
+      "tiles": [
+        {"column":23,"row":32},{"column":24,"row":32},{"column":25,"row":32},{"column":26,"row":32},{"column":27,"row":32},{"column":28,"row":32},
+        {"column":23,"row":33},{"column":24,"row":33},{"column":25,"row":33},{"column":26,"row":33},{"column":27,"row":33},{"column":28,"row":33},
+        {"column":23,"row":34},{"column":24,"row":34},{"column":25,"row":34},{"column":26,"row":34},{"column":27,"row":34},{"column":28,"row":34},
+        {"column":23,"row":35},{"column":24,"row":35},{"column":25,"row":35},{"column":26,"row":35},{"column":27,"row":35},{"column":28,"row":35},
+        {"column":23,"row":36},{"column":24,"row":36},{"column":25,"row":36},{"column":26,"row":36},{"column":27,"row":36},{"column":28,"row":36},
+        {"column":23,"row":37},{"column":24,"row":37},{"column":25,"row":37},{"column":26,"row":37},{"column":27,"row":37},{"column":28,"row":37},
+        {"column":23,"row":38},{"column":24,"row":38},{"column":25,"row":38},{"column":26,"row":38},{"column":27,"row":38},{"column":28,"row":38},
+        {"column":23,"row":39},{"column":24,"row":39},{"column":25,"row":39},{"column":26,"row":39},{"column":27,"row":39},{"column":28,"row":39},
+        {"column":23,"row":40},{"column":24,"row":40},{"column":25,"row":40},{"column":26,"row":40},{"column":27,"row":40},{"column":28,"row":40},
+        {"column":23,"row":41},{"column":24,"row":41},{"column":25,"row":41},{"column":26,"row":41},{"column":27,"row":41},{"column":28,"row":41}
+      ]
+    },
+    {"id":"transit-hall","name":"TRANSIT HALL","terminalX":1140,"terminalY":1180,"labelX":1250,"labelY":1220,"color":"#ffffff","detail":"一本道上の中継防衛区画",
+      "tiles": [
+        {"column":30,"row":26},{"column":31,"row":26},
+        {"column":30,"row":27},{"column":31,"row":27},
+        {"column":29,"row":28},{"column":30,"row":28},{"column":31,"row":28},{"column":32,"row":28},{"column":33,"row":28},{"column":34,"row":28},{"column":35,"row":28},{"column":36,"row":28},
+        {"column":29,"row":29},{"column":30,"row":29},{"column":31,"row":29},{"column":32,"row":29},{"column":33,"row":29},{"column":34,"row":29},{"column":35,"row":29},{"column":36,"row":29}
+      ]
+    },
+    {"id":"armory-wing","name":"ARMORY WING","terminalX":1460,"terminalY":1140,"labelX":1860,"labelY":1100,"color":"#ffffff","detail":"SMGと次の通路を解放",
+      "tiles": [
+        {"column":37,"row":21},{"column":38,"row":21},{"column":39,"row":21},{"column":40,"row":21},{"column":41,"row":21},{"column":42,"row":21},{"column":43,"row":21},{"column":44,"row":21},
+        {"column":37,"row":22},{"column":38,"row":22},{"column":39,"row":22},{"column":40,"row":22},{"column":41,"row":22},{"column":42,"row":22},{"column":43,"row":22},{"column":44,"row":22},
+        {"column":37,"row":23},{"column":38,"row":23},{"column":39,"row":23},{"column":40,"row":23},{"column":41,"row":23},{"column":42,"row":23},{"column":43,"row":23},{"column":44,"row":23},
+        {"column":37,"row":24},{"column":38,"row":24},{"column":39,"row":24},{"column":40,"row":24},{"column":41,"row":24},{"column":42,"row":24},{"column":43,"row":24},{"column":44,"row":24},
+        {"column":37,"row":25},{"column":38,"row":25},{"column":39,"row":25},{"column":40,"row":25},{"column":41,"row":25},{"column":42,"row":25},{"column":43,"row":25},{"column":44,"row":25},
+        {"column":37,"row":26},{"column":38,"row":26},{"column":39,"row":26},{"column":40,"row":26},{"column":41,"row":26},{"column":42,"row":26},{"column":43,"row":26},{"column":44,"row":26},
+        {"column":37,"row":27},{"column":38,"row":27},{"column":39,"row":27},{"column":40,"row":27},{"column":41,"row":27},{"column":42,"row":27},{"column":43,"row":27},{"column":44,"row":27},
+        {"column":37,"row":28},{"column":38,"row":28},{"column":39,"row":28},{"column":40,"row":28},{"column":41,"row":28},{"column":42,"row":28},{"column":43,"row":28},{"column":44,"row":28}
+      ]
+    },
+    {"id":"forest","name":"FOREST LAB","terminalX":1620,"terminalY":740,"labelX":1280,"labelY":560,"color":"#ffffff","detail":"近づくだけで木材を回収できる森林区画",
+      "tiles": [
+        {"column":35,"row":10},{"column":36,"row":10},{"column":37,"row":10},{"column":38,"row":10},{"column":39,"row":10},{"column":40,"row":10},{"column":41,"row":10},{"column":42,"row":10},{"column":43,"row":10},{"column":44,"row":10},
+        {"column":35,"row":11},{"column":36,"row":11},{"column":37,"row":11},{"column":38,"row":11},{"column":39,"row":11},{"column":40,"row":11},{"column":41,"row":11},{"column":42,"row":11},{"column":43,"row":11},{"column":44,"row":11},
+        {"column":35,"row":12},{"column":36,"row":12},{"column":37,"row":12},{"column":38,"row":12},{"column":39,"row":12},{"column":40,"row":12},{"column":41,"row":12},{"column":42,"row":12},{"column":43,"row":12},{"column":44,"row":12},
+        {"column":35,"row":13},{"column":36,"row":13},{"column":37,"row":13},{"column":38,"row":13},{"column":39,"row":13},{"column":40,"row":13},{"column":41,"row":13},{"column":42,"row":13},{"column":43,"row":13},{"column":44,"row":13},
+        {"column":35,"row":14},{"column":36,"row":14},{"column":37,"row":14},{"column":38,"row":14},{"column":39,"row":14},{"column":40,"row":14},{"column":41,"row":14},{"column":42,"row":14},{"column":43,"row":14},{"column":44,"row":14},
+        {"column":35,"row":15},{"column":36,"row":15},{"column":37,"row":15},{"column":38,"row":15},{"column":39,"row":15},{"column":40,"row":15},{"column":41,"row":15},{"column":42,"row":15},{"column":43,"row":15},{"column":44,"row":15},
+        {"column":35,"row":16},{"column":36,"row":16},{"column":37,"row":16},{"column":38,"row":16},{"column":39,"row":16},{"column":40,"row":16},{"column":41,"row":16},{"column":42,"row":16},{"column":43,"row":16},{"column":44,"row":16},
+        {"column":35,"row":17},{"column":36,"row":17},{"column":37,"row":17},{"column":38,"row":17},{"column":39,"row":17},{"column":40,"row":17},{"column":41,"row":17},{"column":42,"row":17},{"column":43,"row":17},{"column":44,"row":17}
+      ]
+    },
+    {"id":"relay-gallery","name":"RELAY GALLERY","terminalX":1380,"terminalY":340,"labelX":1220,"labelY":460,"color":"#ffffff","detail":"一本道を守る横長の中継区画",
+      "tiles": [
+        {"column":26,"row":7},{"column":27,"row":7},{"column":28,"row":7},{"column":29,"row":7},{"column":30,"row":7},{"column":31,"row":7},{"column":32,"row":7},{"column":33,"row":7},{"column":34,"row":7},
+        {"column":26,"row":8},{"column":27,"row":8},{"column":28,"row":8},{"column":29,"row":8},{"column":30,"row":8},{"column":31,"row":8},{"column":32,"row":8},{"column":33,"row":8},{"column":34,"row":8},
+        {"column":26,"row":9},{"column":27,"row":9},{"column":28,"row":9},{"column":29,"row":9},{"column":30,"row":9},{"column":31,"row":9},{"column":32,"row":9},{"column":33,"row":9},{"column":34,"row":9},
+        {"column":26,"row":10},{"column":27,"row":10},{"column":28,"row":10},{"column":29,"row":10},{"column":30,"row":10},{"column":31,"row":10},{"column":32,"row":10},{"column":33,"row":10},{"column":34,"row":10}
+      ]
+    },
+    {"id":"mine","name":"MINE LAB","terminalX":1060,"terminalY":340,"labelX":860,"labelY":420,"color":"#ffffff","detail":"近づくだけで鉱石を回収できる採掘区画",
+      "tiles": [
+        {"column":17,"row":2},{"column":18,"row":2},{"column":19,"row":2},{"column":20,"row":2},{"column":21,"row":2},{"column":22,"row":2},{"column":23,"row":2},{"column":24,"row":2},{"column":25,"row":2},
+        {"column":17,"row":3},{"column":18,"row":3},{"column":19,"row":3},{"column":20,"row":3},{"column":21,"row":3},{"column":22,"row":3},{"column":23,"row":3},{"column":24,"row":3},{"column":25,"row":3},
+        {"column":17,"row":4},{"column":18,"row":4},{"column":19,"row":4},{"column":20,"row":4},{"column":21,"row":4},{"column":22,"row":4},{"column":23,"row":4},{"column":24,"row":4},{"column":25,"row":4},
+        {"column":17,"row":5},{"column":18,"row":5},{"column":19,"row":5},{"column":20,"row":5},{"column":21,"row":5},{"column":22,"row":5},{"column":23,"row":5},{"column":24,"row":5},{"column":25,"row":5},
+        {"column":17,"row":6},{"column":18,"row":6},{"column":19,"row":6},{"column":20,"row":6},{"column":21,"row":6},{"column":22,"row":6},{"column":23,"row":6},{"column":24,"row":6},{"column":25,"row":6},
+        {"column":17,"row":7},{"column":18,"row":7},{"column":19,"row":7},{"column":20,"row":7},{"column":21,"row":7},{"column":22,"row":7},{"column":23,"row":7},{"column":24,"row":7},{"column":25,"row":7},
+        {"column":17,"row":8},{"column":18,"row":8},{"column":19,"row":8},{"column":20,"row":8},{"column":21,"row":8},{"column":22,"row":8},{"column":23,"row":8},{"column":24,"row":8},{"column":25,"row":8},
+        {"column":17,"row":9},{"column":18,"row":9},{"column":19,"row":9},{"column":20,"row":9},{"column":21,"row":9},{"column":22,"row":9},{"column":23,"row":9},{"column":24,"row":9},{"column":25,"row":9}
+      ]
+    },
+    {"id":"security-hall","name":"SECURITY HALL","terminalX":660,"terminalY":260,"labelX":540,"labelY":140,"color":"#ffffff","detail":"最奥手前の防衛区画",
+      "tiles": [
+        {"column":10,"row":5},{"column":11,"row":5},{"column":12,"row":5},{"column":13,"row":5},{"column":14,"row":5},{"column":15,"row":5},{"column":16,"row":5},
+        {"column":10,"row":6},{"column":11,"row":6},{"column":12,"row":6},{"column":13,"row":6},{"column":14,"row":6},{"column":15,"row":6},{"column":16,"row":6},
+        {"column":10,"row":7},{"column":11,"row":7},{"column":12,"row":7},{"column":13,"row":7},{"column":14,"row":7},{"column":15,"row":7},{"column":16,"row":7},
+        {"column":10,"row":8},{"column":11,"row":8},{"column":12,"row":8},{"column":13,"row":8},{"column":14,"row":8},{"column":15,"row":8},{"column":16,"row":8},
+        {"column":10,"row":9},{"column":11,"row":9},{"column":12,"row":9},{"column":13,"row":9},{"column":14,"row":9},{"column":15,"row":9},{"column":16,"row":9}
+      ]
+    },
+    {"id":"command-room","name":"COMMAND ROOM","terminalX":420,"terminalY":260,"labelX":240,"labelY":60,"color":"#ffffff","detail":"最奥の防衛拠点。SNIPERを利用可能",
+      "tiles": [
+        {"column":2,"row":2},{"column":3,"row":2},{"column":4,"row":2},{"column":5,"row":2},{"column":6,"row":2},{"column":7,"row":2},{"column":8,"row":2},{"column":9,"row":2},
+        {"column":2,"row":3},{"column":3,"row":3},{"column":4,"row":3},{"column":5,"row":3},{"column":6,"row":3},{"column":7,"row":3},{"column":8,"row":3},{"column":9,"row":3},
+        {"column":2,"row":4},{"column":3,"row":4},{"column":4,"row":4},{"column":5,"row":4},{"column":6,"row":4},{"column":7,"row":4},{"column":8,"row":4},{"column":9,"row":4},
+        {"column":2,"row":5},{"column":3,"row":5},{"column":4,"row":5},{"column":5,"row":5},{"column":6,"row":5},{"column":7,"row":5},{"column":8,"row":5},{"column":9,"row":5},
+        {"column":2,"row":6},{"column":3,"row":6},{"column":4,"row":6},{"column":5,"row":6},{"column":6,"row":6},{"column":7,"row":6},{"column":8,"row":6},{"column":9,"row":6},
+        {"column":2,"row":7},{"column":3,"row":7},{"column":4,"row":7},{"column":5,"row":7},{"column":6,"row":7},{"column":7,"row":7},{"column":8,"row":7},{"column":9,"row":7},
+        {"column":2,"row":8},{"column":3,"row":8},{"column":4,"row":8},{"column":5,"row":8},{"column":6,"row":8},{"column":7,"row":8},{"column":8,"row":8},{"column":9,"row":8},
+        {"column":2,"row":9},{"column":3,"row":9},{"column":4,"row":9},{"column":5,"row":9},{"column":6,"row":9},{"column":7,"row":9},{"column":8,"row":9},{"column":9,"row":9},
+        {"column":2,"row":10},{"column":3,"row":10},{"column":4,"row":10},{"column":5,"row":10},{"column":6,"row":10},{"column":7,"row":10},{"column":8,"row":10},{"column":9,"row":10},
+        {"column":2,"row":11},{"column":3,"row":11},{"column":4,"row":11},{"column":5,"row":11},{"column":6,"row":11},{"column":7,"row":11},{"column":8,"row":11},{"column":9,"row":11}
+      ]
+    },
+    {"id":"wood-room","name":"WOOD ROOM","terminalX":940,"terminalY":1500,"labelX":820,"labelY":1380,"color":"#ffffff","detail":"木材を回収できる小部屋",
+      "tiles": [
+        {"column":18,"row":35},{"column":19,"row":35},{"column":20,"row":35},{"column":21,"row":35},
+        {"column":18,"row":36},{"column":19,"row":36},{"column":20,"row":36},{"column":21,"row":36},
+        {"column":18,"row":37},{"column":19,"row":37},{"column":20,"row":37},{"column":21,"row":37},
+        {"column":18,"row":38},{"column":19,"row":38},{"column":20,"row":38},{"column":21,"row":38}
+      ]
+    },
+    {"id":"ore-room","name":"ORE ROOM","terminalX":1420,"terminalY":1180,"labelX":1400,"labelY":1380,"color":"#ffffff","detail":"鉱石を回収できる小部屋",
+      "tiles": [
+        {"column":33,"row":31},{"column":34,"row":31},{"column":35,"row":31},{"column":36,"row":31},
+        {"column":33,"row":32},{"column":34,"row":32},{"column":35,"row":32},{"column":36,"row":32},
+        {"column":33,"row":33},{"column":34,"row":33},{"column":35,"row":33},{"column":36,"row":33}
+      ]
+    },
+    {"id":"operations-room","name":"TIME CONTROL","terminalX":1180,"terminalY":1100,"labelX":1140,"labelY":980,"color":"#ffffff","detail":"次の準備時間を延長できる小部屋",
+      "tiles": [
+        {"column":29,"row":23},{"column":30,"row":23},{"column":31,"row":23},{"column":32,"row":23},
+        {"column":29,"row":24},{"column":30,"row":24},{"column":31,"row":24},{"column":32,"row":24},
+        {"column":29,"row":25},{"column":30,"row":25},{"column":31,"row":25},{"column":32,"row":25}
+      ]
+    }
   ],
   "spawnPoints": [
     {"id":"south-gate","name":"SOUTH GATE","x":1020,"y":2020,"lane":"south","enemyBias":"balanced","speedMultiplier":1.0,"targetPriority":"core","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1300,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1380,"y":340},{"x":1200,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":660,"y":260},{"x":420,"y":260},{"x":220,"y":260}]},

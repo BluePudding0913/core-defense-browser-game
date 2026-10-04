@@ -15,6 +15,38 @@ import org.junit.jupiter.api.Test;
 
 class GameMapTest {
     @Test
+    void concaveAreasLeaveTheirMissingCornerAvailableToAnotherArea() {
+        UnlockArea concave = testArea("concave", List.of(
+                new AreaTile(25, 47), new AreaTile(26, 47), new AreaTile(25, 48)));
+        UnlockArea corner = testArea("corner", List.of(new AreaTile(26, 48)));
+        GameMap.validateAreas(List.of(concave, corner), GameMap.TILE_MAP);
+        assertTrue(concave.contains(1020, 1940));
+        assertFalse(concave.contains(1060, 1940));
+        assertFalse(concave.overlaps(1060, 1940, 5));
+        assertTrue(concave.overlaps(1042, 1940, 5), "body crossing a tile edge must collide");
+        assertTrue(corner.contains(1060, 1940));
+    }
+
+    @Test
+    void areaValidationRejectsOverlapWallsAndOutOfBoundsTiles() {
+        UnlockArea area = testArea("first", List.of(new AreaTile(25, 47)));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> GameMap.validateAreas(List.of(area,
+                        testArea("second", area.tiles())), GameMap.TILE_MAP));
+        for (List<AreaTile> tiles : List.of(List.<AreaTile>of(),
+                List.of(new AreaTile(0, 0)), List.of(new AreaTile(-1, 47)),
+                List.of(new AreaTile(52, 47)),
+                List.of(new AreaTile(25, 47), new AreaTile(25, 47)))) {
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                    () -> GameMap.validateAreas(List.of(testArea("invalid", tiles)), GameMap.TILE_MAP));
+        }
+    }
+
+    private static UnlockArea testArea(String id, List<AreaTile> tiles) {
+        return new UnlockArea(id, id, tiles, 0, 0, 0, 0, "#fff", "");
+    }
+
+    @Test
     void sharedMapResourceSuppliesEveryServerMapElement() throws Exception {
         MapDefinition definition;
         try (InputStream input = GameMap.class.getResourceAsStream("/map.json")) {
@@ -32,7 +64,7 @@ class GameMapTest {
         assertEquals(definition.stations().quarry().y(), GameMap.QUARRY_Y);
         assertEquals(definition.stations().workbench().x(), GameMap.WORKBENCH_X);
         assertEquals(definition.tileMap().tileSize(), GameMap.TILE_MAP.tileSize());
-        assertEquals(definition.areas().size() + 3, GameMap.AREAS.size());
+        assertEquals(definition.areas().size(), GameMap.AREAS.size());
         assertEquals(definition.spawnPoints(), GameMap.SPAWN_POINTS.stream().filter(spawn -> GameMap.spawnArea(spawn) == null).toList());
         assertEquals(definition.trapSlots().size(), GameMap.createTrapSlots().size());
         assertEquals(definition.resourceNodes().size() + 4, GameMap.createResourceNodes().size());
@@ -72,7 +104,7 @@ class GameMapTest {
         JsonNode message = new ObjectMapper().readTree(GameMap.clientMapMessage());
 
         assertEquals("map", message.path("type").asText());
-        assertEquals(4, message.path("map").path("version").asInt());
+        assertEquals(5, message.path("map").path("version").asInt());
         assertEquals(GameMap.WORLD_H / GameMap.TILE_SIZE,
                 message.path("map").path("tileMap").path("rows").size());
         assertEquals(GameMap.SPAWN_POINTS.size(), message.path("map").path("spawnPoints").size());
@@ -119,8 +151,7 @@ class GameMapTest {
     @Test
     void shopsAreDistributedAcrossTheSingleRouteAreas() {
         Set<String> shopAreas = GameMap.SHOP_UNITS.stream().map(shop -> GameMap.AREAS.stream()
-                .filter(area -> shop.x() >= area.x() && shop.x() <= area.x() + area.width()
-                        && shop.y() >= area.y() && shop.y() <= area.y() + area.height())
+                .filter(area -> area.contains(shop.x(), shop.y()))
                 .findFirst().map(UnlockArea::id).orElse("outside"))
                 .collect(Collectors.toSet());
 

@@ -50,8 +50,8 @@ class GameSessionTest {
 
         assertEquals(GamePhase.PREPARING, game.phase);
         assertEquals(GameConfig.PREP_SECONDS, game.prepTime);
-        assertEquals(910, player.credits);
-        assertTrue(game.players.stream().allMatch(candidate -> candidate.credits == 910),
+        assertEquals(721, player.credits);
+        assertTrue(game.players.stream().allMatch(candidate -> candidate.credits == 721),
                 "round rewards should be granted to every personal balance");
 
         game.handleMessage(player, "READY");
@@ -965,16 +965,13 @@ class GameSessionTest {
     }
 
     private static MapPoint nearbyBuildPoint(UnlockArea area, Player player) {
-        for (double y = area.y() + GameMap.TILE_SIZE / 2.0;
-                y < area.y() + area.height(); y += GameMap.TILE_SIZE) {
-            for (double x = area.x() + GameMap.TILE_SIZE / 2.0;
-                    x < area.x() + area.width(); x += GameMap.TILE_SIZE) {
-                MapPoint point = GameMap.snapToTile(x, y);
-                if (GameMap.canPlaceDefense(point.x(), point.y(), Set.of(area.id()))
-                        && GameSupport.distance(point.x(), point.y(), player.x, player.y) <= 180
-                        && GameSupport.distance(point.x(), point.y(), player.x, player.y) >= 48) {
-                    return point;
-                }
+        for (AreaTile tile : area.tiles()) {
+            MapPoint point = GameMap.snapToTile(tile.column() * GameMap.TILE_SIZE,
+                    tile.row() * GameMap.TILE_SIZE);
+            if (GameMap.canPlaceDefense(point.x(), point.y(), Set.of(area.id()))
+                    && GameSupport.distance(point.x(), point.y(), player.x, player.y) <= 180
+                    && GameSupport.distance(point.x(), point.y(), player.x, player.y) >= 48) {
+                return point;
             }
         }
         throw new AssertionError("no nearby build point for " + area.id());

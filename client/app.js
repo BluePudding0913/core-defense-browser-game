@@ -173,7 +173,7 @@ function applyMap(map) {
 }
 
 function validateMap(map) {
-    if (map?.version !== 4) throw new Error(`未対応のマップバージョン: ${map?.version}`);
+    if (map?.version !== 5) throw new Error(`未対応のマップバージョン: ${map?.version}`);
     if (!isPositiveNumber(map.world?.width) || !isPositiveNumber(map.world?.height)) {
         throw new Error("マップの幅と高さが不正です");
     }
@@ -202,6 +202,7 @@ function validateMap(map) {
     }
     if (map.spawnPoints.length === 0) throw new Error("侵入口がありません");
     requireUniqueIds(map.areas, "areas");
+    validateAreaTiles(map.areas, tiles);
     requireUniqueIds(map.spawnPoints, "spawnPoints");
     requireUniqueIds(map.trapSlots, "trapSlots");
     requireUniqueIds(map.resourceNodes, "resourceNodes");
@@ -931,8 +932,7 @@ function canBuildAt(point, forCore = false) {
     const symbol = TILE_MAP.rows[row]?.[column];
     if (!symbol || !TILE_MAP.legend[symbol]?.buildable) return false;
     if (AREAS.some(area => !state.areas[area.id]
-            && point.x >= area.x && point.x <= area.x + area.width
-            && point.y >= area.y && point.y <= area.y + area.height)) return false;
+            && areaContains(area, point.x, point.y))) return false;
     if (!forCore && distance(point, state.core) < 40) return false;
     if (distance(point, ARMORY) < 36 || distance(point, MED) < 36
             || distance(point, WOODCUTTER) < 36 || distance(point, QUARRY) < 36) return false;
@@ -1368,8 +1368,9 @@ function updateLocalPrediction(dt) {
 function canPredictOccupy(x, y, radius, includeDefenses = true) {
     if (x - radius < 0 || y - radius < 0 || x + radius > WORLD.width || y + radius > WORLD.height) return false;
     for (const area of AREAS) {
-        const overlaps = x + radius > area.x && x - radius < area.x + area.width
-            && y + radius > area.y && y - radius < area.y + area.height;
+        const overlaps = area.tiles.some(tile =>
+            x + radius > tile.column * TILE_MAP.tileSize && x - radius < (tile.column + 1) * TILE_MAP.tileSize
+            && y + radius > tile.row * TILE_MAP.tileSize && y - radius < (tile.row + 1) * TILE_MAP.tileSize);
         if (overlaps && !state.areas[area.id]) return false;
     }
     const size = TILE_MAP.tileSize;
@@ -1464,7 +1465,7 @@ function reachableFloorTiles() {
         const tile = TILE_MAP.legend[TILE_MAP.rows[row]?.[column]];
         const x = (column + .5) * size, y = (row + .5) * size;
         if (!tile || tile.solid || AREAS.some(area => !state?.areas[area.id]
-                && x > area.x && x < area.x + area.width && y > area.y && y < area.y + area.height)) continue;
+                && areaContains(area, x, y))) continue;
         tiles.add(id);
         queue.push([column + 1, row], [column - 1, row], [column, row + 1], [column, row - 1]);
     }
@@ -1668,9 +1669,7 @@ function drawShops() {
 }
 
 function isUnlockedPoint(point) {
-    const area = AREAS.find(candidate => point.x >= candidate.x
-        && point.x <= candidate.x + candidate.width
-        && point.y >= candidate.y && point.y <= candidate.y + candidate.height);
+    const area = AREAS.find(candidate => areaContains(candidate, point.x, point.y));
     return !area || state.areas[area.id];
 }
 
@@ -1961,3 +1960,24 @@ async function initialize() {
 }
 
 initialize();
+
+function areaContains(area, x, y) {
+    const column = Math.floor(x / TILE_MAP.tileSize), row = Math.floor(y / TILE_MAP.tileSize);
+    return area.tiles.some(tile => tile.column === column && tile.row === row);
+}
+
+function validateAreaTiles(areas, tiles) {
+    const occupied = new Set();
+    for (const area of areas) {
+        if (!Array.isArray(area.tiles) || !area.tiles.length) throw new Error(`エリア${area.id}にタイルがありません`);
+        for (const tile of area.tiles) {
+            const symbol = tiles.rows[tile?.row]?.[tile?.column];
+            const key = `${tile?.row}:${tile?.column}`;
+            if (!Number.isInteger(tile?.column) || !Number.isInteger(tile?.row)
+                    || !symbol || tiles.legend[symbol].solid || occupied.has(key)) {
+                throw new Error(`エリア${area.id}のタイルが不正、または重複しています`);
+            }
+            occupied.add(key);
+        }
+    }
+}

@@ -595,3 +595,7 @@ button, input { font: inherit; }
 .menu[data-view="join"] #how-to-start,
 .menu[data-view="lobby"] > h1,
 .menu[data-view="lobby"] #how-to-start { display: none; }
+
+.room-heading { justify-content: flex-end; }
+.room-heading #refresh-rooms { display: grid; place-items: center; min-width: 44px; min-height: 44px; padding: .5rem; border: 0; border-radius: 50%; background: transparent; }
+.room-heading #refresh-rooms:hover { background: rgb(255 255 255 / 12%); }
