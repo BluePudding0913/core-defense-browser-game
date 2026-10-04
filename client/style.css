@@ -466,7 +466,7 @@ button, input { font: inherit; }
 .menu button:hover:not(:disabled), .menu button:active:not(:disabled) { border-color: var(--accent-blue); }
 .menu small { color: rgb(255 255 255 / 46%); }
 #menu-status:empty { display: none; }
-#how-to-start { min-width: 0; padding: .35rem .7rem; border: 0; color: #bbb; }
+#how-to-start { position: fixed; top: max(1rem, env(safe-area-inset-top)); right: max(1rem, env(safe-area-inset-right)); z-index: 10; display: grid; place-items: center; width: 2.75rem; min-width: 0; height: 2.75rem; min-height: 0; padding: 0; border: 1px solid rgb(255 255 255 / 28%); border-radius: 50%; color: #bbb; }
 .room-panel {
     display: grid;
     gap: .55rem;
