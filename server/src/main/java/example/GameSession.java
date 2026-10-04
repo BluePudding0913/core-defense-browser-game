@@ -1377,8 +1377,10 @@ final class GameSession {
     }
 
     private boolean terminalAccessible(UnlockArea area) {
-        for (int[] offset : new int[][]{{40,0},{-40,0},{0,40},{0,-40}}) {
-            if (GameMap.canOccupy(area.terminalX() + offset[0], area.terminalY() + offset[1], 5, unlockedAreas)) return true;
+        int size = GameMap.TILE_SIZE;
+        for (int[] offset : new int[][]{{0,0},{1,0},{-1,0},{0,1},{0,-1}}) {
+            if (GameMap.canOccupy(area.terminalX() + offset[0] * size,
+                    area.terminalY() + offset[1] * size, 5, unlockedAreas)) return true;
         }
         return false;
     }

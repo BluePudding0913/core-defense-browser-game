@@ -67,6 +67,11 @@ const deadline = setTimeout(() => {
     await host.opened;
     const map = await host.next(m => m.type === 'map');
     assert.equal(map.map.version, 5);
+    const definition = JSON.parse(require('node:fs').readFileSync('shared/map.json', 'utf8'));
+    for (const field of ['tileMap', 'areas', 'trapSlots', 'resourceNodes', 'workbenchUnits',
+        'breakerTerminals', 'prepConsole']) {
+        assert.deepEqual(map.map[field], definition[field], `${field} must reach the browser without relocation`);
+    }
     const welcome = await host.next(m => m.type === 'welcome');
     host.ws.send('INPUT:1:HELLO:あ');
     const lobby = await host.next(m => m.type === 'state' && m.phase === 'lobby');

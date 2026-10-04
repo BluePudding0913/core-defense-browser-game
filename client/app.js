@@ -189,17 +189,17 @@ function validateMap(map) {
     for (const [name, values] of [["areas", map.areas],
         ["spawnPoints", map.spawnPoints], ["trapSlots", map.trapSlots],
         ["resourceNodes", map.resourceNodes], ["shopUnits", map.shopUnits],
-        ["workbenchUnits", map.workbenchUnits]]) {
+        ["workbenchUnits", map.workbenchUnits], ["breakerTerminals", map.breakerTerminals]]) {
         if (!Array.isArray(values)) throw new Error(`${name}が配列ではありません`);
     }
     const tiles = map.tileMap;
     if (!Number.isInteger(tiles?.tileSize) || tiles.tileSize <= 0
-            || !Array.isArray(tiles.rows) || typeof tiles.legend !== "object") {
+            || !Array.isArray(tiles.rows) || !tiles.legend || typeof tiles.legend !== "object") {
         throw new Error("タイルマップ定義が不正です");
     }
     const columns = map.world.width / tiles.tileSize;
     const rows = map.world.height / tiles.tileSize;
-    if (!Number.isInteger(columns) || tiles.rows.length !== rows
+    if (!Number.isInteger(columns) || !Number.isInteger(rows) || tiles.rows.length !== rows
             || tiles.rows.some(row => typeof row !== "string" || row.length !== columns
                 || [...row].some(symbol => !tiles.legend[symbol]))) {
         throw new Error("タイルマップの行数、列数、または記号が不正です");
@@ -212,6 +212,8 @@ function validateMap(map) {
     requireUniqueIds(map.resourceNodes, "resourceNodes");
     requireUniqueIds(map.shopUnits, "shopUnits");
     requireUniqueIds(map.workbenchUnits, "workbenchUnits");
+    requireUniqueIds(map.breakerTerminals, "breakerTerminals");
+    validateMapPositions(map);
     for (const spawn of map.spawnPoints) {
         if (!Array.isArray(spawn.route) || spawn.route.length === 0 || !spawn.route.every(isPoint)) {
             throw new Error(`侵入口${spawn.id}の経路が不正です`);
@@ -229,6 +231,38 @@ function validateMap(map) {
         if (slot.requiredArea != null && !areaIds.has(slot.requiredArea)) {
             throw new Error(`防衛スロット${slot.id}の解放エリアが存在しません`);
         }
+    }
+}
+
+function validateMapPositions(map) {
+    const typeAt = point => map.tileMap.legend[map.tileMap.rows[
+        Math.floor(point.y / map.tileMap.tileSize)]?.[Math.floor(point.x / map.tileMap.tileSize)]];
+    const check = (point, floor = true) => {
+        if (!isPoint(point) || point.x < 0 || point.y < 0
+                || point.x >= map.world.width || point.y >= map.world.height
+                || !typeAt(point) || (floor && typeAt(point).solid)) {
+            throw new Error(`マップ内の座標が不正です: ${point?.id || "point"}`);
+        }
+    };
+    check(map.core);
+    Object.values(map.stations).forEach(point => check(point));
+    for (const area of map.areas) {
+        check({ id: area.id, x: area.terminalX, y: area.terminalY }, false);
+        check({ id: area.id, x: area.labelX, y: area.labelY }, false);
+    }
+    for (const point of [...map.trapSlots, ...map.resourceNodes, ...map.shopUnits,
+        ...map.workbenchUnits, ...map.breakerTerminals, map.prepConsole, ...map.spawnPoints]) {
+        check(point);
+        if (point.requiredArea != null) {
+            const area = map.areas.find(area => area.id === point.requiredArea);
+            if (!area?.tiles.some(tile => tile.column === Math.floor(point.x / map.tileMap.tileSize)
+                    && tile.row === Math.floor(point.y / map.tileMap.tileSize))) {
+                throw new Error(`施設の解放エリアが不正です: ${point.id}`);
+            }
+        }
+    }
+    for (const spawn of map.spawnPoints) {
+        if (Array.isArray(spawn.route)) spawn.route.forEach(point => check(point));
     }
 }
 
@@ -948,6 +982,8 @@ function snapToTile(point) {
 }
 
 function canBuildAt(point, forCore = false) {
+    point = snapToTile(point);
+    if (!canPredictOccupy(point.x, point.y, 15, false)) return false;
     const size = TILE_MAP.tileSize;
     const column = Math.floor(point.x / size), row = Math.floor(point.y / size);
     const symbol = TILE_MAP.rows[row]?.[column];
@@ -957,6 +993,7 @@ function canBuildAt(point, forCore = false) {
     if (!forCore && distance(point, state.core) < 40) return false;
     if (distance(point, ARMORY) < 36 || distance(point, MED) < 36
             || distance(point, WOODCUTTER) < 36 || distance(point, QUARRY) < 36) return false;
+    if (AREAS.some(area => distance(point, { x: area.terminalX, y: area.terminalY }) < 36)) return false;
     if (WORKBENCHES.some(workbench => distance(point, workbench) < 36)) return false;
     if (SHOP_UNITS.some(shop => distance(point, shop) < 36)) return false;
     if (BREAKER_TERMINALS.some(breaker => distance(point, breaker) < 36)) return false;
@@ -1385,22 +1422,24 @@ function updateLocalPrediction(dt) {
 }
 
 function canPredictOccupy(x, y, radius, includeDefenses = true) {
-    if (x - radius < 0 || y - radius < 0 || x + radius > WORLD.width || y + radius > WORLD.height) return false;
+    if (![x, y, radius].every(Number.isFinite) || radius < 0) return false;
+    if (x - radius < 0 || y - radius < 0 || x + radius > WORLD.width || y + radius > WORLD.height
+            || x >= WORLD.width || y >= WORLD.height) return false;
     for (const area of AREAS) {
-        const overlaps = area.tiles.some(tile =>
+        const overlaps = radius === 0 ? areaContains(area, x, y) : area.tiles.some(tile =>
             x + radius > tile.column * TILE_MAP.tileSize && x - radius < (tile.column + 1) * TILE_MAP.tileSize
             && y + radius > tile.row * TILE_MAP.tileSize && y - radius < (tile.row + 1) * TILE_MAP.tileSize);
         if (overlaps && !state.areas[area.id]) return false;
     }
     const size = TILE_MAP.tileSize;
     const minColumn = Math.floor((x - radius) / size);
-    const maxColumn = Math.floor((x + radius) / size);
+    const maxColumn = radius === 0 ? Math.floor(x / size) : Math.ceil((x + radius) / size) - 1;
     const minRow = Math.floor((y - radius) / size);
-    const maxRow = Math.floor((y + radius) / size);
+    const maxRow = radius === 0 ? Math.floor(y / size) : Math.ceil((y + radius) / size) - 1;
     for (let row = minRow; row <= maxRow; row++) {
         for (let column = minColumn; column <= maxColumn; column++) {
             const symbol = TILE_MAP.rows[row]?.[column];
-            if (!symbol || TILE_MAP.legend[symbol]?.solid) return false;
+            if (!symbol || !TILE_MAP.legend[symbol] || TILE_MAP.legend[symbol].solid) return false;
         }
     }
     if (includeDefenses && state.slots.some(slot => slot.defense && ["block", "barricade"].includes(slot.defense.type)

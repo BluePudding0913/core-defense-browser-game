@@ -21,19 +21,35 @@ record Stations(Station armory, Station medBay, Station woodcutter, Station quar
 
 record TileType(String name, boolean solid, boolean buildable, String color) { }
 
-record TileMapDefinition(int tileSize, Map<String, TileType> legend, List<String> rows) { }
+/** Full rectangular grid: every symbol, including floor, occupies one cell. */
+record TileMapDefinition(int tileSize, Map<String, TileType> legend, List<String> rows) {
+    AreaTile cellAt(double x, double y) {
+        return new AreaTile((int) Math.floor(x / tileSize), (int) Math.floor(y / tileSize));
+    }
+
+    MapPoint center(AreaTile cell) {
+        return new MapPoint((cell.column() + .5) * tileSize, (cell.row() + .5) * tileSize);
+    }
+
+    TileType typeAt(int column, int row) {
+        if (row < 0 || row >= rows.size()) return null;
+        String cells = rows.get(row);
+        if (column < 0 || column >= cells.length()) return null;
+        return legend.get(String.valueOf(cells.charAt(column)));
+    }
+}
 
 record AreaTile(int column, int row) { }
 
 record UnlockArea(String id, String name, List<AreaTile> tiles,
         double terminalX, double terminalY, double labelX, double labelY,
-        String color, String detail, boolean fixedTerminal) {
+        String color, String detail) {
     boolean contains(double x, double y) {
-        return tiles.contains(new AreaTile((int) Math.floor(x / GameMap.TILE_SIZE),
-                (int) Math.floor(y / GameMap.TILE_SIZE)));
+        return tiles.contains(GameMap.TILE_MAP.cellAt(x, y));
     }
 
     boolean overlaps(double x, double y, double radius) {
+        if (radius == 0) return contains(x, y);
         return tiles.stream().anyMatch(tile ->
                 x + radius > tile.column() * GameMap.TILE_SIZE
                 && x - radius < (tile.column() + 1) * GameMap.TILE_SIZE
@@ -63,7 +79,8 @@ record PrepConsole(String id, double x, double y, String requiredArea, int cost,
 record MapDefinition(int version, WorldSize world, MapPoint core, Stations stations,
         TileMapDefinition tileMap, List<UnlockArea> areas, List<SpawnPoint> spawnPoints,
         List<TrapSlotDefinition> trapSlots, List<ResourceNodeDefinition> resourceNodes,
-        List<ShopUnit> shopUnits) { }
+        List<ShopUnit> shopUnits, List<WorkbenchUnit> workbenchUnits,
+        PrepConsole prepConsole, List<BreakerTerminal> breakerTerminals) { }
 
 /** Static research-facility layout loaded from the shared map resource. */
 final class GameMap {
@@ -87,27 +104,13 @@ final class GameMap {
     static final double WORKBENCH_Y = DEFINITION.stations().workbench().y();
     static final int TILE_SIZE = DEFINITION.tileMap().tileSize();
     static final TileMapDefinition TILE_MAP = DEFINITION.tileMap();
-    static final List<UnlockArea> AREAS = buildGameplayAreas();
+    static final List<UnlockArea> AREAS = List.copyOf(DEFINITION.areas());
     static final List<SpawnPoint> SPAWN_POINTS = buildSpawnPoints();
     static final List<ShopUnit> SHOP_UNITS = List.copyOf(DEFINITION.shopUnits());
-    static final List<ResourceNodeDefinition> RESOURCE_NODES = buildResourceNodeDefinitions();
-    static final List<WorkbenchUnit> WORKBENCH_UNITS = List.of(
-            new WorkbenchUnit("workbench-entry", WORKBENCH_X, WORKBENCH_Y, "entry-room"),
-            new WorkbenchUnit("workbench-armory", 1740, 900, "armory-wing"),
-            new WorkbenchUnit("workbench-relay", 1340, 380, "relay-gallery"),
-            new WorkbenchUnit("workbench-command", 300, 300, "command-room"));
-    static final PrepConsole PREP_CONSOLE = new PrepConsole(
-            "prep-console", 1260, 980, "operations-room", 10, 60);
-    static final List<BreakerTerminal> BREAKER_TERMINALS = List.of(
-            new BreakerTerminal("breaker-outside", "OUTSIDE", 820, 1940, null),
-            new BreakerTerminal("breaker-entry", "ENTRY ROOM", 1140, 1580, "entry-room"),
-            new BreakerTerminal("breaker-transit", "TRANSIT HALL", 1300, 1180, "transit-hall"),
-            new BreakerTerminal("breaker-armory", "ARMORY WING", 1780, 980, "armory-wing"),
-            new BreakerTerminal("breaker-forest", "FOREST LAB", 1660, 420, "forest"),
-            new BreakerTerminal("breaker-relay", "RELAY GALLERY", 1220, 300, "relay-gallery"),
-            new BreakerTerminal("breaker-mine", "MINE LAB", 820, 100, "mine"),
-            new BreakerTerminal("breaker-security", "SECURITY HALL", 580, 220, "security-hall"),
-            new BreakerTerminal("breaker-command", "COMMAND ROOM", 100, 300, "command-room"));
+    static final List<ResourceNodeDefinition> RESOURCE_NODES = List.copyOf(DEFINITION.resourceNodes());
+    static final List<WorkbenchUnit> WORKBENCH_UNITS = List.copyOf(DEFINITION.workbenchUnits());
+    static final PrepConsole PREP_CONSOLE = DEFINITION.prepConsole();
+    static final List<BreakerTerminal> BREAKER_TERMINALS = List.copyOf(DEFINITION.breakerTerminals());
     private static final String CLIENT_MAP_MESSAGE = buildClientMapMessage();
 
     private GameMap() { }
@@ -149,8 +152,9 @@ final class GameMap {
     }
 
     static boolean canOccupy(double x, double y, double radius, Set<String> unlockedAreas) {
-        if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(radius)) return false;
-        if (x - radius < 0 || y - radius < 0 || x + radius > WORLD_W || y + radius > WORLD_H) {
+        if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(radius) || radius < 0) return false;
+        if (x - radius < 0 || y - radius < 0 || x + radius > WORLD_W || y + radius > WORLD_H
+                || x >= WORLD_W || y >= WORLD_H) {
             return false;
         }
         for (UnlockArea area : AREAS) {
@@ -160,21 +164,21 @@ final class GameMap {
             }
         }
         int minColumn = (int) Math.floor((x - radius) / TILE_SIZE);
-        int maxColumn = (int) Math.floor((x + radius) / TILE_SIZE);
+        int maxColumn = (int) (radius == 0 ? Math.floor(x / TILE_SIZE) : Math.ceil((x + radius) / TILE_SIZE) - 1);
         int minRow = (int) Math.floor((y - radius) / TILE_SIZE);
-        int maxRow = (int) Math.floor((y + radius) / TILE_SIZE);
+        int maxRow = (int) (radius == 0 ? Math.floor(y / TILE_SIZE) : Math.ceil((y + radius) / TILE_SIZE) - 1);
         for (int row = minRow; row <= maxRow; row++) {
             for (int column = minColumn; column <= maxColumn; column++) {
                 TileType type = tileTypeAt(column, row);
-                if (type != null && type.solid()) return false;
+                if (type == null || type.solid()) return false;
             }
         }
         return true;
     }
 
     static MapPoint snapToTile(double x, double y) {
-        return new MapPoint((Math.floor(x / TILE_SIZE) + 0.5) * TILE_SIZE,
-                (Math.floor(y / TILE_SIZE) + 0.5) * TILE_SIZE);
+        if (!Double.isFinite(x) || !Double.isFinite(y)) return new MapPoint(Double.NaN, Double.NaN);
+        return TILE_MAP.center(TILE_MAP.cellAt(x, y));
     }
 
     static boolean canPlaceDefense(double x, double y, Set<String> unlockedAreas) {
@@ -191,6 +195,8 @@ final class GameMap {
                 || GameSupport.distance(point.x(), point.y(), QUARRY_X, QUARRY_Y) < 36) {
             return false;
         }
+        if (AREAS.stream().anyMatch(area ->
+                GameSupport.distance(point.x(), point.y(), area.terminalX(), area.terminalY()) < 36)) return false;
         if (WORKBENCH_UNITS.stream().anyMatch(workbench ->
                 GameSupport.distance(point.x(), point.y(), workbench.x(), workbench.y()) < 36)) {
             return false;
@@ -209,34 +215,7 @@ final class GameMap {
     }
 
     static boolean canPlaceCore(double x, double y, Set<String> unlockedAreas) {
-        MapPoint point = snapToTile(x, y);
-        int column = (int) (point.x() / TILE_SIZE);
-        int row = (int) (point.y() / TILE_SIZE);
-        TileType tile = tileTypeAt(column, row);
-        if (tile == null || !tile.buildable() || !canOccupy(point.x(), point.y(), 15, unlockedAreas)) {
-            return false;
-        }
-        if (GameSupport.distance(point.x(), point.y(), ARMORY_X, ARMORY_Y) < 36
-                || GameSupport.distance(point.x(), point.y(), MED_X, MED_Y) < 36
-                || GameSupport.distance(point.x(), point.y(), WOODCUTTER_X, WOODCUTTER_Y) < 36
-                || GameSupport.distance(point.x(), point.y(), QUARRY_X, QUARRY_Y) < 36) {
-            return false;
-        }
-        if (WORKBENCH_UNITS.stream().anyMatch(workbench ->
-                GameSupport.distance(point.x(), point.y(), workbench.x(), workbench.y()) < 36)) {
-            return false;
-        }
-        if (SHOP_UNITS.stream().anyMatch(shop ->
-                GameSupport.distance(point.x(), point.y(), shop.x(), shop.y()) < 36)) return false;
-        if (BREAKER_TERMINALS.stream().anyMatch(breaker ->
-                GameSupport.distance(point.x(), point.y(), breaker.x(), breaker.y()) < 36)) return false;
-        if (GameSupport.distance(point.x(), point.y(), PREP_CONSOLE.x(), PREP_CONSOLE.y()) < 36) {
-            return false;
-        }
-        if (RESOURCE_NODES.stream().anyMatch(node ->
-                GameSupport.distance(point.x(), point.y(), node.x(), node.y()) < 36)) return false;
-        return SPAWN_POINTS.stream().noneMatch(spawn ->
-                GameSupport.distance(point.x(), point.y(), spawn.x(), spawn.y()) < 80);
+        return canPlaceDefense(x, y, unlockedAreas);
     }
 
     static double distanceToWall(double x, double y, double directionX,
@@ -273,11 +252,8 @@ final class GameMap {
         return tile == null || tile.solid();
     }
 
-    private static TileType tileTypeAt(int column, int row) {
-        if (row < 0 || row >= TILE_MAP.rows().size()) return null;
-        String cells = TILE_MAP.rows().get(row);
-        if (column < 0 || column >= cells.length()) return null;
-        return TILE_MAP.legend().get(String.valueOf(cells.charAt(column)));
+    static TileType tileTypeAt(int column, int row) {
+        return TILE_MAP.typeAt(column, row);
     }
 
     private static MapDefinition loadDefinition() {
@@ -308,57 +284,14 @@ final class GameMap {
         }
     }
 
-    private static List<ResourceNodeDefinition> buildResourceNodeDefinitions() {
-        List<ResourceNodeDefinition> nodes = new ArrayList<>(DEFINITION.resourceNodes());
-        nodes.add(new ResourceNodeDefinition("early-wood-1", "wood", 740, 1420,
-                "wood-room"));
-        nodes.add(new ResourceNodeDefinition("early-wood-2", "wood", 820, 1500,
-                "wood-room"));
-        nodes.add(new ResourceNodeDefinition("early-ore-1", "ore", 1340, 1260,
-                "ore-room"));
-        nodes.add(new ResourceNodeDefinition("early-ore-2", "ore", 1460, 1340,
-                "ore-room"));
-        return List.copyOf(nodes);
-    }
-
-    private static List<UnlockArea> buildGameplayAreas() {
-        return DEFINITION.areas().stream().map(GameMap::embedTerminal).toList();
-    }
-
-    private static UnlockArea embedTerminal(UnlockArea area) {
-        MapPoint best = null;
-        double bestDistance = Double.MAX_VALUE;
-        for (int row = 1; row < WORLD_H / TILE_SIZE - 1; row++) {
-            for (int col = 1; col < WORLD_W / TILE_SIZE - 1; col++) {
-                if (!tileTypeAt(col, row).solid()) continue;
-                double x = (col + .5) * TILE_SIZE, y = (row + .5) * TILE_SIZE;
-                boolean hasApproach = false;
-                for (int[] offset : new int[][]{{1,0},{-1,0},{0,1},{0,-1}}) {
-                    double ax = x + offset[0] * TILE_SIZE, ay = y + offset[1] * TILE_SIZE;
-                    if (!tileTypeAt(col + offset[0], row + offset[1]).solid()
-                            && !area.overlaps(ax, ay, 5)) hasApproach = true;
-                }
-                double distance = GameSupport.distance(x, y, area.terminalX(), area.terminalY());
-                // Fixed terminals can sit beside an empty build slot, but never on it.
-                boolean clearOfSlots = DEFINITION.trapSlots().stream().allMatch(slot ->
-                        GameSupport.distance(x, y, slot.x(), slot.y()) >= (area.fixedTerminal() ? TILE_SIZE : 60));
-                if (area.fixedTerminal() && distance != 0) continue;
-                if (hasApproach && clearOfSlots && distance < bestDistance) { best = new MapPoint(x, y); bestDistance = distance; }
-            }
-        }
-        if (best == null) throw new IllegalStateException("No wall for terminal " + area.id());
-        return new UnlockArea(area.id(), area.name(), area.tiles(),
-                best.x(), best.y(), area.labelX(), area.labelY(), area.color(), area.detail(), area.fixedTerminal());
-    }
-
     private static List<SpawnPoint> buildSpawnPoints() {
         List<SpawnPoint> spawns = new ArrayList<>(DEFINITION.spawnPoints());
         for (UnlockArea area : AREAS) {
             MapPoint best = null;
             double farthest = -1;
             for (AreaTile tile : area.tiles()) {
-                double x = (tile.column() + .5) * TILE_SIZE;
-                double y = (tile.row() + .5) * TILE_SIZE;
+                MapPoint center = TILE_MAP.center(tile);
+                double x = center.x(), y = center.y();
                 if (!canOccupy(x, y, 17, AREAS.stream().map(UnlockArea::id).collect(java.util.stream.Collectors.toSet()))) continue;
                 double distance = GameSupport.distance(x, y, area.terminalX(), area.terminalY());
                 if (distance > farthest) { farthest = distance; best = new MapPoint(x, y); }
@@ -386,7 +319,8 @@ final class GameMap {
         }
         if (map.tileMap() == null || map.areas() == null || map.spawnPoints() == null
                 || map.trapSlots() == null || map.resourceNodes() == null
-                || map.shopUnits() == null
+                || map.shopUnits() == null || map.workbenchUnits() == null
+                || map.prepConsole() == null || map.breakerTerminals() == null
                 || map.spawnPoints().isEmpty()) {
             throw new IllegalStateException("Map lists and at least one spawn point are required");
         }
@@ -394,6 +328,7 @@ final class GameMap {
         validateAreas(map.areas(), map.tileMap());
 
         Set<String> areaIds = uniqueIds(map.areas().stream().map(UnlockArea::id).toList(), "area");
+        validatePositions(map, areaIds);
         uniqueIds(map.spawnPoints().stream().map(SpawnPoint::id).toList(), "spawn point");
         uniqueIds(map.trapSlots().stream().map(TrapSlotDefinition::id).toList(), "trap slot");
         uniqueIds(map.resourceNodes().stream().map(ResourceNodeDefinition::id).toList(), "resource node");
@@ -434,6 +369,74 @@ final class GameMap {
                 throw new IllegalStateException("Invalid shop unit: " + shop.id());
             }
         }
+    }
+
+    static void validatePositions(MapDefinition map, Set<String> areaIds) {
+        validatePoint(map, "core", map.core().x(), map.core().y(), true);
+        for (Station station : List.of(map.stations().armory(), map.stations().medBay(),
+                map.stations().woodcutter(), map.stations().quarry(), map.stations().workbench())) {
+            validatePoint(map, station.id(), station.x(), station.y(), true);
+        }
+        uniqueIds(map.workbenchUnits().stream().map(WorkbenchUnit::id).toList(), "workbench");
+        uniqueIds(map.breakerTerminals().stream().map(BreakerTerminal::id).toList(), "breaker");
+        for (UnlockArea area : map.areas()) {
+            validatePoint(map, area.id(), area.terminalX(), area.terminalY(), false);
+            validatePoint(map, area.id() + " label", area.labelX(), area.labelY(), false);
+            if (map.trapSlots().stream().anyMatch(slot -> GameSupport.distance(
+                    area.terminalX(), area.terminalY(), slot.x(), slot.y()) < 36)) {
+                throw new IllegalStateException("Terminal overlaps defense slot: " + area.id());
+            }
+            boolean approach = false;
+            for (int[] offset : new int[][]{{0,0},{1,0},{-1,0},{0,1},{0,-1}}) {
+                AreaTile cell = map.tileMap().cellAt(area.terminalX() + offset[0] * map.tileMap().tileSize(),
+                        area.terminalY() + offset[1] * map.tileMap().tileSize());
+                TileType type = map.tileMap().typeAt(cell.column(), cell.row());
+                approach |= type != null && !type.solid() && !area.tiles().contains(cell);
+            }
+            if (!approach) throw new IllegalStateException("No outside approach for terminal: " + area.id());
+        }
+        for (SpawnPoint spawn : map.spawnPoints()) {
+            validatePoint(map, spawn.id(), spawn.x(), spawn.y(), true);
+            if (spawn.route() != null) for (MapPoint point : spawn.route()) {
+                if (point != null) validatePoint(map, spawn.id() + " route", point.x(), point.y(), true);
+            }
+        }
+        for (TrapSlotDefinition slot : map.trapSlots()) {
+            validateFacility(map, areaIds, slot.id(), slot.x(), slot.y(), slot.requiredArea());
+        }
+        for (ShopUnit shop : map.shopUnits()) validatePoint(map, shop.id(), shop.x(), shop.y(), true);
+        for (ResourceNodeDefinition node : map.resourceNodes()) {
+            validateFacility(map, areaIds, node.id(), node.x(), node.y(), node.requiredArea());
+        }
+        for (WorkbenchUnit unit : map.workbenchUnits()) {
+            validateFacility(map, areaIds, unit.id(), unit.x(), unit.y(), unit.requiredArea());
+        }
+        for (BreakerTerminal unit : map.breakerTerminals()) {
+            validateFacility(map, areaIds, unit.id(), unit.x(), unit.y(), unit.requiredArea());
+        }
+        PrepConsole prep = map.prepConsole();
+        validateFacility(map, areaIds, prep.id(), prep.x(), prep.y(), prep.requiredArea());
+        if (prep.cost() <= 0 || prep.seconds() <= 0) throw new IllegalStateException("Invalid prep console");
+    }
+
+    private static void validateFacility(MapDefinition map, Set<String> areaIds, String id,
+            double x, double y, String requiredArea) {
+        validatePoint(map, id, x, y, true);
+        if (requiredArea != null && (!areaIds.contains(requiredArea)
+                || map.areas().stream().noneMatch(area -> area.id().equals(requiredArea)
+                    && area.tiles().contains(map.tileMap().cellAt(x, y))))) {
+            throw new IllegalStateException("Facility is outside its required area: " + id);
+        }
+    }
+
+    private static void validatePoint(MapDefinition map, String id, double x, double y, boolean floor) {
+        if (!Double.isFinite(x) || !Double.isFinite(y) || x < 0 || y < 0
+                || x >= map.world().width() || y >= map.world().height()) {
+            throw new IllegalStateException("Point outside map: " + id);
+        }
+        AreaTile cell = map.tileMap().cellAt(x, y);
+        TileType type = map.tileMap().typeAt(cell.column(), cell.row());
+        if (type == null || (floor && type.solid())) throw new IllegalStateException("Invalid tile for: " + id);
     }
 
     static void validateAreas(List<UnlockArea> areas, TileMapDefinition tiles) {

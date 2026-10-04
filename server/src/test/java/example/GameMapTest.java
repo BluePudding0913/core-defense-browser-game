@@ -15,6 +15,84 @@ import org.junit.jupiter.api.Test;
 
 class GameMapTest {
     @Test
+    void everyCellUsesTheFullGridForCoordinatesAndCollision() {
+        Set<String> allAreas = GameMap.AREAS.stream().map(UnlockArea::id).collect(Collectors.toSet());
+        for (int row = 0; row < GameMap.TILE_MAP.rows().size(); row++) {
+            for (int column = 0; column < GameMap.TILE_MAP.rows().get(row).length(); column++) {
+                AreaTile cell = new AreaTile(column, row);
+                MapPoint center = GameMap.TILE_MAP.center(cell);
+                assertEquals(cell, GameMap.TILE_MAP.cellAt(center.x(), center.y()));
+                assertEquals(center, GameMap.snapToTile(column * 40 + .1, row * 40 + 39.9));
+                assertEquals(!GameMap.tileTypeAt(column, row).solid(),
+                        GameMap.canOccupy(center.x(), center.y(), 5, allAreas), cell.toString());
+            }
+        }
+    }
+
+    @Test
+    void collisionRejectsInvalidCoordinatesAndTreatsTileEdgesConsistently() {
+        Set<String> allAreas = GameMap.AREAS.stream().map(UnlockArea::id).collect(Collectors.toSet());
+        for (double value : new double[]{Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY}) {
+            assertFalse(GameMap.canOccupy(value, 1900, 0, allAreas));
+            assertFalse(GameMap.canOccupy(1020, value, 0, allAreas));
+            assertFalse(GameMap.canPlaceDefense(value, 1900, allAreas));
+            assertFalse(GameMap.canPlaceCore(1020, value, allAreas));
+        }
+        assertFalse(GameMap.canOccupy(1020, 1900, -1, allAreas));
+        assertFalse(GameMap.canOccupy(GameMap.WORLD_W, 1900, 0, allAreas));
+        UnlockArea entry = GameMap.areaById("entry-room");
+        AreaTile cell = entry.tiles().get(0);
+        assertFalse(GameMap.canOccupy(cell.column() * 40, cell.row() * 40, 0, Set.of()),
+                "a point on a locked tile's top-left edge is still locked");
+        assertTrue(GameMap.canOccupy(100, 100, 20, allAreas), "touching a wall is not overlap");
+        assertFalse(GameMap.canOccupy(100, 100, 20.01, allAreas), "crossing the wall edge is overlap");
+    }
+
+    @Test
+    void floorTerminalsKeepTheirDeclaredCoordinatesAndReserveTheirTiles() throws Exception {
+        try (InputStream input = GameMap.class.getResourceAsStream("/map.json")) {
+            MapDefinition definition = new ObjectMapper().readValue(input, MapDefinition.class);
+            assertEquals(definition.areas(), GameMap.AREAS, "never relocate terminals to walls");
+            JsonNode delivered = new ObjectMapper().readTree(GameMap.clientMapMessage()).path("map");
+            assertEquals(new ObjectMapper().valueToTree(definition.areas()), delivered.path("areas"));
+            assertEquals(definition.workbenchUnits(), GameMap.WORKBENCH_UNITS);
+            assertEquals(definition.breakerTerminals(), GameMap.BREAKER_TERMINALS);
+            assertEquals(definition.prepConsole(), GameMap.PREP_CONSOLE);
+            assertEquals(definition.resourceNodes(), GameMap.RESOURCE_NODES);
+        }
+        Set<String> allAreas = GameMap.AREAS.stream().map(UnlockArea::id).collect(Collectors.toSet());
+        int floorTerminals = 0;
+        for (UnlockArea area : GameMap.AREAS) {
+            if (!GameMap.canOccupy(area.terminalX(), area.terminalY(), 5, allAreas)) continue;
+            floorTerminals++;
+            assertFalse(GameMap.canPlaceDefense(area.terminalX(), area.terminalY(), allAreas));
+            assertFalse(GameMap.canPlaceCore(area.terminalX(), area.terminalY(), allAreas));
+        }
+        assertEquals(10, floorTerminals);
+    }
+
+    @Test
+    void mapValidationRejectsInvalidTerminalAndFacilityPositions() throws Exception {
+        ObjectMapper json = new ObjectMapper();
+        JsonNode original = json.readTree(GameMap.clientMapMessage()).path("map");
+        Set<String> ids = GameMap.AREAS.stream().map(UnlockArea::id).collect(Collectors.toSet());
+        for (String collection : List.of("areas", "workbenchUnits", "breakerTerminals", "trapSlots")) {
+            JsonNode invalid = original.deepCopy();
+            ((com.fasterxml.jackson.databind.node.ObjectNode) invalid.path(collection).get(0))
+                    .put(collection.equals("areas") ? "terminalX" : "x", -1);
+            MapDefinition definition = json.treeToValue(invalid, MapDefinition.class);
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                    () -> GameMap.validatePositions(definition, ids));
+        }
+        JsonNode invalid = original.deepCopy();
+        ((com.fasterxml.jackson.databind.node.ObjectNode) invalid.path("workbenchUnits").get(0))
+                .put("requiredArea", "missing");
+        MapDefinition definition = json.treeToValue(invalid, MapDefinition.class);
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> GameMap.validatePositions(definition, ids));
+    }
+
+    @Test
     void weaponShopsAreInSeparateUnlockableSideRoomsConnectedToTheMainRoute() {
         Set<String> weapons = Set.of("shotgun", "smg", "rifle", "sniper", "revolver", "lmg");
         Set<String> mainAreas = GameMap.AREAS.stream().map(UnlockArea::id)
@@ -95,7 +173,7 @@ class GameMapTest {
     }
 
     private static UnlockArea testArea(String id, List<AreaTile> tiles) {
-        return new UnlockArea(id, id, tiles, 0, 0, 0, 0, "#fff", "", false);
+        return new UnlockArea(id, id, tiles, 0, 0, 0, 0, "#fff", "");
     }
 
     @Test
@@ -119,7 +197,7 @@ class GameMapTest {
         assertEquals(definition.areas().size(), GameMap.AREAS.size());
         assertEquals(definition.spawnPoints(), GameMap.SPAWN_POINTS.stream().filter(spawn -> GameMap.spawnArea(spawn) == null).toList());
         assertEquals(definition.trapSlots().size(), GameMap.createTrapSlots().size());
-        assertEquals(definition.resourceNodes().size() + 4, GameMap.createResourceNodes().size());
+        assertEquals(definition.resourceNodes().size(), GameMap.createResourceNodes().size());
         assertEquals(definition.shopUnits(), GameMap.SHOP_UNITS);
         assertEquals(9, GameMap.BREAKER_TERMINALS.size());
         assertEquals(4, GameMap.WORKBENCH_UNITS.size());
@@ -177,7 +255,7 @@ class GameMapTest {
             for (TrapSlot slot : GameMap.createTrapSlots()) {
                 double separation = GameSupport.distance(
                         area.terminalX(), area.terminalY(), slot.x, slot.y);
-                assertTrue(separation >= (area.fixedTerminal() ? GameMap.TILE_SIZE : 60),
+                assertTrue(separation >= GameMap.TILE_SIZE,
                         () -> area.id() + " terminal overlaps defense slot " + slot.id);
             }
         }

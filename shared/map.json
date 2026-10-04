@@ -189,7 +189,7 @@
         {"column":31,"row":41},{"column":32,"row":41},{"column":33,"row":41},{"column":34,"row":41}
       ]
     },
-    {"id":"revolver-room","name":"REVOLVER ROOM","terminalX":900,"terminalY":1580,"fixedTerminal":true,"labelX":740,"labelY":1740,"color":"#ffffff","detail":"High damage / 36 rounds",
+    {"id":"revolver-room","name":"REVOLVER ROOM","terminalX":900,"terminalY":1580,"labelX":740,"labelY":1740,"color":"#ffffff","detail":"High damage / 36 rounds",
       "tiles": [
         {"column":17,"row":40},{"column":18,"row":40},{"column":19,"row":40},{"column":20,"row":40},
         {"column":21,"row":41},{"column":22,"row":41},{"column":17,"row":41},{"column":18,"row":41},{"column":19,"row":41},{"column":20,"row":41},
@@ -244,7 +244,7 @@
     {"id":"entry-west","lane":"north","x":940,"y":1580,"requiredArea":"entry-room"},
     {"id":"entry-east","lane":"north","x":1100,"y":1580,"requiredArea":"entry-room"},
     {"id":"transit-west","lane":"west","x":1260,"y":1100,"requiredArea":"transit-hall"},
-    {"id":"transit-east","lane":"east","x":1380,"y":1100,"requiredArea":"transit-hall"},
+    {"id":"transit-east","lane":"east","x":1380,"y":1140,"requiredArea":"transit-hall"},
     {"id":"armory-west","lane":"north","x":1540,"y":1100,"requiredArea":"armory-wing"},
     {"id":"armory-east","lane":"north","x":1740,"y":1100,"requiredArea":"armory-wing"},
     {"id":"forest-west","lane":"west","x":1460,"y":660,"requiredArea":"forest"},
@@ -253,7 +253,7 @@
     {"id":"relay-east","lane":"east","x":1260,"y":380,"requiredArea":"relay-gallery"},
     {"id":"mine-west","lane":"west","x":740,"y":340,"requiredArea":"mine"},
     {"id":"mine-east","lane":"east","x":980,"y":340,"requiredArea":"mine"},
-    {"id":"security-west","lane":"west","x":500,"y":180,"requiredArea":"security-hall"},
+    {"id":"security-west","lane":"west","x":500,"y":220,"requiredArea":"security-hall"},
     {"id":"security-east","lane":"east","x":540,"y":340,"requiredArea":"security-hall"},
     {"id":"command-west","lane":"west","x":140,"y":420,"requiredArea":"command-room"},
     {"id":"command-east","lane":"east","x":340,"y":420,"requiredArea":"command-room"}
@@ -266,7 +266,11 @@
     {"id":"ore-1","type":"ore","x":740,"y":140,"requiredArea":"mine"},
     {"id":"ore-2","type":"ore","x":980,"y":140,"requiredArea":"mine"},
     {"id":"ore-3","type":"ore","x":740,"y":300,"requiredArea":"mine"},
-    {"id":"ore-4","type":"ore","x":900,"y":300,"requiredArea":"mine"}
+    {"id":"ore-4","type":"ore","x":900,"y":300,"requiredArea":"mine"},
+    {"id":"early-wood-1","type":"wood","x":740,"y":1420,"requiredArea":"wood-room"},
+    {"id":"early-wood-2","type":"wood","x":820,"y":1500,"requiredArea":"wood-room"},
+    {"id":"early-ore-1","type":"ore","x":1340,"y":1260,"requiredArea":"ore-room"},
+    {"id":"early-ore-2","type":"ore","x":1460,"y":1340,"requiredArea":"ore-room"}
   ],
   "shopUnits": [
     {"id":"shop-shotgun","item":"shotgun","label":"SHOTGUN","x":1340,"y":1620,"cost":450,"detail":"Spread shot / 30 rounds"},
@@ -276,5 +280,23 @@
     {"id":"shop-sniper","item":"sniper","label":"SNIPER","x":220,"y":580,"cost":900,"detail":"Precision shot / 16 rounds"},
     {"id":"shop-revolver","item":"revolver","label":"REVOLVER","x":740,"y":1660,"cost":500,"detail":"High damage / 36 rounds"},
     {"id":"shop-lmg","item":"lmg","label":"LMG","x":1220,"y":580,"cost":850,"detail":"Sustained fire / 150 rounds"}
+  ],
+  "workbenchUnits": [
+    {"id":"workbench-entry","x":980,"y":1460,"requiredArea":"entry-room"},
+    {"id":"workbench-armory","x":1740,"y":900,"requiredArea":"armory-wing"},
+    {"id":"workbench-relay","x":1340,"y":380,"requiredArea":"relay-gallery"},
+    {"id":"workbench-command","x":300,"y":300,"requiredArea":"command-room"}
+  ],
+  "prepConsole": {"id":"prep-console","x":1260,"y":980,"requiredArea":"operations-room","cost":10,"seconds":60},
+  "breakerTerminals": [
+    {"id":"breaker-outside","label":"OUTSIDE","x":820,"y":1940,"requiredArea":null},
+    {"id":"breaker-entry","label":"ENTRY ROOM","x":1140,"y":1580,"requiredArea":"entry-room"},
+    {"id":"breaker-transit","label":"TRANSIT HALL","x":1300,"y":1180,"requiredArea":"transit-hall"},
+    {"id":"breaker-armory","label":"ARMORY WING","x":1780,"y":980,"requiredArea":"armory-wing"},
+    {"id":"breaker-forest","label":"FOREST LAB","x":1660,"y":420,"requiredArea":"forest"},
+    {"id":"breaker-relay","label":"RELAY GALLERY","x":1220,"y":300,"requiredArea":"relay-gallery"},
+    {"id":"breaker-mine","label":"MINE LAB","x":820,"y":100,"requiredArea":"mine"},
+    {"id":"breaker-security","label":"SECURITY HALL","x":580,"y":220,"requiredArea":"security-hall"},
+    {"id":"breaker-command","label":"COMMAND ROOM","x":100,"y":300,"requiredArea":"command-room"}
   ]
 }

@@ -13,6 +13,36 @@ class GameplayRevisionTest {
     Player player;
     final java.util.List<String> broadcasts = new java.util.ArrayList<>();
 
+    @Test void allRoomsCanBeUnlockedFromReachableFloorWithoutRelocatingTerminals() throws Exception {
+        Method canInteract = GameSession.class.getDeclaredMethod("canInteract", Player.class,
+                double.class, double.class, double.class);
+        canInteract.setAccessible(true);
+        game.unlockedAreas.clear();
+        player.credits = 100_000;
+        for (UnlockArea area : GameMap.AREAS) {
+            Set<AreaTile> visited = new java.util.HashSet<>();
+            var queue = new java.util.ArrayDeque<AreaTile>();
+            queue.add(GameMap.TILE_MAP.cellAt(GameMap.CORE_X, GameMap.CORE_Y));
+            boolean used = false;
+            while (!queue.isEmpty()) {
+                AreaTile cell = queue.remove();
+                if (!visited.add(cell)) continue;
+                MapPoint point = GameMap.TILE_MAP.center(cell);
+                if (!GameMap.canOccupy(point.x(), point.y(), 5, game.unlockedAreas)) continue;
+                player.x = point.x(); player.y = point.y();
+                if ((boolean) canInteract.invoke(game, player, area.terminalX(), area.terminalY(), 100)) {
+                    game.handleMessage(player, "UNLOCK:" + area.id());
+                    used = game.unlockedAreas.contains(area.id());
+                    if (used) break;
+                }
+                for (int[] delta : new int[][]{{1,0},{-1,0},{0,1},{0,-1}}) {
+                    queue.add(new AreaTile(cell.column() + delta[0], cell.row() + delta[1]));
+                }
+            }
+            assertTrue(used, area.id() + " must be unlockable from the entrance via open floor");
+        }
+    }
+
     @Test void revolverTerminalMovesOneTileRightAndStillUnlocksFromTheMainRoute() {
         UnlockArea terminal = GameMap.areaById("revolver-room");
         assertEquals(860 + GameMap.TILE_SIZE, terminal.terminalX());
@@ -342,11 +372,11 @@ class GameplayRevisionTest {
         assertTrue(game.droppedResources.isEmpty());
     }
 
-    @Test void everyTerminalIsEmbeddedInAWallWithAnOutsideApproach() {
+    @Test void everyTerminalHasAnOutsideApproach() {
         for (UnlockArea area : GameMap.AREAS) {
             int col = (int) area.terminalX() / 40, row = (int) area.terminalY() / 40;
             String symbol = String.valueOf(GameMap.TILE_MAP.rows().get(row).charAt(col));
-            assertTrue(GameMap.TILE_MAP.legend().get(symbol).solid(), area.id());
+            assertNotNull(GameMap.TILE_MAP.legend().get(symbol), area.id());
             Set<String> otherAreas = GameMap.AREAS.stream().filter(a -> a != area)
                     .map(UnlockArea::id).collect(java.util.stream.Collectors.toSet());
             boolean accessible = false;
