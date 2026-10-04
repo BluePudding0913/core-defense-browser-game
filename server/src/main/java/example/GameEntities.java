@@ -27,6 +27,18 @@ final class Player {
     String weapon = "pistol";
     double cooldown;
     double cooldownMax;
+    final java.util.Map<String, Double> weaponCooldowns = new java.util.HashMap<>();
+    final java.util.Map<String, Double> weaponCooldownMaxima = new java.util.HashMap<>();
+
+    void equipWeapon(String next) {
+        if (weapon.equals(next)) return;
+        weaponCooldowns.put(weapon, cooldown);
+        weaponCooldownMaxima.put(weapon, cooldownMax);
+        weapon = next;
+        cooldown = weaponCooldowns.getOrDefault(next, 0.0);
+        cooldownMax = weaponCooldownMaxima.getOrDefault(next, 0.0);
+    }
+
     boolean firing;
     double aimX;
     double aimY;

@@ -194,6 +194,7 @@ final class GameSession {
     void update(double dt) {
         updateReconnectReservations(dt);
         for (Player player : players) {
+            player.weaponCooldowns.replaceAll((weapon, remaining) -> Math.max(0, remaining - dt));
             player.cooldown = Math.max(0, player.cooldown - dt);
             player.gatherCooldown = Math.max(0, player.gatherCooldown - dt);
             if (player.firing && player.cooldown <= 0 && canMove()) {
@@ -990,23 +991,23 @@ final class GameSession {
 
     private static void selectBotWeapon(Player bot, double targetDistance) {
         if (targetDistance <= 72 && (!hasBotRangedAmmo(bot) || bot.hp > 70)) {
-            bot.weapon = "bat";
+            bot.equipWeapon("bat");
         } else if (targetDistance > 390 && bot.ownsSniper && bot.sniperAmmo > 0) {
-            bot.weapon = "sniper";
+            bot.equipWeapon("sniper");
         } else if (targetDistance > 260 && bot.ownsRifle && bot.rifleAmmo > 0) {
-            bot.weapon = "rifle";
+            bot.equipWeapon("rifle");
         } else if (targetDistance > 155 && bot.ownsSmg && bot.smgAmmo > 0) {
-            bot.weapon = "smg";
+            bot.equipWeapon("smg");
         } else if (targetDistance <= 190 && bot.ownsShotgun && bot.shotgunAmmo > 0) {
-            bot.weapon = "shotgun";
+            bot.equipWeapon("shotgun");
         } else if (bot.ownsSmg && bot.smgAmmo > 0) {
-            bot.weapon = "smg";
+            bot.equipWeapon("smg");
         } else if (bot.ownsRifle && bot.rifleAmmo > 0) {
-            bot.weapon = "rifle";
+            bot.equipWeapon("rifle");
         } else if (bot.ownsSniper && bot.sniperAmmo > 0) {
-            bot.weapon = "sniper";
+            bot.equipWeapon("sniper");
         } else {
-            bot.weapon = "pistol";
+            bot.equipWeapon("pistol");
         }
         bot.selectedBuild = null;
     }
@@ -1399,7 +1400,7 @@ final class GameSession {
             case "sniper" -> { bot.ownsSniper = true; bot.sniperAmmo = 16; }
             default -> { return; }
         }
-        bot.weapon = item;
+        bot.equipWeapon(item);
         bot.selectedBuild = null;
     }
 
@@ -1584,7 +1585,7 @@ final class GameSession {
                 || weapon.equals("sniper") && player.ownsSniper;
         if (owned) {
             releaseCarriedCore(player);
-            player.weapon = weapon;
+            player.equipWeapon(weapon);
             player.selectedBuild = null;
             player.movingCore = false;
             player.firing = false;
@@ -2098,7 +2099,8 @@ final class GameSession {
     }
 
     private void damagePlayer(Player player, double damage) {
-        if (player.down) return;
+        if (player.down || damage <= 0) return;
+        events.broadcast("{\"type\":\"effect\",\"effect\":\"player-hit\",\"playerId\":\"" + player.id + "\"}");
         if (player.movingCore) damageCore(damage);
         player.hp = Math.max(0, player.hp - damage);
         if (player.hp <= 0) {
@@ -2168,7 +2170,9 @@ final class GameSession {
             player.dashing = false;
             player.dashExhausted = false;
             player.stamina = 100;
-            player.weapon = "pistol";
+            player.equipWeapon("pistol");
+            player.weaponCooldowns.clear();
+            player.weaponCooldownMaxima.clear();
             player.cooldown = 0;
             player.cooldownMax = 0;
             player.firing = false;

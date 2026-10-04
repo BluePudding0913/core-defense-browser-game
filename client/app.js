@@ -270,6 +270,7 @@ function connect() {
         if (connectionTarget.mode === "directory") {
             menuStatus.textContent = "";
             createRoomButton.disabled = false;
+            setMenuView("home");
             connectingSocket.send("LIST_ROOMS");
         } else {
             menuStatus.textContent = "ゲームサーバーからマップデータを受信しています…";
@@ -309,7 +310,7 @@ function connect() {
         }
         if (message.type === "state") receiveState(message);
         if (message.type === "log") receiveLog(message.version, message.message);
-        if (message.type === "effect" && ["hit", "core-pulse", "pickup"].includes(message.effect)) {
+        if (message.type === "effect" && ["hit", "core-pulse", "pickup", "player-hit"].includes(message.effect)) {
             hitEffects.push({ ...message, started: performance.now() });
             if (hitEffects.length > 100) hitEffects.shift();
         }
@@ -356,6 +357,8 @@ function switchConnection(target) {
 
 function enterRoom(roomId) {
     if (typeof roomId !== "string" || !roomId) return;
+    setMenuView("lobby");
+    hitEffects = [];
     state = undefined;
     myPlayerId = undefined;
     roomBrowser.classList.add("hidden");
@@ -369,6 +372,8 @@ function enterRoom(roomId) {
 }
 
 function leaveRoom() {
+    setMenuView("home");
+    hitEffects = [];
     state = undefined;
     myPlayerId = undefined;
     predictedLocal = null;
@@ -495,6 +500,15 @@ function showRoundIntro(round) {
     roundIntroTimer = setTimeout(() => roundIntro.classList.remove("show"), 2400);
 }
 
+function setMenuView(view) {
+    menu.dataset.view = view;
+}
+document.querySelector("#join-rooms").addEventListener("click", () => {
+    setMenuView("join");
+    refreshRoomsButton.click();
+});
+document.querySelector("#back-rooms").addEventListener("click", () => setMenuView("home"));
+
 startButton.addEventListener("click", () => send("START"));
 readyRoomButton.addEventListener("click", () => {
     const me = getMe();
@@ -502,6 +516,7 @@ readyRoomButton.addEventListener("click", () => {
 });
 createRoomButton.addEventListener("click", () => {
     if (connectionTarget.mode !== "directory" || socket?.readyState !== WebSocket.OPEN) return;
+    setMenuView("lobby");
     socket.send(`CREATE_ROOM:${nameInput.value || "Player"}`);
     createRoomButton.disabled = true;
     menuStatus.textContent = "ルームを作成しています…";
@@ -515,8 +530,8 @@ leaveRoomButton.addEventListener("click", leaveRoom);
 
 function equipmentEntries(me) {
     const entries = [
-        { key: "weapon:pistol", kind: "weapon", value: "pistol", label: "PISTOL" },
         { key: "weapon:bat", kind: "weapon", value: "bat", label: "BAT" },
+        { key: "weapon:pistol", kind: "weapon", value: "pistol", label: "PISTOL" },
     ];
     if (me.ownsShotgun) entries.push({ key: "weapon:shotgun", kind: "weapon", value: "shotgun", label: "SHOTGUN" });
     if (me.ownsSmg) entries.push({ key: "weapon:smg", kind: "weapon", value: "smg", label: "SMG" });
@@ -919,12 +934,12 @@ function canBuildAt(point, forCore = false) {
             && point.x >= area.x && point.x <= area.x + area.width
             && point.y >= area.y && point.y <= area.y + area.height)) return false;
     if (!forCore && distance(point, state.core) < 40) return false;
-    if (distance(point, ARMORY) < 70 || distance(point, MED) < 70
-            || distance(point, WOODCUTTER) < 70 || distance(point, QUARRY) < 70) return false;
-    if (WORKBENCHES.some(workbench => distance(point, workbench) < 70)) return false;
-    if (SHOP_UNITS.some(shop => distance(point, shop) < 55)) return false;
-    if (BREAKER_TERMINALS.some(breaker => distance(point, breaker) < 55)) return false;
-    if (PREP_CONSOLE && distance(point, PREP_CONSOLE) < 60) return false;
+    if (distance(point, ARMORY) < 36 || distance(point, MED) < 36
+            || distance(point, WOODCUTTER) < 36 || distance(point, QUARRY) < 36) return false;
+    if (WORKBENCHES.some(workbench => distance(point, workbench) < 36)) return false;
+    if (SHOP_UNITS.some(shop => distance(point, shop) < 36)) return false;
+    if (BREAKER_TERMINALS.some(breaker => distance(point, breaker) < 36)) return false;
+    if (PREP_CONSOLE && distance(point, PREP_CONSOLE) < 36) return false;
     if ((state.resources || []).some(node => distance(point, node) < 36)) return false;
     if (SPAWN_POINTS.some(spawn => distance(point, spawn) < 80)) return false;
     if (state.slots.some(slot => slot.defense && distance(point, slot) < (forCore ? 45 : 36))) return false;
@@ -1789,13 +1804,24 @@ function drawPlayers() {
         ctx.save();
         if (player.down) { ctx.translate(p.x, p.y + 8); ctx.scale(1.35, .65); }
         else ctx.translate(p.x, p.y);
-        ctx.fillStyle = player.down ? "#ff5964" : player.id === myPlayerId ? "#79d8ff" : "#d8d8d8";
+        const hit = hitEffects.findLast(effect => effect.effect === "player-hit"
+            && effect.playerId === player.id && performance.now() - effect.started < 300);
+        if (hit) {
+            ctx.save();
+            ctx.globalAlpha = .3 * (1 - (performance.now() - hit.started) / 300);
+            ctx.fillStyle = "#ff3948";
+            ctx.shadowColor = "#ff3948";
+            ctx.shadowBlur = 8;
+            ctx.fillRect(-9, -9, 18, 18);
+            ctx.restore();
+        }
+        ctx.fillStyle = hit || player.down ? "#ff5964" : "#454545";
         const playerSize = 10;
         ctx.fillRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize);
         if (player.id === myPlayerId) { ctx.strokeStyle = "white"; ctx.lineWidth = 1.5; ctx.strokeRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize); }
         ctx.restore();
         if (player.id === myPlayerId) drawLocalWeaponCooldown(p.x, p.y, player);
-        ctx.textAlign = "center"; ctx.fillStyle = "#a8a8a8"; ctx.font = "800 11px system-ui";
+        ctx.textAlign = "center"; ctx.fillStyle = "#454545"; ctx.font = "800 11px system-ui";
         ctx.fillText(player.down ? `${player.name} — DOWN` : player.name, p.x, p.y - 14);
 
     }
@@ -1848,6 +1874,7 @@ function drawHitEffects() {
             || (effect.credits > 0 || effect.headshot) && effect.playerId === myPlayerId
             ? 900 : 360));
     for (const effect of hitEffects) {
+        if (effect.effect === "player-hit") continue;
         if (effect.effect === "core-pulse") {
             const progress = (now - effect.started) / 900;
             ctx.save();

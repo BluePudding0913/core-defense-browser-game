@@ -170,21 +170,21 @@ final class GameMap {
         if (tile == null || !tile.buildable() || !canOccupy(point.x(), point.y(), 15, unlockedAreas)) {
             return false;
         }
-        if (GameSupport.distance(point.x(), point.y(), ARMORY_X, ARMORY_Y) < 70
-                || GameSupport.distance(point.x(), point.y(), MED_X, MED_Y) < 70
-                || GameSupport.distance(point.x(), point.y(), WOODCUTTER_X, WOODCUTTER_Y) < 70
-                || GameSupport.distance(point.x(), point.y(), QUARRY_X, QUARRY_Y) < 70) {
+        if (GameSupport.distance(point.x(), point.y(), ARMORY_X, ARMORY_Y) < 36
+                || GameSupport.distance(point.x(), point.y(), MED_X, MED_Y) < 36
+                || GameSupport.distance(point.x(), point.y(), WOODCUTTER_X, WOODCUTTER_Y) < 36
+                || GameSupport.distance(point.x(), point.y(), QUARRY_X, QUARRY_Y) < 36) {
             return false;
         }
         if (WORKBENCH_UNITS.stream().anyMatch(workbench ->
-                GameSupport.distance(point.x(), point.y(), workbench.x(), workbench.y()) < 70)) {
+                GameSupport.distance(point.x(), point.y(), workbench.x(), workbench.y()) < 36)) {
             return false;
         }
         if (SHOP_UNITS.stream().anyMatch(shop ->
-                GameSupport.distance(point.x(), point.y(), shop.x(), shop.y()) < 55)) return false;
+                GameSupport.distance(point.x(), point.y(), shop.x(), shop.y()) < 36)) return false;
         if (BREAKER_TERMINALS.stream().anyMatch(breaker ->
-                GameSupport.distance(point.x(), point.y(), breaker.x(), breaker.y()) < 55)) return false;
-        if (GameSupport.distance(point.x(), point.y(), PREP_CONSOLE.x(), PREP_CONSOLE.y()) < 60) {
+                GameSupport.distance(point.x(), point.y(), breaker.x(), breaker.y()) < 36)) return false;
+        if (GameSupport.distance(point.x(), point.y(), PREP_CONSOLE.x(), PREP_CONSOLE.y()) < 36) {
             return false;
         }
         if (RESOURCE_NODES.stream().anyMatch(node ->
@@ -201,21 +201,21 @@ final class GameMap {
         if (tile == null || !tile.buildable() || !canOccupy(point.x(), point.y(), 15, unlockedAreas)) {
             return false;
         }
-        if (GameSupport.distance(point.x(), point.y(), ARMORY_X, ARMORY_Y) < 70
-                || GameSupport.distance(point.x(), point.y(), MED_X, MED_Y) < 70
-                || GameSupport.distance(point.x(), point.y(), WOODCUTTER_X, WOODCUTTER_Y) < 70
-                || GameSupport.distance(point.x(), point.y(), QUARRY_X, QUARRY_Y) < 70) {
+        if (GameSupport.distance(point.x(), point.y(), ARMORY_X, ARMORY_Y) < 36
+                || GameSupport.distance(point.x(), point.y(), MED_X, MED_Y) < 36
+                || GameSupport.distance(point.x(), point.y(), WOODCUTTER_X, WOODCUTTER_Y) < 36
+                || GameSupport.distance(point.x(), point.y(), QUARRY_X, QUARRY_Y) < 36) {
             return false;
         }
         if (WORKBENCH_UNITS.stream().anyMatch(workbench ->
-                GameSupport.distance(point.x(), point.y(), workbench.x(), workbench.y()) < 70)) {
+                GameSupport.distance(point.x(), point.y(), workbench.x(), workbench.y()) < 36)) {
             return false;
         }
         if (SHOP_UNITS.stream().anyMatch(shop ->
-                GameSupport.distance(point.x(), point.y(), shop.x(), shop.y()) < 55)) return false;
+                GameSupport.distance(point.x(), point.y(), shop.x(), shop.y()) < 36)) return false;
         if (BREAKER_TERMINALS.stream().anyMatch(breaker ->
-                GameSupport.distance(point.x(), point.y(), breaker.x(), breaker.y()) < 55)) return false;
-        if (GameSupport.distance(point.x(), point.y(), PREP_CONSOLE.x(), PREP_CONSOLE.y()) < 60) {
+                GameSupport.distance(point.x(), point.y(), breaker.x(), breaker.y()) < 36)) return false;
+        if (GameSupport.distance(point.x(), point.y(), PREP_CONSOLE.x(), PREP_CONSOLE.y()) < 36) {
             return false;
         }
         if (RESOURCE_NODES.stream().anyMatch(node ->

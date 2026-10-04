@@ -127,7 +127,7 @@ button, input { font: inherit; }
 .notice {
     position: absolute;
     left: max(.9rem, env(safe-area-inset-left));
-    bottom: calc(max(.9rem, env(safe-area-inset-bottom)) + 6.35rem);
+    bottom: calc(max(.9rem, env(safe-area-inset-bottom)) + 8rem);
     z-index: 3;
     display: grid;
     gap: .22rem;
@@ -583,6 +583,15 @@ button, input { font: inherit; }
 
 @media (max-height: 520px) { .menu { align-content: start; gap: .6rem; padding: 1rem; } .menu h1 { font-size: 2rem; } }
 
-.join-rooms summary { cursor: pointer; padding: .65rem; color: #bbb; font-size: .85rem; }
-.join-rooms[open] summary { margin-bottom: .5rem; }
 #room-owner { display: none; }
+
+.menu .join-rooms { display: none; }
+.menu[data-view="join"] .join-rooms { display: block; }
+.menu[data-view="join"] > h1,
+.menu[data-view="join"] > label,
+.menu[data-view="join"] > #menu-status,
+.menu[data-view="join"] #create-room,
+.menu[data-view="join"] #join-rooms,
+.menu[data-view="join"] #how-to-start,
+.menu[data-view="lobby"] > h1,
+.menu[data-view="lobby"] #how-to-start { display: none; }

@@ -71,8 +71,8 @@
     ]
   },
   "areas": [
-    {"id":"entry-room","name":"ENTRY ROOM","x":920,"y":1280,"width":240,"height":400,"terminalX":1020,"terminalY":1700,"labelX":820,"labelY":1480,"color":"#ffffff","detail":"最初の6×10区画。MED BAY、WORKBENCH、SHOTGUNを利用可能"},
-    {"id":"transit-hall","name":"TRANSIT HALL","x":1160,"y":1040,"width":320,"height":160,"terminalX":1140,"terminalY":1180,"labelX":1320,"labelY":1020,"color":"#ffffff","detail":"一本道上の中継防衛区画"},
+    {"id":"entry-room","name":"ENTRY ROOM","x":920,"y":1280,"width":240,"height":400,"terminalX":1020,"terminalY":1700,"labelX":1260,"labelY":1540,"color":"#ffffff","detail":"最初の6×10区画。MED BAY、WORKBENCH、SHOTGUNを利用可能"},
+    {"id":"transit-hall","name":"TRANSIT HALL","x":1160,"y":1040,"width":320,"height":160,"terminalX":1140,"terminalY":1180,"labelX":1100,"labelY":1000,"color":"#ffffff","detail":"一本道上の中継防衛区画"},
     {"id":"armory-wing","name":"ARMORY WING","x":1480,"y":840,"width":320,"height":320,"terminalX":1460,"terminalY":1140,"labelX":1360,"labelY":980,"color":"#ffffff","detail":"SMGと次の通路を解放"},
     {"id":"forest","name":"FOREST LAB","x":1400,"y":400,"width":400,"height":320,"terminalX":1620,"terminalY":740,"labelX":1280,"labelY":560,"color":"#ffffff","detail":"近づくだけで木材を回収できる森林区画"},
     {"id":"relay-gallery","name":"RELAY GALLERY","x":1040,"y":280,"width":360,"height":160,"terminalX":1380,"terminalY":340,"labelX":1220,"labelY":460,"color":"#ffffff","detail":"一本道を守る横長の中継区画"},

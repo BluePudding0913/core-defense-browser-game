@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 class GameplayRevisionTest {
     GameSession game;
     Player player;
+    final java.util.List<String> broadcasts = new java.util.ArrayList<>();
 
     @Test void runnerActuallyTravelsMoreThanTwiceAsFarAsGrunt() throws Exception {
         Method spawn = GameSession.class.getDeclaredMethod("spawnEnemy", String.class, SpawnPoint.class);
@@ -66,7 +67,7 @@ class GameplayRevisionTest {
 
     @BeforeEach void setup() {
         game = new GameSession(new GameEventSink() {
-            public void broadcast(String message) { }
+            public void broadcast(String message) { broadcasts.add(message); }
             public void send(Player recipient, String message) { }
         });
         player = game.connectPlayer("revision-session");
@@ -363,5 +364,55 @@ class GameplayRevisionTest {
         assertFalse(bot.movingCore);
         assertEquals(1020, game.coreX);
         assertEquals(1540, game.coreY);
+    }
+
+    @Test void weaponCooldownsStayIndependentAndContinueWhileUnequipped() {
+        player.ownsShotgun = true;
+        player.shotgunAmmo = 10;
+        game.handleMessage(player, "WEAPON:shotgun");
+        game.handleMessage(player, "FIRE:1020:1800:1");
+        double shotgunWait = player.cooldown;
+        assertTrue(shotgunWait > 0);
+        assertEquals(9, player.shotgunAmmo);
+        game.handleMessage(player, "WEAPON:pistol");
+        assertEquals(0, player.cooldown);
+        game.handleMessage(player, "FIRE:1020:1800:1");
+        assertTrue(player.cooldown > 0);
+        game.handleMessage(player, "WEAPON:shotgun");
+        assertEquals(shotgunWait, player.cooldown);
+        game.handleMessage(player, "FIRE:1020:1800:1");
+        assertEquals(9, player.shotgunAmmo);
+        game.handleMessage(player, "WEAPON:bat");
+        game.update(.1);
+        game.handleMessage(player, "WEAPON:shotgun");
+        assertEquals(shotgunWait - .1, player.cooldown, 1e-6);
+        game.handleMessage(player, "WEAPON:bat");
+        game.update(shotgunWait);
+        game.handleMessage(player, "WEAPON:shotgun");
+        assertEquals(0, player.cooldown);
+    }
+
+    @Test void facilitiesAllowAdjacentPlacementButRejectTheirOwnTile() {
+        Set<String> unlocked = GameMap.AREAS.stream().map(UnlockArea::id)
+                .collect(java.util.stream.Collectors.toSet());
+        for (MapPoint station : List.of(new MapPoint(GameMap.MED_X, GameMap.MED_Y),
+                new MapPoint(GameMap.WORKBENCH_X, GameMap.WORKBENCH_Y))) {
+            assertFalse(GameMap.canPlaceDefense(station.x(), station.y(), unlocked));
+            assertFalse(GameMap.canPlaceCore(station.x(), station.y(), unlocked));
+            assertTrue(GameMap.canPlaceDefense(station.x(), station.y() + 40, unlocked));
+            assertTrue(GameMap.canPlaceCore(station.x(), station.y() + 40, unlocked));
+        }
+    }
+
+    @Test void playerDamageBroadcastsAnEffectIncludingTheVictim() throws Exception {
+        Method damage = GameSession.class.getDeclaredMethod("damagePlayer", Player.class, double.class);
+        damage.setAccessible(true);
+        broadcasts.clear();
+        damage.invoke(game, player, 10.0);
+        assertTrue(broadcasts.stream().anyMatch(message -> message.contains("player-hit")
+                && message.contains(player.id)));
+        broadcasts.clear();
+        damage.invoke(game, player, 0.0);
+        assertTrue(broadcasts.isEmpty());
     }
 }
