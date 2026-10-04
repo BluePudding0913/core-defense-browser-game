@@ -507,8 +507,7 @@ function updateRoomLobby(snapshot) {
     startButton.disabled = !isOwner || !snapshot.allReady;
     menuStatus.textContent = snapshot.phase === "won" ? "防衛成功"
         : snapshot.phase === "lost" ? "防衛失敗"
-            : snapshot.allReady ? isOwner ? "" : "作成者の開始待ち"
-                : "";
+            : "";
 }
 
 function reconcileEnemySmoothing(next) {
