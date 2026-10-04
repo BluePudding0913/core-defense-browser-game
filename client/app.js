@@ -13,6 +13,8 @@ const roomMembers = document.querySelector("#room-members");
 const roomCode = document.querySelector("#room-code");
 const roomOwner = document.querySelector("#room-owner");
 const createRoomButton = document.querySelector("#create-room");
+const joinRoomsButton = document.querySelector("#join-rooms");
+let creatingRoom = false;
 const refreshRoomsButton = document.querySelector("#refresh-rooms");
 const readyRoomButton = document.querySelector("#ready-room");
 const leaveRoomButton = document.querySelector("#leave-room");
@@ -258,6 +260,8 @@ function connect() {
     menuStatus.textContent = connectionTarget.mode === "directory"
         ? "ルーム一覧に接続しています…" : "ルームに接続しています…";
     socket = new WebSocket(`${protocol}://${host}:${serverPort}/?${parameters}`);
+    creatingRoom = false;
+    updateRoomButtons();
     const connectingSocket = socket;
     clearTimeout(connectionAttemptTimer);
     connectionAttemptTimer = setTimeout(() => {
@@ -270,7 +274,7 @@ function connect() {
         clearTimeout(connectionAttemptTimer);
         if (connectionTarget.mode === "directory") {
             menuStatus.textContent = "";
-            createRoomButton.disabled = false;
+            updateRoomButtons();
             setMenuView("home");
             connectingSocket.send("LIST_ROOMS");
         } else {
@@ -317,7 +321,9 @@ function connect() {
         }
         if (message.type === "feedback" || message.type === "error") showFeedback(message.message);
         if (message.type === "error" && connectionTarget.mode === "directory") {
-            createRoomButton.disabled = false;
+            creatingRoom = false;
+            updateRoomButtons();
+            menuStatus.textContent = message.message;
         }
     });
     socket.addEventListener("close", () => {
@@ -335,7 +341,8 @@ function connect() {
         menuStatus.textContent = connectionTarget.mode === "directory"
             ? "ルーム一覧から切断されました。再接続します…"
             : "ルームから切断されました。再接続します…";
-        createRoomButton.disabled = true;
+        creatingRoom = false;
+        updateRoomButtons();
         startButton.disabled = true;
         clearTimeout(reconnectTimer);
         reconnectTimer = setTimeout(connect, 2000);
@@ -364,7 +371,7 @@ function enterRoom(roomId) {
     myPlayerId = undefined;
     roomBrowser.classList.add("hidden");
     roomLobby.classList.remove("hidden");
-    nameInput.closest("label").classList.add("hidden");
+    nameInput.classList.add("hidden");
     roomCode.textContent = `ROOM ${roomId.toUpperCase()}`;
     roomMembers.innerHTML = "";
     readyRoomButton.disabled = true;
@@ -380,7 +387,7 @@ function leaveRoom() {
     predictedLocal = null;
     roomLobby.classList.add("hidden");
     roomBrowser.classList.remove("hidden");
-    nameInput.closest("label").classList.remove("hidden");
+    nameInput.classList.remove("hidden");
     menu.classList.remove("hidden");
     hud.classList.add("hidden");
     switchConnection({ mode: "directory", roomId: null });
@@ -451,7 +458,7 @@ function updateRoomLobby(snapshot) {
     if (!["lobby", "won", "lost"].includes(snapshot.phase)) return;
     roomBrowser.classList.add("hidden");
     roomLobby.classList.remove("hidden");
-    nameInput.closest("label").classList.add("hidden");
+    nameInput.classList.add("hidden");
     roomCode.textContent = `ROOM ${String(snapshot.roomId || "").toUpperCase()}`;
     const owner = snapshot.players.find(player => player.id === snapshot.roomOwnerId);
     roomOwner.textContent = `作成者: ${owner?.name || "接続待ち"}`;
@@ -504,7 +511,16 @@ function showRoundIntro(round) {
 function setMenuView(view) {
     menu.dataset.view = view;
 }
-document.querySelector("#join-rooms").addEventListener("click", () => {
+function updateRoomButtons() {
+    const unavailable = !nameInput.value.trim() || creatingRoom
+        || connectionTarget.mode !== "directory" || socket?.readyState !== WebSocket.OPEN;
+    createRoomButton.disabled = unavailable;
+    joinRoomsButton.disabled = unavailable;
+}
+
+nameInput.addEventListener("input", updateRoomButtons);
+joinRoomsButton.addEventListener("click", () => {
+    if (joinRoomsButton.disabled) return;
     setMenuView("join");
     refreshRoomsButton.click();
 });
@@ -516,10 +532,11 @@ readyRoomButton.addEventListener("click", () => {
     if (me) send(`ROOM_READY:${me.ready ? 0 : 1}`);
 });
 createRoomButton.addEventListener("click", () => {
-    if (connectionTarget.mode !== "directory" || socket?.readyState !== WebSocket.OPEN) return;
-    setMenuView("lobby");
-    socket.send(`CREATE_ROOM:${nameInput.value || "Player"}`);
-    createRoomButton.disabled = true;
+    updateRoomButtons();
+    if (createRoomButton.disabled) return;
+    creatingRoom = true;
+    updateRoomButtons();
+    socket.send(`CREATE_ROOM:${nameInput.value.trim()}`);
     menuStatus.textContent = "ルームを作成しています…";
 });
 refreshRoomsButton.addEventListener("click", () => {

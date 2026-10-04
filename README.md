@@ -145,4 +145,6 @@ cd server
 
 ## 所持品UIの回帰確認
 
+ルーム周辺の回帰テストはプロジェクト直下で`node client/tests/rooms.cjs`を実行します。名前入力によるボタン切替、作成失敗後の再試行、参加・退出・再接続を確認します。サーバーをビルドした後、Node.js 22以上で`node client/tests/rooms-server.cjs`を実行すると、ローカルの一時サーバーで作成・一覧・2人参加・準備・開始を確認します。Windowsでは`JAVA_HOME`をJDKのフォルダーに設定してください。
+
 通常のブラウザ用サーバーを起動し、/client/tests/inventory.html を開くと、実際の所持品コードで通信更新を挟むドロップ操作・最新数量・キーボードフォーカス等の9項目を確認できます。PASS 9 checks が成功です。
