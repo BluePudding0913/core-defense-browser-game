@@ -95,11 +95,15 @@ final class SnapshotBuilder {
             json.append(",\"ownsShotgun\":").append(player.ownsShotgun)
                     .append(",\"ownsSmg\":").append(player.ownsSmg)
                     .append(",\"ownsRifle\":").append(player.ownsRifle)
-                    .append(",\"ownsSniper\":").append(player.ownsSniper);
+                    .append(",\"ownsSniper\":").append(player.ownsSniper)
+                    .append(",\"ownsRevolver\":").append(player.ownsRevolver)
+                    .append(",\"ownsLmg\":").append(player.ownsLmg);
             json.append(",\"shotgunAmmo\":").append(player.shotgunAmmo)
                     .append(",\"smgAmmo\":").append(player.smgAmmo)
                     .append(",\"rifleAmmo\":").append(player.rifleAmmo)
-                    .append(",\"sniperAmmo\":").append(player.sniperAmmo);
+                    .append(",\"sniperAmmo\":").append(player.sniperAmmo)
+                    .append(",\"revolverAmmo\":").append(player.revolverAmmo)
+                    .append(",\"lmgAmmo\":").append(player.lmgAmmo);
             json.append(",\"wood\":").append(player.wood)
                     .append(",\"ore\":").append(player.ore)
                     .append(",\"credits\":").append(player.credits)

@@ -77,6 +77,8 @@ const WEAPON_FIELDS = Object.freeze({
     smg: { owned: "ownsSmg", ammo: "smgAmmo", capacity: 90 },
     rifle: { owned: "ownsRifle", ammo: "rifleAmmo", capacity: 24 },
     sniper: { owned: "ownsSniper", ammo: "sniperAmmo", capacity: 16 },
+    revolver: { owned: "ownsRevolver", ammo: "revolverAmmo", capacity: 36 },
+    lmg: { owned: "ownsLmg", ammo: "lmgAmmo", capacity: 150 },
 });
 const WEAPON_AMMO_REFILL_COST = 120;
 const INTERACTION_RANGE = Object.freeze({
@@ -555,6 +557,8 @@ function equipmentEntries(me) {
     if (me.ownsSmg) entries.push({ key: "weapon:smg", kind: "weapon", value: "smg", label: "SMG" });
     if (me.ownsRifle) entries.push({ key: "weapon:rifle", kind: "weapon", value: "rifle", label: "RIFLE" });
     if (me.ownsSniper) entries.push({ key: "weapon:sniper", kind: "weapon", value: "sniper", label: "SNIPER" });
+    if (me.ownsRevolver) entries.push({ key: "weapon:revolver", kind: "weapon", value: "revolver", label: "REVOLVER" });
+    if (me.ownsLmg) entries.push({ key: "weapon:lmg", kind: "weapon", value: "lmg", label: "LMG" });
     for (const [type, info] of Object.entries(BUILD_INFO)) {
         if ((me.buildItems?.[type] || 0) > 0) entries.push({ key: `build:${type}`, kind: "build", value: type, label: info.name });
     }

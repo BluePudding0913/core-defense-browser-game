@@ -46,10 +46,14 @@ final class Player {
     boolean ownsSmg;
     boolean ownsRifle;
     boolean ownsSniper;
+    boolean ownsRevolver;
+    boolean ownsLmg;
     int shotgunAmmo;
     int smgAmmo;
     int rifleAmmo;
     int sniperAmmo;
+    int revolverAmmo;
+    int lmgAmmo;
     int wood;
     int ore;
     double gatherCooldown;

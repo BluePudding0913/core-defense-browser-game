@@ -84,7 +84,8 @@ class GameSessionTest {
     @Test
     void purchaseRequiresTheFacilityAndWeaponUnitRefillsItsAmmo() {
         startPreparing();
-        game.unlockedAreas.add("entry-room");
+        player.credits = 700;
+        game.unlockedAreas.addAll(Set.of("entry-room", "shotgun-room"));
         ShopUnit shotgunShop = GameMap.shopByItem("shotgun");
         player.x = shotgunShop.x();
         player.y = shotgunShop.y();
@@ -724,8 +725,9 @@ class GameSessionTest {
     @Test
     void cpuSpendsPersonalGoldOnAvailableWeapons() {
         startPreparing();
-        game.unlockedAreas.add("entry-room");
+        game.unlockedAreas.addAll(Set.of("entry-room", "shotgun-room"));
         Player bot = game.players.get(1);
+        bot.credits = 700;
 
         game.prepTime = 90;
         game.update(.05);
@@ -898,6 +900,7 @@ class GameSessionTest {
     @Test
     void timeControlExtendsPreparationByOneMinuteForTenGold() {
         startPreparing();
+        player.credits = 10;
         game.unlockedAreas.add(GameMap.PREP_CONSOLE.requiredArea());
         player.x = GameMap.PREP_CONSOLE.x();
         player.y = GameMap.PREP_CONSOLE.y();
@@ -913,6 +916,7 @@ class GameSessionTest {
     @Test
     void timeControlDuringWaveExtendsTheNextBreak() {
         startWave();
+        player.credits = 10;
         game.unlockedAreas.add(GameMap.PREP_CONSOLE.requiredArea());
         player.x = GameMap.PREP_CONSOLE.x();
         player.y = GameMap.PREP_CONSOLE.y();

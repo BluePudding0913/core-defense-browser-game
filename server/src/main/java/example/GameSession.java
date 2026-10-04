@@ -975,6 +975,8 @@ final class GameSession {
             case "smg" -> 210;
             case "rifle" -> 315;
             case "sniper" -> 450;
+            case "revolver" -> 250;
+            case "lmg" -> 290;
             default -> 215;
         };
         if (!clearShot || targetDistance > effectiveRange * 0.92) {
@@ -996,6 +998,10 @@ final class GameSession {
             bot.equipWeapon("sniper");
         } else if (targetDistance > 260 && bot.ownsRifle && bot.rifleAmmo > 0) {
             bot.equipWeapon("rifle");
+        } else if (bot.ownsLmg && bot.lmgAmmo > 0 && targetDistance <= 360) {
+            bot.equipWeapon("lmg");
+        } else if (bot.ownsRevolver && bot.revolverAmmo > 0 && targetDistance <= 360) {
+            bot.equipWeapon("revolver");
         } else if (targetDistance > 155 && bot.ownsSmg && bot.smgAmmo > 0) {
             bot.equipWeapon("smg");
         } else if (targetDistance <= 190 && bot.ownsShotgun && bot.shotgunAmmo > 0) {
@@ -1016,7 +1022,9 @@ final class GameSession {
         return bot.ownsShotgun && bot.shotgunAmmo > 0
                 || bot.ownsSmg && bot.smgAmmo > 0
                 || bot.ownsRifle && bot.rifleAmmo > 0
-                || bot.ownsSniper && bot.sniperAmmo > 0;
+                || bot.ownsSniper && bot.sniperAmmo > 0
+                || bot.ownsRevolver && bot.revolverAmmo > 0
+                || bot.ownsLmg && bot.lmgAmmo > 0;
     }
 
     private void moveBotToSaferPosition(Player bot, Enemy enemy) {
@@ -1233,10 +1241,10 @@ final class GameSession {
                 .min(Comparator.comparingDouble(slot -> distance(bot.x, bot.y, slot.x, slot.y))).orElse(null);
         if (damaged != null) return botUse(bot, damaged.x, damaged.y, 70, () -> repair(bot, damaged.id));
         List<String> preference = switch (bot.slot) {
-            case 1 -> List.of("shotgun", "rifle", "smg", "sniper");
-            case 2 -> List.of("smg", "shotgun", "sniper", "rifle");
-            case 3 -> List.of("rifle", "shotgun", "smg", "sniper");
-            default -> List.of("sniper", "smg", "shotgun", "rifle");
+            case 1 -> List.of("shotgun", "revolver", "rifle", "smg", "lmg", "sniper");
+            case 2 -> List.of("smg", "lmg", "shotgun", "revolver", "sniper", "rifle");
+            case 3 -> List.of("revolver", "rifle", "shotgun", "smg", "lmg", "sniper");
+            default -> List.of("sniper", "lmg", "smg", "shotgun", "revolver", "rifle");
         };
         for (String item : preference) {
             ShopUnit shop = GameMap.shopByItem(item);
@@ -1386,6 +1394,8 @@ final class GameSession {
             case "smg" -> bot.ownsSmg;
             case "rifle" -> bot.ownsRifle;
             case "sniper" -> bot.ownsSniper;
+            case "revolver" -> bot.ownsRevolver;
+            case "lmg" -> bot.ownsLmg;
             default -> true;
         };
     }
@@ -1396,6 +1406,8 @@ final class GameSession {
             case "smg" -> { bot.ownsSmg = true; bot.smgAmmo = 90; }
             case "rifle" -> { bot.ownsRifle = true; bot.rifleAmmo = 24; }
             case "sniper" -> { bot.ownsSniper = true; bot.sniperAmmo = 16; }
+            case "revolver" -> { bot.ownsRevolver = true; bot.revolverAmmo = 36; }
+            case "lmg" -> { bot.ownsLmg = true; bot.lmgAmmo = 150; }
             default -> { return; }
         }
         bot.equipWeapon(item);
@@ -1416,7 +1428,9 @@ final class GameSession {
         boolean empty = player.weapon.equals("shotgun") && player.shotgunAmmo <= 0
                 || player.weapon.equals("smg") && player.smgAmmo <= 0
                 || player.weapon.equals("rifle") && player.rifleAmmo <= 0
-                || player.weapon.equals("sniper") && player.sniperAmmo <= 0;
+                || player.weapon.equals("sniper") && player.sniperAmmo <= 0
+                || player.weapon.equals("revolver") && player.revolverAmmo <= 0
+                || player.weapon.equals("lmg") && player.lmgAmmo <= 0;
         if (empty) {
             feedback(player, "NO AMMO");
             player.firing = false;
@@ -1426,6 +1440,8 @@ final class GameSession {
         if (player.weapon.equals("smg")) player.smgAmmo--;
         if (player.weapon.equals("rifle")) player.rifleAmmo--;
         if (player.weapon.equals("sniper")) player.sniperAmmo--;
+        if (player.weapon.equals("revolver")) player.revolverAmmo--;
+        if (player.weapon.equals("lmg")) player.lmgAmmo--;
 
         player.cooldown = weapon.cooldown();
         player.cooldownMax = weapon.cooldown();
@@ -1515,6 +1531,8 @@ final class GameSession {
             case "smg" -> new WeaponStats(270, 12, 0.14, 0, 11);
             case "rifle" -> new WeaponStats(430, 58, 1.15, 0, 8);
             case "sniper" -> new WeaponStats(650, 125, 1.8, 0, 5);
+            case "revolver" -> new WeaponStats(360, 72, .85, 12, 7);
+            case "lmg" -> new WeaponStats(360, 18, .18, 0, 14);
             default -> new WeaponStats(285, 26, 0.38, 0, 10);
         };
     }
@@ -1580,7 +1598,9 @@ final class GameSession {
                 || weapon.equals("shotgun") && player.ownsShotgun
                 || weapon.equals("smg") && player.ownsSmg
                 || weapon.equals("rifle") && player.ownsRifle
-                || weapon.equals("sniper") && player.ownsSniper;
+                || weapon.equals("sniper") && player.ownsSniper
+                || weapon.equals("revolver") && player.ownsRevolver
+                || weapon.equals("lmg") && player.ownsLmg;
         if (owned) {
             releaseCarriedCore(player);
             player.equipWeapon(weapon);
@@ -1617,11 +1637,11 @@ final class GameSession {
             return;
         }
         switch (item) {
-            case "shotgun", "smg", "rifle", "sniper" ->
+            case "shotgun", "smg", "rifle", "sniper", "revolver", "lmg" ->
                     buyOrRefillWeapon(player, shop, item);
             case "ammo" -> {
                 if (!player.ownsShotgun && !player.ownsSmg
-                        && !player.ownsRifle && !player.ownsSniper) {
+                        && !player.ownsRifle && !player.ownsSniper && !player.ownsRevolver && !player.ownsLmg) {
                     feedback(player, "NO AMMO WEAPON");
                     return;
                 }
@@ -1630,6 +1650,8 @@ final class GameSession {
                     player.smgAmmo += player.ownsSmg ? 45 : 0;
                     player.rifleAmmo += player.ownsRifle ? 12 : 0;
                     player.sniperAmmo += player.ownsSniper ? 8 : 0;
+                    player.revolverAmmo += player.ownsRevolver ? 18 : 0;
+                    player.lmgAmmo += player.ownsLmg ? 75 : 0;
                     feedback(player, "AMMO REFILLED");
                 } else {
                     feedback(player, "NOT ENOUGH GOLD");
@@ -1669,6 +1691,8 @@ final class GameSession {
             case "smg" -> player.smgAmmo;
             case "rifle" -> player.rifleAmmo;
             case "sniper" -> player.sniperAmmo;
+            case "revolver" -> player.revolverAmmo;
+            case "lmg" -> player.lmgAmmo;
             default -> 0;
         };
     }
@@ -1679,6 +1703,8 @@ final class GameSession {
             case "smg" -> 90;
             case "rifle" -> 24;
             case "sniper" -> 16;
+            case "revolver" -> 36;
+            case "lmg" -> 150;
             default -> 0;
         };
     }
@@ -1689,6 +1715,8 @@ final class GameSession {
             case "smg" -> player.smgAmmo = ammo;
             case "rifle" -> player.rifleAmmo = ammo;
             case "sniper" -> player.sniperAmmo = ammo;
+            case "revolver" -> player.revolverAmmo = ammo;
+            case "lmg" -> player.lmgAmmo = ammo;
             default -> { }
         }
     }
@@ -2185,10 +2213,14 @@ final class GameSession {
             player.ownsSmg = false;
             player.ownsRifle = false;
             player.ownsSniper = false;
+            player.ownsRevolver = false;
+            player.ownsLmg = false;
             player.shotgunAmmo = 0;
             player.smgAmmo = 0;
             player.rifleAmmo = 0;
             player.sniperAmmo = 0;
+            player.revolverAmmo = 0;
+            player.lmgAmmo = 0;
             player.wood = 0;
             player.ore = 0;
             player.gatherCooldown = 0;

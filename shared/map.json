@@ -26,13 +26,13 @@
       "##.................................#################",
       "##.......................................###########",
       "##.......................................###########",
-      "##........################...................#######",
-      "##........#########################..........#######",
-      "###################################..........#######",
-      "###################################..........#######",
-      "###################################..........#######",
-      "###################################..........#######",
-      "###################################..........#######",
+      "##........###########.####...................#######",
+      "##........###########.#############..........#######",
+      "#####.#############....############..........#######",
+      "####....###########....######....##..........#######",
+      "####....###########....######....##..........#######",
+      "####....#####################................#######",
+      "#############################....##..........#######",
       "###################################..........#######",
       "########################################..##########",
       "########################################..##########",
@@ -40,9 +40,9 @@
       "#############################................#######",
       "#################################............#######",
       "#############################....####........#######",
-      "#############################....####........#######",
-      "#############################....####........#######",
-      "##############################..#####........#######",
+      "#############################....####........##....#",
+      "#############################....####..............#",
+      "##############################..#####........##....#",
       "##############################..#####........#######",
       "#########################....................#######",
       "#########################............###############",
@@ -55,10 +55,10 @@
       "##################...........#######################",
       "##################...........#######################",
       "##################....#......#######################",
-      "#######################......#######################",
-      "#######################......#######################",
-      "#######################......#######################",
-      "#######################......#######################",
+      "#######################......##....#################",
+      "#################....##............#################",
+      "#################............##....#################",
+      "#################....##......#######################",
       "######################.........#####################",
       "#####################...........####################",
       "####################............####################",
@@ -71,7 +71,7 @@
     ]
   },
   "areas": [
-    {"id":"entry-room","name":"ENTRY ROOM","terminalX":1020,"terminalY":1700,"labelX":900,"labelY":1340,"color":"#ffffff","detail":"最初の6×10区画。MED BAY、WORKBENCH、SHOTGUNを利用可能",
+    {"id":"entry-room","name":"ENTRY ROOM","terminalX":1020,"terminalY":1700,"labelX":900,"labelY":1340,"color":"#ffffff","detail":"Entry sector / MED BAY / WORKBENCH",
       "tiles": [
         {"column":23,"row":32},{"column":24,"row":32},{"column":25,"row":32},{"column":26,"row":32},{"column":27,"row":32},{"column":28,"row":32},
         {"column":23,"row":33},{"column":24,"row":33},{"column":25,"row":33},{"column":26,"row":33},{"column":27,"row":33},{"column":28,"row":33},
@@ -93,7 +93,7 @@
         {"column":29,"row":29},{"column":30,"row":29},{"column":31,"row":29},{"column":32,"row":29},{"column":33,"row":29},{"column":34,"row":29},{"column":35,"row":29},{"column":36,"row":29}
       ]
     },
-    {"id":"armory-wing","name":"ARMORY WING","terminalX":1460,"terminalY":1140,"labelX":1860,"labelY":1100,"color":"#ffffff","detail":"SMGと次の通路を解放",
+    {"id":"armory-wing","name":"ARMORY WING","terminalX":1460,"terminalY":1140,"labelX":1860,"labelY":1100,"color":"#ffffff","detail":"Main route / access to SMG ROOM",
       "tiles": [
         {"column":37,"row":21},{"column":38,"row":21},{"column":39,"row":21},{"column":40,"row":21},{"column":41,"row":21},{"column":42,"row":21},{"column":43,"row":21},{"column":44,"row":21},
         {"column":37,"row":22},{"column":38,"row":22},{"column":39,"row":22},{"column":40,"row":22},{"column":41,"row":22},{"column":42,"row":22},{"column":43,"row":22},{"column":44,"row":22},
@@ -105,7 +105,7 @@
         {"column":37,"row":28},{"column":38,"row":28},{"column":39,"row":28},{"column":40,"row":28},{"column":41,"row":28},{"column":42,"row":28},{"column":43,"row":28},{"column":44,"row":28}
       ]
     },
-    {"id":"forest","name":"FOREST LAB","terminalX":1620,"terminalY":740,"labelX":1280,"labelY":560,"color":"#ffffff","detail":"近づくだけで木材を回収できる森林区画",
+    {"id":"forest","name":"FOREST LAB","terminalX":1620,"terminalY":740,"labelX":1140,"labelY":580,"color":"#ffffff","detail":"近づくだけで木材を回収できる森林区画",
       "tiles": [
         {"column":35,"row":10},{"column":36,"row":10},{"column":37,"row":10},{"column":38,"row":10},{"column":39,"row":10},{"column":40,"row":10},{"column":41,"row":10},{"column":42,"row":10},{"column":43,"row":10},{"column":44,"row":10},
         {"column":35,"row":11},{"column":36,"row":11},{"column":37,"row":11},{"column":38,"row":11},{"column":39,"row":11},{"column":40,"row":11},{"column":41,"row":11},{"column":42,"row":11},{"column":43,"row":11},{"column":44,"row":11},
@@ -125,7 +125,7 @@
         {"column":26,"row":10},{"column":27,"row":10},{"column":28,"row":10},{"column":29,"row":10},{"column":30,"row":10},{"column":31,"row":10},{"column":32,"row":10},{"column":33,"row":10},{"column":34,"row":10}
       ]
     },
-    {"id":"mine","name":"MINE LAB","terminalX":1060,"terminalY":340,"labelX":860,"labelY":420,"color":"#ffffff","detail":"近づくだけで鉱石を回収できる採掘区画",
+    {"id":"mine","name":"MINE LAB","terminalX":1060,"terminalY":340,"labelX":940,"labelY":420,"color":"#ffffff","detail":"近づくだけで鉱石を回収できる採掘区画",
       "tiles": [
         {"column":17,"row":2},{"column":18,"row":2},{"column":19,"row":2},{"column":20,"row":2},{"column":21,"row":2},{"column":22,"row":2},{"column":23,"row":2},{"column":24,"row":2},{"column":25,"row":2},
         {"column":17,"row":3},{"column":18,"row":3},{"column":19,"row":3},{"column":20,"row":3},{"column":21,"row":3},{"column":22,"row":3},{"column":23,"row":3},{"column":24,"row":3},{"column":25,"row":3},
@@ -146,7 +146,7 @@
         {"column":10,"row":9},{"column":11,"row":9},{"column":12,"row":9},{"column":13,"row":9},{"column":14,"row":9},{"column":15,"row":9},{"column":16,"row":9}
       ]
     },
-    {"id":"command-room","name":"COMMAND ROOM","terminalX":420,"terminalY":260,"labelX":240,"labelY":60,"color":"#ffffff","detail":"最奥の防衛拠点。SNIPERを利用可能",
+    {"id":"command-room","name":"COMMAND ROOM","terminalX":420,"terminalY":260,"labelX":240,"labelY":60,"color":"#ffffff","detail":"Deep defense sector / access to SNIPER ROOM",
       "tiles": [
         {"column":2,"row":2},{"column":3,"row":2},{"column":4,"row":2},{"column":5,"row":2},{"column":6,"row":2},{"column":7,"row":2},{"column":8,"row":2},{"column":9,"row":2},
         {"column":2,"row":3},{"column":3,"row":3},{"column":4,"row":3},{"column":5,"row":3},{"column":6,"row":3},{"column":7,"row":3},{"column":8,"row":3},{"column":9,"row":3},
@@ -180,6 +180,52 @@
         {"column":29,"row":23},{"column":30,"row":23},{"column":31,"row":23},{"column":32,"row":23},
         {"column":29,"row":24},{"column":30,"row":24},{"column":31,"row":24},{"column":32,"row":24},
         {"column":29,"row":25},{"column":30,"row":25},{"column":31,"row":25},{"column":32,"row":25}
+      ]
+    },
+    {"id":"shotgun-room","name":"SHOTGUN ROOM","terminalX":1180,"terminalY":1580,"labelX":1340,"labelY":1700,"color":"#ffffff","detail":"Spread shot / 30 rounds",
+      "tiles": [
+        {"column":31,"row":39},{"column":32,"row":39},{"column":33,"row":39},{"column":34,"row":39},
+        {"column":29,"row":40},{"column":30,"row":40},{"column":31,"row":40},{"column":32,"row":40},{"column":33,"row":40},{"column":34,"row":40},
+        {"column":31,"row":41},{"column":32,"row":41},{"column":33,"row":41},{"column":34,"row":41}
+      ]
+    },
+    {"id":"revolver-room","name":"REVOLVER ROOM","terminalX":900,"terminalY":1620,"labelX":740,"labelY":1740,"color":"#ffffff","detail":"High damage / 36 rounds",
+      "tiles": [
+        {"column":17,"row":40},{"column":18,"row":40},{"column":19,"row":40},{"column":20,"row":40},
+        {"column":21,"row":41},{"column":22,"row":41},{"column":17,"row":41},{"column":18,"row":41},{"column":19,"row":41},{"column":20,"row":41},
+        {"column":17,"row":42},{"column":18,"row":42},{"column":19,"row":42},{"column":20,"row":42}
+      ]
+    },
+    {"id":"smg-room","name":"SMG ROOM","terminalX":1820,"terminalY":980,"labelX":1940,"labelY":940,"color":"#ffffff","detail":"Rapid fire / 90 rounds",
+      "tiles": [
+        {"column":47,"row":24},{"column":48,"row":24},{"column":49,"row":24},{"column":50,"row":24},
+        {"column":45,"row":25},{"column":46,"row":25},{"column":47,"row":25},{"column":48,"row":25},{"column":49,"row":25},{"column":50,"row":25},
+        {"column":47,"row":26},{"column":48,"row":26},{"column":49,"row":26},{"column":50,"row":26}
+      ]
+    },
+    {"id":"lmg-room","name":"LMG ROOM","terminalX":1380,"terminalY":580,"labelX":1220,"labelY":500,"color":"#ffffff","detail":"Sustained fire / 150 rounds",
+      "tiles": [
+        {"column":29,"row":13},{"column":30,"row":13},{"column":31,"row":13},{"column":32,"row":13},
+        {"column":29,"row":14},{"column":30,"row":14},{"column":31,"row":14},{"column":32,"row":14},
+        {"column":33,"row":15},{"column":34,"row":15},{"column":29,"row":15},{"column":30,"row":15},{"column":31,"row":15},{"column":32,"row":15},
+        {"column":29,"row":16},{"column":30,"row":16},{"column":31,"row":16},{"column":32,"row":16}
+      ]
+    },
+    {"id":"rifle-room","name":"RIFLE ROOM","terminalX":820,"terminalY":420,"labelX":820,"labelY":620,"color":"#ffffff","detail":"Long range / 24 rounds",
+      "tiles": [
+        {"column":21,"row":10},
+        {"column":21,"row":11},
+        {"column":19,"row":12},{"column":20,"row":12},{"column":21,"row":12},{"column":22,"row":12},
+        {"column":19,"row":13},{"column":20,"row":13},{"column":21,"row":13},{"column":22,"row":13},
+        {"column":19,"row":14},{"column":20,"row":14},{"column":21,"row":14},{"column":22,"row":14}
+      ]
+    },
+    {"id":"sniper-room","name":"SNIPER ROOM","terminalX":180,"terminalY":500,"labelX":340,"labelY":580,"color":"#ffffff","detail":"Precision shot / 16 rounds",
+      "tiles": [
+        {"column":5,"row":12},
+        {"column":4,"row":13},{"column":5,"row":13},{"column":6,"row":13},{"column":7,"row":13},
+        {"column":4,"row":14},{"column":5,"row":14},{"column":6,"row":14},{"column":7,"row":14},
+        {"column":4,"row":15},{"column":5,"row":15},{"column":6,"row":15},{"column":7,"row":15}
       ]
     }
   ],
@@ -223,10 +269,12 @@
     {"id":"ore-4","type":"ore","x":900,"y":300,"requiredArea":"mine"}
   ],
   "shopUnits": [
-    {"id":"shop-shotgun","item":"shotgun","label":"SHOTGUN","x":940,"y":1340,"cost":450,"detail":"範囲攻撃 / 30発"},
-    {"id":"shop-smg","item":"smg","label":"SMG","x":1540,"y":940,"cost":550,"detail":"高速連射 / 90発"},
-    {"id":"shop-ammo","item":"ammo","label":"AMMO","x":1740,"y":660,"cost":120,"detail":"SG +16 / SMG +45 / RF +12 / SR +8"},
-    {"id":"shop-rifle","item":"rifle","label":"RIFLE","x":980,"y":220,"cost":650,"detail":"長射程 / 24発"},
-    {"id":"shop-sniper","item":"sniper","label":"SNIPER","x":140,"y":140,"cost":900,"detail":"超長射程・高威力 / 16発"}
+    {"id":"shop-shotgun","item":"shotgun","label":"SHOTGUN","x":1340,"y":1620,"cost":450,"detail":"Spread shot / 30 rounds"},
+    {"id":"shop-smg","item":"smg","label":"SMG","x":1980,"y":1020,"cost":550,"detail":"Rapid fire / 90 rounds"},
+    {"id":"shop-ammo","item":"ammo","label":"AMMO","x":1740,"y":660,"cost":120,"detail":"SG +16 / SMG +45 / RF +12 / SR +8 / RV +18 / LMG +75"},
+    {"id":"shop-rifle","item":"rifle","label":"RIFLE","x":820,"y":540,"cost":650,"detail":"Long range / 24 rounds"},
+    {"id":"shop-sniper","item":"sniper","label":"SNIPER","x":220,"y":580,"cost":900,"detail":"Precision shot / 16 rounds"},
+    {"id":"shop-revolver","item":"revolver","label":"REVOLVER","x":740,"y":1660,"cost":500,"detail":"High damage / 36 rounds"},
+    {"id":"shop-lmg","item":"lmg","label":"LMG","x":1220,"y":580,"cost":850,"detail":"Sustained fire / 150 rounds"}
   ]
 }

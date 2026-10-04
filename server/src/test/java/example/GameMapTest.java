@@ -15,6 +15,58 @@ import org.junit.jupiter.api.Test;
 
 class GameMapTest {
     @Test
+    void weaponShopsAreInSeparateUnlockableSideRoomsConnectedToTheMainRoute() {
+        Set<String> weapons = Set.of("shotgun", "smg", "rifle", "sniper", "revolver", "lmg");
+        Set<String> mainAreas = GameMap.AREAS.stream().map(UnlockArea::id)
+                .filter(id -> weapons.stream().noneMatch(weapon -> id.equals(weapon + "-room")))
+                .collect(Collectors.toSet());
+        Set<AreaTile> mainFloor = reachableTiles(mainAreas);
+        for (String weapon : weapons) {
+            ShopUnit shop = GameMap.shopByItem(weapon);
+            UnlockArea room = GameMap.areaById(weapon + "-room");
+            assertTrue(room.contains(shop.x(), shop.y()));
+            AreaTile shopTile = new AreaTile((int) (shop.x() / GameMap.TILE_SIZE),
+                    (int) (shop.y() / GameMap.TILE_SIZE));
+            assertFalse(mainFloor.contains(shopTile), weapon + " must be locked");
+            boolean terminalReachable = false;
+            for (int[] offset : new int[][]{{1,0},{-1,0},{0,1},{0,-1}}) {
+                terminalReachable |= mainFloor.contains(new AreaTile(
+                        (int) (room.terminalX() / GameMap.TILE_SIZE) + offset[0],
+                        (int) (room.terminalY() / GameMap.TILE_SIZE) + offset[1]));
+            }
+            assertTrue(terminalReachable, weapon + " terminal must be accessible before unlocking");
+            Set<String> opened = new java.util.HashSet<>(mainAreas);
+            opened.add(room.id());
+            assertTrue(reachableTiles(opened).contains(shopTile), weapon + " room must connect to the main route");
+        }
+        for (SpawnPoint spawn : GameMap.SPAWN_POINTS) {
+            if (GameMap.spawnArea(spawn) != null) continue;
+            for (MapPoint point : spawn.route()) {
+                assertTrue(mainFloor.contains(new AreaTile((int) (point.x() / GameMap.TILE_SIZE),
+                        (int) (point.y() / GameMap.TILE_SIZE))), "weapon rooms must not block the main route");
+            }
+        }
+    }
+
+    private static Set<AreaTile> reachableTiles(Set<String> unlocked) {
+        Set<AreaTile> visited = new java.util.HashSet<>();
+        Set<AreaTile> reachable = new java.util.HashSet<>();
+        var queue = new java.util.ArrayDeque<AreaTile>();
+        queue.add(new AreaTile((int) (GameMap.CORE_X / GameMap.TILE_SIZE),
+                (int) (GameMap.CORE_Y / GameMap.TILE_SIZE)));
+        while (!queue.isEmpty()) {
+            AreaTile tile = queue.remove();
+            if (!visited.add(tile) || !GameMap.canOccupy((tile.column() + .5) * GameMap.TILE_SIZE,
+                    (tile.row() + .5) * GameMap.TILE_SIZE, 5, unlocked)) continue;
+            reachable.add(tile);
+            for (int[] delta : new int[][]{{1,0},{-1,0},{0,1},{0,-1}}) {
+                queue.add(new AreaTile(tile.column() + delta[0], tile.row() + delta[1]));
+            }
+        }
+        return reachable;
+    }
+
+    @Test
     void concaveAreasLeaveTheirMissingCornerAvailableToAnotherArea() {
         UnlockArea concave = testArea("concave", List.of(
                 new AreaTile(25, 47), new AreaTile(26, 47), new AreaTile(25, 48)));
@@ -96,7 +148,7 @@ class GameMapTest {
                 "terrain beside the route must block movement");
         assertFalse(GameMap.canOccupy(3, GameMap.CORE_Y, 5, Set.of()),
                 "the world boundary must block movement");
-        assertEquals(11, GameMap.AREAS.size());
+        assertEquals(17, GameMap.AREAS.size());
     }
 
     @Test
@@ -155,7 +207,7 @@ class GameMapTest {
                 .findFirst().map(UnlockArea::id).orElse("outside"))
                 .collect(Collectors.toSet());
 
-        assertEquals(5, GameMap.SHOP_UNITS.size());
+        assertEquals(7, GameMap.SHOP_UNITS.size());
         assertEquals(GameMap.SHOP_UNITS.size(), shopAreas.size(),
                 "each shop should occupy a different progression area");
     }

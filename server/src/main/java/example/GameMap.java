@@ -100,9 +100,9 @@ final class GameMap {
             "prep-console", 1260, 980, "operations-room", 10, 60);
     static final List<BreakerTerminal> BREAKER_TERMINALS = List.of(
             new BreakerTerminal("breaker-outside", "OUTSIDE", 820, 1940, null),
-            new BreakerTerminal("breaker-entry", "ENTRY ROOM", 1140, 1620, "entry-room"),
+            new BreakerTerminal("breaker-entry", "ENTRY ROOM", 1140, 1580, "entry-room"),
             new BreakerTerminal("breaker-transit", "TRANSIT HALL", 1300, 1180, "transit-hall"),
-            new BreakerTerminal("breaker-armory", "ARMORY WING", 1780, 1020, "armory-wing"),
+            new BreakerTerminal("breaker-armory", "ARMORY WING", 1780, 980, "armory-wing"),
             new BreakerTerminal("breaker-forest", "FOREST LAB", 1660, 420, "forest"),
             new BreakerTerminal("breaker-relay", "RELAY GALLERY", 1220, 300, "relay-gallery"),
             new BreakerTerminal("breaker-mine", "MINE LAB", 820, 100, "mine"),
@@ -427,7 +427,7 @@ final class GameMap {
             }
         }
         for (ShopUnit shop : map.shopUnits()) {
-            if (!Set.of("shotgun", "smg", "rifle", "sniper", "ammo").contains(shop.item())
+            if (!Set.of("shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "ammo").contains(shop.item())
                     || shop.cost() <= 0) {
                 throw new IllegalStateException("Invalid shop unit: " + shop.id());
             }

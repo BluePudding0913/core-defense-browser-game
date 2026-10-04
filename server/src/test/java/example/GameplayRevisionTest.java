@@ -13,6 +13,73 @@ class GameplayRevisionTest {
     Player player;
     final java.util.List<String> broadcasts = new java.util.ArrayList<>();
 
+    @Test void matchesAndRestartsBeginWithZeroGoldAndNoPurchasedWeapons() {
+        assertTrue(game.players.stream().allMatch(p -> p.credits == 0));
+        player.credits = 1234;
+        player.ownsRevolver = true; player.revolverAmmo = 36;
+        player.ownsLmg = true; player.lmgAmmo = 150;
+        game.phase = GamePhase.WON;
+        game.players.forEach(p -> p.roomReady = true);
+        game.handleMessage(player, "START");
+        assertEquals(GamePhase.PREPARING, game.phase);
+        assertTrue(game.players.stream().allMatch(p -> p.credits == 0));
+        assertFalse(player.ownsRevolver);
+        assertFalse(player.ownsLmg);
+        assertEquals(0, player.revolverAmmo + player.lmgAmmo);
+    }
+
+    @Test void newWeaponsRequireUnlockedShopsAndSupportCombatRefillsAndSnapshots() throws Exception {
+        for (String weapon : List.of("revolver", "lmg")) {
+            ShopUnit shop = GameMap.shopByItem(weapon);
+            int capacity = weapon.equals("revolver") ? 36 : 150;
+            int damage = weapon.equals("revolver") ? 72 : 18;
+            player.credits = 2000;
+            player.x = shop.x(); player.y = shop.y();
+            game.handleMessage(player, "BUY:" + weapon);
+            assertEquals(2000, player.credits, "locked weapon rooms cannot sell weapons");
+            game.unlockedAreas.add(weapon + "-room");
+            player.credits = 0;
+            game.handleMessage(player, "BUY:" + weapon);
+            assertNotEquals(weapon, player.weapon, "zero gold cannot purchase a weapon");
+            player.credits = 2000;
+            game.handleMessage(player, "BUY:" + weapon);
+            assertEquals(weapon, player.weapon);
+            assertEquals(2000 - shop.cost(), player.credits);
+            player.x = 1020; player.y = 1900; player.cooldown = 0;
+            Enemy enemy = new Enemy(9001, "grunt", GameMap.SPAWN_POINTS.get(0), 1000, 0, 0, 0);
+            enemy.x = 1120; enemy.y = 1900;
+            game.enemies.clear(); game.enemies.add(enemy);
+            game.handleMessage(player, "ATTACK:9001");
+            assertEquals(1000 - damage, enemy.hp);
+            assertEquals(capacity - 1, weapon.equals("revolver") ? player.revolverAmmo : player.lmgAmmo);
+            game.handleMessage(player, "ATTACK:9001");
+            assertEquals(1000 - damage, enemy.hp, "cooldown prevents an immediate second shot");
+            player.x = shop.x(); player.y = shop.y();
+            game.handleMessage(player, "BUY:" + weapon);
+            assertEquals(capacity, weapon.equals("revolver") ? player.revolverAmmo : player.lmgAmmo);
+            int afterRefill = player.credits;
+            game.handleMessage(player, "BUY:" + weapon);
+            assertEquals(afterRefill, player.credits, "full ammo must not be charged");
+            var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
+            var self = snapshot.path("players").get(player.slot - 1);
+            assertEquals(capacity, self.path(weapon + "Ammo").asInt());
+            assertTrue(self.path(weapon.equals("revolver") ? "ownsRevolver" : "ownsLmg").asBoolean());
+            if (weapon.equals("revolver")) player.revolverAmmo = 0; else player.lmgAmmo = 0;
+            player.cooldown = 0; player.x = 1020; player.y = 1900;
+            game.handleMessage(player, "ATTACK:9001");
+            assertEquals(1000 - damage, enemy.hp, "empty weapon cannot deal damage");
+            game.handleMessage(player, "WEAPON:pistol");
+            game.handleMessage(player, "WEAPON:" + weapon);
+            assertEquals(weapon, player.weapon);
+        }
+        game.unlockedAreas.add("forest");
+        ShopUnit ammo = GameMap.shopByItem("ammo");
+        player.x = ammo.x(); player.y = ammo.y();
+        game.handleMessage(player, "BUY:ammo");
+        assertEquals(18, player.revolverAmmo);
+        assertEquals(75, player.lmgAmmo);
+    }
+
     @Test void frontPlacementAtTileEdgeSkipsTheTileOverlappingThePlayer() {
         player.x = 1119; player.y = 1900;
         player.facingX = 1; player.facingY = 0;
@@ -211,6 +278,7 @@ class GameplayRevisionTest {
     }
 
     @Test void openingAnAreaDuringCombatDoesNotAddAnEntranceMidWave() {
+        player.credits = 700;
         game.round = 9;
         game.unlockedAreas.add("entry-room");
         game.handleMessage(player, "READY");
@@ -367,7 +435,7 @@ class GameplayRevisionTest {
     }
 
     @Test void cpuUnlocksReachableAreasAndMovesCoreInPreparation() throws Exception {
-        Player bot = game.players.get(1); bot.human = false;
+        Player bot = game.players.get(1); bot.human = false; bot.credits = 700;
         UnlockArea entry = GameMap.areaById("entry-room");
         bot.botSpendCooldown = 0;
         boolean approach = false;
