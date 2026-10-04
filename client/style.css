@@ -588,7 +588,7 @@ button, input { font: inherit; }
 .menu .join-rooms { display: none; }
 .menu[data-view="join"] .join-rooms { display: block; }
 .menu[data-view="join"] > h1,
-.menu[data-view="join"] > #player-name,
+.menu[data-view="join"] #player-name,
 .menu[data-view="join"] > #menu-status,
 .menu[data-view="join"] #create-room,
 .menu[data-view="join"] #join-rooms,
