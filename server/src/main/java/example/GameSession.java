@@ -386,9 +386,27 @@ final class GameSession {
         activeSpawnIds.clear();
         activeLanes.clear();
         for (SpawnPoint spawn : outside.subList(0, count)) addRoundSpawn(spawn);
-        for (SpawnPoint spawn : GameMap.SPAWN_POINTS) {
-            if (unlockedAreas.contains(GameMap.spawnArea(spawn))) addRoundSpawn(spawn);
-        }
+        List<SpawnPoint> interior = new ArrayList<>(GameMap.SPAWN_POINTS.stream()
+                .filter(spawn -> interiorSpawnEligible(spawn, currentRound)).toList());
+        Collections.shuffle(interior, random);
+        int interiorLimit = currentRound >= 14 ? 2 : 1;
+        for (SpawnPoint spawn : interior.subList(0, Math.min(interiorLimit, interior.size()))) addRoundSpawn(spawn);
+    }
+
+    private boolean interiorSpawnEligible(SpawnPoint spawn, int currentRound) {
+        String area = GameMap.spawnArea(spawn);
+        if (area == null || !unlockedAreas.contains(area)) return false;
+        int firstRound = switch (area) {
+            case "entry-room" -> 8;
+            case "transit-hall" -> 10;
+            case "armory-wing" -> 12;
+            case "forest" -> 14;
+            case "relay-gallery" -> 16;
+            case "mine" -> 18;
+            case "security-hall", "command-room" -> 20;
+            default -> Integer.MAX_VALUE; // Supply pockets and TIME CONTROL stay safe from spawning.
+        };
+        return currentRound >= firstRound;
     }
 
     private void addRoundSpawn(SpawnPoint spawn) {
@@ -470,10 +488,14 @@ final class GameSession {
                     + roundOne(node.x) + ",\"y\":" + roundOne(node.y) + "}");
         }
         for (DroppedResource drop : droppedResources) {
+            Player owner = playerById(drop.droppedBy);
+            if (owner == null || distance(owner.x, owner.y, drop.x, drop.y) > 40) drop.ownerLeft = true;
             drop.pickupDelay = Math.max(0, drop.pickupDelay - dt);
             if (drop.pickupDelay > 0) continue;
             Player collector = players.stream()
                     .filter(player -> !player.down
+                            && (!player.id.equals(drop.droppedBy) || drop.ownerLeft)
+                            && GameMap.hasClearLine(player.x, player.y, drop.x, drop.y)
                             && distance(player.x, player.y, drop.x, drop.y) <= 30)
                     .findFirst().orElse(null);
             if (collector == null) continue;
@@ -1722,7 +1744,7 @@ final class GameSession {
         if (type.equals("wood")) player.wood -= amount;
         else player.ore -= amount;
         droppedResources.add(new DroppedResource(nextDroppedResourceId++, type,
-                dropX, dropY, amount));
+                dropX, dropY, amount, player.id));
         feedback(player, "DROPPED");
     }
 
@@ -2062,8 +2084,7 @@ final class GameSession {
         int cost = 350 + unlockedAreas.size() * 100;
         if (spend(player, cost)) {
             unlockedAreas.add(areaId);
-            if (phase == GamePhase.WAVE) GameMap.SPAWN_POINTS.stream()
-                    .filter(spawn -> areaId.equals(GameMap.spawnArea(spawn))).forEach(this::addRoundSpawn);
+            // Opened areas only become spawn candidates when the next round starts.
             setNotice(area.name() + " OPEN");
         } else {
             feedback(player, "NOT ENOUGH GOLD");

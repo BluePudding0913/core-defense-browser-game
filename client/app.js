@@ -641,39 +641,67 @@ function updateHud() {
     }
 }
 
+// Keep button nodes alive across snapshots so a press spanning a network update still clicks.
 function updateInventory(me) {
+    if (!inventoryItems.querySelector(".equipment-grid")) {
+        inventoryItems.innerHTML = `
+            <div class="inventory-section"><h3>EQUIPMENT</h3><div class="inventory-grid equipment-grid"></div></div>
+            <div class="inventory-section"><h3>MATERIALS</h3><div class="inventory-grid materials-grid">
+                ${resourceInventoryCard("wood")}
+                ${resourceInventoryCard("ore")}
+            </div></div>`;
+    }
     const entries = equipmentEntries(me);
     const selectedKey = me.movingCore ? "core"
         : me.selectedBuild ? `build:${me.selectedBuild}` : `weapon:${me.weapon}`;
-    const equipment = entries.map((entry, index) => {
-        const amount = entry.kind === "build" ? `×${me.buildItems[entry.value]}`
+    const grid = inventoryItems.querySelector(".equipment-grid");
+    const buttons = new Map([...grid.querySelectorAll("button[data-key]")]
+        .map(button => [button.dataset.key, button]));
+    for (const [key, button] of buttons) {
+        if (!entries.some(entry => entry.key === key)) button.remove();
+    }
+    entries.forEach((entry, index) => {
+        let button = buttons.get(entry.key);
+        if (!button) {
+            button = document.createElement("button");
+            button.type = "button";
+            button.dataset.key = entry.key;
+            button.innerHTML = "<strong></strong><span></span>";
+            grid.insertBefore(button, grid.children[index] || null);
+        }
+        button.classList.toggle("selected", selectedKey === entry.key);
+        button.querySelector("strong").textContent = `${index + 1}. ${entry.label}`;
+        button.querySelector("span").textContent = entry.kind === "build" ? `×${me.buildItems[entry.value]}`
             : entry.kind === "core" ? ""
                 : WEAPON_FIELDS[entry.value] ? `${ammoForWeapon(me, entry.value)} AMMO` : "WEAPON";
-        return `<button type="button" data-key="${entry.key}" class="${selectedKey === entry.key ? "selected" : ""}">
-            <strong>${index + 1}. ${entry.label}</strong><span>${amount}</span>
-        </button>`;
-    }).join("");
-    inventoryItems.innerHTML = `
-        <div class="inventory-section"><h3>EQUIPMENT</h3><div class="inventory-grid">${equipment}</div></div>
-        <div class="inventory-section"><h3>MATERIALS</h3><div class="inventory-grid materials-grid">
-            ${resourceInventoryCard("wood", me.wood)}
-            ${resourceInventoryCard("ore", me.ore)}
-        </div></div>`;
-    inventoryItems.querySelectorAll("button[data-key]").forEach(button => button.addEventListener("click", () => {
-        const entry = entries.find(candidate => candidate.key === button.dataset.key);
-        if (entry) selectEquipment(entry);
-    }));
-    inventoryItems.querySelectorAll("button[data-drop]").forEach(button => button.addEventListener("click", () => {
-        send(`DROP_RESOURCE:${button.dataset.drop}:${button.dataset.amount}`);
-    }));
+    });
+    for (const type of ["wood", "ore"]) {
+        const card = inventoryItems.querySelector(`[data-resource="${type}"]`);
+        card.querySelector(".resource-count").textContent = `×${me[type]}`;
+        card.querySelectorAll("button").forEach(button => { button.disabled = me.down || me[type] < 1; });
+    }
 }
 
-function resourceInventoryCard(type, amount) {
-    return `<div class="inventory-resource">
-        <strong>${type.toUpperCase()}</strong><span>×${amount}</span>
+inventoryItems.addEventListener("click", event => {
+    const button = event.target.closest("button");
+    const me = getMe();
+    if (!button || button.disabled || !me || me.down) return;
+    if (button.dataset.key) {
+        const entry = equipmentEntries(me).find(candidate => candidate.key === button.dataset.key);
+        if (entry) selectEquipment(entry);
+    } else if (button.dataset.drop) {
+        const type = button.dataset.drop;
+        const amount = button.dataset.amount === "all" ? me[type] : 1;
+        if (amount > 0) send(`DROP_RESOURCE:${type}:${amount}`);
+    }
+});
+
+function resourceInventoryCard(type) {
+    return `<div class="inventory-resource" data-resource="${type}">
+        <strong>${type.toUpperCase()}</strong><span class="resource-count"></span>
         <div class="resource-actions">
-            <button type="button" data-drop="${type}" data-amount="1" ${amount < 1 ? "disabled" : ""}>DROP 1</button>
-            <button type="button" data-drop="${type}" data-amount="${amount}" ${amount < 1 ? "disabled" : ""}>DROP ALL</button>
+            <button type="button" data-drop="${type}" data-amount="1">1個落とす</button>
+            <button type="button" data-drop="${type}" data-amount="all">全部落とす</button>
         </div>
     </div>`;
 }

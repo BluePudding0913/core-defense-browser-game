@@ -127,17 +127,92 @@ class GameplayRevisionTest {
 
     @Test void unlockedRoomsJoinSpawnsWithoutIncreasingEnemyBudget() throws Exception {
         game.unlockedAreas.add("entry-room");
+        game.round = 7;
         game.handleMessage(player, "READY");
         game.update(.05);
         assertTrue(game.activeSpawnIds.contains("area-entry-room"));
         assertFalse(game.activeSpawnIds.contains("area-forest"));
-        assertEquals(9, game.queuedEnemies);
+        assertEquals(30, game.queuedEnemies);
         game.coreHp = 100000;
         for (int i = 0; i < 240; i++) game.update(.05);
         assertTrue(game.enemies.stream().anyMatch(e -> e.spawnId.equals("area-entry-room")));
         Enemy interior = game.enemies.stream().filter(e -> e.spawnId.equals("area-entry-room")).findFirst().orElseThrow();
         assertTrue(GameMap.canOccupy(interior.x, interior.y, 17, game.unlockedAreas));
         assertTrue(interior.route.size() > 1);
+    }
+
+    @Test void earlyRoundsStayOutsideAndUtilityRoomsNeverBecomeEntrances() throws Exception {
+        game.unlockedAreas.addAll(GameMap.AREAS.stream().map(UnlockArea::id).toList());
+        Method select = GameSession.class.getDeclaredMethod("selectRoundSpawns", int.class);
+        select.setAccessible(true);
+        for (int round = 1; round <= 20; round++) {
+            select.invoke(game, round);
+            long indoors = game.activeSpawnIds.stream().filter(id -> id.startsWith("area-")).count();
+            assertTrue(indoors <= (round < 8 ? 0 : round < 14 ? 1 : 2));
+            assertFalse(game.activeSpawnIds.contains("area-operations-room"));
+            assertFalse(game.activeSpawnIds.contains("area-wood-room"));
+            assertFalse(game.activeSpawnIds.contains("area-ore-room"));
+            if (round < 10) assertFalse(game.activeSpawnIds.contains("area-transit-hall"));
+        }
+        Method eligible = GameSession.class.getDeclaredMethod("interiorSpawnEligible", SpawnPoint.class, int.class);
+        eligible.setAccessible(true);
+        SpawnPoint transit = GameMap.spawnById("area-transit-hall");
+        assertFalse((boolean) eligible.invoke(game, transit, 9));
+        assertTrue((boolean) eligible.invoke(game, transit, 10));
+        game.unlockedAreas.remove("transit-hall");
+        assertFalse((boolean) eligible.invoke(game, transit, 20));
+    }
+
+    @Test void openingAnAreaDuringCombatDoesNotAddAnEntranceMidWave() {
+        game.round = 9;
+        game.unlockedAreas.add("entry-room");
+        game.handleMessage(player, "READY");
+        game.update(.05);
+        List<String> before = List.copyOf(game.activeSpawnIds);
+        UnlockArea transit = GameMap.areaById("transit-hall");
+        for (int[] offset : new int[][]{{40,0},{-40,0},{0,40},{0,-40}}) {
+            double x = transit.terminalX() + offset[0], y = transit.terminalY() + offset[1];
+            if (GameMap.canOccupy(x, y, 5, game.unlockedAreas)) {
+                player.x = x; player.y = y; break;
+            }
+        }
+        game.handleMessage(player, "UNLOCK:transit-hall");
+        assertTrue(game.unlockedAreas.contains("transit-hall"));
+        assertEquals(before, game.activeSpawnIds);
+    }
+
+    @Test void droppingAgainstAWallDoesNotImmediatelyReturnItemsToSender() {
+        player.x = 805; player.y = 1860; player.facingX = -1; player.facingY = 0;
+        player.wood = 4;
+        game.handleMessage(player, "DROP_RESOURCE:wood:4");
+        assertEquals(0, player.wood);
+        game.update(5);
+        assertEquals(0, player.wood);
+        assertEquals(1, game.droppedResources.size());
+        player.x = 900;
+        game.update(.05);
+        player.x = 805;
+        game.update(.05);
+        assertEquals(4, player.wood);
+        assertTrue(game.droppedResources.isEmpty());
+    }
+
+    @Test void teammateCanReceiveDroppedItemsWithoutSenderMovingAndAmountsCannotBeForged() {
+        player.x = 805; player.y = 1860; player.facingX = -1; player.facingY = 0;
+        player.ore = 3;
+        game.handleMessage(player, "DROP_RESOURCE:ore:-1");
+        game.handleMessage(player, "DROP_RESOURCE:ore:NaN");
+        assertEquals(3, player.ore);
+        assertTrue(game.droppedResources.isEmpty());
+        game.handleMessage(player, "DROP_RESOURCE:ore:999");
+        assertEquals(0, player.ore);
+        assertEquals(3, game.droppedResources.get(0).amount);
+        Player receiver = game.players.get(1);
+        receiver.x = 825; receiver.y = 1860;
+        game.update(3);
+        assertEquals(3, receiver.ore);
+        assertEquals(0, player.ore);
+        assertTrue(game.droppedResources.isEmpty());
     }
 
     @Test void everyTerminalIsEmbeddedInAWallWithAnOutsideApproach() {

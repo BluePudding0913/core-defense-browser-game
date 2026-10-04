@@ -104,14 +104,17 @@ final class DroppedResource {
     final double x;
     final double y;
     final int amount;
+    final String droppedBy;
+    boolean ownerLeft;
     double pickupDelay = PICKUP_DELAY_SECONDS;
 
-    DroppedResource(int id, String type, double x, double y, int amount) {
+    DroppedResource(int id, String type, double x, double y, int amount, String droppedBy) {
         this.id = id;
         this.type = type;
         this.x = x;
         this.y = y;
         this.amount = amount;
+        this.droppedBy = droppedBy;
     }
 }
 

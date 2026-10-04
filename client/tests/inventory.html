@@ -1,0 +1,42 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><title>Inventory regression</title>
+<body><h1>Inventory regression</h1><pre id="result">Running…</pre><div id="inventory-items"></div>
+<script>
+(async () => {
+ const output = document.querySelector('#result');
+ try {
+  const source = await (await fetch('/client/app.js')).text();
+  const begin = source.indexOf('function updateInventory(me) {');
+  const end = source.indexOf('\nfunction toggleInventory()', begin);
+  if (begin < 0 || end < 0) throw new Error('Production inventory code not found');
+  const container = document.querySelector('#inventory-items');
+  let me = {weapon:'pistol',wood:5,ore:3,down:false,buildItems:{},ownsShotgun:false};
+  const sent = [], selected = [];
+  const entries = p => [{key:'weapon:pistol',kind:'weapon',value:'pistol',label:'PISTOL'},
+    ...(p.ownsShotgun ? [{key:'weapon:shotgun',kind:'weapon',value:'shotgun',label:'SHOTGUN'}] : [])];
+  const render = new Function('inventoryItems','getMe','equipmentEntries','WEAPON_FIELDS','ammoForWeapon','selectEquipment','send',
+    source.slice(begin,end)+'\nreturn updateInventory;')(container,()=>me,entries,{shotgun:{}},()=>me.ammo||5,e=>selected.push(e.key),s=>sent.push(s));
+  let checks=0;
+  const check=(ok,msg)=>{if(!ok)throw new Error(msg);checks++;};
+  render(me);
+  const one=container.querySelector('[data-drop="wood"][data-amount="1"]');
+  const all=container.querySelector('[data-drop="wood"][data-amount="all"]');
+  one.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
+  for(let i=0;i<20;i++){me.ownsShotgun=true;me.ammo=i;render(me);}
+  check(one===container.querySelector('[data-drop="wood"][data-amount="1"]'),'Drop button was replaced during a press');
+  one.dispatchEvent(new PointerEvent('pointerup',{bubbles:true}));one.click();
+  check(sent.at(-1)==='DROP_RESOURCE:wood:1','Single drop lost after snapshots');
+  all.focus();me.wood=8;render(me);
+  check(document.activeElement===all,'Keyboard focus lost');
+  all.click();check(sent.at(-1)==='DROP_RESOURCE:wood:8','Drop all used stale quantity');
+  check(sent.length===2,'Duplicate handlers sent multiple commands');
+  me.wood=0;render(me);one.click();check(sent.length===2 && one.disabled,'Empty drop enabled');
+  me.ore=7;render(me);container.querySelector('[data-drop="ore"][data-amount="all"]').click();
+  check(sent.at(-1)==='DROP_RESOURCE:ore:7','Ore drop failed');
+  me.down=true;render(me);container.querySelector('[data-drop="ore"][data-amount="all"]').click();
+  check(sent.length===3,'Downed player can drop');
+  me.down=false;render(me);container.querySelector('[data-key="weapon:shotgun"] strong').click();
+  check(selected.at(-1)==='weapon:shotgun','Delegated equipment selection failed');
+  output.textContent='PASS '+checks+' checks: stable press, latest quantities, focus, no duplicate sends, empty/down guards, equipment selection';
+ } catch(error){output.textContent='FAIL '+error.stack;}
+})();
+</script></body></html>
