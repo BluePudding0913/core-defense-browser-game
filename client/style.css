@@ -500,6 +500,7 @@ button, input { font: inherit; }
 .room-member.ready { border-color: rgb(121 216 255 / 65%); }
 .room-member.ready span { color: var(--accent-blue); }
 .room-panel > button { width: 100%; }
+#room-lobby > #ready-room { margin-top: .65rem; }
 .menu .primary-button { border-color: #fff; background: #fff; color: #111; }
 .menu .primary-button:hover:not(:disabled), .menu .primary-button:active:not(:disabled) { border-color: var(--accent-blue); background: var(--accent-blue); }
 
