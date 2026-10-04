@@ -282,7 +282,7 @@ class GameplayRevisionTest {
         player.x = shop.x(); player.y = shop.y();
         game.handleMessage(player, "BUY:shotgun");
         assertFalse(player.ownsShotgun);
-        assertEquals(700, player.credits);
+        assertEquals(0, player.credits);
         player.x = 1020; player.y = 1900;
         game.handleMessage(player, "CRAFT:turret");
         game.handleMessage(player, "GATHER:ore");

@@ -2197,7 +2197,7 @@ final class GameSession {
             player.wireItems = 0;
             player.mineItems = 0;
             player.barricadeItems = 0;
-            player.credits = 700;
+            player.credits = 0;
             player.selectedBuild = null;
             player.movingCore = false;
             player.kills = 0;

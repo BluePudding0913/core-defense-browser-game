@@ -50,8 +50,8 @@ class GameSessionTest {
 
         assertEquals(GamePhase.PREPARING, game.phase);
         assertEquals(GameConfig.PREP_SECONDS, game.prepTime);
-        assertEquals(721, player.credits);
-        assertTrue(game.players.stream().allMatch(candidate -> candidate.credits == 721),
+        assertEquals(21, player.credits);
+        assertTrue(game.players.stream().allMatch(candidate -> candidate.credits == 21),
                 "round rewards should be granted to every personal balance");
 
         game.handleMessage(player, "READY");
