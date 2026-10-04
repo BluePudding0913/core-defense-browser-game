@@ -39,7 +39,7 @@ class GameSessionTest {
 
         assertEquals(GamePhase.WAVE, game.phase);
         assertEquals(1, game.round);
-        assertEquals(12, game.queuedEnemies);
+        assertEquals(9, game.queuedEnemies);
         assertEquals(3, game.activeSpawnIds.size());
         assertEquals(3, Set.copyOf(game.activeSpawnIds).size());
 
@@ -58,7 +58,7 @@ class GameSessionTest {
         game.update(0.05);
         assertEquals(GamePhase.WAVE, game.phase);
         assertEquals(2, game.round);
-        assertEquals(16, game.queuedEnemies);
+        assertEquals(12, game.queuedEnemies);
     }
 
     @Test

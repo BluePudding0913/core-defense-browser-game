@@ -450,14 +450,14 @@ button, input { font: inherit; }
     inset: 0;
     z-index: 9;
     display: grid;
-    align-content: center;
+    align-content: safe center;
     justify-items: center;
     gap: .9rem;
     padding: 1.5rem;
     background: radial-gradient(circle at 50% 42%, #282828, #050505 62%);
     text-align: center;
 }
-.menu h1 { margin: 0; color: white; font: 950 clamp(2rem, 8vw, 4rem) ui-monospace, monospace; letter-spacing: .11em; }
+.menu h1 { margin: 0; color: white; font: 950 clamp(2rem, 5vw, 3rem) ui-monospace, monospace; letter-spacing: .11em; }
 .menu p { margin: 0; color: rgb(255 255 255 / 70%); }
 .menu label { display: grid; gap: .35rem; color: rgb(255 255 255 / 72%); font-size: .8rem; text-align: left; }
 .menu input, .menu button { min-width: 15rem; padding: .72rem .9rem; border: 1px solid rgb(255 255 255 / 30%); border-radius: .3rem; background: rgb(255 255 255 / 8%); color: white; }
@@ -466,11 +466,14 @@ button, input { font: inherit; }
 .menu .secondary-button { border-color: rgb(255 255 255 / 28%); background: transparent; }
 .menu button:hover:not(:disabled), .menu button:active:not(:disabled) { border-color: var(--accent-blue); }
 .menu small { color: rgb(255 255 255 / 46%); }
+#menu-status:empty { display: none; }
+#how-to-start { min-width: 0; padding: .35rem .7rem; border: 0; color: #bbb; }
+#room-browser > .primary-button { margin-bottom: .65rem; }
 .room-panel {
     display: grid;
     gap: .55rem;
     width: min(31rem, 92vw);
-    max-height: min(48vh, 25rem);
+    max-height: none;
     padding: .75rem;
     border: 1px solid rgb(255 255 255 / 24%);
     border-radius: .5rem;
@@ -577,9 +580,6 @@ button, input { font: inherit; }
     .how-to-content { grid-template-columns: 1fr; }
 }
 
-.menu .menu-intro { margin: 0; font-size: 1.05rem; color: #eee; }
-.menu .menu-guide { max-width: 38rem; margin: .6rem auto; line-height: 1.7; color: #a9e9e5; }
-.menu .menu-help { font-size: .85rem; line-height: 1.5; color: #ccc; margin: .6rem 0; }
 .menu { max-height: 100dvh; overflow-y: auto; }
 
-@media (max-height: 800px) { .menu { align-content: start; gap: .6rem; padding: 1rem; } .menu h1 { font-size: 2rem; } }
+@media (max-height: 520px) { .menu { align-content: start; gap: .6rem; padding: 1rem; } .menu h1 { font-size: 2rem; } }

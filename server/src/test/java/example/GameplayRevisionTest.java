@@ -12,6 +12,38 @@ class GameplayRevisionTest {
     GameSession game;
     Player player;
 
+    @Test void runnerActuallyTravelsMoreThanTwiceAsFarAsGrunt() throws Exception {
+        Method spawn = GameSession.class.getDeclaredMethod("spawnEnemy", String.class, SpawnPoint.class);
+        spawn.setAccessible(true);
+        Method move = GameSession.class.getDeclaredMethod("moveEnemyToward", Enemy.class, double.class, double.class, double.class);
+        move.setAccessible(true);
+        for (int round : new int[]{3, 10, 20}) {
+            game.round = round;
+            game.enemies.clear();
+            SpawnPoint entrance = GameMap.SPAWN_POINTS.get(0);
+            spawn.invoke(game, "grunt", entrance);
+            spawn.invoke(game, "runner", entrance);
+            Enemy grunt = game.enemies.get(0), runner = game.enemies.get(1);
+            for (Enemy enemy : game.enemies) {
+                enemy.x = 1020; enemy.y = 1980;
+                for (int tick = 0; tick < 20; tick++) move.invoke(game, enemy, 1020.0, 1820.0, enemy.speed * .05);
+            }
+            assertTrue(1980 - runner.y > (1980 - grunt.y) * 2.3, "round " + round);
+            assertEquals(runner.speed, 1980 - runner.y, 1e-6);
+        }
+    }
+
+    @Test void regularWavePopulationIsReducedByOneQuarterThroughoutMatch() {
+        for (int round : new int[]{1, 3, 10, 20}) {
+            game.phase = GamePhase.PREPARING;
+            game.round = round - 1;
+            game.prepTime = 0;
+            game.update(.05);
+            assertEquals((8 + round * 4) * .75, game.queuedEnemies);
+            assertEquals(round % 4 == 0 ? round / 4 : 0, game.queuedBosses);
+        }
+    }
+
     @BeforeEach void setup() {
         game = new GameSession(new GameEventSink() {
             public void broadcast(String message) { }
@@ -78,7 +110,7 @@ class GameplayRevisionTest {
         damage.setAccessible(true);
         game.round = 8;
         double[] hp = {106, 67, 254, 1727};
-        double[] speed = {70, 108.8, 46, 32};
+        double[] speed = {70, 168, 46, 32};
         int[] gold = {14, 18, 40, 475};
         String[] types = {"grunt", "runner", "brute", "boss"};
         SpawnPoint point = GameMap.SPAWN_POINTS.get(0);
@@ -99,7 +131,7 @@ class GameplayRevisionTest {
         game.update(.05);
         assertTrue(game.activeSpawnIds.contains("area-entry-room"));
         assertFalse(game.activeSpawnIds.contains("area-forest"));
-        assertEquals(12, game.queuedEnemies);
+        assertEquals(9, game.queuedEnemies);
         game.coreHp = 100000;
         for (int i = 0; i < 240; i++) game.update(.05);
         assertTrue(game.enemies.stream().anyMatch(e -> e.spawnId.equals("area-entry-room")));

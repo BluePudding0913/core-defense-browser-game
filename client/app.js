@@ -267,7 +267,7 @@ function connect() {
         if (socket !== connectingSocket) return;
         clearTimeout(connectionAttemptTimer);
         if (connectionTarget.mode === "directory") {
-            menuStatus.textContent = "参加するルームを選択してください";
+            menuStatus.textContent = "";
             createRoomButton.disabled = false;
             connectingSocket.send("LIST_ROOMS");
         } else {
@@ -289,7 +289,7 @@ function connect() {
         if (message.type === "map") {
             try {
                 applyMap(message.map);
-                menuStatus.textContent = "参加者全員が「準備完了」を押すと開始できます";
+                menuStatus.textContent = "「準備OK」で参加";
             } catch (error) {
                 console.error(error);
                 menuStatus.textContent = "サーバーのマップデータが不正です。サーバーを再ビルドしてください。";
@@ -359,6 +359,7 @@ function enterRoom(roomId) {
     myPlayerId = undefined;
     roomBrowser.classList.add("hidden");
     roomLobby.classList.remove("hidden");
+    nameInput.closest("label").classList.add("hidden");
     roomCode.textContent = `ROOM ${roomId.toUpperCase()}`;
     roomMembers.innerHTML = "";
     readyRoomButton.disabled = true;
@@ -372,12 +373,14 @@ function leaveRoom() {
     predictedLocal = null;
     roomLobby.classList.add("hidden");
     roomBrowser.classList.remove("hidden");
+    nameInput.closest("label").classList.remove("hidden");
     menu.classList.remove("hidden");
     hud.classList.add("hidden");
     switchConnection({ mode: "directory", roomId: null });
 }
 
 function renderRoomList(rooms) {
+    rooms = rooms.filter(room => room.joinable);
     if (!rooms.length) {
         roomList.innerHTML = "<p>参加できるルームはありません</p>";
         return;
@@ -385,7 +388,7 @@ function renderRoomList(rooms) {
     roomList.innerHTML = rooms.map(room => `<button type="button" class="room-entry"
             data-room="${escapeHtml(room.id)}" ${room.joinable ? "" : "disabled"}>
         <strong>${escapeHtml(room.owner)} のルーム</strong>
-        <small>${room.players}/${room.capacity} · ${room.joinable ? "WAITING" : "IN GAME"}</small>
+        <small>${room.players}/${room.capacity} · ${room.joinable ? "参加" : "プレイ中"}</small>
     </button>`).join("");
     roomList.querySelectorAll("button[data-room]").forEach(button =>
         button.addEventListener("click", () => enterRoom(button.dataset.room)));
@@ -441,6 +444,7 @@ function updateRoomLobby(snapshot) {
     if (!["lobby", "won", "lost"].includes(snapshot.phase)) return;
     roomBrowser.classList.add("hidden");
     roomLobby.classList.remove("hidden");
+    nameInput.closest("label").classList.add("hidden");
     roomCode.textContent = `ROOM ${String(snapshot.roomId || "").toUpperCase()}`;
     const owner = snapshot.players.find(player => player.id === snapshot.roomOwnerId);
     roomOwner.textContent = `作成者: ${owner?.name || "接続待ち"}`;
@@ -451,15 +455,15 @@ function updateRoomLobby(snapshot) {
     </div>`).join("");
     const me = snapshot.players.find(player => player.id === myPlayerId);
     readyRoomButton.disabled = !me;
-    readyRoomButton.textContent = me?.ready ? "準備完了を取り消す" : "準備完了";
+    readyRoomButton.textContent = me?.ready ? "取り消す" : "準備OK";
     const isOwner = myPlayerId === snapshot.roomOwnerId;
     startButton.classList.toggle("hidden", !isOwner);
-    startButton.textContent = snapshot.phase === "lobby" ? "ゲームを開始" : "もう一度プレイ";
+    startButton.textContent = snapshot.phase === "lobby" ? "開始" : "もう一度プレイ";
     startButton.disabled = !isOwner || !snapshot.allReady;
-    menuStatus.textContent = snapshot.phase === "won" ? "防衛成功 — 再戦する場合は全員準備完了"
-        : snapshot.phase === "lost" ? "防衛失敗 — 再戦する場合は全員準備完了"
-            : snapshot.allReady ? isOwner ? "全員準備完了 — ゲームを開始できます" : "作成者の開始操作を待っています"
-                : "参加者全員が「準備完了」を押してください";
+    menuStatus.textContent = snapshot.phase === "won" ? "防衛成功"
+        : snapshot.phase === "lost" ? "防衛失敗"
+            : snapshot.allReady ? isOwner ? "" : "作成者の開始待ち"
+                : "「準備OK」で参加";
 }
 
 function reconcileEnemySmoothing(next) {

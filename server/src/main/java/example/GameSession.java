@@ -332,7 +332,7 @@ final class GameSession {
         round++;
         selectRoundSpawns(round);
         phase = GamePhase.WAVE;
-        queuedEnemies = 8 + round * 4;
+        queuedEnemies = 6 + round * 3;
         queuedBosses = round % 4 == 0 ? round / 4 : 0;
         roundEvent = round % 4 == 3 ? "blackout"
                 : round >= 5 && round % 4 == 1 ? "door_failure"
@@ -538,7 +538,7 @@ final class GameSession {
         switch (type) {
             case "runner" -> {
                 hp = 35 + round * 4;
-                speed = 96 + round * 1.6;
+                speed = 140 + round * 3.5; // After the global 0.5 scale, clearly faster than grunts.
                 damage = 8 + round;
                 reward = 18;
             }

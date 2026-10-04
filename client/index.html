@@ -61,26 +61,21 @@
 
     <section id="menu" class="menu">
         <h1>CORE DEFENSE</h1>
-        <p class="menu-intro">仲間とCOREを守る、4人協力の防衛ゲーム</p>
-        <p class="menu-guide">① 名前を入力　② ルームを作成・参加　③ 準備完了でスタート</p>
         <p id="menu-status">サーバーに接続しています…</p>
         <label>名前 <input id="player-name" maxlength="16" value="Player" autocomplete="nickname"></label>
         <section id="room-browser" class="room-panel">
-            <div class="room-heading"><strong>参加するルームを選択</strong><button id="refresh-rooms" type="button">更新</button></div>
+            <button id="create-room" class="primary-button" type="button" disabled>ルームを作成</button>
+            <div class="room-heading"><strong>ルームに参加</strong><button id="refresh-rooms" type="button">更新</button></div>
             <div id="room-list" class="room-list"><p>ルームを読み込んでいます…</p></div>
-            <button id="create-room" class="primary-button" type="button" disabled>ルームを作って遊ぶ</button>
-            <p class="menu-help">1人でも遊べます。空いている3枠はCPUが担当します。</p>
         </section>
         <section id="room-lobby" class="room-panel hidden">
             <div class="room-heading"><strong id="room-code">ROOM</strong><span id="room-owner"></span></div>
             <div id="room-members" class="room-members"></div>
-            <p class="menu-help">全員が「準備完了」にすると、作成者がゲームを開始できます。</p>
-            <button id="ready-room" type="button" disabled>準備完了</button>
-            <button id="start" class="primary-button hidden" type="button" disabled>ゲームを開始</button>
-            <button id="leave-room" class="secondary-button" type="button">ルーム一覧へ戻る</button>
+            <button id="ready-room" type="button" disabled>準備OK</button>
+            <button id="start" class="primary-button hidden" type="button" disabled>開始</button>
+            <button id="leave-room" class="secondary-button" type="button">戻る</button>
         </section>
         <button id="how-to-start" class="secondary-button" type="button">遊び方</button>
-        <small>横画面推奨 / PCではWASDでも移動できます</small>
     </section>
 
     <section id="how-to-menu" class="how-to-menu hidden" aria-label="遊び方" aria-modal="true">
@@ -93,7 +88,7 @@
                 </section>
                 <section>
                     <h2>ルーム</h2>
-                    <p>名前を入力して新しいルームを作るか、一覧から参加します。参加者全員が「準備完了」を選択すると、ルーム作成者が「ゲームを開始」を押してゲームを開始できます。</p>
+                    <p>名前を入力して新しいルームを作るか、一覧から参加します。1人でも遊べます。空席はCPUが担当します。全員が「準備OK」を選ぶと、作成者が「開始」を押せます。</p>
                 </section>
                 <section>
                     <h2>基本操作</h2>
