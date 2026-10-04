@@ -57,6 +57,10 @@ for (const mutate of [
     m => { m.workbenchUnits[0].x = 20; },
     m => { m.breakerTerminals[0].requiredArea = 'missing'; },
     m => { m.trapSlots[0].y = 2080; },
+    m => { m.areas.push(null); },
+    m => { m.tileMap.legend['.'] = null; },
+    m => { m.spawnPoints[0].speedMultiplier = NaN; },
+    m => { m.spawnPoints[0].speedMultiplier = Infinity; },
 ]) {
     context.invalid = structuredClone(map);
     mutate(context.invalid);

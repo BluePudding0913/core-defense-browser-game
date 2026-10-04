@@ -83,7 +83,9 @@ GitHub PagesだけではJava製ゲームサーバーは起動しません。ブ�
 
 - `WasdServer.java`：WebSocket接続、切断、入力受信、定期更新
 - `GameSession.java`：ラウンド進行、戦闘、購入、CPUなどのゲームルール
-- `GameMap.java`：タイル、追加の脇道区画、侵入口、資源／クラフト施設、自由建築可否、衝突判定
+- `MapDefinition.java`：マップのデータ構造とタイル座標変換
+- `MapValidator.java`：マップ定義、配置、解放エリアの整合性検証
+- `GameMap.java`：マップ読み込み、室内侵入口生成、自由建築可否、衝突判定
 - `shared/map.json`：サーバーとブラウザが共通利用するマップ定義
 - `GameEntities.java`：プレイヤー、敵、防衛設備の状態
 - `SnapshotBuilder.java`：ブラウザへ送る状態データの生成

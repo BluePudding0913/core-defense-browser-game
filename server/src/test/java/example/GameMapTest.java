@@ -82,14 +82,14 @@ class GameMapTest {
                     .put(collection.equals("areas") ? "terminalX" : "x", -1);
             MapDefinition definition = json.treeToValue(invalid, MapDefinition.class);
             org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
-                    () -> GameMap.validatePositions(definition, ids));
+                    () -> MapValidator.validatePositions(definition, ids));
         }
         JsonNode invalid = original.deepCopy();
         ((com.fasterxml.jackson.databind.node.ObjectNode) invalid.path("workbenchUnits").get(0))
                 .put("requiredArea", "missing");
         MapDefinition definition = json.treeToValue(invalid, MapDefinition.class);
         org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
-                () -> GameMap.validatePositions(definition, ids));
+                () -> MapValidator.validatePositions(definition, ids));
     }
 
     @Test
@@ -149,7 +149,7 @@ class GameMapTest {
         UnlockArea concave = testArea("concave", List.of(
                 new AreaTile(25, 47), new AreaTile(26, 47), new AreaTile(25, 48)));
         UnlockArea corner = testArea("corner", List.of(new AreaTile(26, 48)));
-        GameMap.validateAreas(List.of(concave, corner), GameMap.TILE_MAP);
+        MapValidator.validateAreas(List.of(concave, corner), GameMap.TILE_MAP);
         assertTrue(concave.contains(1020, 1940));
         assertFalse(concave.contains(1060, 1940));
         assertFalse(concave.overlaps(1060, 1940, 5));
@@ -161,14 +161,14 @@ class GameMapTest {
     void areaValidationRejectsOverlapWallsAndOutOfBoundsTiles() {
         UnlockArea area = testArea("first", List.of(new AreaTile(25, 47)));
         org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
-                () -> GameMap.validateAreas(List.of(area,
+                () -> MapValidator.validateAreas(List.of(area,
                         testArea("second", area.tiles())), GameMap.TILE_MAP));
         for (List<AreaTile> tiles : List.of(List.<AreaTile>of(),
                 List.of(new AreaTile(0, 0)), List.of(new AreaTile(-1, 47)),
                 List.of(new AreaTile(52, 47)),
                 List.of(new AreaTile(25, 47), new AreaTile(25, 47)))) {
             org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
-                    () -> GameMap.validateAreas(List.of(testArea("invalid", tiles)), GameMap.TILE_MAP));
+                    () -> MapValidator.validateAreas(List.of(testArea("invalid", tiles)), GameMap.TILE_MAP));
         }
     }
 

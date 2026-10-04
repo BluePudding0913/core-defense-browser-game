@@ -165,9 +165,8 @@ function applyMap(map) {
     AREAS = map.areas.map(area => ({ ...area }));
     SPAWN_POINTS = map.spawnPoints.map(spawn => ({ ...spawn }));
     SHOP_UNITS = map.shopUnits.map(shop => ({ ...shop }));
-    BREAKER_TERMINALS = (map.breakerTerminals || []).map(breaker => ({ ...breaker }));
-    WORKBENCHES = (map.workbenchUnits || [{ ...WORKBENCH, requiredArea: "entry-room" }])
-        .map(workbench => ({ ...workbench }));
+    BREAKER_TERMINALS = map.breakerTerminals.map(breaker => ({ ...breaker }));
+    WORKBENCHES = map.workbenchUnits.map(workbench => ({ ...workbench }));
     PREP_CONSOLE = { ...map.prepConsole };
     camera = { x: CORE.x, y: CORE.y };
     if (!mapReady) {
@@ -190,7 +189,9 @@ function validateMap(map) {
         ["spawnPoints", map.spawnPoints], ["trapSlots", map.trapSlots],
         ["resourceNodes", map.resourceNodes], ["shopUnits", map.shopUnits],
         ["workbenchUnits", map.workbenchUnits], ["breakerTerminals", map.breakerTerminals]]) {
-        if (!Array.isArray(values)) throw new Error(`${name}が配列ではありません`);
+        if (!Array.isArray(values) || values.some(value => !value || typeof value !== "object")) {
+            throw new Error(`${name}の配列または要素が不正です`);
+        }
     }
     const tiles = map.tileMap;
     if (!Number.isInteger(tiles?.tileSize) || tiles.tileSize <= 0
@@ -224,12 +225,6 @@ function validateMap(map) {
         if (!["balanced", "runner", "brute"].includes(spawn.enemyBias)
                 || !["core", "players", "defenses"].includes(spawn.targetPriority)) {
             throw new Error(`侵入口${spawn.id}の特性が不正です`);
-        }
-    }
-    const areaIds = new Set(map.areas.map(area => area.id));
-    for (const slot of map.trapSlots) {
-        if (slot.requiredArea != null && !areaIds.has(slot.requiredArea)) {
-            throw new Error(`防衛スロット${slot.id}の解放エリアが存在しません`);
         }
     }
 }
@@ -988,8 +983,6 @@ function canBuildAt(point, forCore = false) {
     const column = Math.floor(point.x / size), row = Math.floor(point.y / size);
     const symbol = TILE_MAP.rows[row]?.[column];
     if (!symbol || !TILE_MAP.legend[symbol]?.buildable) return false;
-    if (AREAS.some(area => !state.areas[area.id]
-            && areaContains(area, point.x, point.y))) return false;
     if (!forCore && distance(point, state.core) < 40) return false;
     if (distance(point, ARMORY) < 36 || distance(point, MED) < 36
             || distance(point, WOODCUTTER) < 36 || distance(point, QUARRY) < 36) return false;
