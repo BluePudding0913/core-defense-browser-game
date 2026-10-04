@@ -467,7 +467,6 @@ button, input { font: inherit; }
 .menu small { color: rgb(255 255 255 / 46%); }
 #menu-status:empty { display: none; }
 #how-to-start { min-width: 0; padding: .35rem .7rem; border: 0; color: #bbb; }
-#room-browser > .primary-button { margin-bottom: .65rem; }
 .room-panel {
     display: grid;
     gap: .55rem;
