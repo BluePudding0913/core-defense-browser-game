@@ -71,7 +71,7 @@
     ]
   },
   "areas": [
-    {"id":"entry-room","name":"ENTRY ROOM","terminalX":1020,"terminalY":1700,"labelX":900,"labelY":1340,"color":"#ffffff","detail":"Entry sector / MED BAY / WORKBENCH",
+    {"id":"entry-room","name":"ENTRY ROOM","terminalX":1060,"terminalY":1660,"labelX":900,"labelY":1340,"color":"#ffffff","detail":"Entry sector / MED BAY / WORKBENCH",
       "tiles": [
         {"column":23,"row":32},{"column":24,"row":32},{"column":25,"row":32},{"column":26,"row":32},{"column":27,"row":32},{"column":28,"row":32},
         {"column":23,"row":33},{"column":24,"row":33},{"column":25,"row":33},{"column":26,"row":33},{"column":27,"row":33},{"column":28,"row":33},
