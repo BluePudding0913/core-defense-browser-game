@@ -65,8 +65,8 @@
         <label>名前 <input id="player-name" maxlength="16" value="Player" autocomplete="nickname"></label>
         <section id="room-browser" class="room-panel">
             <button id="create-room" class="primary-button" type="button" disabled>ルームを作成</button>
-            <div class="room-heading"><strong>ルームに参加</strong><button id="refresh-rooms" type="button">更新</button></div>
-            <div id="room-list" class="room-list"><p>ルームを読み込んでいます…</p></div>
+            <details class="join-rooms"><summary>ルームに参加</summary><div class="room-heading"><strong>ルーム一覧</strong><button id="refresh-rooms" type="button">更新</button></div>
+            <div id="room-list" class="room-list"><p>ルームを読み込んでいます…</p></div></details>
         </section>
         <section id="room-lobby" class="room-panel hidden">
             <div class="room-heading"><strong id="room-code">ROOM</strong><span id="room-owner"></span></div>

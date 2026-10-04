@@ -44,6 +44,26 @@ class GameplayRevisionTest {
         }
     }
 
+    @Test void diagonalApproachToLockedTerminalCanUnlock() {
+        game.unlockedAreas.addAll(GameMap.AREAS.stream().map(UnlockArea::id).toList());
+        game.unlockedAreas.remove("relay-gallery");
+        player.x = 1425; player.y = 365;
+        player.credits = 5000;
+        assertTrue(GameMap.canOccupy(player.x, player.y, 5, game.unlockedAreas));
+        game.handleMessage(player, "UNLOCK:relay-gallery");
+        assertTrue(game.unlockedAreas.contains("relay-gallery"));
+    }
+
+    @Test void terminalCannotBeUsedThroughInterveningLockedTiles() {
+        game.unlockedAreas.addAll(GameMap.AREAS.stream().map(UnlockArea::id).toList());
+        game.unlockedAreas.remove("relay-gallery");
+        player.x = 1380; player.y = 435;
+        player.credits = 5000;
+        game.handleMessage(player, "UNLOCK:relay-gallery");
+        assertFalse(game.unlockedAreas.contains("relay-gallery"));
+        assertEquals(5000, player.credits);
+    }
+
     @BeforeEach void setup() {
         game = new GameSession(new GameEventSink() {
             public void broadcast(String message) { }

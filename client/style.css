@@ -454,10 +454,10 @@ button, input { font: inherit; }
     justify-items: center;
     gap: .9rem;
     padding: 1.5rem;
-    background: radial-gradient(circle at 50% 42%, #282828, #050505 62%);
+    background: #101010;
     text-align: center;
 }
-.menu h1 { margin: 0; color: white; font: 950 clamp(2rem, 5vw, 3rem) ui-monospace, monospace; letter-spacing: .11em; }
+.menu h1 { margin: 0; color: white; font: 800 clamp(1.5rem, 4vw, 2rem) ui-monospace, monospace; letter-spacing: .11em; }
 .menu p { margin: 0; color: rgb(255 255 255 / 70%); }
 .menu label { display: grid; gap: .35rem; color: rgb(255 255 255 / 72%); font-size: .8rem; text-align: left; }
 .menu input, .menu button { min-width: 15rem; padding: .72rem .9rem; border: 1px solid rgb(255 255 255 / 30%); border-radius: .3rem; background: rgb(255 255 255 / 8%); color: white; }
@@ -472,12 +472,11 @@ button, input { font: inherit; }
 .room-panel {
     display: grid;
     gap: .55rem;
-    width: min(31rem, 92vw);
+    width: min(22rem, 92vw);
     max-height: none;
-    padding: .75rem;
-    border: 1px solid rgb(255 255 255 / 24%);
-    border-radius: .5rem;
-    background: rgb(0 0 0 / 28%);
+    padding: 0;
+    border: 0;
+    background: transparent;
 }
 .room-heading { display: flex; align-items: center; justify-content: space-between; gap: .6rem; color: #fff; font: 900 .86rem ui-monospace, monospace; letter-spacing: .08em; }
 .room-heading button { min-width: 0; padding: .38rem .62rem; font-size: .72rem; }
@@ -583,3 +582,7 @@ button, input { font: inherit; }
 .menu { max-height: 100dvh; overflow-y: auto; }
 
 @media (max-height: 520px) { .menu { align-content: start; gap: .6rem; padding: 1rem; } .menu h1 { font-size: 2rem; } }
+
+.join-rooms summary { cursor: pointer; padding: .65rem; color: #bbb; font-size: .85rem; }
+.join-rooms[open] summary { margin-bottom: .5rem; }
+#room-owner { display: none; }

@@ -2233,12 +2233,15 @@ final class GameSession {
     private boolean canInteract(Player player, double x, double y, double range) {
         double separation = distance(player.x, player.y, x, y);
         if (separation > range) return false;
-        // A wall-mounted terminal occupies the final half tile; intervening walls/locked floors do not.
-        double endAllowance = GameMap.canOccupy(x, y, 0, unlockedAreas) ? 0 : 21;
-        for (double step = 0; step < separation - endAllowance; step += 4) {
+        // Allow only the terminal's own tile, including diagonal approaches.
+        boolean mounted = !GameMap.canOccupy(x, y, 0, unlockedAreas);
+        for (double step = 0; step < separation; step += 4) {
             double factor = step / Math.max(1, separation);
-            if (!GameMap.canOccupy(player.x + (x - player.x) * factor,
-                    player.y + (y - player.y) * factor, 0, unlockedAreas)) return false;
+            double sampleX = player.x + (x - player.x) * factor;
+            double sampleY = player.y + (y - player.y) * factor;
+            if (mounted && Math.floor(sampleX / GameMap.TILE_SIZE) == Math.floor(x / GameMap.TILE_SIZE)
+                    && Math.floor(sampleY / GameMap.TILE_SIZE) == Math.floor(y / GameMap.TILE_SIZE)) continue;
+            if (!GameMap.canOccupy(sampleX, sampleY, 0, unlockedAreas)) return false;
         }
         return true;
     }

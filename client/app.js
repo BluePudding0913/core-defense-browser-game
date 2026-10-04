@@ -147,6 +147,7 @@ function applyMap(map) {
 
     WORLD = { width: map.world.width, height: map.world.height };
     CORE = { ...map.core };
+    floorOrigin = { ...map.core };
     ARMORY = { ...map.stations.armory };
     MED = { ...map.stations.medBay };
     WOODCUTTER = { ...map.stations.woodcutter };
@@ -289,7 +290,7 @@ function connect() {
         if (message.type === "map") {
             try {
                 applyMap(message.map);
-                menuStatus.textContent = "「準備OK」で参加";
+                menuStatus.textContent = "";
             } catch (error) {
                 console.error(error);
                 menuStatus.textContent = "サーバーのマップデータが不正です。サーバーを再ビルドしてください。";
@@ -463,7 +464,7 @@ function updateRoomLobby(snapshot) {
     menuStatus.textContent = snapshot.phase === "won" ? "防衛成功"
         : snapshot.phase === "lost" ? "防衛失敗"
             : snapshot.allReady ? isOwner ? "" : "作成者の開始待ち"
-                : "「準備OK」で参加";
+                : "";
 }
 
 function reconcileEnemySmoothing(next) {
@@ -846,6 +847,25 @@ function canUseNearby(target, range, showReason) {
         if (showReason) showFeedback("もっと近づいてください");
         return false;
     }
+    if (!hasInteractionPath(me, target)) {
+        if (showReason) showFeedback("端末に近づける場所へ移動してください");
+        return false;
+    }
+    return true;
+}
+
+function hasInteractionPath(me, target) {
+    const separation = distance(me, target);
+    const size = TILE_MAP.tileSize;
+    const mounted = !canPredictOccupy(target.x, target.y, 0, false);
+    for (let step = 0; step < separation; step += 4) {
+        const factor = step / Math.max(1, separation);
+        const x = me.x + (target.x - me.x) * factor;
+        const y = me.y + (target.y - me.y) * factor;
+        if (mounted && Math.floor(x / size) === Math.floor(target.x / size)
+                && Math.floor(y / size) === Math.floor(target.y / size)) continue;
+        if (!canPredictOccupy(x, y, 0, false)) return false;
+    }
     return true;
 }
 
@@ -1206,7 +1226,7 @@ function findNearestInteraction() {
     const choices = [];
     const add = (kind, target, range, label, action) => {
         const separation = distance(me, target);
-        if (separation <= range) choices.push({ kind, target, label, action, separation });
+        if (separation <= range && hasInteractionPath(me, target)) choices.push({ kind, target, label, action, separation });
     };
 
     state.slots.filter(slot => slot.defense)
@@ -1330,7 +1350,7 @@ function updateLocalPrediction(dt) {
     if (canPredictOccupy(predictedLocal.x, nextY, 5)) predictedLocal.y = nextY;
 }
 
-function canPredictOccupy(x, y, radius) {
+function canPredictOccupy(x, y, radius, includeDefenses = true) {
     if (x - radius < 0 || y - radius < 0 || x + radius > WORLD.width || y + radius > WORLD.height) return false;
     for (const area of AREAS) {
         const overlaps = x + radius > area.x && x - radius < area.x + area.width
@@ -1348,7 +1368,7 @@ function canPredictOccupy(x, y, radius) {
             if (!symbol || TILE_MAP.legend[symbol]?.solid) return false;
         }
     }
-    if (state.slots.some(slot => slot.defense && ["block", "barricade"].includes(slot.defense.type)
+    if (includeDefenses && state.slots.some(slot => slot.defense && ["block", "barricade"].includes(slot.defense.type)
             && Math.hypot(x - slot.x, y - slot.y) < radius + 18)) return false;
     return true;
 }
@@ -1413,9 +1433,34 @@ function drawBlackout() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
+let visibleFloorCache = null;
+let floorOrigin = { x: 1020, y: 1900 };
+function reachableFloorTiles() {
+    const key = AREAS.map(area => Boolean(state?.areas[area.id])).join(',');
+    if (visibleFloorCache?.map === TILE_MAP && visibleFloorCache.key === key) return visibleFloorCache.tiles;
+    const size = TILE_MAP.tileSize;
+    const tiles = new Set();
+    // The initial southern entrance remains the origin even when the core is moved.
+    const queue = [[Math.floor(floorOrigin.x / size), Math.floor(floorOrigin.y / size)]];
+    for (let i = 0; i < queue.length; i++) {
+        const [column, row] = queue[i];
+        const id = row + ':' + column;
+        if (tiles.has(id)) continue;
+        const tile = TILE_MAP.legend[TILE_MAP.rows[row]?.[column]];
+        const x = (column + .5) * size, y = (row + .5) * size;
+        if (!tile || tile.solid || AREAS.some(area => !state?.areas[area.id]
+                && x > area.x && x < area.x + area.width && y > area.y && y < area.y + area.height)) continue;
+        tiles.add(id);
+        queue.push([column + 1, row], [column - 1, row], [column, row + 1], [column, row - 1]);
+    }
+    visibleFloorCache = { map: TILE_MAP, key, tiles };
+    return tiles;
+}
+
 function drawWorld() {
     ctx.imageSmoothingEnabled = false;
     const size = TILE_MAP.tileSize;
+    const reachable = reachableFloorTiles();
     const viewWidth = canvas.width / scale;
     const viewHeight = canvas.height / scale;
     const minColumn = clamp(Math.floor((camera.x - viewWidth / 2) / size) - 1, 0, TILE_MAP.rows[0].length - 1);
@@ -1430,7 +1475,7 @@ function drawWorld() {
             const symbol = TILE_MAP.rows[row][column];
             const tile = TILE_MAP.legend[symbol];
             const x = column * size, y = row * size;
-            ctx.fillStyle = tile.color;
+            ctx.fillStyle = !tile.solid && !reachable.has(row + ":" + column) ? "#242424" : tile.color;
             ctx.fillRect(x, y, size, size);
             if (!tile.solid) {
                 ctx.strokeStyle = "rgb(0 0 0 / 5%)";
@@ -1467,10 +1512,7 @@ function drawAreas() {
     for (const area of AREAS) {
         const unlocked = state.areas[area.id];
         ctx.save();
-        if (!unlocked) {
-            ctx.fillStyle = "rgb(7 8 9 / 72%)";
-            ctx.fillRect(area.x, area.y, area.width, area.height);
-        }
+
         ctx.fillStyle = unlocked ? "rgb(255 255 255 / 72%)" : "#ffffff";
         ctx.shadowColor = "#000";
         ctx.shadowBlur = 5;
@@ -1743,7 +1785,7 @@ function drawPlayers() {
         const isLocal = player.id === myPlayerId && predictedLocal;
         const p = isLocal ? predictedLocal : smoothEntity("player", player);
         const rescuers = state.players.filter(worker => worker.action === player.id);
-        if (rescuers.length) drawReviveEffect(p.x, p.y, Math.max(...rescuers.map(worker => worker.actionProgress / 4)));
+        if (player.down && rescuers.length && (player.id === myPlayerId || rescuers.some(worker => worker.id === myPlayerId))) drawReviveEffect(p.x, p.y, Math.max(...rescuers.map(worker => worker.actionProgress / 4)));
         ctx.save();
         if (player.down) { ctx.translate(p.x, p.y + 8); ctx.scale(1.35, .65); }
         else ctx.translate(p.x, p.y);
@@ -1755,7 +1797,7 @@ function drawPlayers() {
         if (player.id === myPlayerId) drawLocalWeaponCooldown(p.x, p.y, player);
         ctx.textAlign = "center"; ctx.fillStyle = "#a8a8a8"; ctx.font = "800 11px system-ui";
         ctx.fillText(player.down ? `${player.name} — DOWN` : player.name, p.x, p.y - 14);
-        if (player.action) drawBar(p.x - 30, p.y + 37, 60, 5, player.actionProgress / 4, "#79d8ff");
+
     }
     ctx.textAlign = "left";
 }
@@ -1794,10 +1836,9 @@ function drawLocalWeaponCooldown(x, y, player) {
 }
 
 function drawReviveEffect(x, y, progress) {
-    const pulse = (Math.sin(performance.now() / 110) + 1) / 2;
-    ctx.save(); ctx.strokeStyle = "#79d8ff"; ctx.lineWidth = 4; ctx.shadowColor = "#79d8ff"; ctx.shadowBlur = 14;
-    ctx.beginPath(); ctx.arc(x, y, 34 + pulse * 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress); ctx.stroke(); ctx.restore();
-    ctx.fillStyle = "#79d8ff"; ctx.font = "900 10px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText(`REVIVING ${Math.round(progress * 100)}%`, x, y - 48);
+    ctx.save();
+    drawBar(x - 16, y - 25, 32, 3, clamp(progress, 0, 1), "#79d8ff");
+    ctx.restore();
 }
 
 function drawHitEffects() {
