@@ -319,11 +319,12 @@ final class GameSession {
     boolean roomReadyForStart() {
         return players.stream().anyMatch(player -> player.human)
                 && players.stream().filter(player -> player.human)
-                        .allMatch(player -> player.roomReady);
+                        .allMatch(player -> player.id.equals(roomOwnerId) || player.roomReady);
     }
 
     private void setRoomReady(Player player, String[] parts) {
         if (phase != GamePhase.LOBBY && phase != GamePhase.WON && phase != GamePhase.LOST) return;
+        if (player.id.equals(roomOwnerId)) return;
         boolean ready = parts.length < 2 || parts[1].equals("1")
                 || parts[1].equalsIgnoreCase("true");
         player.roomReady = ready;

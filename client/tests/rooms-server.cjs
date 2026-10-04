@@ -76,6 +76,7 @@ const deadline = setTimeout(() => {
     host.ws.send('INPUT:1:HELLO:あ');
     const lobby = await host.next(m => m.type === 'state' && m.phase === 'lobby');
     assert.equal(lobby.roomOwnerId, welcome.playerId);
+    assert(lobby.allReady, 'the owner can start alone without a ready command');
     const guestSession = randomUUID();
     const listing = client(`${base}session=${guestSession}&directory=1`);
     await listing.opened;
@@ -87,7 +88,6 @@ const deadline = setTimeout(() => {
     await guest.opened;
     await guest.next(m => m.type === 'welcome');
     guest.ws.send('INPUT:1:HELLO:い');
-    host.ws.send('INPUT:2:ROOM_READY:1');
     guest.ws.send('INPUT:2:ROOM_READY:1');
     await host.next(m => m.type === 'state' && m.allReady
         && m.players.filter(p => p.human).length === 2);

@@ -66,7 +66,6 @@ class GameSessionTest {
         Player guest = game.connectPlayer("test-session-b");
         assertNotNull(guest);
 
-        game.handleMessage(player, "ROOM_READY:1");
         game.handleMessage(player, "START");
         assertEquals(GamePhase.LOBBY, game.phase,
                 "the owner must wait until every connected player is ready");
@@ -79,6 +78,35 @@ class GameSessionTest {
         assertEquals(GamePhase.PREPARING, game.phase);
         assertTrue(game.players.stream().noneMatch(candidate -> candidate.roomReady),
                 "ready flags should reset once the match starts");
+    }
+
+    @Test
+    void ownerCanStartAloneWithoutReadyingEvenAfterReconnectOrReplay() {
+        assertTrue(game.roomReadyForStart());
+        game.handleMessage(player, "ROOM_READY:0");
+        assertTrue(game.roomReadyForStart());
+        game.disconnectPlayer(player);
+        assertFalse(game.roomReadyForStart());
+        assertSame(player, game.connectPlayer("test-session-a"));
+        assertTrue(game.roomReadyForStart());
+        game.handleMessage(player, "START");
+        assertEquals(GamePhase.PREPARING, game.phase);
+        game.phase = GamePhase.LOST;
+        assertTrue(game.roomReadyForStart());
+        game.handleMessage(player, "START");
+        assertEquals(GamePhase.PREPARING, game.phase);
+    }
+
+    @Test
+    void newOwnerDoesNotNeedToReadyAfterOwnershipTransfer() {
+        Player guest = game.connectPlayer("test-session-b");
+        assertNotNull(guest);
+        assertFalse(game.roomReadyForStart());
+        game.disconnectPlayer(player);
+        game.setRoomOwner(guest);
+        assertTrue(game.roomReadyForStart());
+        game.handleMessage(guest, "START");
+        assertEquals(GamePhase.PREPARING, game.phase);
     }
 
     @Test

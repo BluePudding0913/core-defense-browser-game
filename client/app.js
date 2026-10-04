@@ -494,14 +494,15 @@ function updateRoomLobby(snapshot) {
     const owner = snapshot.players.find(player => player.id === snapshot.roomOwnerId);
     roomOwner.textContent = `作成者: ${owner?.name || "接続待ち"}`;
     const humans = snapshot.players.filter(player => player.human);
-    roomMembers.innerHTML = humans.map(player => `<div class="room-member ${player.ready ? "ready" : ""}">
+    roomMembers.innerHTML = humans.map(player => `<div class="room-member ${player.id === snapshot.roomOwnerId || player.ready ? "ready" : ""}">
         <strong>${escapeHtml(player.name)}${player.id === snapshot.roomOwnerId ? " · HOST" : ""}</strong>
-        <span>${player.ready ? "準備完了" : "準備中"}</span>
+        ${player.id === snapshot.roomOwnerId ? "" : `<span>${player.ready ? "準備完了" : "準備中"}</span>`}
     </div>`).join("");
     const me = snapshot.players.find(player => player.id === myPlayerId);
-    readyRoomButton.disabled = !me;
-    readyRoomButton.textContent = me?.ready ? "取り消す" : "準備OK";
     const isOwner = myPlayerId === snapshot.roomOwnerId;
+    readyRoomButton.classList.toggle("hidden", isOwner);
+    readyRoomButton.disabled = !me || isOwner;
+    readyRoomButton.textContent = me?.ready ? "取り消す" : "準備OK";
     startButton.classList.toggle("hidden", !isOwner);
     startButton.textContent = snapshot.phase === "lobby" ? "開始" : "もう一度プレイ";
     startButton.disabled = !isOwner || !snapshot.allReady;
