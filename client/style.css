@@ -479,7 +479,16 @@ button, input { font: inherit; }
 .room-heading { display: flex; align-items: center; justify-content: space-between; gap: .6rem; color: #fff; font: 900 .86rem ui-monospace, monospace; letter-spacing: .08em; }
 .room-heading button { min-width: 0; padding: .38rem .62rem; font-size: .72rem; }
 .room-heading span { color: rgb(255 255 255 / 68%); font-size: .74rem; }
-.room-list { min-height: 4.2rem; max-height: 12rem; overflow: auto; }
+.room-list {
+    min-height: 4.2rem;
+    max-height: 12rem;
+    overflow: auto;
+    scrollbar-width: none;
+}
+.room-list::-webkit-scrollbar { display: none; }
+.room-list:has(.room-entry:nth-child(4)) {
+    mask-image: linear-gradient(to bottom, transparent, #000 1rem, #000 calc(100% - 1rem), transparent);
+}
 .room-list, .room-members {
     display: grid;
     grid-auto-rows: minmax(4.2rem, auto);
