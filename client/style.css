@@ -463,10 +463,11 @@ button, input { font: inherit; }
 .menu button { border-color: rgb(255 255 255 / 58%); font-weight: 900; }
 .menu button:disabled { opacity: .35; }
 .menu .secondary-button { border-color: rgb(255 255 255 / 28%); background: transparent; }
-.menu button:hover:not(:disabled), .menu button:active:not(:disabled) { border-color: var(--accent-blue); }
+.menu button:hover:not(:disabled), .menu button:active:not(:disabled) { border-color: #fff; }
 .menu small { color: rgb(255 255 255 / 46%); }
 #menu-status:empty { display: none; }
 #how-to-start { position: fixed; top: max(1rem, env(safe-area-inset-top)); right: max(1rem, env(safe-area-inset-right)); z-index: 10; display: grid; place-items: center; width: 2.75rem; min-width: 0; height: 2.75rem; min-height: 0; padding: 0; border: 0; border-radius: 50%; color: #bbb; }
+#how-to-start:hover:not(:disabled), #how-to-start:active:not(:disabled) { color: #fff; }
 .room-panel {
     display: grid;
     gap: .55rem;
@@ -517,7 +518,7 @@ button, input { font: inherit; }
 .join-rooms > #back-rooms { margin-top: .55rem; }
 #room-lobby > #ready-room { margin-top: 10%; }
 .menu .primary-button { border-color: #fff; background: #fff; color: #111; }
-.menu .primary-button:hover:not(:disabled), .menu .primary-button:active:not(:disabled) { border-color: var(--accent-blue); background: var(--accent-blue); }
+.menu .primary-button:hover:not(:disabled), .menu .primary-button:active:not(:disabled) { border-color: #fff; background: #fff; }
 
 .how-to-menu {
     position: fixed;
