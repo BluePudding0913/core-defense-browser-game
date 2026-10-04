@@ -27,7 +27,7 @@ record AreaTile(int column, int row) { }
 
 record UnlockArea(String id, String name, List<AreaTile> tiles,
         double terminalX, double terminalY, double labelX, double labelY,
-        String color, String detail) {
+        String color, String detail, boolean fixedTerminal) {
     boolean contains(double x, double y) {
         return tiles.contains(new AreaTile((int) Math.floor(x / GameMap.TILE_SIZE),
                 (int) Math.floor(y / GameMap.TILE_SIZE)));
@@ -339,14 +339,16 @@ final class GameMap {
                             && !area.overlaps(ax, ay, 5)) hasApproach = true;
                 }
                 double distance = GameSupport.distance(x, y, area.terminalX(), area.terminalY());
+                // Fixed terminals can sit beside an empty build slot, but never on it.
                 boolean clearOfSlots = DEFINITION.trapSlots().stream().allMatch(slot ->
-                        GameSupport.distance(x, y, slot.x(), slot.y()) >= 60);
+                        GameSupport.distance(x, y, slot.x(), slot.y()) >= (area.fixedTerminal() ? TILE_SIZE : 60));
+                if (area.fixedTerminal() && distance != 0) continue;
                 if (hasApproach && clearOfSlots && distance < bestDistance) { best = new MapPoint(x, y); bestDistance = distance; }
             }
         }
         if (best == null) throw new IllegalStateException("No wall for terminal " + area.id());
         return new UnlockArea(area.id(), area.name(), area.tiles(),
-                best.x(), best.y(), area.labelX(), area.labelY(), area.color(), area.detail());
+                best.x(), best.y(), area.labelX(), area.labelY(), area.color(), area.detail(), area.fixedTerminal());
     }
 
     private static List<SpawnPoint> buildSpawnPoints() {

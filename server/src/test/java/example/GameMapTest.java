@@ -95,7 +95,7 @@ class GameMapTest {
     }
 
     private static UnlockArea testArea(String id, List<AreaTile> tiles) {
-        return new UnlockArea(id, id, tiles, 0, 0, 0, 0, "#fff", "");
+        return new UnlockArea(id, id, tiles, 0, 0, 0, 0, "#fff", "", false);
     }
 
     @Test
@@ -177,7 +177,7 @@ class GameMapTest {
             for (TrapSlot slot : GameMap.createTrapSlots()) {
                 double separation = GameSupport.distance(
                         area.terminalX(), area.terminalY(), slot.x, slot.y);
-                assertTrue(separation >= 60,
+                assertTrue(separation >= (area.fixedTerminal() ? GameMap.TILE_SIZE : 60),
                         () -> area.id() + " terminal overlaps defense slot " + slot.id);
             }
         }

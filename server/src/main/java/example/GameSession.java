@@ -1531,7 +1531,7 @@ final class GameSession {
             case "smg" -> new WeaponStats(270, 12, 0.14, 0, 11);
             case "rifle" -> new WeaponStats(430, 58, 1.15, 0, 8);
             case "sniper" -> new WeaponStats(650, 125, 1.8, 0, 5);
-            case "revolver" -> new WeaponStats(360, 72, .85, 12, 7);
+            case "revolver" -> new WeaponStats(360, 100, .70, 12, 7);
             case "lmg" -> new WeaponStats(360, 18, .18, 0, 14);
             default -> new WeaponStats(285, 26, 0.38, 0, 10);
         };

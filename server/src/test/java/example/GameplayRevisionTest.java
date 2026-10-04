@@ -13,6 +13,17 @@ class GameplayRevisionTest {
     Player player;
     final java.util.List<String> broadcasts = new java.util.ArrayList<>();
 
+    @Test void revolverTerminalMovesOneTileRightAndStillUnlocksFromTheMainRoute() {
+        UnlockArea terminal = GameMap.areaById("revolver-room");
+        assertEquals(860 + GameMap.TILE_SIZE, terminal.terminalX());
+        assertEquals(1580, terminal.terminalY());
+        game.unlockedAreas.add("entry-room");
+        player.x = 940; player.y = 1580; player.credits = 1000;
+        game.handleMessage(player, "UNLOCK:revolver-room");
+        assertTrue(game.unlockedAreas.contains("revolver-room"));
+        assertEquals(550, player.credits);
+    }
+
     @Test void matchesAndRestartsBeginWithZeroGoldAndNoPurchasedWeapons() {
         assertTrue(game.players.stream().allMatch(p -> p.credits == 0));
         player.credits = 1234;
@@ -32,7 +43,7 @@ class GameplayRevisionTest {
         for (String weapon : List.of("revolver", "lmg")) {
             ShopUnit shop = GameMap.shopByItem(weapon);
             int capacity = weapon.equals("revolver") ? 36 : 150;
-            int damage = weapon.equals("revolver") ? 72 : 18;
+            int damage = weapon.equals("revolver") ? 100 : 18;
             player.credits = 2000;
             player.x = shop.x(); player.y = shop.y();
             game.handleMessage(player, "BUY:" + weapon);
@@ -51,6 +62,7 @@ class GameplayRevisionTest {
             game.enemies.clear(); game.enemies.add(enemy);
             game.handleMessage(player, "ATTACK:9001");
             assertEquals(1000 - damage, enemy.hp);
+            assertEquals(weapon.equals("revolver") ? .70 : .18, player.cooldown, 1e-9);
             assertEquals(capacity - 1, weapon.equals("revolver") ? player.revolverAmmo : player.lmgAmmo);
             game.handleMessage(player, "ATTACK:9001");
             assertEquals(1000 - damage, enemy.hp, "cooldown prevents an immediate second shot");

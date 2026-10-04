@@ -189,7 +189,7 @@
         {"column":31,"row":41},{"column":32,"row":41},{"column":33,"row":41},{"column":34,"row":41}
       ]
     },
-    {"id":"revolver-room","name":"REVOLVER ROOM","terminalX":900,"terminalY":1620,"labelX":740,"labelY":1740,"color":"#ffffff","detail":"High damage / 36 rounds",
+    {"id":"revolver-room","name":"REVOLVER ROOM","terminalX":900,"terminalY":1580,"fixedTerminal":true,"labelX":740,"labelY":1740,"color":"#ffffff","detail":"High damage / 36 rounds",
       "tiles": [
         {"column":17,"row":40},{"column":18,"row":40},{"column":19,"row":40},{"column":20,"row":40},
         {"column":21,"row":41},{"column":22,"row":41},{"column":17,"row":41},{"column":18,"row":41},{"column":19,"row":41},{"column":20,"row":41},
