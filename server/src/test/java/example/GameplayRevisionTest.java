@@ -13,6 +13,29 @@ class GameplayRevisionTest {
     Player player;
     final java.util.List<String> broadcasts = new java.util.ArrayList<>();
 
+    @Test void frontPlacementAtTileEdgeSkipsTheTileOverlappingThePlayer() {
+        player.x = 1119; player.y = 1900;
+        player.facingX = 1; player.facingY = 0;
+        player.addBuildItem("block", 2); player.selectedBuild = "block";
+        game.handleMessage(player, "PLACE_FRONT");
+        assertEquals(1, player.buildItemCount("block"));
+        assertTrue(game.trapSlots.stream().anyMatch(slot -> slot.defense != null
+                && slot.x == 1180 && slot.y == 1900));
+        game.handleMessage(player, "PLACE_FRONT");
+        assertEquals(1, player.buildItemCount("block"), "occupied tiles still reject placement");
+    }
+
+    @Test void skippingSelfOverlapDoesNotAllowPlacementInWallsOrOtherPlayers() {
+        player.addBuildItem("block", 2); player.selectedBuild = "block";
+        player.x = 1039; player.y = 1220; player.facingX = 1; player.facingY = 0;
+        game.handleMessage(player, "PLACE_FRONT");
+        assertEquals(2, player.buildItemCount("block"), "walls remain blocked");
+        player.x = 1119; player.y = 1900;
+        game.players.get(1).x = 1180; game.players.get(1).y = 1900;
+        game.handleMessage(player, "PLACE_FRONT");
+        assertEquals(2, player.buildItemCount("block"), "another player remains protected");
+    }
+
     @Test void runnerActuallyTravelsMoreThanTwiceAsFarAsGrunt() throws Exception {
         Method spawn = GameSession.class.getDeclaredMethod("spawnEnemy", String.class, SpawnPoint.class);
         spawn.setAccessible(true);

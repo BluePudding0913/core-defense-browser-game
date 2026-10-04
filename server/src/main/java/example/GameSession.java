@@ -1835,6 +1835,11 @@ final class GameSession {
         MapPoint origin = GameMap.snapToTile(player.x, player.y);
         double targetX = origin.x() + player.facingX * GameMap.TILE_SIZE;
         double targetY = origin.y() + player.facingY * GameMap.TILE_SIZE;
+        if (!player.movingCore && Math.abs(targetX - player.x) < 23
+                && Math.abs(targetY - player.y) < 23) {
+            targetX += player.facingX * GameMap.TILE_SIZE;
+            targetY += player.facingY * GameMap.TILE_SIZE;
+        }
         if (player.movingCore) {
             placeCore(player, new String[] {"PLACE_CORE",
                     Double.toString(targetX), Double.toString(targetY)});

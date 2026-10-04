@@ -1002,10 +1002,9 @@ function openShopPurchase(shop) {
     const unavailable = shop.item === "ammo"
         && !Object.values(WEAPON_FIELDS).some(fields => me[fields.owned]);
     openNearbyActionMenu(shop.label, [{
-        label: alreadyOwned ? ammoFull ? "補充済み" : "補充"
+        label: alreadyOwned ? ammoFull ? "FULL" : "REFILL"
             : unavailable ? "LOCKED" : "BUY",
-        detail: alreadyOwned ? `${price}G`
-            : `${price}G`,
+        detail: `${price}G`,
         command: `BUY:${shop.item}`,
         disabled: ammoFull || unavailable || me.credits < price,
     }], shop, INTERACTION_RANGE.shop, "single");
@@ -1292,10 +1291,7 @@ function findNearestInteraction() {
 
 function useNearestInteraction() {
     const interaction = findNearestInteraction();
-    if (!interaction) {
-        showFeedback("操作できる物体の近くに移動してください");
-        return;
-    }
+    if (!interaction) return;
     interaction.action();
 }
 
@@ -1329,26 +1325,28 @@ function quantizeFacing(x, y) {
 
 function frontPlacementTile(player) {
     const origin = snapToTile(player);
-    const facing = player.id === myPlayerId ? localFacing
-        : {
-            x: Number.isFinite(player.facingX) ? player.facingX : 0,
-            y: Number.isFinite(player.facingY) ? player.facingY : -1,
-        };
-    return {
+    const direction = player.id === myPlayerId ? localFacing
+        : { x: player.facingX, y: player.facingY };
+    const facing = quantizeFacing(Number.isFinite(direction.x) ? direction.x : 0,
+        Number.isFinite(direction.y) ? direction.y : -1);
+    const point = {
         x: origin.x + facing.x * TILE_MAP.tileSize,
         y: origin.y + facing.y * TILE_MAP.tileSize,
     };
+    // Near a tile edge, the adjacent tile can still overlap the carrier's body.
+    if (!player.movingCore && Math.abs(point.x - player.x) < 23
+            && Math.abs(point.y - player.y) < 23) {
+        point.x += facing.x * TILE_MAP.tileSize;
+        point.y += facing.y * TILE_MAP.tileSize;
+    }
+    return point;
 }
 
 function placeSelectedInFront() {
     const me = getMe();
     const selection = placementSelection(me);
     if (!selection) return false;
-    const point = frontPlacementTile(me);
-    if (!canBuildAt(point, selection.forCore)) {
-        showFeedback(selection.forCore ? "目の前にはCOREを置けません" : "目の前には配置できません");
-        return true;
-    }
+    // The preview is advisory; only the server has the current collision state.
     send("PLACE_FRONT");
     return true;
 }
