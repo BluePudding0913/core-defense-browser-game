@@ -136,6 +136,7 @@ final class GameSession {
     }
 
     void handleMessage(Player player, String message) {
+        if (player == null || !players.contains(player) || message == null || message.length() > 160) return;
         if (message.startsWith("INPUT:")) {
             int commandStart = message.indexOf(':', 6);
             if (commandStart < 0) return;
@@ -184,7 +185,8 @@ final class GameSession {
             case "EQUIP_BUILD" -> { if (parts.length >= 2) equipBuild(player, parts[1]); }
             case "EQUIP_CORE" -> equipCore(player);
             case "PLACE_FRONT" -> placeInFacingTile(player);
-            case "READY" -> { if (phase == GamePhase.PREPARING) prepTime = 0; }
+            case "READY" -> { if (phase == GamePhase.PREPARING && !player.down
+                    && player.id.equals(roomOwnerId)) prepTime = 0; }
             default -> { }
         }
     }
@@ -251,8 +253,11 @@ final class GameSession {
 
     private void handleMove(Player player, String[] parts) {
         if (parts.length < 3 || !canMove()) return;
-        player.moveX = clamp(Double.parseDouble(parts[1]), -1, 1);
-        player.moveY = clamp(Double.parseDouble(parts[2]), -1, 1);
+        double x = Double.parseDouble(parts[1]);
+        double y = Double.parseDouble(parts[2]);
+        if (!Double.isFinite(x) || !Double.isFinite(y)) return;
+        player.moveX = clamp(x, -1, 1);
+        player.moveY = clamp(y, -1, 1);
         double length = Math.hypot(player.moveX, player.moveY);
         if (length > 1) {
             player.moveX /= length;
@@ -260,7 +265,6 @@ final class GameSession {
         }
         if (length > 0.12) {
             updateFacing(player, player.moveX, player.moveY);
-            cancelAction(player);
         }
     }
 
@@ -292,11 +296,11 @@ final class GameSession {
             return;
         }
         boolean beginsPress = active && !player.firing;
-        player.aimX = x;
-        player.aimY = y;
+        player.aimX = clamp(x, 0, WORLD_W);
+        player.aimY = clamp(y, 0, WORLD_H);
         player.firing = active;
         if (beginsPress && player.cooldown <= 0) {
-            attackAt(player, x, y);
+            attackAt(player, player.aimX, player.aimY);
         }
     }
 
@@ -366,13 +370,30 @@ final class GameSession {
     }
 
     private void selectRoundSpawns(int currentRound) {
-        int availableCount = Math.min(GameMap.SPAWN_POINTS.size(), 2 + (currentRound - 1) / 2);
+        List<SpawnPoint> outside = new ArrayList<>(GameMap.SPAWN_POINTS.stream()
+                .filter(spawn -> GameMap.spawnArea(spawn) == null).toList());
+        Collections.shuffle(outside, random);
+        // Pick distant entrances first so even the opening wave covers multiple sides.
+        for (int index = 1; index < outside.size(); index++) {
+            final List<SpawnPoint> selected = List.copyOf(outside.subList(0, index));
+            SpawnPoint farthest = outside.subList(index, outside.size()).stream()
+                    .max(Comparator.comparingDouble(candidate -> selected.stream()
+                            .mapToDouble(chosen -> distance(candidate.x(), candidate.y(), chosen.x(), chosen.y()))
+                            .min().orElse(0))).orElseThrow();
+            Collections.swap(outside, index, outside.indexOf(farthest));
+        }
+        int count = Math.min(outside.size(), 3 + (currentRound - 1) / 2);
         activeSpawnIds.clear();
         activeLanes.clear();
-        for (SpawnPoint spawn : GameMap.SPAWN_POINTS.subList(0, availableCount)) {
-            activeSpawnIds.add(spawn.id());
-            if (!activeLanes.contains(spawn.lane())) activeLanes.add(spawn.lane());
+        for (SpawnPoint spawn : outside.subList(0, count)) addRoundSpawn(spawn);
+        for (SpawnPoint spawn : GameMap.SPAWN_POINTS) {
+            if (unlockedAreas.contains(GameMap.spawnArea(spawn))) addRoundSpawn(spawn);
         }
+    }
+
+    private void addRoundSpawn(SpawnPoint spawn) {
+        if (!activeSpawnIds.contains(spawn.id())) activeSpawnIds.add(spawn.id());
+        if (!activeLanes.contains(spawn.lane())) activeLanes.add(spawn.lane());
     }
 
     private void updatePlayers(double dt) {
@@ -405,13 +426,16 @@ final class GameSession {
 
     private void updateRevives(double dt) {
         for (Player player : players) {
-            if (player.down || player.actionTarget == null || !player.actionTarget.startsWith("player-")) continue;
-            Player target = playerById(player.actionTarget);
-            boolean valid = target != null && target.down
-                    && distance(player.x, player.y, target.x, target.y) <= 78;
-            if (!valid) {
-                cancelAction(player);
-                continue;
+            Player target = player.down ? null : players.stream()
+                    .filter(other -> other != player && other.down
+                            && distance(player.x, player.y, other.x, other.y) <= 78
+                            && GameMap.hasClearLine(player.x, player.y, other.x, other.y))
+                    .min(Comparator.comparingDouble(other -> distance(player.x, player.y, other.x, other.y)))
+                    .orElse(null);
+            if (target == null) { cancelAction(player); continue; }
+            if (!target.id.equals(player.actionTarget)) {
+                player.actionTarget = target.id;
+                player.actionProgress = 0;
             }
             player.actionProgress += dt;
             if (player.actionProgress >= 4) {
@@ -537,7 +561,13 @@ final class GameSession {
                 reward = 14;
             }
         }
-        enemies.add(new Enemy(nextEnemyId++, type, spawn, hp, speed, damage, reward));
+        if (GameMap.spawnArea(spawn) != null) {
+            List<MapPoint> route = findPath(spawn.x(), spawn.y(), coreX, coreY, 17, false);
+            spawn = new SpawnPoint(spawn.id(), spawn.name(), spawn.x(), spawn.y(), spawn.lane(),
+                    spawn.enemyBias(), spawn.speedMultiplier(), spawn.targetPriority(), route);
+        }
+        // Total gold per enemy stays unchanged despite doubled health.
+        enemies.add(new Enemy(nextEnemyId++, type, spawn, hp * 2, speed * 0.5, damage, reward));
     }
 
     private void updateDefenses(double dt) {
@@ -592,6 +622,7 @@ final class GameSession {
         for (Enemy enemy : enemies) {
             if (enemy.hp <= 0) continue;
             enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
+            enemy.pathTimer -= dt;
             updateEnemyWander(enemy, dt);
 
             TrapSlot barricade = trapSlots.stream()
@@ -734,6 +765,19 @@ final class GameSession {
     }
 
     private void moveEnemyToward(Enemy enemy, double targetX, double targetY, double amount) {
+        if (!GameMap.hasClearLine(enemy.x, enemy.y, targetX, targetY)) {
+            if (enemy.pathTimer <= 0) {
+                enemy.path = findPath(enemy.x, enemy.y, targetX, targetY, 17, false);
+                enemy.pathIndex = 0;
+                enemy.pathTimer = 1;
+            }
+            while (enemy.pathIndex < enemy.path.size()
+                    && distance(enemy.x, enemy.y, enemy.path.get(enemy.pathIndex).x(), enemy.path.get(enemy.pathIndex).y()) < 8) enemy.pathIndex++;
+            if (enemy.pathIndex < enemy.path.size()) {
+                targetX = enemy.path.get(enemy.pathIndex).x();
+                targetY = enemy.path.get(enemy.pathIndex).y();
+            }
+        }
         double dx = targetX - enemy.x;
         double dy = targetY - enemy.y;
         double length = Math.max(1, Math.hypot(dx, dy));
@@ -757,7 +801,8 @@ final class GameSession {
         for (Player bot : players) {
             if (bot.human) continue;
             updateBotWander(bot, dt);
-            updateBotEconomy(bot, dt);
+            bot.dashHeld = false;
+            bot.botSpendCooldown = Math.max(0, bot.botSpendCooldown - dt);
             if (bot.down) {
                 bot.moveX = 0;
                 bot.moveY = 0;
@@ -766,13 +811,23 @@ final class GameSession {
 
             Player downed = bestBotRescueTarget(bot);
             if (downed != null && shouldBotRescue(bot, downed)) {
-                if (distance(bot.x, bot.y, downed.x, downed.y) < 70) interact(bot, downed.id);
-                else moveBotToward(bot, downed.x, downed.y);
+                if (distance(bot.x, bot.y, downed.x, downed.y) < 65
+                        && GameMap.hasClearLine(bot.x, bot.y, downed.x, downed.y)) {
+                    bot.moveX = 0;
+                    bot.moveY = 0;
+                } else moveBotToward(bot, downed.x, downed.y);
+                Enemy threat = bestBotCombatTarget(bot);
+                if (threat != null) {
+                    selectBotWeapon(bot, distance(bot.x, bot.y, threat.x, threat.y));
+                    attack(bot, threat.id);
+                }
                 continue;
             }
-            if (bot.actionTarget != null) {
-                cancelAction(bot);
-            }
+            if (bot.movingCore) { updateBotCoreTransport(bot); continue; }
+            boolean immediateDanger = enemies.stream().anyMatch(enemy -> enemy.hp > 0
+                    && (distance(bot.x, bot.y, enemy.x, enemy.y) < 240
+                    || distance(coreX, coreY, enemy.x, enemy.y) < 240));
+            if (!immediateDanger && updateBotTasks(bot)) continue;
 
             if (phase == GamePhase.WAVE) {
                 Enemy target = enemies.stream()
@@ -835,7 +890,7 @@ final class GameSession {
                 .noneMatch(enemy -> distance(enemy.x, enemy.y, downed.x, downed.y) < 145);
         boolean coreCritical = enemies.stream().filter(enemy -> enemy.hp > 0)
                 .anyMatch(enemy -> distance(enemy.x, enemy.y, coreX, coreY) < 125);
-        return rescueAreaSafe && !coreCritical;
+        return !coreCritical && (rescueAreaSafe || bot.hp >= 60);
     }
 
     private Enemy bestBotCombatTarget(Player bot) {
@@ -867,7 +922,7 @@ final class GameSession {
     private boolean recognizeBotTarget(Player bot, Enemy candidate, double dt) {
         if (bot.botObservedEnemyId != candidate.id) {
             bot.botObservedEnemyId = candidate.id;
-            bot.botRecognitionTimer = 0.9 + bot.slot * 0.15;
+            bot.botRecognitionTimer = 0.18 + bot.slot * 0.04;
         }
         bot.botRecognitionTimer = Math.max(0, bot.botRecognitionTimer - dt);
         if (bot.botRecognitionTimer > 0) return false;
@@ -991,6 +1046,7 @@ final class GameSession {
     }
 
     private void moveBotToward(Player bot, double x, double y) {
+        bot.dashHeld = distance(bot.x, bot.y, x, y) > 180 && bot.stamina > 30;
         MapPoint waypoint = nextBotWaypoint(bot, x, y);
         if (waypoint == null) {
             steerBot(bot, 0, 0);
@@ -1025,10 +1081,15 @@ final class GameSession {
     }
 
     private List<MapPoint> findBotPath(Player bot, double targetX, double targetY) {
+        return findPath(bot.x, bot.y, targetX, targetY, 5, true);
+    }
+
+    private List<MapPoint> findPath(double fromX, double fromY, double targetX, double targetY,
+            double radius, boolean avoidDefenses) {
         int columns = WORLD_W / GameMap.TILE_SIZE;
         int rows = WORLD_H / GameMap.TILE_SIZE;
-        int startColumn = (int) clamp(Math.floor(bot.x / GameMap.TILE_SIZE), 0, columns - 1);
-        int startRow = (int) clamp(Math.floor(bot.y / GameMap.TILE_SIZE), 0, rows - 1);
+        int startColumn = (int) clamp(Math.floor(fromX / GameMap.TILE_SIZE), 0, columns - 1);
+        int startRow = (int) clamp(Math.floor(fromY / GameMap.TILE_SIZE), 0, rows - 1);
         int start = startRow * columns + startColumn;
         int[] parent = new int[columns * rows];
         java.util.Arrays.fill(parent, -1);
@@ -1054,7 +1115,8 @@ final class GameSession {
                 if (parent[next] >= 0) continue;
                 double x = (nextColumn + 0.5) * GameMap.TILE_SIZE;
                 double y = (nextRow + 0.5) * GameMap.TILE_SIZE;
-                if (!canOccupy(x, y, 5)) continue;
+                if (!(avoidDefenses ? canOccupy(x, y, radius)
+                        : GameMap.canOccupy(x, y, radius, unlockedAreas))) continue;
                 parent[next] = current;
                 queue.addLast(next);
                 double targetDistance = distance(x, y, targetX, targetY);
@@ -1113,6 +1175,7 @@ final class GameSession {
         }
         bot.moveX = steeringX;
         bot.moveY = steeringY;
+        if (length > 0.12) updateFacing(bot, steeringX, steeringY);
     }
 
     private void updateBotWander(Player bot, double dt) {
@@ -1125,16 +1188,27 @@ final class GameSession {
         bot.botWanderTimer = 0.75 + random.nextDouble() * 1.35;
     }
 
-    private void updateBotEconomy(Player bot, double dt) {
-        if (!canUseFacilities() || bot.down) return;
-        bot.botSpendCooldown -= dt;
-        if (bot.botSpendCooldown > 0) return;
-        bot.botSpendCooldown = 2.5 + random.nextDouble() * 3.0;
-
-        if (bot.hp <= 55 && isPointUnlocked(MED_X, MED_Y) && spend(bot, 80)) {
-            bot.hp = 100;
-            return;
+    // Utility priorities: rescue > immediate defense > recovery/maintenance > preparation.
+    // Every action goes through the same validated methods as human commands.
+    private boolean updateBotTasks(Player bot) {
+        if (bot.botSpendCooldown > 0) return false;
+        if (blackoutActive) {
+            BreakerTerminal breaker = GameMap.BREAKER_TERMINALS.stream()
+                    .filter(unit -> trippedBreakers.contains(unit.id()))
+                    .filter(unit -> isAssignedBot(bot, unit.x(), unit.y()))
+                    .findFirst().orElse(null);
+            if (breaker != null) return botUse(bot, breaker.x(), breaker.y(), 70,
+                    () -> resetBreaker(bot, breaker.id()));
         }
+        if (bot.hp <= 55 && bot.credits >= 80 && isPointUnlocked(MED_X, MED_Y)) {
+            return botUse(bot, MED_X, MED_Y, 65, () -> buy(bot, "heal"));
+        }
+        TrapSlot damaged = trapSlots.stream().filter(slot -> slot.defense != null
+                && slot.defense.hp < slot.defense.maxHp * .65
+                && (Set.of("turret", "wire", "mine").contains(slot.defense.type) ? bot.ore > 0 : bot.wood > 0)
+                && isAssignedBot(bot, slot.x, slot.y))
+                .min(Comparator.comparingDouble(slot -> distance(bot.x, bot.y, slot.x, slot.y))).orElse(null);
+        if (damaged != null) return botUse(bot, damaged.x, damaged.y, 70, () -> repair(bot, damaged.id));
         List<String> preference = switch (bot.slot) {
             case 1 -> List.of("shotgun", "rifle", "smg", "sniper");
             case 2 -> List.of("smg", "shotgun", "sniper", "rifle");
@@ -1143,21 +1217,139 @@ final class GameSession {
         };
         for (String item : preference) {
             ShopUnit shop = GameMap.shopByItem(item);
+            boolean owned = botOwnsWeapon(bot, item);
             if (shop == null || !isPointUnlocked(shop.x(), shop.y())
-                    || botOwnsWeapon(bot, item) || bot.credits < shop.cost()) continue;
-            bot.credits -= shop.cost();
-            giveBotWeapon(bot, item);
-            return;
+                    || bot.credits < (owned ? WEAPON_AMMO_REFILL_COST : shop.cost())) continue;
+            if (owned ? weaponAmmo(bot, item) > weaponAmmoCapacity(item) / 4 : hasBotRangedAmmo(bot)) continue;
+            return botUse(bot, shop.x(), shop.y(), 55, () -> buy(bot, item));
         }
-        for (String item : preference) {
-            if (!botOwnsWeapon(bot, item)) continue;
-            int capacity = weaponAmmoCapacity(item);
-            if (weaponAmmo(bot, item) > capacity / 4
-                    || bot.credits < WEAPON_AMMO_REFILL_COST) continue;
-            bot.credits -= WEAPON_AMMO_REFILL_COST;
-            setWeaponAmmo(bot, item, capacity);
-            return;
+        if (phase != GamePhase.PREPARING) return false;
+        // One nearest CPU handles shared objectives; personal equipment stays independent.
+        if (isAssignedBot(bot, coreX, coreY)) {
+            String upgrade = coreHp < coreMaxHp * .65 ? "hp"
+                    : coreDefenseLevel < Math.min(4, round / 4) ? "defense"
+                    : coreRegenLevel < Math.min(4, round / 5) ? "regen"
+                    : coreMaxShield < round * 40 ? "shield" : null;
+            int cost = upgrade == null ? Integer.MAX_VALUE : switch (upgrade) {
+                case "hp" -> 300 + (int) ((coreMaxHp - 1000) * .6);
+                case "defense" -> 450 + coreDefenseLevel * 250;
+                case "regen" -> 500 + coreRegenLevel * 300;
+                default -> 350 + (int) (coreMaxShield * .8);
+            };
+            if (bot.credits >= cost) return botUse(bot, coreX, coreY, 90, () -> upgradeCore(bot, upgrade));
+            if (round >= 2 && distance(coreX, coreY, CORE_X, CORE_Y) < 80
+                    && unlockedAreas.contains("entry-room")) {
+                return botUse(bot, coreX, coreY, 80, () -> equipCore(bot));
+            }
         }
+        TrapSlot obsolete = trapSlots.stream().filter(slot -> slot.defense != null
+                && bot.id.equals(slot.ownerId) && distance(slot.x, slot.y, coreX, coreY) > 550)
+                .findFirst().orElse(null);
+        if (obsolete != null) return botUse(bot, obsolete.x, obsolete.y, 70, () -> removeDefense(bot, obsolete.id));
+        int unlockCost = 350 + unlockedAreas.size() * 100;
+        if (bot.credits >= unlockCost && unlockedAreas.size() < 2 + round / 2) {
+            UnlockArea area = GameMap.AREAS.stream().filter(unit -> !unlockedAreas.contains(unit.id())
+                    && terminalAccessible(unit) && isAssignedBot(bot, unit.terminalX(), unit.terminalY()))
+                    .min(Comparator.comparingDouble(unit -> distance(bot.x, bot.y, unit.terminalX(), unit.terminalY())))
+                    .orElse(null);
+            if (area != null) return botUse(bot, area.terminalX(), area.terminalY(), 65,
+                    () -> unlockArea(bot, area.id()));
+        }
+        if (bot.botExtendedRound != round && prepTime < 6 && coreHp < coreMaxHp * .7
+                && bot.credits >= 10 && unlockedAreas.contains("operations-room")
+                && isAssignedBot(bot, GameMap.PREP_CONSOLE.x(), GameMap.PREP_CONSOLE.y())) {
+            return botUse(bot, GameMap.PREP_CONSOLE.x(), GameMap.PREP_CONSOLE.y(), 70, () -> {
+                extendPrepTime(bot); bot.botExtendedRound = round;
+            });
+        }
+        // Supply a nearby teammate without repeatedly dropping and collecting the same stack.
+        Player teammate = players.stream().filter(other -> other != bot && !other.down
+                && distance(bot.x, bot.y, other.x, other.y) < 65 && other.wood < 2).findFirst().orElse(null);
+        if (teammate != null && bot.wood >= 16 && bot.botSharedRound != round) {
+            dropResource(bot, new String[]{"DROP_RESOURCE", "wood", "4"});
+            bot.botSharedRound = round;
+            bot.botSpendCooldown = 3;
+            return true;
+        }
+        String buildType = List.of("block", "turret", "wire", "mine", "barricade").get((round + bot.slot) % 5);
+        long defenses = trapSlots.stream().filter(slot -> slot.defense != null).count();
+        if (defenses >= 4 + round) return false;
+        String heldType = bot.buildItemCount(buildType) > 0 ? buildType
+                : BUILD_RECIPES.keySet().stream().sorted().filter(type -> bot.buildItemCount(type) > 0).findFirst().orElse(null);
+        if (heldType != null) {
+            String type = heldType;
+            MapPoint site = botBuildSite(bot);
+            if (site != null) return botUse(bot, site.x(), site.y(), 90, () -> {
+                equipBuild(bot, type);
+                placeDefense(bot, new String[]{"PLACE", Double.toString(site.x()), Double.toString(site.y()), type});
+            });
+            return false; // No legal site: guard instead of accumulating more unplaceable equipment.
+        }
+        var recipe = BUILD_RECIPES.get(buildType);
+        if (bot.wood >= recipe.getOrDefault("wood", 0) && bot.ore >= recipe.getOrDefault("ore", 0)) {
+            WorkbenchUnit bench = GameMap.WORKBENCH_UNITS.stream()
+                    .filter(unit -> unit.requiredArea() == null || unlockedAreas.contains(unit.requiredArea()))
+                    .min(Comparator.comparingDouble(unit -> distance(bot.x, bot.y, unit.x(), unit.y()))).orElse(null);
+            if (bench != null) return botUse(bot, bench.x(), bench.y(), 75, () -> craft(bot, buildType));
+        }
+        String resource = bot.wood < recipe.getOrDefault("wood", 0) ? "wood" : "ore";
+        ResourceNode node = resourceNodes.stream().filter(unit -> unit.available && unit.type.equals(resource)
+                && (unit.requiredArea == null || unlockedAreas.contains(unit.requiredArea)))
+                .min(Comparator.comparingDouble(unit -> distance(bot.x, bot.y, unit.x, unit.y))).orElse(null);
+        if (node != null) { moveBotToward(bot, node.x, node.y); return true; }
+        double x = resource.equals("wood") ? WOODCUTTER_X : QUARRY_X;
+        double y = resource.equals("wood") ? WOODCUTTER_Y : QUARRY_Y;
+        if (isPointUnlocked(x, y)) return botUse(bot, x, y, 75, () -> gather(bot, resource));
+        return false;
+    }
+
+    private boolean isAssignedBot(Player bot, double x, double y) {
+        return players.stream().filter(other -> !other.human && !other.down)
+                .min(Comparator.comparingDouble((Player other) -> distance(other.x, other.y, x, y))
+                        .thenComparingInt(other -> other.slot)).orElse(null) == bot;
+    }
+
+    private boolean botUse(Player bot, double x, double y, double range, Runnable action) {
+        if (!canInteract(bot, x, y, range)) { moveBotToward(bot, x, y); }
+        else {
+            bot.moveX = 0; bot.moveY = 0;
+            action.run(); bot.botSpendCooldown = 1;
+        }
+        return true;
+    }
+
+    private MapPoint botBuildSite(Player bot) {
+        for (int ring = 3; ring <= 6; ring++) {
+            for (int offset = 0; offset < 8; offset++) {
+                double angle = (offset + bot.slot * 2) * Math.PI / 4;
+                MapPoint point = GameMap.snapToTile(coreX + Math.cos(angle) * ring * 40,
+                        coreY + Math.sin(angle) * ring * 40);
+                if (!canPlaceDefenseAt(point, null)) continue;
+                // Keep narrow passages open.
+                if (!canOccupy(point.x() - 40, point.y(), 5) || !canOccupy(point.x() + 40, point.y(), 5)
+                        || !canOccupy(point.x(), point.y() - 40, 5) || !canOccupy(point.x(), point.y() + 40, 5)) continue;
+                return point;
+            }
+        }
+        return null;
+    }
+
+    private void updateBotCoreTransport(Player bot) {
+        double x = 1020, y = 1540;
+        if (phase != GamePhase.PREPARING || !canOccupy(x, y, 17)) { releaseCarriedCore(bot); return; }
+        if (distance(bot.x, bot.y, x, y) > 65) moveBotToward(bot, x, y);
+        else {
+            placeCore(bot, new String[]{"CORE", "1020", "1540"});
+            if (bot.movingCore) releaseCarriedCore(bot);
+            bot.moveX = 0; bot.moveY = 0;
+        }
+    }
+
+    private boolean terminalAccessible(UnlockArea area) {
+        for (int[] offset : new int[][]{{40,0},{-40,0},{0,40},{0,-40}}) {
+            if (GameMap.canOccupy(area.terminalX() + offset[0], area.terminalY() + offset[1], 5, unlockedAreas)) return true;
+        }
+        return false;
     }
 
     private boolean isPointUnlocked(double x, double y) {
@@ -1214,7 +1406,6 @@ final class GameSession {
         if (player.weapon.equals("rifle")) player.rifleAmmo--;
         if (player.weapon.equals("sniper")) player.sniperAmmo--;
 
-        cancelAction(player);
         player.cooldown = weapon.cooldown();
         player.cooldownMax = weapon.cooldown();
         double dx = aimX - player.x;
@@ -1382,7 +1573,7 @@ final class GameSession {
     private void buy(Player player, String item) {
         if (!canUseFacilities() || player.down) return;
         if (item.equals("heal")) {
-            if (distance(player.x, player.y, MED_X, MED_Y) > 95) {
+            if (!isPointUnlocked(MED_X, MED_Y) || !canInteract(player, MED_X, MED_Y, 95)) {
                 feedback(player, "MOVE TO MED BAY");
                 return;
             }
@@ -1399,7 +1590,8 @@ final class GameSession {
             return;
         }
         ShopUnit shop = GameMap.shopByItem(item);
-        if (shop == null || distance(player.x, player.y, shop.x(), shop.y()) > 70) {
+        if (shop == null || !isPointUnlocked(shop.x(), shop.y())
+                || !canInteract(player, shop.x(), shop.y(), 70)) {
             feedback(player, "MOVE TO SHOP UNIT");
             return;
         }
@@ -1487,14 +1679,14 @@ final class GameSession {
             return;
         }
         if (resource.equals("wood")) {
-            if (distance(player.x, player.y, WOODCUTTER_X, WOODCUTTER_Y) > 110) {
+            if (!isPointUnlocked(WOODCUTTER_X, WOODCUTTER_Y) || !canInteract(player, WOODCUTTER_X, WOODCUTTER_Y, 110)) {
                 feedback(player, "MOVE TO WOODCUTTER");
                 return;
             }
             player.wood += 4;
             feedback(player, "WOOD +4");
         } else if (resource.equals("ore")) {
-            if (distance(player.x, player.y, QUARRY_X, QUARRY_Y) > 110) {
+            if (!isPointUnlocked(QUARRY_X, QUARRY_Y) || !canInteract(player, QUARRY_X, QUARRY_Y, 110)) {
                 feedback(player, "MOVE TO QUARRY");
                 return;
             }
@@ -1539,8 +1731,7 @@ final class GameSession {
         boolean nearWorkbench = GameMap.WORKBENCH_UNITS.stream()
                 .filter(workbench -> workbench.requiredArea() == null
                         || unlockedAreas.contains(workbench.requiredArea()))
-                .anyMatch(workbench -> distance(player.x, player.y,
-                        workbench.x(), workbench.y()) <= 110);
+                .anyMatch(workbench -> canInteract(player, workbench.x(), workbench.y(), 110));
         if (!nearWorkbench) {
             feedback(player, "MOVE TO WORKBENCH");
             return;
@@ -1572,7 +1763,7 @@ final class GameSession {
 
     private void equipCore(Player player) {
         if (!canUseFacilities() || player.down
-                || distance(player.x, player.y, coreX, coreY) > 130) {
+                || !canInteract(player, coreX, coreY, 130)) {
             feedback(player, "MOVE TO CORE");
             return;
         }
@@ -1596,6 +1787,7 @@ final class GameSession {
         if (!canUseFacilities() || player.down || !player.movingCore) return;
         double requestedX = Double.parseDouble(parts[1]);
         double requestedY = Double.parseDouble(parts[2]);
+        if (!Double.isFinite(requestedX) || !Double.isFinite(requestedY)) return;
         MapPoint point = GameMap.snapToTile(requestedX, requestedY);
         if (distance(player.x, player.y, point.x(), point.y()) > 180) {
             feedback(player, "MOVE CLOSER");
@@ -1636,7 +1828,7 @@ final class GameSession {
     private void build(Player player, String slotId, String type) {
         if (!canUseFacilities() || player.down || !BUILD_RECIPES.containsKey(type)) return;
         TrapSlot slot = slotById(slotId);
-        if (slot == null || distance(player.x, player.y, slot.x, slot.y) > 100) {
+        if (slot == null || !canInteract(player, slot.x, slot.y, 100)) {
             feedback(player, "MOVE CLOSER");
             return;
         }
@@ -1652,7 +1844,9 @@ final class GameSession {
             feedback(player, "CRAFT THIS ITEM FIRST");
             return;
         }
+        if (!canPlaceDefenseAt(new MapPoint(slot.x, slot.y), slot)) return;
         player.addBuildItem(type, -1);
+        slot.ownerId = player.id;
         slot.defense = new Defense(type);
         feedback(player, "PLACED");
     }
@@ -1661,18 +1855,13 @@ final class GameSession {
         if (!canUseFacilities() || player.down || !BUILD_RECIPES.containsKey(parts[3])) return;
         double requestedX = Double.parseDouble(parts[1]);
         double requestedY = Double.parseDouble(parts[2]);
+        if (!Double.isFinite(requestedX) || !Double.isFinite(requestedY)) return;
         MapPoint point = GameMap.snapToTile(requestedX, requestedY);
         if (distance(player.x, player.y, point.x(), point.y()) > 180) {
             feedback(player, "MOVE CLOSER");
             return;
         }
-        if (!GameMap.canPlaceDefense(point.x(), point.y(), unlockedAreas)
-                || distance(point.x(), point.y(), coreX, coreY) < 90
-                || trapSlots.stream().anyMatch(slot -> distance(point.x(), point.y(), slot.x, slot.y) < 36)
-                || players.stream().anyMatch(other -> distance(point.x(), point.y(), other.x, other.y)
-                        < (other == player ? 30 : 48))
-                || enemies.stream().anyMatch(enemy -> enemy.hp > 0
-                        && distance(point.x(), point.y(), enemy.x, enemy.y) < 48)) {
+        if (!canPlaceDefenseAt(point, null)) {
             feedback(player, "CANNOT BUILD HERE");
             return;
         }
@@ -1689,16 +1878,28 @@ final class GameSession {
                 .map(SpawnPoint::lane).orElse("free");
         TrapSlot placed = new TrapSlot("placed-" + nextDefenseId++, lane,
                 point.x(), point.y(), null);
+        placed.ownerId = player.id;
         placed.defense = new Defense(type);
         trapSlots.add(placed);
         feedback(player, "PLACED");
+    }
+
+    private boolean canPlaceDefenseAt(MapPoint point, TrapSlot ignored) {
+        return GameMap.canPlaceDefense(point.x(), point.y(), unlockedAreas)
+                && distance(point.x(), point.y(), coreX, coreY) >= 40
+                && trapSlots.stream().noneMatch(slot -> slot != ignored && slot.defense != null
+                        && distance(point.x(), point.y(), slot.x, slot.y) < 36)
+                && players.stream().noneMatch(other -> Math.abs(point.x() - other.x) < 23
+                        && Math.abs(point.y() - other.y) < 23)
+                && enemies.stream().noneMatch(enemy -> enemy.hp > 0
+                        && distance(point.x(), point.y(), enemy.x, enemy.y) < 48);
     }
 
     private void removeDefense(Player player, String slotId) {
         if (!canUseFacilities() || player.down) return;
         TrapSlot slot = slotById(slotId);
         if (slot == null || slot.defense == null
-                || distance(player.x, player.y, slot.x, slot.y) > 100) return;
+                || !canInteract(player, slot.x, slot.y, 100)) return;
         String type = slot.defense.type;
         trapSlots.remove(slot);
         player.addBuildItem(type, 1);
@@ -1711,7 +1912,7 @@ final class GameSession {
         if (!canUseFacilities() || player.down) return;
         TrapSlot slot = slotById(slotId);
         if (slot == null || slot.defense == null
-                || distance(player.x, player.y, slot.x, slot.y) > 100) return;
+                || !canInteract(player, slot.x, slot.y, 100)) return;
         if (slot.defense.hp >= slot.defense.maxHp) {
             feedback(player, "DURABILITY FULL");
             return;
@@ -1728,7 +1929,7 @@ final class GameSession {
 
     private void upgradeCore(Player player, String type) {
         if (!canUseFacilities() || player.down
-                || distance(player.x, player.y, coreX, coreY) > 130) return;
+                || !canInteract(player, coreX, coreY, 130)) return;
         switch (type) {
             case "hp" -> {
                 int cost = 300 + (int) ((coreMaxHp - 1000) * 0.6);
@@ -1784,7 +1985,7 @@ final class GameSession {
         PrepConsole console = GameMap.PREP_CONSOLE;
         if (!canUseFacilities() || player.down
                 || !unlockedAreas.contains(console.requiredArea())) return;
-        if (distance(player.x, player.y, console.x(), console.y()) > 95) {
+        if (!canInteract(player, console.x(), console.y(), 95)) {
             feedback(player, "MOVE TO TIME CONTROL");
             return;
         }
@@ -1830,7 +2031,7 @@ final class GameSession {
             feedback(player, "POWER ONLINE");
             return;
         }
-        if (distance(player.x, player.y, breaker.x(), breaker.y()) > 95) {
+        if (!canInteract(player, breaker.x(), breaker.y(), 95)) {
             feedback(player, "MOVE TO BREAKER");
             return;
         }
@@ -1849,18 +2050,20 @@ final class GameSession {
     private void unlockArea(Player player, String areaId) {
         if (!canUseFacilities() || player.down) return;
         UnlockArea area = GameMap.areaById(areaId);
-        if (area == null) return;
+        if (area == null || !terminalAccessible(area)) return;
         if (unlockedAreas.contains(areaId)) {
             feedback(player, "ALREADY OPEN");
             return;
         }
-        if (distance(player.x, player.y, area.terminalX(), area.terminalY()) > 100) {
+        if (!canInteract(player, area.terminalX(), area.terminalY(), 100)) {
             feedback(player, "MOVE TO TERMINAL");
             return;
         }
         int cost = 350 + unlockedAreas.size() * 100;
         if (spend(player, cost)) {
             unlockedAreas.add(areaId);
+            if (phase == GamePhase.WAVE) GameMap.SPAWN_POINTS.stream()
+                    .filter(spawn -> areaId.equals(GameMap.spawnArea(spawn))).forEach(this::addRoundSpawn);
             setNotice(area.name() + " OPEN");
         } else {
             feedback(player, "NOT ENOUGH GOLD");
@@ -1877,9 +2080,9 @@ final class GameSession {
         if (player.down) return;
         if (player.movingCore) damageCore(damage);
         player.hp = Math.max(0, player.hp - damage);
-        cancelAction(player);
         if (player.hp <= 0) {
             player.down = true;
+            cancelAction(player);
             player.moveX = 0;
             player.moveY = 0;
             player.dashHeld = false;
@@ -1977,6 +2180,8 @@ final class GameSession {
             player.botWanderY = 0;
             player.botWanderTimer = 0;
             player.botSpendCooldown = 1.25 + player.slot * 0.35;
+            player.botExtendedRound = -1;
+            player.botSharedRound = -1;
             player.botPath = List.of();
             player.botPathIndex = 0;
             player.botPathTimer = 0;
@@ -2002,6 +2207,19 @@ final class GameSession {
 
     private boolean canUseFacilities() {
         return phase == GamePhase.PREPARING || phase == GamePhase.WAVE;
+    }
+
+    private boolean canInteract(Player player, double x, double y, double range) {
+        double separation = distance(player.x, player.y, x, y);
+        if (separation > range) return false;
+        // A wall-mounted terminal occupies the final half tile; intervening walls/locked floors do not.
+        double endAllowance = GameMap.canOccupy(x, y, 0, unlockedAreas) ? 0 : 21;
+        for (double step = 0; step < separation - endAllowance; step += 4) {
+            double factor = step / Math.max(1, separation);
+            if (!GameMap.canOccupy(player.x + (x - player.x) * factor,
+                    player.y + (y - player.y) * factor, 0, unlockedAreas)) return false;
+        }
+        return true;
     }
 
     private boolean canOccupy(double x, double y, double radius) {

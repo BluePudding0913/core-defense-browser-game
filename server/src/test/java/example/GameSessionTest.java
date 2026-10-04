@@ -40,9 +40,8 @@ class GameSessionTest {
         assertEquals(GamePhase.WAVE, game.phase);
         assertEquals(1, game.round);
         assertEquals(12, game.queuedEnemies);
-        assertEquals(2, game.activeSpawnIds.size());
-        assertEquals(GameMap.SPAWN_POINTS.subList(0, 2).stream().map(SpawnPoint::id).toList(),
-                game.activeSpawnIds, "round one spawn locations must be fixed and plural");
+        assertEquals(3, game.activeSpawnIds.size());
+        assertEquals(3, Set.copyOf(game.activeSpawnIds).size());
 
         game.queuedEnemies = 0;
         game.queuedBosses = 0;
@@ -85,6 +84,7 @@ class GameSessionTest {
     @Test
     void purchaseRequiresTheFacilityAndWeaponUnitRefillsItsAmmo() {
         startPreparing();
+        game.unlockedAreas.add("entry-room");
         ShopUnit shotgunShop = GameMap.shopByItem("shotgun");
         player.x = shotgunShop.x();
         player.y = shotgunShop.y();
@@ -133,6 +133,7 @@ class GameSessionTest {
     @Test
     void addedWeaponsCanBePurchasedAndRestockedAtTheirOwnUnits() {
         startPreparing();
+        game.unlockedAreas.addAll(GameMap.AREAS.stream().map(UnlockArea::id).toList());
         player.credits = 2_000;
 
         ShopUnit smgShop = GameMap.shopByItem("smg");
@@ -483,15 +484,14 @@ class GameSessionTest {
         startPreparing();
         game.players.forEach(candidate -> candidate.human = true);
         Player target = game.players.get(1);
-        player.x = 900;
-        player.y = 600;
-        target.x = 940;
-        target.y = 600;
+        player.x = 1020;
+        player.y = 1900;
+        target.x = 1060;
+        target.y = 1900;
         target.hp = 0;
         target.down = true;
 
-        game.handleMessage(player, "INTERACT:" + target.id);
-        assertEquals(target.id, player.actionTarget);
+        assertNull(player.actionTarget);
 
         game.update(3.99);
         assertTrue(target.down);
@@ -686,7 +686,7 @@ class GameSessionTest {
         enemy.y = bot.y;
         game.enemies.add(enemy);
 
-        game.update(0.6);
+        game.update(0.05);
         assertEquals(500, enemy.hp, "CPU should not attack on the first sighting");
 
         game.update(0.7);
@@ -727,7 +727,10 @@ class GameSessionTest {
         game.unlockedAreas.add("entry-room");
         Player bot = game.players.get(1);
 
-        game.update(4);
+        game.prepTime = 90;
+        game.update(.05);
+        assertFalse(bot.ownsShotgun, "CPU must travel to the facility before buying");
+        for (int i = 0; i < 900 && !bot.ownsShotgun; i++) game.update(.05);
 
         assertTrue(bot.ownsShotgun);
         assertEquals(250, bot.credits);

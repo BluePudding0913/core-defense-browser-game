@@ -21,3 +21,16 @@ final class GameSupport {
                 .replace("\n", "\\n").replace("\r", "");
     }
 }
+
+/** Per-connection burst limit; combat and movement also have independent server-side timing. */
+final class MessageBudget {
+    private double tokens = 180;
+    private long lastNanos;
+    synchronized boolean take(long now) {
+        if (lastNanos != 0) tokens = Math.min(180, tokens + Math.max(0, now - lastNanos) / 1_000_000_000.0 * 120);
+        lastNanos = now;
+        if (tokens < 1) return false;
+        tokens--;
+        return true;
+    }
+}

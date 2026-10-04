@@ -61,18 +61,22 @@
 
     <section id="menu" class="menu">
         <h1>CORE DEFENSE</h1>
+        <p class="menu-intro">仲間とCOREを守る、4人協力の防衛ゲーム</p>
+        <p class="menu-guide">① 名前を入力　② ルームを作成・参加　③ 準備完了でスタート</p>
         <p id="menu-status">サーバーに接続しています…</p>
         <label>名前 <input id="player-name" maxlength="16" value="Player" autocomplete="nickname"></label>
         <section id="room-browser" class="room-panel">
-            <div class="room-heading"><strong>ROOMS</strong><button id="refresh-rooms" type="button">更新</button></div>
+            <div class="room-heading"><strong>参加するルームを選択</strong><button id="refresh-rooms" type="button">更新</button></div>
             <div id="room-list" class="room-list"><p>ルームを読み込んでいます…</p></div>
-            <button id="create-room" class="primary-button" type="button" disabled>新しいルームを作成</button>
+            <button id="create-room" class="primary-button" type="button" disabled>ルームを作って遊ぶ</button>
+            <p class="menu-help">1人でも遊べます。空いている3枠はCPUが担当します。</p>
         </section>
         <section id="room-lobby" class="room-panel hidden">
             <div class="room-heading"><strong id="room-code">ROOM</strong><span id="room-owner"></span></div>
             <div id="room-members" class="room-members"></div>
-            <button id="ready-room" type="button" disabled>OK</button>
-            <button id="start" class="primary-button hidden" type="button" disabled>START</button>
+            <p class="menu-help">全員が「準備完了」にすると、作成者がゲームを開始できます。</p>
+            <button id="ready-room" type="button" disabled>準備完了</button>
+            <button id="start" class="primary-button hidden" type="button" disabled>ゲームを開始</button>
             <button id="leave-room" class="secondary-button" type="button">ルーム一覧へ戻る</button>
         </section>
         <button id="how-to-start" class="secondary-button" type="button">遊び方</button>
@@ -85,11 +89,11 @@
             <div class="how-to-content">
                 <section>
                     <h2>目的</h2>
-                    <p>屋外から侵入する敵を倒し、COREを20ラウンド守り切ります。攻撃を当てたプレイヤーはゴールドを獲得します。</p>
+                    <p>屋外と解放したエリアから出現する敵を倒し、COREを20ラウンド守り切ります。攻撃を当てたプレイヤーはゴールドを獲得します。</p>
                 </section>
                 <section>
                     <h2>ルーム</h2>
-                    <p>名前を入力して新しいルームを作るか、一覧から参加します。参加者全員がOKを選択すると、ルーム作成者がSTARTを押してゲームを開始できます。</p>
+                    <p>名前を入力して新しいルームを作るか、一覧から参加します。参加者全員が「準備完了」を選択すると、ルーム作成者が「ゲームを開始」を押してゲームを開始できます。</p>
                 </section>
                 <section>
                     <h2>基本操作</h2>
@@ -99,6 +103,7 @@
                         <div><dt>調べる</dt><dd>Rでショップ、設備、端末、COREを操作</dd></div>
                         <div><dt>所持品</dt><dd>Eで武器、素材、設置物を確認・選択</dd></div>
                         <div><dt>切り替え</dt><dd>マウスホイール、または右下の武器表示を押す</dd></div>
+                        <div><dt>蘇生</dt><dd>倒れた味方の近くに4秒いると自動で復帰。蘇生中も攻撃・移動できます</dd></div>
                         <div><dt>ダッシュ</dt><dd>移動しながらShift</dd></div>
                     </dl>
                 </section>

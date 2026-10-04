@@ -34,6 +34,7 @@ public final class WasdServer extends WebSocketServer {
     private static final long EMPTY_ROOM_RETENTION_NANOS = TimeUnit.SECONDS.toNanos(60);
 
     private final Object gameLock = new Object();
+    private final Map<WebSocket, MessageBudget> messageBudgets = new ConcurrentHashMap<>();
     private final Map<String, GameRoom> rooms = new ConcurrentHashMap<>();
     private final Map<WebSocket, ConnectionAssignment> assignments = new ConcurrentHashMap<>();
     private final Set<WebSocket> directoryConnections = ConcurrentHashMap.newKeySet();
@@ -75,6 +76,8 @@ public final class WasdServer extends WebSocketServer {
             return;
         }
         String sessionId = readSessionId(handshake);
+        if (sessionId == null) { reject(connection, "セッションIDが必要です"); return; }
+        messageBudgets.put(connection, new MessageBudget());
         if ("1".equals(readQueryParameter(handshake.getResourceDescriptor(), "directory"))) {
             if (sessionId == null) {
                 reject(connection, "セッションIDが必要です");
@@ -136,6 +139,8 @@ public final class WasdServer extends WebSocketServer {
 
     @Override
     public void onMessage(WebSocket connection, String message) {
+        MessageBudget budget = messageBudgets.get(connection);
+        if (budget == null || !budget.take(System.nanoTime())) return;
         if (directoryConnections.contains(connection)) {
             handleDirectoryMessage(connection, message);
             return;
@@ -144,6 +149,7 @@ public final class WasdServer extends WebSocketServer {
         if (assignment == null || message == null || message.length() > 160) return;
         synchronized (gameLock) {
             try {
+                if (assignment.room.playerConnections.get(assignment.player) != connection) return;
                 assignment.room.game.handleMessage(assignment.player, message.trim());
                 if (assignment.player.sessionId != null
                         && assignment.player.sessionId.equals(assignment.room.ownerSession)) {
@@ -157,6 +163,7 @@ public final class WasdServer extends WebSocketServer {
 
     @Override
     public void onClose(WebSocket connection, int code, String reason, boolean remote) {
+        messageBudgets.remove(connection);
         if (directoryConnections.remove(connection)) {
             directorySessions.remove(connection);
             return;
@@ -245,7 +252,11 @@ public final class WasdServer extends WebSocketServer {
 
     private void sendSnapshot(GameRoom room) {
         if (room.playerConnections.isEmpty()) return;
-        sendToRoom(room, SnapshotBuilder.build(room.game, room.id, humanCount(room), PLAYER_COUNT));
+        String snapshot;
+        synchronized (gameLock) {
+            snapshot = SnapshotBuilder.build(room.game, room.id, humanCount(room), PLAYER_COUNT);
+        }
+        sendToRoom(room, snapshot);
     }
 
     private static void sendToRoom(GameRoom room, String message) {
@@ -289,6 +300,8 @@ public final class WasdServer extends WebSocketServer {
 
     private void sendRoomList(WebSocket connection) {
         if (!connection.isOpen()) return;
+        String message;
+        synchronized (gameLock) {
         ArrayList<GameRoom> visibleRooms = new ArrayList<>(rooms.values());
         visibleRooms.sort(java.util.Comparator.comparing(room -> room.id));
         StringBuilder json = new StringBuilder("{\"type\":\"rooms\",\"rooms\":[");
@@ -307,7 +320,9 @@ public final class WasdServer extends WebSocketServer {
                     .append("\",\"joinable\":").append(joinable).append('}');
         }
         json.append("]}");
-        connection.send(json.toString());
+        message = json.toString();
+        }
+        connection.send(message);
     }
 
     private static String cleanPlayerName(String value) {

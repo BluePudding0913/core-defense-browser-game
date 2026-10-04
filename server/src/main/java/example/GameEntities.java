@@ -59,6 +59,8 @@ final class Player {
     double botWanderY;
     double botWanderTimer;
     double botSpendCooldown;
+    int botExtendedRound = -1;
+    int botSharedRound = -1;
     List<MapPoint> botPath = List.of();
     int botPathIndex;
     double botPathTimer;
@@ -154,6 +156,9 @@ final class Enemy {
     final List<MapPoint> route;
     final String targetPriority;
     int routeIndex;
+    List<MapPoint> path = List.of();
+    int pathIndex;
+    double pathTimer;
 
     Enemy(int id, String type, SpawnPoint spawn, double hp, double speed, double damage, int reward) {
         this.id = id;
@@ -203,6 +208,7 @@ final class TrapSlot {
     final double y;
     final String requiredArea;
     Defense defense;
+    String ownerId;
 
     TrapSlot(String id, String lane, double x, double y, String requiredArea) {
         this.id = id;

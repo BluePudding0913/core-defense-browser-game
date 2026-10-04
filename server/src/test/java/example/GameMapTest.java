@@ -33,7 +33,7 @@ class GameMapTest {
         assertEquals(definition.stations().workbench().x(), GameMap.WORKBENCH_X);
         assertEquals(definition.tileMap().tileSize(), GameMap.TILE_MAP.tileSize());
         assertEquals(definition.areas().size() + 3, GameMap.AREAS.size());
-        assertEquals(definition.spawnPoints(), GameMap.SPAWN_POINTS);
+        assertEquals(definition.spawnPoints(), GameMap.SPAWN_POINTS.stream().filter(spawn -> GameMap.spawnArea(spawn) == null).toList());
         assertEquals(definition.trapSlots().size(), GameMap.createTrapSlots().size());
         assertEquals(definition.resourceNodes().size() + 4, GameMap.createResourceNodes().size());
         assertEquals(definition.shopUnits(), GameMap.SHOP_UNITS);

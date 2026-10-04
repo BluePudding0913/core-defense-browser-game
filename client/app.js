@@ -289,7 +289,7 @@ function connect() {
         if (message.type === "map") {
             try {
                 applyMap(message.map);
-                menuStatus.textContent = "参加者全員がOKを押すと開始できます";
+                menuStatus.textContent = "参加者全員が「準備完了」を押すと開始できます";
             } catch (error) {
                 console.error(error);
                 menuStatus.textContent = "サーバーのマップデータが不正です。サーバーを再ビルドしてください。";
@@ -447,19 +447,19 @@ function updateRoomLobby(snapshot) {
     const humans = snapshot.players.filter(player => player.human);
     roomMembers.innerHTML = humans.map(player => `<div class="room-member ${player.ready ? "ready" : ""}">
         <strong>${escapeHtml(player.name)}${player.id === snapshot.roomOwnerId ? " · HOST" : ""}</strong>
-        <span>${player.ready ? "OK" : "WAITING"}</span>
+        <span>${player.ready ? "準備完了" : "準備中"}</span>
     </div>`).join("");
     const me = snapshot.players.find(player => player.id === myPlayerId);
     readyRoomButton.disabled = !me;
-    readyRoomButton.textContent = me?.ready ? "OKを取り消す" : "OK";
+    readyRoomButton.textContent = me?.ready ? "準備完了を取り消す" : "準備完了";
     const isOwner = myPlayerId === snapshot.roomOwnerId;
     startButton.classList.toggle("hidden", !isOwner);
-    startButton.textContent = snapshot.phase === "lobby" ? "START" : "もう一度 START";
+    startButton.textContent = snapshot.phase === "lobby" ? "ゲームを開始" : "もう一度プレイ";
     startButton.disabled = !isOwner || !snapshot.allReady;
-    menuStatus.textContent = snapshot.phase === "won" ? "防衛成功 — 再戦する場合は全員OK"
-        : snapshot.phase === "lost" ? "防衛失敗 — 再戦する場合は全員OK"
-            : snapshot.allReady ? isOwner ? "全員OK — STARTできます" : "作成者のSTARTを待っています"
-                : "参加者全員がOKを押してください";
+    menuStatus.textContent = snapshot.phase === "won" ? "防衛成功 — 再戦する場合は全員準備完了"
+        : snapshot.phase === "lost" ? "防衛失敗 — 再戦する場合は全員準備完了"
+            : snapshot.allReady ? isOwner ? "全員準備完了 — ゲームを開始できます" : "作成者の開始操作を待っています"
+                : "参加者全員が「準備完了」を押してください";
 }
 
 function reconcileEnemySmoothing(next) {
@@ -866,7 +866,7 @@ function canBuildAt(point, forCore = false) {
     if (AREAS.some(area => !state.areas[area.id]
             && point.x >= area.x && point.x <= area.x + area.width
             && point.y >= area.y && point.y <= area.y + area.height)) return false;
-    if (!forCore && distance(point, state.core) < 90) return false;
+    if (!forCore && distance(point, state.core) < 40) return false;
     if (distance(point, ARMORY) < 70 || distance(point, MED) < 70
             || distance(point, WOODCUTTER) < 70 || distance(point, QUARRY) < 70) return false;
     if (WORKBENCHES.some(workbench => distance(point, workbench) < 70)) return false;
@@ -875,9 +875,10 @@ function canBuildAt(point, forCore = false) {
     if (PREP_CONSOLE && distance(point, PREP_CONSOLE) < 60) return false;
     if ((state.resources || []).some(node => distance(point, node) < 36)) return false;
     if (SPAWN_POINTS.some(spawn => distance(point, spawn) < 80)) return false;
-    if (state.slots.some(slot => (forCore ? slot.defense : true) && distance(point, slot) < 36)) return false;
-    return !state.players.some(player => distance(point, player) < (player.id === myPlayerId ? 30 : 48))
-        && !state.enemies.some(enemy => enemy.hp > 0 && distance(point, enemy) < 48);
+    if (state.slots.some(slot => slot.defense && distance(point, slot) < (forCore ? 45 : 36))) return false;
+    return !state.players.some(player => (forCore ? player.id !== myPlayerId && !player.down && distance(point, player) < 24
+        : Math.abs(point.x - player.x) < 23 && Math.abs(point.y - player.y) < 23))
+        && !state.enemies.some(enemy => enemy.hp > 0 && distance(point, enemy) < (forCore ? 55 : 48));
 }
 
 function openCoreMenu() {
@@ -917,9 +918,9 @@ function openShopPurchase(shop) {
     const unavailable = shop.item === "ammo"
         && !Object.values(WEAPON_FIELDS).some(fields => me[fields.owned]);
     openNearbyActionMenu(shop.label, [{
-        label: alreadyOwned ? ammoFull ? "AMMO FULL" : "REFILL AMMO"
+        label: alreadyOwned ? ammoFull ? "補充済み" : "補充"
             : unavailable ? "LOCKED" : "BUY",
-        detail: alreadyOwned ? `${ammo} / ${weaponFields.capacity} AMMO · ${price}G`
+        detail: alreadyOwned ? `${price}G`
             : `${price}G`,
         command: `BUY:${shop.item}`,
         disabled: ammoFull || unavailable || me.credits < price,
@@ -1175,8 +1176,7 @@ function findNearestInteraction() {
         const separation = distance(me, target);
         if (separation <= range) choices.push({ kind, target, label, action, separation });
     };
-    state.players.filter(player => player.down && player.id !== myPlayerId)
-        .forEach(player => add("revive", player, 78, "REVIVE", () => send(`INTERACT:${player.id}`)));
+
     state.slots.filter(slot => slot.defense)
         .forEach(slot => add("defense", slot, INTERACTION_RANGE.trapSlot, "MANAGE", () => openSlotMenu(slot)));
     SHOP_UNITS.forEach(shop => add("shop", shop, INTERACTION_RANGE.shop,

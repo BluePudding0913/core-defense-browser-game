@@ -73,7 +73,7 @@ final class GameMap {
     static final int TILE_SIZE = DEFINITION.tileMap().tileSize();
     static final TileMapDefinition TILE_MAP = buildGameplayTileMap();
     static final List<UnlockArea> AREAS = buildGameplayAreas();
-    static final List<SpawnPoint> SPAWN_POINTS = List.copyOf(DEFINITION.spawnPoints());
+    static final List<SpawnPoint> SPAWN_POINTS = buildSpawnPoints();
     static final List<ShopUnit> SHOP_UNITS = List.copyOf(DEFINITION.shopUnits());
     static final List<ResourceNodeDefinition> RESOURCE_NODES = buildResourceNodeDefinitions();
     static final List<WorkbenchUnit> WORKBENCH_UNITS = List.of(
@@ -134,6 +134,7 @@ final class GameMap {
     }
 
     static boolean canOccupy(double x, double y, double radius, Set<String> unlockedAreas) {
+        if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(radius)) return false;
         if (x - radius < 0 || y - radius < 0 || x + radius > WORLD_W || y + radius > WORLD_H) {
             return false;
         }
@@ -286,6 +287,7 @@ final class GameMap {
             ObjectNode clientMap = JSON.valueToTree(DEFINITION);
             clientMap.set("tileMap", JSON.valueToTree(TILE_MAP));
             clientMap.set("areas", JSON.valueToTree(AREAS));
+            clientMap.set("spawnPoints", JSON.valueToTree(SPAWN_POINTS));
             clientMap.set("breakerTerminals", JSON.valueToTree(BREAKER_TERMINALS));
             clientMap.set("workbenchUnits", JSON.valueToTree(WORKBENCH_UNITS));
             clientMap.set("prepConsole", JSON.valueToTree(PREP_CONSOLE));
@@ -349,7 +351,53 @@ final class GameMap {
                 1420, 1180, 1400, 1380, "#ffffff", "鉱石を回収できる小部屋"));
         areas.add(new UnlockArea("operations-room", "TIME CONTROL", 1160, 920, 160, 120,
                 1180, 1100, 1140, 980, "#ffffff", "次の準備時間を延長できる小部屋"));
-        return List.copyOf(areas);
+        return areas.stream().map(GameMap::embedTerminal).toList();
+    }
+
+    private static UnlockArea embedTerminal(UnlockArea area) {
+        MapPoint best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (int row = 1; row < WORLD_H / TILE_SIZE - 1; row++) {
+            for (int col = 1; col < WORLD_W / TILE_SIZE - 1; col++) {
+                if (!tileTypeAt(col, row).solid()) continue;
+                double x = (col + .5) * TILE_SIZE, y = (row + .5) * TILE_SIZE;
+                boolean hasApproach = false;
+                for (int[] offset : new int[][]{{1,0},{-1,0},{0,1},{0,-1}}) {
+                    double ax = x + offset[0] * TILE_SIZE, ay = y + offset[1] * TILE_SIZE;
+                    if (!tileTypeAt(col + offset[0], row + offset[1]).solid()
+                            && !overlaps(ax, ay, 5, area.x(), area.y(), area.width(), area.height())) hasApproach = true;
+                }
+                double distance = GameSupport.distance(x, y, area.terminalX(), area.terminalY());
+                boolean clearOfSlots = DEFINITION.trapSlots().stream().allMatch(slot ->
+                        GameSupport.distance(x, y, slot.x(), slot.y()) >= 60);
+                if (hasApproach && clearOfSlots && distance < bestDistance) { best = new MapPoint(x, y); bestDistance = distance; }
+            }
+        }
+        if (best == null) throw new IllegalStateException("No wall for terminal " + area.id());
+        return new UnlockArea(area.id(), area.name(), area.x(), area.y(), area.width(), area.height(),
+                best.x(), best.y(), area.labelX(), area.labelY(), area.color(), area.detail());
+    }
+
+    private static List<SpawnPoint> buildSpawnPoints() {
+        List<SpawnPoint> spawns = new ArrayList<>(DEFINITION.spawnPoints());
+        for (UnlockArea area : AREAS) {
+            MapPoint best = null;
+            double farthest = -1;
+            for (double y = area.y() + 20; y < area.y() + area.height(); y += 40) {
+                for (double x = area.x() + 20; x < area.x() + area.width(); x += 40) {
+                    if (!canOccupy(x, y, 17, AREAS.stream().map(UnlockArea::id).collect(java.util.stream.Collectors.toSet()))) continue;
+                    double distance = GameSupport.distance(x, y, area.terminalX(), area.terminalY());
+                    if (distance > farthest) { farthest = distance; best = new MapPoint(x, y); }
+                }
+            }
+            if (best != null) spawns.add(new SpawnPoint("area-" + area.id(), area.name(), best.x(), best.y(),
+                    "interior", "balanced", 1, "core", List.of(best)));
+        }
+        return List.copyOf(spawns);
+    }
+
+    static String spawnArea(SpawnPoint spawn) {
+        return spawn.id().startsWith("area-") ? spawn.id().substring(5) : null;
     }
 
     private static void validate(MapDefinition map) {

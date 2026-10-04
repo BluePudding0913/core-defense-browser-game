@@ -1,15 +1,19 @@
-# Security Policy
+# Security policy
 
-## Supported version
+The Java server owns movement, collision, health, damage, weapon ownership, ammunition, resources, purchases, construction, unlocks, revives and round progression. The browser submits intentions and predicts movement for display only; its local checks cannot authorize gameplay changes. CPUs use the same validated gameplay actions as humans.
 
-This repository is an in-development game prototype. Only the latest source on the default branch is supported.
+## Input and concurrency checks
 
-## Reporting a vulnerability
+- MOVE and FIRE reject non-finite coordinates; movement is normalized and applied only by the fixed server tick. Aim coordinates are bounded to the world.
+- Damage, fire cooldowns, prices, item counts and facility distance/area access are checked by the server. READY is restricted to the room owner.
+- Each connection accepts a burst of 180 messages and replenishes 120 per second. Message sizes and input sequences are bounded/checked; replaced reconnect sockets cannot continue controlling a player.
+- SnapshotBuilder reads simulation state under gameLock, including the first onOpen snapshot. Room directory serialization uses the same lock.
+- Build requests use common placement validation, including legacy slot commands. Invalid coordinates are rejected before tile conversion.
 
-Please use GitHub's private security advisory feature instead of opening a public issue containing exploit details or sensitive information.
+## Deployment and limits
 
-## Deployment warning
+Session IDs are random bearer credentials for reconnecting, not authenticated user accounts. Keep them private. Client modifications can still automate aiming or reveal received world state; server authority does not prevent these information/automation cheats.
 
-The included server is intended for local testing or play on a trusted private network. It does not currently provide user authentication, encrypted WebSocket connections, origin restrictions, persistent accounts, or production-grade rate limiting.
+TLS is available through CORE_TLS_KEYSTORE / CORE_TLS_PASSWORD (optional CORE_TLS_KEYSTORE_TYPE). Configure CORE_ALLOWED_ORIGINS and CORE_ACCESS_TOKEN when sharing access. CORE_MAX_ROOMS limits room allocation. Default settings are for trusted local/private play; public hosting still needs authenticated users, per-IP connection limits, TLS, monitoring and appropriate proxy configuration. A per-connection message limit is not a distributed denial-of-service defense.
 
-Do not expose port `8887` directly to the public internet. A public deployment should place the service behind a properly configured TLS reverse proxy and add authentication, origin validation, rate limiting, logging, and operational monitoring.
+Report vulnerabilities privately through the repository's security advisory feature.

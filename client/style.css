@@ -576,3 +576,10 @@ button, input { font: inherit; }
 @media (max-width: 640px) {
     .how-to-content { grid-template-columns: 1fr; }
 }
+
+.menu .menu-intro { margin: 0; font-size: 1.05rem; color: #eee; }
+.menu .menu-guide { max-width: 38rem; margin: .6rem auto; line-height: 1.7; color: #a9e9e5; }
+.menu .menu-help { font-size: .85rem; line-height: 1.5; color: #ccc; margin: .6rem 0; }
+.menu { max-height: 100dvh; overflow-y: auto; }
+
+@media (max-height: 800px) { .menu { align-content: start; gap: .6rem; padding: 1rem; } .menu h1 { font-size: 2rem; } }
