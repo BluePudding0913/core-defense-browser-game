@@ -157,8 +157,8 @@ class GameSessionTest {
         player.x = ammoShop.x();
         player.y = ammoShop.y();
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(135, player.smgAmmo);
-        assertEquals(24, player.sniperAmmo);
+        assertEquals(90, player.smgAmmo);
+        assertEquals(16, player.sniperAmmo);
     }
 
     @Test

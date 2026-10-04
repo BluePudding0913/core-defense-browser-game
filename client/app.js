@@ -577,6 +577,26 @@ refreshRoomsButton.addEventListener("click", () => {
 });
 leaveRoomButton.addEventListener("click", leaveRoom);
 
+let equipmentOrder = loadEquipmentOrder();
+function loadEquipmentOrder() {
+    try {
+        const saved = JSON.parse(localStorage.getItem("equipment-order") || "[]");
+        return Array.isArray(saved) ? [...new Set(saved.filter(key => typeof key === "string"))] : [];
+    } catch { return []; }
+}
+
+function reorderEquipment(sourceKey, targetKey) {
+    const entries = equipmentEntries(getMe());
+    const keys = entries.map(entry => entry.key);
+    if (sourceKey === targetKey || !keys.includes(sourceKey) || !keys.includes(targetKey)) return false;
+    const from = keys.indexOf(sourceKey), to = keys.indexOf(targetKey);
+    keys.splice(from, 1);
+    keys.splice(to, 0, sourceKey);
+    equipmentOrder = [...keys, ...equipmentOrder.filter(key => !keys.includes(key))];
+    try { localStorage.setItem("equipment-order", JSON.stringify(equipmentOrder)); } catch { }
+    return true;
+}
+
 function equipmentEntries(me) {
     const entries = [
         { key: "weapon:bat", kind: "weapon", value: "bat", label: "BAT" },
@@ -592,7 +612,10 @@ function equipmentEntries(me) {
         if ((me.buildItems?.[type] || 0) > 0) entries.push({ key: `build:${type}`, kind: "build", value: type, label: info.name });
     }
     if (me.movingCore) entries.push({ key: "core", kind: "core", value: "core", label: "CORE" });
-    return entries;
+    return entries.sort((a, b) => {
+        const rank = key => equipmentOrder.includes(key) ? equipmentOrder.indexOf(key) : equipmentOrder.length;
+        return rank(a.key) - rank(b.key);
+    });
 }
 
 function selectEquipment(entry) {
@@ -634,6 +657,7 @@ weaponButton.addEventListener("click", () => cycleEquipment(1));
 interactButton.addEventListener("click", toggleNearestInteraction);
 window.addEventListener("wheel", event => {
     if (!state || !["preparing", "wave"].includes(state.phase)) return;
+    if (!inventoryMenu.classList.contains("hidden")) return;
     event.preventDefault();
     cycleEquipment(event.deltaY > 0 ? 1 : -1);
 }, { passive: false });
@@ -736,11 +760,13 @@ function updateInventory(me) {
             button.innerHTML = "<strong></strong><span></span>";
             grid.insertBefore(button, grid.children[index] || null);
         }
+        if (grid.children[index] !== button) grid.insertBefore(button, grid.children[index] || null);
         button.classList.toggle("selected", selectedKey === entry.key);
         button.querySelector("strong").textContent = `${index + 1}. ${entry.label}`;
         button.querySelector("span").textContent = entry.kind === "build" ? `×${me.buildItems[entry.value]}`
             : entry.kind === "core" ? ""
-                : WEAPON_FIELDS[entry.value] ? `${ammoForWeapon(me, entry.value)} AMMO` : "WEAPON";
+                : WEAPON_FIELDS[entry.value] ? `${ammoForWeapon(me, entry.value)} / ${WEAPON_FIELDS[entry.value].capacity}`
+                    : entry.value === "pistol" ? "∞" : "";
     });
     for (const type of ["wood", "ore"]) {
         const card = inventoryItems.querySelector(`[data-resource="${type}"]`);
@@ -750,6 +776,7 @@ function updateInventory(me) {
 }
 
 inventoryItems.addEventListener("click", event => {
+    if (performance.now() < inventorySuppressClickUntil) return;
     const button = event.target.closest("button");
     const me = getMe();
     if (!button || button.disabled || !me || me.down) return;
@@ -772,6 +799,42 @@ function resourceInventoryCard(type) {
         </div>
     </div>`;
 }
+
+let inventoryDrag = null;
+let inventorySuppressClickUntil = 0;
+inventoryItems.addEventListener("pointerdown", event => {
+    const button = event.target.closest("button[data-key]");
+    if (!button || event.button !== 0 || inventoryDrag) return;
+    inventoryDrag = { button, id: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
+    button.setPointerCapture(event.pointerId);
+});
+inventoryItems.addEventListener("pointermove", event => {
+    const drag = inventoryDrag;
+    if (!drag || drag.id !== event.pointerId) return;
+    if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 8 && !drag.moved) return;
+    drag.moved = true;
+    drag.button.classList.add("dragging");
+    inventoryItems.querySelector(".drop-target")?.classList.remove("drop-target");
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest("button[data-key]");
+    if (target && inventoryItems.contains(target) && target !== drag.button) target.classList.add("drop-target");
+    event.preventDefault();
+});
+function finishInventoryDrag(event, commit) {
+    const drag = inventoryDrag;
+    if (!drag || drag.id !== event.pointerId) return;
+    inventoryDrag = null;
+    drag.button.classList.remove("dragging");
+    inventoryItems.querySelector(".drop-target")?.classList.remove("drop-target");
+    if (drag.button.hasPointerCapture(event.pointerId)) drag.button.releasePointerCapture(event.pointerId);
+    if (!drag.moved) return;
+    inventorySuppressClickUntil = performance.now() + 400;
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest("button[data-key]");
+    if (commit && target && inventoryItems.contains(target) && getMe()
+            && reorderEquipment(drag.button.dataset.key, target.dataset.key)) updateInventory(getMe());
+}
+inventoryItems.addEventListener("pointerup", event => finishInventoryDrag(event, true));
+inventoryItems.addEventListener("pointercancel", event => finishInventoryDrag(event, false));
+inventoryItems.addEventListener("lostpointercapture", event => finishInventoryDrag(event, false));
 
 function toggleInventory() {
     if (!inventoryMenu.classList.contains("hidden")) {
@@ -1031,12 +1094,14 @@ function openShopPurchase(shop) {
     const weaponFields = WEAPON_FIELDS[shop.item];
     const alreadyOwned = Boolean(weaponFields && me[weaponFields.owned]);
     const ammo = alreadyOwned ? me[weaponFields.ammo] : 0;
-    const ammoFull = alreadyOwned && ammo >= weaponFields.capacity;
+    const ownedWeapons = Object.values(WEAPON_FIELDS).filter(fields => me[fields.owned]);
+    const ammoFull = shop.item === "ammo" ? ownedWeapons.length > 0
+        && ownedWeapons.every(fields => me[fields.ammo] >= fields.capacity)
+        : alreadyOwned && ammo >= weaponFields.capacity;
     const price = alreadyOwned ? WEAPON_AMMO_REFILL_COST : shop.cost;
-    const unavailable = shop.item === "ammo"
-        && !Object.values(WEAPON_FIELDS).some(fields => me[fields.owned]);
+    const unavailable = shop.item === "ammo" && ownedWeapons.length === 0;
     openNearbyActionMenu(shop.label, [{
-        label: alreadyOwned ? ammoFull ? "FULL" : "REFILL"
+        label: ammoFull ? "FULL" : alreadyOwned || shop.item === "ammo" && !unavailable ? "REFILL"
             : unavailable ? "LOCKED" : "BUY",
         detail: `${price}G`,
         command: `BUY:${shop.item}`,

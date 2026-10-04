@@ -278,17 +278,17 @@ button, input { font: inherit; }
     width: min(42rem, 92vw);
     max-height: 82vh;
     overflow: auto;
-    border: 1px solid rgb(255 255 255 / 42%);
-    border-radius: .65rem;
+    border: 0;
+    border-radius: 0;
     background: rgb(22 22 22 / 88%);
-    box-shadow: 0 24px 80px rgb(0 0 0 / 48%);
+    box-shadow: none;
 }
 .inventory-heading {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 1rem 1.15rem;
-    border-bottom: 1px solid rgb(255 255 255 / 18%);
+    border-bottom: 0;
     font: 950 1.08rem ui-monospace, monospace;
     letter-spacing: .08em;
 }
@@ -309,9 +309,9 @@ button, input { font: inherit; }
 .inventory-resource {
     min-height: 4.2rem;
     padding: .72rem .8rem;
-    border: 1px solid rgb(255 255 255 / 24%);
-    border-radius: .4rem;
-    background: rgb(255 255 255 / 8%);
+    border: 0;
+    border-radius: 0;
+    background: transparent;
     color: white;
     text-align: left;
 }
@@ -319,8 +319,7 @@ button, input { font: inherit; }
 .inventory-resource strong { display: block; font: 900 .88rem ui-monospace, monospace; }
 .inventory-grid > button span,
 .inventory-resource span { display: block; margin-top: .34rem; color: rgb(255 255 255 / 68%); font: 850 .8rem ui-monospace, monospace; }
-.inventory-grid > button.selected { border-color: white; background: white; color: #111; }
-.inventory-grid > button.selected span { color: rgb(0 0 0 / 58%); }
+.inventory-grid > button.selected { color: var(--accent-blue); }
 .materials-grid { grid-template-columns: repeat(2, minmax(8rem, 1fr)); }
 .resource-actions { display: flex; gap: .35rem; margin-top: .65rem; }
 .resource-actions button {
@@ -604,3 +603,10 @@ button, input { font: inherit; }
 .weapon-icon.revolver::after { left: 2.9rem; top: 1.2rem; width: .8rem; height: 1rem; transform: skew(-18deg); background: #777; }
 .weapon-icon.lmg::before { left: 0; top: .65rem; width: 4.7rem; height: .7rem; box-shadow: 1rem -.3rem 0 -.08rem #aaa; }
 .weapon-icon.lmg::after { left: 1.8rem; top: 1.25rem; width: 1.2rem; height: 1rem; background: #777; }
+
+/* Keep secondary controls and drag feedback unobtrusive. */
+.inventory-heading .how-to-link, .resource-actions button { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.equipment-grid > button { touch-action: none; user-select: none; cursor: grab; }
+.equipment-grid > button.dragging { opacity: .35; cursor: grabbing; }
+.equipment-grid > button.drop-target { background: rgb(255 255 255 / 7%); }
+.inventory-grid > button:focus-visible, .resource-actions button:focus-visible { outline: 1px solid currentColor; outline-offset: 2px; }

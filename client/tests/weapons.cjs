@@ -10,7 +10,7 @@ function extract(name) {
 }
 let options;
 const me = { ownsRevolver: true, revolverAmmo: 36, ownsLmg: true, lmgAmmo: 150, credits: 2000 };
-const context = vm.createContext({ me, getMe: () => me, BUILD_INFO: {},
+const context = vm.createContext({ me, getMe: () => me, BUILD_INFO: {}, equipmentOrder: [],
     WEAPON_AMMO_REFILL_COST: 120, INTERACTION_RANGE: { shop: 100 },
     openNearbyActionMenu: (title, entries) => { options = entries; }
 });
@@ -34,4 +34,15 @@ for (const [weapon, capacity] of [['revolver', 36], ['lmg', 150]]) {
     assert.equal(options[0].command, 'BUY:' + weapon);
     assert(!options[0].disabled);
 }
-console.log('Weapon UI passed: equipment selection, ammo counts, dedicated shops and refills');
+context.shop = map.shopUnits.find(shop => shop.item === 'ammo');
+vm.runInContext('openShopPurchase(shop)', context);
+assert.equal(options[0].label, 'REFILL');
+me.revolverAmmo = 36; me.lmgAmmo = 150;
+vm.runInContext('openShopPurchase(shop)', context);
+assert.equal(options[0].label, 'FULL');
+assert(options[0].disabled);
+me.ownsRevolver = me.ownsLmg = false;
+vm.runInContext('openShopPurchase(shop)', context);
+assert.equal(options[0].label, 'LOCKED');
+assert(options[0].disabled);
+console.log('Weapon UI passed: weapon caps, full/empty AMMO unit, equipment and refills');

@@ -13,6 +13,29 @@ class GameplayRevisionTest {
     Player player;
     final java.util.List<String> broadcasts = new java.util.ArrayList<>();
 
+    @Test void ammoUnitFillsEveryOwnedWeaponToItsCapAndNeverChargesWhenFull() {
+        game.unlockedAreas.add("forest");
+        ShopUnit ammo = GameMap.shopByItem("ammo");
+        player.x = ammo.x(); player.y = ammo.y(); player.credits = 1000;
+        game.handleMessage(player, "BUY:ammo");
+        assertEquals(1000, player.credits, "no owned weapon means no purchase");
+        player.ownsShotgun = player.ownsSmg = player.ownsRifle = true;
+        player.ownsSniper = player.ownsRevolver = player.ownsLmg = true;
+        player.shotgunAmmo = 29; player.smgAmmo = 1; player.rifleAmmo = 12;
+        player.sniperAmmo = 0; player.revolverAmmo = 35; player.lmgAmmo = 150;
+        game.handleMessage(player, "BUY:ammo");
+        assertEquals(880, player.credits);
+        assertEquals(List.of(30, 90, 24, 16, 36, 150), List.of(player.shotgunAmmo,
+                player.smgAmmo, player.rifleAmmo, player.sniperAmmo, player.revolverAmmo, player.lmgAmmo));
+        for (int i = 0; i < 3; i++) game.handleMessage(player, "BUY:ammo");
+        assertEquals(880, player.credits);
+        assertEquals(150, player.lmgAmmo);
+        player.shotgunAmmo = 0; player.credits = 119;
+        game.handleMessage(player, "BUY:ammo");
+        assertEquals(0, player.shotgunAmmo);
+        assertEquals(119, player.credits);
+    }
+
     @Test void allRoomsCanBeUnlockedFromReachableFloorWithoutRelocatingTerminals() throws Exception {
         Method canInteract = GameSession.class.getDeclaredMethod("canInteract", Player.class,
                 double.class, double.class, double.class);
@@ -118,8 +141,8 @@ class GameplayRevisionTest {
         ShopUnit ammo = GameMap.shopByItem("ammo");
         player.x = ammo.x(); player.y = ammo.y();
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(18, player.revolverAmmo);
-        assertEquals(75, player.lmgAmmo);
+        assertEquals(36, player.revolverAmmo);
+        assertEquals(150, player.lmgAmmo);
     }
 
     @Test void frontPlacementAtTileEdgeSkipsTheTileOverlappingThePlayer() {

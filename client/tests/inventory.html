@@ -1,5 +1,6 @@
 <!doctype html><html lang="ja"><meta charset="utf-8"><title>Inventory regression</title>
-<body><h1>Inventory regression</h1><pre id="result">Running…</pre><div id="inventory-items"></div>
+<link rel="stylesheet" href="/client/style.css">
+<body><h1>Inventory regression</h1><pre id="result">Running…</pre><div class="inventory-card"><div class="inventory-heading">INVENTORY</div><div id="inventory-items" class="inventory-items"></div></div>
 <script>
 (async () => {
  const output = document.querySelector('#result');
@@ -11,10 +12,15 @@
   const container = document.querySelector('#inventory-items');
   let me = {weapon:'pistol',wood:5,ore:3,down:false,buildItems:{},ownsShotgun:false};
   const sent = [], selected = [];
-  const entries = p => [{key:'weapon:pistol',kind:'weapon',value:'pistol',label:'PISTOL'},
-    ...(p.ownsShotgun ? [{key:'weapon:shotgun',kind:'weapon',value:'shotgun',label:'SHOTGUN'}] : [])];
-  const render = new Function('inventoryItems','getMe','equipmentEntries','WEAPON_FIELDS','ammoForWeapon','selectEquipment','send',
-    source.slice(begin,end)+'\nreturn updateInventory;')(container,()=>me,entries,{shotgun:{}},()=>me.ammo||5,e=>selected.push(e.key),s=>sent.push(s));
+  let storedOrder = '[]';
+  const orderStart = source.indexOf('let equipmentOrder =');
+  const orderEnd = source.indexOf('\nfunction selectEquipment', orderStart);
+  const ordering = new Function('getMe','BUILD_INFO','localStorage',
+    source.slice(orderStart,orderEnd)+'\nreturn {equipmentEntries,reorderEquipment};')(
+      ()=>me,{}, {getItem:()=>storedOrder,setItem:(_,value)=>{storedOrder=value;}});
+  const entries = ordering.equipmentEntries;
+  const render = new Function('inventoryItems','getMe','equipmentEntries','WEAPON_FIELDS','ammoForWeapon','selectEquipment','send','reorderEquipment',
+    source.slice(begin,end)+'\nreturn updateInventory;')(container,()=>me,entries,{shotgun:{capacity:30}},()=>me.ammo||5,e=>selected.push(e.key),s=>sent.push(s),ordering.reorderEquipment);
   let checks=0;
   const check=(ok,msg)=>{if(!ok)throw new Error(msg);checks++;};
   render(me);
@@ -36,6 +42,12 @@
   check(sent.length===3,'Downed player can drop');
   me.down=false;render(me);container.querySelector('[data-key="weapon:shotgun"] strong').click();
   check(selected.at(-1)==='weapon:shotgun','Delegated equipment selection failed');
+  const shotgun = container.querySelector('[data-key="weapon:shotgun"]');
+  ordering.reorderEquipment('weapon:shotgun','weapon:bat');render(me);
+  check(container.querySelector('.equipment-grid').firstElementChild===shotgun,'Reordering must move existing nodes');
+  for(let i=0;i<20;i++)render(me);
+  check(container.querySelector('.equipment-grid').firstElementChild===shotgun,'Snapshots must preserve reordered nodes');
+  container.addEventListener('pointerup',()=>{output.textContent='Order: '+entries(me).map(e=>e.label).join(' → ')+'; selections: '+selected.length;});
   output.textContent='PASS '+checks+' checks: stable press, latest quantities, focus, no duplicate sends, empty/down guards, equipment selection';
  } catch(error){output.textContent='FAIL '+error.stack;}
 })();

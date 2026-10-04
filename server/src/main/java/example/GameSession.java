@@ -1404,14 +1404,15 @@ final class GameSession {
 
     private static void giveBotWeapon(Player bot, String item) {
         switch (item) {
-            case "shotgun" -> { bot.ownsShotgun = true; bot.shotgunAmmo = 30; }
-            case "smg" -> { bot.ownsSmg = true; bot.smgAmmo = 90; }
-            case "rifle" -> { bot.ownsRifle = true; bot.rifleAmmo = 24; }
-            case "sniper" -> { bot.ownsSniper = true; bot.sniperAmmo = 16; }
-            case "revolver" -> { bot.ownsRevolver = true; bot.revolverAmmo = 36; }
-            case "lmg" -> { bot.ownsLmg = true; bot.lmgAmmo = 150; }
+            case "shotgun" -> bot.ownsShotgun = true;
+            case "smg" -> bot.ownsSmg = true;
+            case "rifle" -> bot.ownsRifle = true;
+            case "sniper" -> bot.ownsSniper = true;
+            case "revolver" -> bot.ownsRevolver = true;
+            case "lmg" -> bot.ownsLmg = true;
             default -> { return; }
         }
+        setWeaponAmmo(bot, item, weaponAmmoCapacity(item));
         bot.equipWeapon(item);
         bot.selectedBuild = null;
     }
@@ -1647,13 +1648,14 @@ final class GameSession {
                     feedback(player, "NO AMMO WEAPON");
                     return;
                 }
+                List<String> owned = List.of("shotgun", "smg", "rifle", "sniper", "revolver", "lmg")
+                        .stream().filter(weapon -> botOwnsWeapon(player, weapon)).toList();
+                if (owned.stream().allMatch(weapon -> weaponAmmo(player, weapon) >= weaponAmmoCapacity(weapon))) {
+                    feedback(player, "AMMO FULL");
+                    return;
+                }
                 if (spend(player, shop.cost())) {
-                    player.shotgunAmmo += player.ownsShotgun ? 16 : 0;
-                    player.smgAmmo += player.ownsSmg ? 45 : 0;
-                    player.rifleAmmo += player.ownsRifle ? 12 : 0;
-                    player.sniperAmmo += player.ownsSniper ? 8 : 0;
-                    player.revolverAmmo += player.ownsRevolver ? 18 : 0;
-                    player.lmgAmmo += player.ownsLmg ? 75 : 0;
+                    owned.forEach(weapon -> setWeaponAmmo(player, weapon, weaponAmmoCapacity(weapon)));
                     feedback(player, "AMMO REFILLED");
                 } else {
                     feedback(player, "NOT ENOUGH GOLD");
@@ -1712,6 +1714,7 @@ final class GameSession {
     }
 
     private static void setWeaponAmmo(Player player, String item, int ammo) {
+        ammo = Math.max(0, Math.min(ammo, weaponAmmoCapacity(item)));
         switch (item) {
             case "shotgun" -> player.shotgunAmmo = ammo;
             case "smg" -> player.smgAmmo = ammo;

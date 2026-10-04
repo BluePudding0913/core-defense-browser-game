@@ -275,7 +275,7 @@
   "shopUnits": [
     {"id":"shop-shotgun","item":"shotgun","label":"SHOTGUN","x":1340,"y":1620,"cost":450,"detail":"Spread shot / 30 rounds"},
     {"id":"shop-smg","item":"smg","label":"SMG","x":1980,"y":1020,"cost":550,"detail":"Rapid fire / 90 rounds"},
-    {"id":"shop-ammo","item":"ammo","label":"AMMO","x":1740,"y":660,"cost":120,"detail":"SG +16 / SMG +45 / RF +12 / SR +8 / RV +18 / LMG +75"},
+    {"id":"shop-ammo","item":"ammo","label":"AMMO","x":1740,"y":660,"cost":120,"detail":"Refill all owned weapons to MAX"},
     {"id":"shop-rifle","item":"rifle","label":"RIFLE","x":820,"y":540,"cost":650,"detail":"Long range / 24 rounds"},
     {"id":"shop-sniper","item":"sniper","label":"SNIPER","x":220,"y":580,"cost":900,"detail":"Precision shot / 16 rounds"},
     {"id":"shop-revolver","item":"revolver","label":"REVOLVER","x":740,"y":1660,"cost":500,"detail":"High damage / 36 rounds"},
