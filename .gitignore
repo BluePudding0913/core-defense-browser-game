@@ -25,3 +25,6 @@ desktop.ini
 run-tailscale.bat
 tailscale-*.log
 .tailscale/
+
+#for AI-Agents
+AGENTS.md
