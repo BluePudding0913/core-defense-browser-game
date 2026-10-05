@@ -40,6 +40,8 @@ interface GameEventSink {
 
 /** Authoritative state and rules for one four-player match. */
 final class GameSession {
+    private static final double BOT_REACTION_SECONDS = 0.5;
+
     static int ammoRefillCost() {
         return 120;
     }
@@ -1000,9 +1002,11 @@ final class GameSession {
                     bot.moveY = 0;
                 } else moveBotToward(bot, downed.x, downed.y);
                 Enemy threat = bestBotCombatTarget(bot);
-                if (threat != null) {
+                if (threat != null && recognizeBotTarget(bot, threat, dt)) {
                     selectBotWeapon(bot, distance(bot.x, bot.y, threat.x, threat.y));
                     attack(bot, threat.id);
+                } else if (threat == null) {
+                    clearBotTarget(bot);
                 }
                 continue;
             }
@@ -1133,10 +1137,10 @@ final class GameSession {
     private boolean recognizeBotTarget(Player bot, Enemy candidate, double dt) {
         if (bot.botObservedEnemyId != candidate.id) {
             bot.botObservedEnemyId = candidate.id;
-            bot.botRecognitionTimer = 0.18 + bot.slot * 0.04;
+            bot.botRecognitionTimer = BOT_REACTION_SECONDS;
         }
         bot.botRecognitionTimer = Math.max(0, bot.botRecognitionTimer - dt);
-        if (bot.botRecognitionTimer > 0) return false;
+        if (bot.botRecognitionTimer > 1e-9) return false;
         bot.botTargetEnemyId = candidate.id;
         return true;
     }
