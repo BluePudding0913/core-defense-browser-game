@@ -80,6 +80,20 @@ class RicochetAndAimTest {
         assertEquals(1, effects.stream().filter(m -> m.contains("\"effect\":\"hit\"") && m.contains("\"damage\":0.0")).count());
     }
 
+    @Test void tinyEnemySurvivesNearMissesAndTakesDamageWhenAimedAt() {
+        for (String weapon : List.of("pistol", "sniper", "ricochet")) {
+            game.enemies.clear(); player.cooldown = 0; player.firing = false;
+            player.weapon = weapon; player.sniperAmmo = player.ricochetAmmo = 10;
+            Enemy tiny = new Enemy(9801, "tiny", GameMap.SPAWN_POINTS.get(0), 2000, 0, 0, 0);
+            tiny.x = 1120; tiny.y = 1910; game.enemies.add(tiny);
+            game.handleMessage(player, "FIRE:1200:1900:1");
+            assertEquals(2000, tiny.hp, weapon + " near miss");
+            player.cooldown = 0; player.firing = false;
+            game.handleMessage(player, "FIRE:1120:1910:1");
+            assertTrue(tiny.hp < 2000, weapon + " precise aim");
+        }
+    }
+
     @Test void enemyIdCannotOverrideAimAndSuccessfulRefillNotifiesClient() {
         Enemy offAxis = enemy(1020, 1800);
         player.aimX = 1200; player.aimY = 1900;

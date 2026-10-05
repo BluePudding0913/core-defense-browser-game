@@ -34,7 +34,7 @@ class LateRoundEnemiesTest {
         var field = GameSession.class.getDeclaredField("random");
         field.setAccessible(true);
         ((Random) field.get(game)).setSeed(20261006L);
-        Map<String, Integer> unlocks = Map.of("armored", 10, "hunter", 18, "siege", 26, "champion", 34);
+        Map<String, Integer> unlocks = Map.of("armored", 10, "hunter", 18, "siege", 26, "champion", 34, "tiny", 40);
         for (int round = 1; round <= 50; round++) {
             game.round = round;
             Set<String> seen = new HashSet<>();
@@ -67,6 +67,28 @@ class LateRoundEnemiesTest {
         assertTrue(champion.reward > brute.reward);
         var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
         assertEquals("champion", snapshot.path("enemies").get(5).path("type").asText());
+    }
+
+    @Test void tinyEnemiesRequirePreciseAimButRemainDamageable() throws Exception {
+        game.round = 40;
+        Enemy tiny = spawn("tiny"), grunt = spawn("grunt");
+        assertFalse(tiny.isBoss());
+        assertTrue(tiny.maxHp < grunt.maxHp);
+        assertTrue(tiny.speed > grunt.speed);
+        assertTrue(tiny.damage > 0);
+        assertTrue(tiny.reward > 0);
+        tiny.x = grunt.x = 100;
+        tiny.y = grunt.y = 10;
+        Class<?>[] signature = {Enemy.class, double.class, double.class, double.class,
+                double.class, GameConfig.WeaponStats.class, double.class};
+        for (String weapon : new String[]{"pistol", "smg", "rifle", "sniper", "revolver", "lmg", "ricochet"}) {
+            var stats = GameSession.weaponStats(weapon);
+            assertEquals(true, invoke("isInsideAttack", signature, grunt, 0., 0., 1., 0., stats, 200.), weapon);
+            assertEquals(false, invoke("isInsideAttack", signature, tiny, 0., 0., 1., 0., stats, 200.), weapon);
+            assertEquals(true, invoke("isInsideAttack", signature, tiny, 0., 10., 1., 0., stats, 200.), weapon);
+        }
+        var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
+        assertEquals("tiny", snapshot.path("enemies").get(0).path("type").asText());
     }
 
     @Test void scheduledBossesUpgradeAndStayWithinTheQueuedBudget() throws Exception {

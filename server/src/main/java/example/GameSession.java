@@ -608,6 +608,7 @@ final class GameSession {
         // Reserve a growing share for elites, retaining each entrance's original mix.
         double eliteRoll = random.nextDouble();
         double eliteChance = 0;
+        if (round >= 40 && eliteRoll < (eliteChance += 0.12)) return "tiny";
         if (round >= 34 && eliteRoll < (eliteChance += 0.12)) return "champion";
         if (round >= 26 && eliteRoll < (eliteChance += 0.14)) return "siege";
         if (round >= 18 && eliteRoll < (eliteChance += 0.16)) return "hunter";
@@ -643,6 +644,12 @@ final class GameSession {
         double damage;
         int reward;
         switch (type) {
+            case "tiny" -> {
+                hp = 20 + round * 2;
+                speed = 110 + round * 2;
+                damage = 8 + round;
+                reward = 35;
+            }
             case "runner" -> {
                 hp = 35 + round * 4;
                 speed = 140 + round * 3.5; // After the global 0.5 scale, clearly faster than grunts.
@@ -1744,7 +1751,7 @@ final class GameSession {
         double projection = toHeadX * directionX + toHeadY * directionY;
         if (projection < 0 || projection > shotDistance) return false;
         double perpendicular = Math.abs(toHeadX * directionY - toHeadY * directionX);
-        double headRadius = Math.max(4, radius * 0.28);
+        double headRadius = Math.min(radius * 0.5, Math.max(4, radius * 0.28));
         double aimTolerance = player.weapon.equals("shotgun")
                 ? Math.min(3, weapon.width() * 0.25)
                 : weapon.width() * 0.25;
@@ -1753,6 +1760,7 @@ final class GameSession {
 
     private static double enemyRadius(Enemy enemy) {
         return switch (enemy.type) {
+            case "tiny" -> 3;
             case "boss" -> 42;
             case "warlord" -> 44;
             case "titan" -> 48;
