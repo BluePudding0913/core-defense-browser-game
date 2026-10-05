@@ -93,6 +93,25 @@ assert.doesNotMatch(root.innerHTML, /CORE DEFENSE|クイックマッチ|合言�
 assert.equal((root.innerHTML.match(/class="room-member/g) || []).length, 1);
 assert.doesNotMatch(root.innerHTML, /data-action="start" disabled/, 'host can start with automatic CPU fill');
 click('start'); assert.equal(calls.at(-1), 'START');
+const appSource = fs.readFileSync('client/app.js', 'utf8');
+const sendStart = appSource.indexOf('function send(message)');
+const sendEnd = appSource.indexOf('\nfunction ', sendStart + 1);
+const originalSend = context.window.coreGame.send;
+for (const debugMode of [false, true]) {
+    const sent = [];
+    const gameContext = vm.createContext({ DEBUG_MODE: debugMode, WebSocket: { OPEN: 1 },
+        socket: { readyState: 1, send: message => sent.push(message) },
+        nextInputSequence: 1, pendingInputs: [] });
+    vm.runInContext(appSource.slice(sendStart, sendEnd), gameContext);
+    context.window.coreGame.send = gameContext.send;
+    for (const phase of ['lobby', 'won', 'lost']) {
+        context.window.coreMenu.snapshot({ ...state, phase }, 'p1');
+        click('start');
+        assert.equal(sent.at(-1), `INPUT:${sent.length}:START${debugMode ? ':DEBUG' : ''}`,
+            `${phase}: the visible menu must send the debug flag only in debug mode`);
+    }
+}
+context.window.coreGame.send = originalSend;
 context.window.coreMenu.snapshot({ ...state, phase: 'preparing' }, 'p1');
 assert(root.hidden);
 state.privateRoom = false;

@@ -469,6 +469,7 @@ function renderRoomList(rooms) {
 
 function send(message) {
     if (socket?.readyState !== WebSocket.OPEN) return;
+    if (message === "START" && DEBUG_MODE) message = "START:DEBUG";
     const sequence = nextInputSequence++;
     socket.send(`INPUT:${sequence}:${message}`);
     pendingInputs.push({ sequence, kind: message.split(":", 1)[0] });
@@ -625,7 +626,7 @@ joinRoomsButton.addEventListener("click", () => {
 });
 document.querySelector("#back-rooms").addEventListener("click", () => setMenuView("home"));
 
-startButton.addEventListener("click", () => send(DEBUG_MODE ? "START:DEBUG" : "START"));
+startButton.addEventListener("click", () => send("START"));
 readyRoomButton.addEventListener("click", () => {
     const me = getMe();
     if (me) send(`ROOM_READY:${me.ready ? 0 : 1}`);
