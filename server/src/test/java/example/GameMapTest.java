@@ -68,7 +68,7 @@ class GameMapTest {
             assertFalse(GameMap.canPlaceDefense(area.terminalX(), area.terminalY(), allAreas));
             assertFalse(GameMap.canPlaceCore(area.terminalX(), area.terminalY(), allAreas));
         }
-        assertEquals(13, floorTerminals);
+        assertEquals(12, floorTerminals);
     }
 
     @Test
@@ -99,6 +99,11 @@ class GameMapTest {
                 .filter(id -> weapons.stream().noneMatch(weapon -> id.equals(weapon + "-room")))
                 .collect(Collectors.toSet());
         Set<AreaTile> mainFloor = reachableTiles(mainAreas);
+        for (ShopUnit shop : GameMap.SHOP_UNITS) {
+            if (!shop.item().endsWith("Factory")) continue;
+            assertTrue(mainFloor.contains(new AreaTile((int) (shop.x() / GameMap.TILE_SIZE),
+                    (int) (shop.y() / GameMap.TILE_SIZE))), shop.item() + " must be reachable along the main route");
+        }
         for (String weapon : weapons) {
             ShopUnit shop = GameMap.shopByItem(weapon);
             UnlockArea room = GameMap.areaById(weapon + "-room");
@@ -226,7 +231,7 @@ class GameMapTest {
                 "terrain beside the route must block movement");
         assertFalse(GameMap.canOccupy(3, GameMap.CORE_Y, 5, Set.of()),
                 "the world boundary must block movement");
-        assertEquals(20, GameMap.AREAS.size());
+        assertEquals(19, GameMap.AREAS.size());
     }
 
     @Test
