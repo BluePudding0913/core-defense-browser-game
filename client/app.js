@@ -68,7 +68,7 @@ let PREP_CONSOLE = null;
 let BUILD_INFO = {};
 const RESOURCE_NAMES = { wood: "木材", ore: "鉄鉱石", copper: "銅", silver: "銀" };
 const WEAPON_FIELDS = ({
-    dualPistol: { owned: "ownsDualPistol", ammo: "dualPistolAmmo" },
+    ricochet: { owned: "ownsRicochet", ammo: "ricochetAmmo" },
     shotgun: { owned: "ownsShotgun", ammo: "shotgunAmmo" },
     smg: { owned: "ownsSmg", ammo: "smgAmmo" },
     rifle: { owned: "ownsRifle", ammo: "rifleAmmo" },
@@ -318,6 +318,7 @@ function connect() {
         let message;
         try { message = JSON.parse(data); } catch { return; }
         if (message.type === "error" || message.type === "feedback") window.coreMenu?.status(message.message);
+        if (message.type === "ammo-refilled") { closeActionMenu(); inventoryMenu.classList.add("hidden"); }
         if (message.type === "error" && !welcomed && connectionTarget.mode !== "directory" && window.coreMenu) {
             window.coreMenu.rejected();
             leaveRoom();
@@ -651,7 +652,7 @@ function equipmentEntries(me) {
     if (me.ownsSmg) entries.push({ key: "weapon:smg", kind: "weapon", value: "smg", label: "SMG" });
     if (me.ownsRifle) entries.push({ key: "weapon:rifle", kind: "weapon", value: "rifle", label: "RIFLE" });
     if (me.ownsSniper) entries.push({ key: "weapon:sniper", kind: "weapon", value: "sniper", label: "SNIPER" });
-    if (me.ownsDualPistol) entries.push({ key: "weapon:dualPistol", kind: "weapon", value: "dualPistol", label: "DUAL PISTOL" });
+    if (me.ownsRicochet) entries.push({ key: "weapon:ricochet", kind: "weapon", value: "ricochet", label: "RICOCHET" });
     if (me.ownsRevolver) entries.push({ key: "weapon:revolver", kind: "weapon", value: "revolver", label: "REVOLVER" });
     if (me.ownsRocket) entries.push({ key: "weapon:rocket", kind: "weapon", value: "rocket", label: "ROCKET" });
     if (me.ownsLmg) entries.push({ key: "weapon:lmg", kind: "weapon", value: "lmg", label: "LMG" });
@@ -2152,7 +2153,7 @@ function drawHitEffects() {
         if (age < 360) {
             const progress = age / 360;
             ctx.save(); ctx.globalAlpha = 1 - progress; ctx.strokeStyle = "#ff5964";
-            if ((effect.weapon !== "shotgun" || effect.damage === 0) && !["bat", "mine"].includes(effect.weapon) && (effect.weapon !== "rocket" || effect.damage === 0) && progress < .55) {
+            if (effect.damage === 0 && !["bat", "mine"].includes(effect.weapon) && progress < .55) {
                 ctx.lineWidth = 1.35;
                 ctx.beginPath(); ctx.moveTo(effect.fromX, effect.fromY); ctx.lineTo(effect.x, effect.y); ctx.stroke();
             }

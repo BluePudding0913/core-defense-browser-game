@@ -207,7 +207,8 @@ class GameSessionTest {
         int initialCredits = player.credits;
         int teammateInitialCredits = teammate.credits;
 
-        game.handleMessage(player, "ATTACK:" + enemy.id);
+        game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":1");
+        game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":0");
 
         assertEquals(19, enemy.hp);
         assertEquals(player.x + 50, enemy.x,
@@ -224,11 +225,13 @@ class GameSessionTest {
                 message.contains("\"effect\":\"hit\"") && message.contains("\"headshot\":false")),
                 "aiming at the center should remain a normal body shot");
 
-        game.handleMessage(player, "ATTACK:" + enemy.id);
+        game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":1");
+        game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":0");
         assertEquals(19, enemy.hp, "cooldown must reject a second immediate attack");
         assertEquals(initialCredits + 8, player.credits);
 
-        game.handleMessage(teammate, "ATTACK:" + enemy.id);
+        game.handleMessage(teammate, "FIRE:" + enemy.x + ":" + enemy.y + ":1");
+        game.handleMessage(teammate, "FIRE:" + enemy.x + ":" + enemy.y + ":0");
         assertTrue(enemy.hp <= 0);
         assertEquals(initialCredits + 8, player.credits,
                 "a teammate's hit must not change the first attacker's balance");
@@ -273,7 +276,8 @@ class GameSessionTest {
         double initialX = enemy.x;
         game.enemies.add(enemy);
 
-        game.handleMessage(player, "ATTACK:" + enemy.id);
+        game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":1");
+        game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":0");
 
         assertTrue(enemy.x > initialX, "the bat should retain its deliberate knockback");
     }

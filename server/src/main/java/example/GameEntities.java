@@ -49,7 +49,7 @@ final class Player {
     boolean ownsRevolver;
     boolean ownsRocket;
     boolean ownsLmg;
-    boolean ownsDualPistol;
+    boolean ownsRicochet;
     int shotgunAmmo;
     int smgAmmo;
     int rifleAmmo;
@@ -57,7 +57,7 @@ final class Player {
     int revolverAmmo;
     int rocketAmmo;
     int lmgAmmo;
-    int dualPistolAmmo;
+    int ricochetAmmo;
     int wood;
     int ore;
     int copper, silver, medkits, copperTurretItems, silverTurretItems;

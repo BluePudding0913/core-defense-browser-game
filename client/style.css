@@ -629,11 +629,12 @@ button, input { font: inherit; }
 .equipment-grid > button.drop-target { background: rgb(255 255 255 / 7%); }
 .inventory-grid > button:focus-visible, .resource-actions button:focus-visible { outline: 1px solid currentColor; outline-offset: 2px; }
 
-.weapon-icon.dualPistol::before { left: .4rem; top: .4rem; width: 3.2rem; height: .6rem; box-shadow: 0 1rem 0 #aaa; }
-.weapon-icon.dualPistol::after { left: 2.8rem; top: .9rem; width: .65rem; height: .65rem; background: #888; box-shadow: 0 1rem 0 #888; }
+.weapon-icon.ricochet::before { left: .4rem; top: .4rem; width: 3.7rem; height: .65rem; }
+.weapon-icon.ricochet::after { left: 2.8rem; top: .9rem; width: .65rem; height: .65rem; background: #888; }
 
 #game { cursor: var(--game-pointer, crosshair); }
 .leave-game { position: absolute; left: 12px; top: 12px; pointer-events: auto; border: 1px solid #777; border-radius: 4px; padding: 5px 9px; background: #181818; color: #eee; cursor: pointer; }
 
 .weapon-icon.rocket::before { left: .15rem; top: .65rem; width: 4.6rem; height: .95rem; border: .12rem solid #ddd; background: #777; border-radius: .2rem; }
 .weapon-icon.rocket::after { left: 2.7rem; top: 1.6rem; width: .65rem; height: .75rem; background: #aaa; }
+

@@ -184,7 +184,7 @@ final class GameSession {
             case "ROOM_READY" -> setRoomReady(player, parts);
             case "MOVE" -> handleMove(player, parts);
             case "DASH" -> handleDash(player, parts);
-            case "ATTACK" -> { if (parts.length >= 2) attack(player, Integer.parseInt(parts[1])); }
+            case "ATTACK" -> attackAt(player, player.aimX, player.aimY);
             case "FIRE" -> handleFire(player, parts);
             case "INTERACT" -> { if (parts.length >= 2) interact(player, parts[1]); }
             case "WEAPON" -> { if (parts.length >= 2) switchWeapon(player, parts[1]); }
@@ -433,12 +433,12 @@ final class GameSession {
         int firstRound = switch (area) {
             case "entry-room" -> 8;
             case "transit-hall" -> 10;
-            case "armory-wing", "shotgun-room", "smg-room", "dualPistol-room" -> 10;
+            case "armory-wing", "shotgun-room", "smg-room", "ricochet-room" -> 10;
             case "rifle-room", "sniper-room", "revolver-room", "lmg-room" -> 12;
             case "forest" -> 14;
             case "relay-gallery" -> 16;
             case "mine" -> 18;
-            case "security-hall", "command-room" -> 20;
+            case "security-hall", "command-room", "rocket-room" -> 20;
             default -> Integer.MAX_VALUE; // Supply pockets and TIME CONTROL stay safe from spawning.
         };
         return currentRound >= firstRound;
@@ -1088,7 +1088,7 @@ final class GameSession {
             bot.equipWeapon("bat");
         } else if (bot.ownsRevolver && bot.revolverAmmo > 0 && targetDistance <= 500) {
             bot.equipWeapon("revolver");
-        } else if (bot.ownsRocket && bot.rocketAmmo > 0 && targetDistance > 160 && targetDistance <= 900) {
+        } else if (bot.ownsRocket && bot.rocketAmmo > 0 && targetDistance > 160 && targetDistance <= weaponStats("rocket").range()) {
             bot.equipWeapon("rocket");
         } else if (targetDistance > 390 && bot.ownsSniper && bot.sniperAmmo > 0) {
             bot.equipWeapon("sniper");
@@ -1096,8 +1096,8 @@ final class GameSession {
             bot.equipWeapon("rifle");
         } else if (bot.ownsLmg && bot.lmgAmmo > 0 && targetDistance <= 360) {
             bot.equipWeapon("lmg");
-        } else if (bot.ownsDualPistol && bot.dualPistolAmmo >= 2 && targetDistance <= 300) {
-            bot.equipWeapon("dualPistol");
+        } else if (bot.ownsRicochet && bot.ricochetAmmo > 0 && targetDistance <= 300) {
+            bot.equipWeapon("ricochet");
         } else if (targetDistance > 155 && bot.ownsSmg && bot.smgAmmo > 0) {
             bot.equipWeapon("smg");
         } else if (targetDistance <= 190 && bot.ownsShotgun && bot.shotgunAmmo > 0) {
@@ -1122,7 +1122,7 @@ final class GameSession {
                 || bot.ownsRevolver && bot.revolverAmmo > 0
                 || bot.ownsRocket && bot.rocketAmmo > 0
                 || bot.ownsLmg && bot.lmgAmmo > 0
-                || bot.ownsDualPistol && bot.dualPistolAmmo >= 2;
+                || bot.ownsRicochet && bot.ricochetAmmo > 0;
     }
 
     private void moveBotToSaferPosition(Player bot, Enemy enemy) {
@@ -1350,10 +1350,10 @@ final class GameSession {
                 .min(Comparator.comparingDouble(slot -> distance(bot.x, bot.y, slot.x, slot.y))).orElse(null);
         if (damaged != null) return botUse(bot, damaged.x, damaged.y, 70, () -> repair(bot, damaged.id));
         List<String> preference = switch (bot.slot) {
-            case 1 -> List.of("dualPistol", "shotgun", "revolver", "rifle", "smg", "lmg", "sniper");
-            case 2 -> List.of("dualPistol", "smg", "lmg", "shotgun", "revolver", "sniper", "rifle");
-            case 3 -> List.of("dualPistol", "revolver", "rifle", "shotgun", "smg", "lmg", "sniper");
-            default -> List.of("dualPistol", "sniper", "rocket", "lmg", "smg", "shotgun", "revolver", "rifle");
+            case 1 -> List.of("ricochet", "shotgun", "revolver", "rifle", "smg", "lmg", "sniper");
+            case 2 -> List.of("ricochet", "smg", "lmg", "shotgun", "revolver", "sniper", "rifle");
+            case 3 -> List.of("ricochet", "revolver", "rifle", "shotgun", "smg", "lmg", "sniper");
+            default -> List.of("ricochet", "sniper", "rocket", "lmg", "smg", "shotgun", "revolver", "rifle");
         };
         for (String item : preference) {
             ShopUnit shop = GameMap.shopByItem(item);
@@ -1494,7 +1494,7 @@ final class GameSession {
             case "revolver" -> bot.ownsRevolver;
             case "rocket" -> bot.ownsRocket;
             case "lmg" -> bot.ownsLmg;
-            case "dualPistol" -> bot.ownsDualPistol;
+            case "ricochet" -> bot.ownsRicochet;
             default -> true;
         };
     }
@@ -1508,7 +1508,7 @@ final class GameSession {
             case "revolver" -> bot.ownsRevolver = true;
             case "rocket" -> bot.ownsRocket = true;
             case "lmg" -> bot.ownsLmg = true;
-            case "dualPistol" -> bot.ownsDualPistol = true;
+            case "ricochet" -> bot.ownsRicochet = true;
             default -> { return; }
         }
         setWeaponAmmo(bot, item, weaponAmmoCapacity(item));
@@ -1517,10 +1517,9 @@ final class GameSession {
     }
 
     private void attack(Player player, int enemyId) {
-        Enemy target = enemies.stream().filter(enemy -> enemy.id == enemyId && enemy.hp > 0)
-                .findFirst().orElse(null);
-        if (target == null) return;
-        attackAt(player, target.x, target.y);
+        if (player.human) return;
+        Enemy target = enemies.stream().filter(enemy -> enemy.id == enemyId && enemy.hp > 0).findFirst().orElse(null);
+        if (target != null) attackAt(player, target.x, target.y);
     }
 
     private void attackAt(Player player, double aimX, double aimY) {
@@ -1534,7 +1533,7 @@ final class GameSession {
                 || player.weapon.equals("revolver") && player.revolverAmmo <= 0
                 || player.weapon.equals("rocket") && player.rocketAmmo <= 0
                 || player.weapon.equals("lmg") && player.lmgAmmo <= 0
-                || player.weapon.equals("dualPistol") && player.dualPistolAmmo < 2;
+                || player.weapon.equals("ricochet") && player.ricochetAmmo <= 0;
         if (empty) {
             feedback(player, "弾薬がありません");
             player.firing = false;
@@ -1547,7 +1546,7 @@ final class GameSession {
         if (player.weapon.equals("revolver")) player.revolverAmmo--;
         if (player.weapon.equals("rocket")) player.rocketAmmo--;
         if (player.weapon.equals("lmg")) player.lmgAmmo--;
-        if (player.weapon.equals("dualPistol")) player.dualPistolAmmo -= 2;
+        if (player.weapon.equals("ricochet")) player.ricochetAmmo--;
 
         sendSoundEffect(player,"shot",player.weapon);
         player.cooldown = weapon.cooldown();
@@ -1564,6 +1563,10 @@ final class GameSession {
         double directionY = dy / length;
         if (player.weapon.equals("rocket")) {
             fireRocket(player, weapon, directionX, directionY, Math.min(length, weapon.range()));
+            return;
+        }
+        if (player.weapon.equals("ricochet")) {
+            fireRicochet(player, weapon, directionX, directionY);
             return;
         }
         boolean shotgun = player.weapon.equals("shotgun");
@@ -1606,36 +1609,66 @@ final class GameSession {
         }
     }
 
-    private void fireRay(Player player, WeaponStats weapon, double directionX, double directionY) {
-        double shotDistance = GameMap.distanceToWall(player.x, player.y,
-                directionX, directionY, weapon.range());
-        double endX = player.x + directionX * shotDistance;
-        double endY = player.y + directionY * shotDistance;
-        List<Enemy> candidates = enemies.stream().filter(enemy -> enemy.hp > 0)
-                .filter(enemy -> isInsideAttack(enemy, player, directionX, directionY, weapon, shotDistance))
-                .filter(enemy -> GameMap.hasClearLine(player.x, player.y, enemy.x, enemy.y))
-                .sorted(Comparator.comparingDouble(enemy ->
-                        (enemy.x - player.x) * directionX + (enemy.y - player.y) * directionY)).toList();
-        boolean piercing = player.weapon.equals("sniper") || player.weapon.equals("revolver");
-        List<Enemy> targets = piercing ? candidates : candidates.stream().limit(1).toList();
-        // Draw the actual ray, including misses, instead of bending it toward an enemy.
-        sendHitEffect(player.id, player.weapon, player.x, player.y, endX, endY, 0, false, 0, false);
-        for (Enemy hit : targets) {
-            int creditsBeforeHit = player.credits;
-            boolean headshot = isHeadshot(hit, player, directionX, directionY, weapon, shotDistance);
-            double damage = weapon.damage() * (headshot ? 2 : 1);
-            damageEnemy(hit, damage, player);
-            if (headshot) player.credits += 3;
-            knockbackEnemy(player.x, player.y, hit, weapon.knockback());
-            sendHitEffect(player.id, player.weapon, player.x, player.y, hit.x, hit.y,
-                    damage, hit.hp <= 0, player.credits - creditsBeforeHit, headshot);
+    private void fireRicochet(Player player, WeaponStats weapon, double dx, double dy) {
+        double x = player.x, y = player.y, remaining = weapon.range();
+        for (int bounce = 0; bounce <= 3 && remaining > .01; bounce++) {
+            GameMap.WallImpact wall = GameMap.rayWall(x, y, dx, dy, remaining);
+            double length = Math.max(0, wall.distance() - .001);
+            if (fireSegment(player, weapon, x, y, dx, dy, length)) return;
+            remaining -= wall.distance();
+            if (!wall.flipX() && !wall.flipY()) return;
+            x += dx * length; y += dy * length;
+            if (wall.flipX()) dx = -dx;
+            if (wall.flipY()) dy = -dy;
+            x += dx * .002; y += dy * .002;
+            remaining -= .002;
         }
     }
 
-    private boolean isInsideAttack(Enemy enemy, Player player, double directionX,
+    private void fireRay(Player player, WeaponStats weapon, double directionX, double directionY) {
+        double shotDistance = GameMap.distanceToWall(player.x, player.y,
+                directionX, directionY, weapon.range());
+        fireSegment(player, weapon, player.x, player.y, directionX, directionY, shotDistance);
+    }
+
+    private boolean fireSegment(Player player, WeaponStats weapon, double originX, double originY,
+            double directionX, double directionY, double shotDistance) {
+        double endX = originX + directionX * shotDistance;
+        double endY = originY + directionY * shotDistance;
+        List<Enemy> candidates = enemies.stream().filter(enemy -> enemy.hp > 0)
+                .filter(enemy -> isInsideAttack(enemy, originX, originY, directionX, directionY, weapon, shotDistance))
+                .filter(enemy -> GameMap.hasClearLine(originX, originY, enemy.x, enemy.y))
+                .sorted(Comparator.comparingDouble(enemy ->
+                        (enemy.x - originX) * directionX + (enemy.y - originY) * directionY)).toList();
+        boolean piercing = player.weapon.equals("sniper") || player.weapon.equals("revolver");
+        List<Enemy> targets = piercing ? candidates : candidates.stream().limit(1).toList();
+        if (!piercing && !targets.isEmpty() && !player.weapon.equals("bat")) {
+            Enemy first = targets.get(0);
+            double projection = (first.x - originX) * directionX + (first.y - originY) * directionY;
+            double perpendicular = Math.abs((first.x - originX) * directionY - (first.y - originY) * directionX);
+            double radius = enemyRadius(first) + weapon.width();
+            double entry = Math.max(0, projection - Math.sqrt(Math.max(0, radius * radius - perpendicular * perpendicular)));
+            endX = originX + directionX * entry; endY = originY + directionY * entry;
+        }
+        // A trajectory event is separate from impact and reward events.
+        sendHitEffect(player.id, player.weapon, originX, originY, endX, endY, 0, false, 0, false);
+        for (Enemy hit : targets) {
+            int creditsBeforeHit = player.credits;
+            boolean headshot = isHeadshot(hit, player, originX, originY, directionX, directionY, weapon, shotDistance);
+            double damage = weapon.damage() * (headshot ? 2 : 1);
+            damageEnemy(hit, damage, player);
+            if (headshot) player.credits += 3;
+            knockbackEnemy(originX, originY, hit, weapon.knockback());
+            sendHitEffect(player.id, player.weapon, player.x, player.y, hit.x, hit.y,
+                    damage, hit.hp <= 0, player.credits - creditsBeforeHit, headshot);
+        }
+        return !targets.isEmpty();
+    }
+
+    private boolean isInsideAttack(Enemy enemy, double originX, double originY, double directionX,
             double directionY, WeaponStats weapon, double shotDistance) {
-        double toEnemyX = enemy.x - player.x;
-        double toEnemyY = enemy.y - player.y;
+        double toEnemyX = enemy.x - originX;
+        double toEnemyY = enemy.y - originY;
         double projection = toEnemyX * directionX + toEnemyY * directionY;
         if (projection < 0 || projection > shotDistance) return false;
         double perpendicular = Math.abs(toEnemyX * directionY - toEnemyY * directionX);
@@ -1644,14 +1677,14 @@ final class GameSession {
         return perpendicular <= spread + enemyRadius;
     }
 
-    private boolean isHeadshot(Enemy enemy, Player player, double directionX,
+    private boolean isHeadshot(Enemy enemy, Player player, double originX, double originY, double directionX,
             double directionY, WeaponStats weapon, double shotDistance) {
         if (player.weapon.equals("bat")) return false;
         double radius = enemyRadius(enemy);
         double headX = enemy.x;
         double headY = enemy.y - radius * 0.5;
-        double toHeadX = headX - player.x;
-        double toHeadY = headY - player.y;
+        double toHeadX = headX - originX;
+        double toHeadY = headY - originY;
         double projection = toHeadX * directionX + toHeadY * directionY;
         if (projection < 0 || projection > shotDistance) return false;
         double perpendicular = Math.abs(toHeadX * directionY - toHeadY * directionX);
@@ -1743,7 +1776,7 @@ final class GameSession {
                 || weapon.equals("revolver") && player.ownsRevolver
                 || weapon.equals("rocket") && player.ownsRocket
                 || weapon.equals("lmg") && player.ownsLmg
-                || weapon.equals("dualPistol") && player.ownsDualPistol;
+                || weapon.equals("ricochet") && player.ownsRicochet;
         if (owned) {
             releaseCarriedCore(player);
             player.equipWeapon(weapon);
@@ -1787,15 +1820,15 @@ final class GameSession {
             return;
         }
         switch (item) {
-            case "shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "dualPistol", "rocket" ->
+            case "shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "ricochet", "rocket" ->
                     buyOrRefillWeapon(player, shop, item);
             case "ammo" -> {
                 if (!player.ownsShotgun && !player.ownsSmg
-                        && !player.ownsRifle && !player.ownsSniper && !player.ownsRevolver && !player.ownsLmg && !player.ownsDualPistol && !player.ownsRocket) {
+                        && !player.ownsRifle && !player.ownsSniper && !player.ownsRevolver && !player.ownsLmg && !player.ownsRicochet && !player.ownsRocket) {
                     feedback(player, "弾薬を使う武器を持っていません");
                     return;
                 }
-                List<String> owned = List.of("shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "dualPistol", "rocket")
+                List<String> owned = List.of("shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "ricochet", "rocket")
                         .stream().filter(weapon -> botOwnsWeapon(player, weapon)).toList();
                 if (owned.stream().allMatch(weapon -> weaponAmmo(player, weapon) >= weaponAmmoCapacity(weapon))) {
                     feedback(player, "弾薬は満タンです");
@@ -1804,6 +1837,7 @@ final class GameSession {
                 if (spend(player, shop.cost())) {
                     owned.forEach(weapon -> setWeaponAmmo(player, weapon, weaponAmmoCapacity(weapon)));
                     feedback(player, "弾薬を補充しました");
+                    events.send(player, "{\"type\":\"ammo-refilled\"}");
                 } else {
                     feedback(player, "お金が足りません");
                 }
@@ -1821,7 +1855,8 @@ final class GameSession {
             }
             if (spend(player, ammoRefillCost())) {
                 setWeaponAmmo(player, item, capacity);
-                feedback(player, "弾薬は満タンです");
+                feedback(player, "弾薬を補充しました");
+                events.send(player, "{\"type\":\"ammo-refilled\"}");
             } else {
                 feedback(player, "お金が足りません");
             }
@@ -1845,7 +1880,7 @@ final class GameSession {
             case "revolver" -> player.revolverAmmo;
             case "rocket" -> player.rocketAmmo;
             case "lmg" -> player.lmgAmmo;
-            case "dualPistol" -> player.dualPistolAmmo;
+            case "ricochet" -> player.ricochetAmmo;
             default -> 0;
         };
     }
@@ -1864,7 +1899,7 @@ final class GameSession {
             case "revolver" -> player.revolverAmmo = ammo;
             case "rocket" -> player.rocketAmmo = ammo;
             case "lmg" -> player.lmgAmmo = ammo;
-            case "dualPistol" -> player.dualPistolAmmo = ammo;
+            case "ricochet" -> player.ricochetAmmo = ammo;
             default -> { }
         }
     }
@@ -2416,7 +2451,7 @@ final class GameSession {
             player.ownsRevolver = false;
             player.ownsRocket = false;
             player.ownsLmg = false;
-            player.ownsDualPistol = false;
+            player.ownsRicochet = false;
             player.shotgunAmmo = 0;
             player.smgAmmo = 0;
             player.rifleAmmo = 0;
@@ -2424,7 +2459,7 @@ final class GameSession {
             player.revolverAmmo = 0;
             player.rocketAmmo = 0;
             player.lmgAmmo = 0;
-            player.dualPistolAmmo = 0;
+            player.ricochetAmmo = 0;
             player.wood = 0;
             player.ore = 0;
             player.recoveredDefenses.clear();

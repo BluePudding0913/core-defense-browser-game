@@ -68,7 +68,7 @@ class GameMapTest {
             assertFalse(GameMap.canPlaceDefense(area.terminalX(), area.terminalY(), allAreas));
             assertFalse(GameMap.canPlaceCore(area.terminalX(), area.terminalY(), allAreas));
         }
-        assertEquals(11, floorTerminals);
+        assertEquals(12, floorTerminals);
     }
 
     @Test
@@ -94,7 +94,7 @@ class GameMapTest {
 
     @Test
     void weaponShopsAreInSeparateUnlockableSideRoomsConnectedToTheMainRoute() {
-        Set<String> weapons = Set.of("shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "dualPistol");
+        Set<String> weapons = Set.of("shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "ricochet");
         Set<String> mainAreas = GameMap.AREAS.stream().map(UnlockArea::id)
                 .filter(id -> weapons.stream().noneMatch(weapon -> id.equals(weapon + "-room")))
                 .collect(Collectors.toSet());
@@ -226,7 +226,7 @@ class GameMapTest {
                 "terrain beside the route must block movement");
         assertFalse(GameMap.canOccupy(3, GameMap.CORE_Y, 5, Set.of()),
                 "the world boundary must block movement");
-        assertEquals(18, GameMap.AREAS.size());
+        assertEquals(19, GameMap.AREAS.size());
     }
 
     @Test

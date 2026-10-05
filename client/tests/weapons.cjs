@@ -9,7 +9,7 @@ function extract(name) {
     return source.slice(begin, end < 0 ? undefined : end);
 }
 let options;
-const me = { ownsDualPistol: true, dualPistolAmmo: 60, ownsSmg: true, smgAmmo: 300, ownsRevolver: true, revolverAmmo: 36, ownsLmg: true, lmgAmmo: 150, ownsRocket: true, rocketAmmo: 12, credits: 2000 };
+const me = { ownsRicochet: true, ricochetAmmo: 60, ownsSmg: true, smgAmmo: 300, ownsRevolver: true, revolverAmmo: 36, ownsLmg: true, lmgAmmo: 150, ownsRocket: true, rocketAmmo: 12, credits: 2000 };
 const context = vm.createContext({ me, getMe: () => me, BUILD_INFO: {}, equipmentOrder: [],
     WEAPON_AMMO_REFILL_COST: 120, INTERACTION_RANGE: { shop: 100 },
     openNearbyActionMenu: (title, entries) => { options = entries; }
@@ -20,9 +20,9 @@ for (const name of ['applyRules', 'equipmentEntries', 'ammoForWeapon', 'openShop
     vm.runInContext(extract(name), context);
 }
 context.rules = { recipes: {}, shop: { ammo: 120 }, weapons: Object.fromEntries(
-    ['dualPistol', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket'].map(w => [w, { capacity: me[w + 'Ammo'] || 111 }])) };
+    ['ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket'].map(w => [w, { capacity: me[w + 'Ammo'] || 111 }])) };
 vm.runInContext('applyRules({rules})', context);
-for (const [weapon, capacity] of [['dualPistol', 60], ['smg', 300], ['revolver', 36], ['lmg', 150], ['rocket', 12]]) {
+for (const [weapon, capacity] of [['ricochet', 60], ['smg', 300], ['revolver', 36], ['lmg', 150], ['rocket', 12]]) {
     context.weapon = weapon;
     context.shop = map.shopUnits.find(shop => shop.item === weapon);
     assert(context.shop);
@@ -40,11 +40,11 @@ for (const [weapon, capacity] of [['dualPistol', 60], ['smg', 300], ['revolver',
 context.shop = map.shopUnits.find(shop => shop.item === 'ammo');
 vm.runInContext('openShopPurchase(shop)', context);
 assert.equal(options[0].label, 'REFILL');
-me.dualPistolAmmo = 60; me.smgAmmo = 300; me.revolverAmmo = 36; me.lmgAmmo = 150; me.rocketAmmo = 12;
+me.ricochetAmmo = 60; me.smgAmmo = 300; me.revolverAmmo = 36; me.lmgAmmo = 150; me.rocketAmmo = 12;
 vm.runInContext('openShopPurchase(shop)', context);
 assert.equal(options[0].label, 'FULL');
 assert(options[0].disabled);
-me.ownsDualPistol = me.ownsSmg = me.ownsRevolver = me.ownsLmg = me.ownsRocket = false;
+me.ownsRicochet = me.ownsSmg = me.ownsRevolver = me.ownsLmg = me.ownsRocket = false;
 vm.runInContext('openShopPurchase(shop)', context);
 assert.equal(options[0].label, 'LOCKED');
 assert(options[0].disabled);

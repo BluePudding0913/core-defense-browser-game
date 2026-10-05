@@ -2,7 +2,7 @@
 
 // Replace the empty MP3 files with actual sound assets; no code changes needed.
 (() => {
-    const names = ["pistol", "dualPistol", "shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "bat", "medkit", "heal", "build", "pickup", "item"];
+    const names = ["pistol", "ricochet", "shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "bat", "medkit", "heal", "build", "pickup", "item"];
     const active = new Set();
     let unlocked = false;
     const unlock = () => { unlocked = true; };

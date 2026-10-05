@@ -64,7 +64,7 @@ class RocketAndBalanceTest {
         var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
         assertTrue(snapshot.path("players").get(0).path("ownsRocket").asBoolean());
         assertEquals(12, snapshot.path("players").get(0).path("rocketAmmo").asInt());
-        assertEquals(140, snapshot.path("rules").path("weapons").path("rocket").path("blastRadius").asInt());
+        assertEquals(200, snapshot.path("rules").path("weapons").path("rocket").path("blastRadius").asInt());
         game.phase = GamePhase.LOST;
         game.players.forEach(p -> p.roomReady = true);
         game.handleMessage(player, "START");
@@ -73,13 +73,13 @@ class RocketAndBalanceTest {
 
     @Test void rocketDetonatesOnFirstEnemyWithRadialFalloffAndConsumesOneRound() {
         player.x = 1020; player.y = 1900; player.ownsRocket = true; player.rocketAmmo = 2;
-        Enemy direct = enemy(1, 1120, 1900), splash = enemy(2, 1120, 1960), outside = enemy(3, 1260, 1900);
+        Enemy direct = enemy(1, 1120, 1900), splash = enemy(2, 1120, 1960), outside = enemy(3, 1340, 1900);
         game.handleMessage(player, "WEAPON:rocket");
         game.handleMessage(player, "FIRE:1300:1900:1");
         assertTrue(direct.hp < splash.hp); assertTrue(splash.hp < 2000);
         assertEquals(2000, outside.hp); assertEquals(1, player.rocketAmmo);
         assertEquals(100, player.hp); // Explosions only damage enemies.
-        assertTrue(effects.stream().anyMatch(m -> m.contains("\"effect\":\"explosion\"") && m.contains("1095.0")));
+        assertTrue(effects.stream().anyMatch(m -> m.contains("\"effect\":\"explosion\"") && m.contains("1097.0")));
         assertTrue(effects.stream().noneMatch(m -> m.contains("\"headshot\":true")));
         game.handleMessage(player, "FIRE:1300:1900:1");
         assertEquals(1, player.rocketAmmo);
@@ -93,7 +93,7 @@ class RocketAndBalanceTest {
         Enemy splash = enemy(1, 1120, 1970);
         game.handleMessage(player, "WEAPON:rocket");
         game.handleMessage(player, "FIRE:1120:1900:1");
-        assertEquals(1700, splash.hp, 1e-6);
+        assertEquals(1340, splash.hp, 1e-6);
         assertTrue(effects.stream().anyMatch(m -> m.contains("\"effect\":\"explosion\"") && m.contains("1120.0")));
         game.enemies.clear(); effects.clear(); player.cooldown = 0; player.firing = false;
         player.x = 1020; player.y = 1580;

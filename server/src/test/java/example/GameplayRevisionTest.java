@@ -42,45 +42,47 @@ class GameplayRevisionTest {
         assertTrue(game.unlockedAreas.contains("revolver-room"));
     }
 
-    @Test void dualPistolConsumesTwoRoundsAndSupportsRefillSnapshotAndRestart() throws Exception {
-        ShopUnit shop = GameMap.shopByItem("dualPistol");
+    @Test void ricochetConsumesOneRoundAndSupportsRefillSnapshotAndRestart() throws Exception {
+        ShopUnit shop = GameMap.shopByItem("ricochet");
         player.x = shop.x(); player.y = shop.y(); player.credits = 1000;
-        game.handleMessage(player, "BUY:dualPistol");
-        assertFalse(player.ownsDualPistol);
-        game.unlockedAreas.add("dualPistol-room");
-        game.handleMessage(player, "BUY:dualPistol");
+        game.handleMessage(player, "BUY:ricochet");
+        assertFalse(player.ownsRicochet);
+        game.unlockedAreas.add("ricochet-room");
+        game.handleMessage(player, "BUY:ricochet");
         assertEquals(600, player.credits);
-        assertTrue(player.ownsDualPistol);
-        assertEquals(240, player.dualPistolAmmo);
+        assertTrue(player.ownsRicochet);
+        assertEquals(240, player.ricochetAmmo);
         player.x = 1020; player.y = 1900;
         Enemy enemy = new Enemy(9300, "grunt", GameMap.SPAWN_POINTS.get(0), 500, 0, 0, 50);
         enemy.x = 1120; enemy.y = 1900;
         game.enemies.add(enemy);
-        game.handleMessage(player, "ATTACK:9300");
+        game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":1");
+        game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":0");
         assertEquals(428, enemy.hp);
-        assertEquals(238, player.dualPistolAmmo);
+        assertEquals(239, player.ricochetAmmo);
         assertEquals(.30, player.cooldown);
-        player.cooldown = 0; player.dualPistolAmmo = 1;
-        game.handleMessage(player, "ATTACK:9300");
-        assertEquals(428, enemy.hp, "a pair requires two rounds");
+        player.cooldown = 0; player.ricochetAmmo = 0;
+        game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":1");
+        game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":0");
+        assertEquals(428, enemy.hp, "an empty weapon cannot fire");
         player.x = shop.x(); player.y = shop.y();
-        game.handleMessage(player, "BUY:dualPistol");
-        assertEquals(240, player.dualPistolAmmo);
-        player.dualPistolAmmo = 0;
+        game.handleMessage(player, "BUY:ricochet");
+        assertEquals(240, player.ricochetAmmo);
+        player.ricochetAmmo = 0;
         game.unlockedAreas.add("forest");
         ShopUnit ammo = GameMap.shopByItem("ammo");
         player.x = ammo.x(); player.y = ammo.y();
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(240, player.dualPistolAmmo);
+        assertEquals(240, player.ricochetAmmo);
         var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
         var self = snapshot.path("players").get(player.slot - 1);
-        assertTrue(self.path("ownsDualPistol").asBoolean());
-        assertEquals(240, self.path("dualPistolAmmo").asInt());
+        assertTrue(self.path("ownsRicochet").asBoolean());
+        assertEquals(240, self.path("ricochetAmmo").asInt());
         game.phase = GamePhase.WON;
         game.players.forEach(p -> p.roomReady = true);
         game.handleMessage(player, "START");
-        assertFalse(player.ownsDualPistol);
-        assertEquals(0, player.dualPistolAmmo);
+        assertFalse(player.ownsRicochet);
+        assertEquals(0, player.ricochetAmmo);
     }
 
     @Test void headshotsAddThreeGoldEvenWhenTheEnemyDies() {
@@ -148,14 +150,14 @@ class GameplayRevisionTest {
         }
     }
 
-    @Test void dualPistolUsesTheFormerRevolverRoom() {
-        UnlockArea terminal = GameMap.areaById("dualPistol-room");
+    @Test void ricochetUsesTheFormerRevolverRoom() {
+        UnlockArea terminal = GameMap.areaById("ricochet-room");
         assertEquals(860 + GameMap.TILE_SIZE, terminal.terminalX());
         assertEquals(1580, terminal.terminalY());
         game.unlockedAreas.add("entry-room");
         player.x = 940; player.y = 1580; player.credits = 1000;
-        game.handleMessage(player, "UNLOCK:dualPistol-room");
-        assertTrue(game.unlockedAreas.contains("dualPistol-room"));
+        game.handleMessage(player, "UNLOCK:ricochet-room");
+        assertTrue(game.unlockedAreas.contains("ricochet-room"));
         assertEquals(550, player.credits);
     }
 
@@ -195,11 +197,13 @@ class GameplayRevisionTest {
             Enemy enemy = new Enemy(9001, "grunt", GameMap.SPAWN_POINTS.get(0), 1000, 0, 0, 0);
             enemy.x = 1120; enemy.y = 1900;
             game.enemies.clear(); game.enemies.add(enemy);
-            game.handleMessage(player, "ATTACK:9001");
+            game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":1");
+        game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":0");
             assertEquals(1000 - damage, enemy.hp);
             assertEquals(weapon.equals("revolver") ? 1.6 : .18, player.cooldown, 1e-9);
             assertEquals(capacity - 1, weapon.equals("revolver") ? player.revolverAmmo : player.lmgAmmo);
-            game.handleMessage(player, "ATTACK:9001");
+            game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":1");
+        game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":0");
             assertEquals(1000 - damage, enemy.hp, "cooldown prevents an immediate second shot");
             player.x = shop.x(); player.y = shop.y();
             game.handleMessage(player, "BUY:" + weapon);
@@ -213,7 +217,8 @@ class GameplayRevisionTest {
             assertTrue(self.path(weapon.equals("revolver") ? "ownsRevolver" : "ownsLmg").asBoolean());
             if (weapon.equals("revolver")) player.revolverAmmo = 0; else player.lmgAmmo = 0;
             player.cooldown = 0; player.x = 1020; player.y = 1900;
-            game.handleMessage(player, "ATTACK:9001");
+            game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":1");
+        game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":0");
             assertEquals(1000 - damage, enemy.hp, "empty weapon cannot deal damage");
             game.handleMessage(player, "WEAPON:pistol");
             game.handleMessage(player, "WEAPON:" + weapon);
@@ -737,7 +742,7 @@ class GameplayRevisionTest {
         player.silver=0; game.handleMessage(player,"CRAFT:silverTurret"); assertEquals(1,player.silverTurretItems);
         var snapshot=new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
         assertEquals(50,snapshot.path("maxRounds").asInt());
-        assertEquals(GameSession.weaponAmmoCapacity("dualPistol"),snapshot.path("rules").path("weapons").path("dualPistol").path("capacity").asInt());
+        assertEquals(GameSession.weaponAmmoCapacity("ricochet"),snapshot.path("rules").path("weapons").path("ricochet").path("capacity").asInt());
         assertEquals(8,snapshot.path("rules").path("recipes").path("silverTurret").path("silver").asInt());
     }
 
@@ -804,7 +809,7 @@ class GameplayRevisionTest {
         game.unlockedAreas.addAll(GameMap.AREAS.stream().map(UnlockArea::id).toList());
         Method select=GameSession.class.getDeclaredMethod("selectRoundSpawns",int.class); select.setAccessible(true);
         select.invoke(game,12);
-        for(String room:List.of("shotgun-room","smg-room","rifle-room","sniper-room","revolver-room","lmg-room","dualPistol-room")) {
+        for(String room:List.of("shotgun-room","smg-room","rifle-room","sniper-room","revolver-room","lmg-room","ricochet-room")) {
             assertTrue(game.activeSpawnIds.contains("area-"+room),room);
         }
         assertTrue(game.activeSpawnIds.stream().filter(id -> id.startsWith("area-")).count()>7);

@@ -165,6 +165,32 @@ final class GameMap {
         return maxDistance;
     }
 
+    record WallImpact(double distance, boolean flipX, boolean flipY) { }
+
+    // Traverse tile boundaries so reflection uses the wall face, including corners.
+    static WallImpact rayWall(double x, double y, double dx, double dy, double range) {
+        int column = (int) Math.floor(x / TILE_SIZE), row = (int) Math.floor(y / TILE_SIZE);
+        int sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1;
+        double deltaX = dx == 0 ? Double.POSITIVE_INFINITY : TILE_SIZE / Math.abs(dx);
+        double deltaY = dy == 0 ? Double.POSITIVE_INFINITY : TILE_SIZE / Math.abs(dy);
+        double nextX = dx == 0 ? Double.POSITIVE_INFINITY
+                : ((column + (dx > 0 ? 1 : 0)) * TILE_SIZE - x) / dx;
+        double nextY = dy == 0 ? Double.POSITIVE_INFINITY
+                : ((row + (dy > 0 ? 1 : 0)) * TILE_SIZE - y) / dy;
+        while (Math.min(nextX, nextY) < range) {
+            double distance = Math.min(nextX, nextY);
+            boolean crossX = nextX <= nextY + 1e-8, crossY = nextY <= nextX + 1e-8;
+            boolean wallX = crossX && isSolidAt((column + sx + .5) * TILE_SIZE, (row + .5) * TILE_SIZE);
+            boolean wallY = crossY && isSolidAt((column + .5) * TILE_SIZE, (row + sy + .5) * TILE_SIZE);
+            if (wallX || wallY) return new WallImpact(distance, wallX, wallY);
+            if (crossX) { column += sx; nextX += deltaX; }
+            if (crossY) { row += sy; nextY += deltaY; }
+            if (isSolidAt((column + .5) * TILE_SIZE, (row + .5) * TILE_SIZE))
+                return new WallImpact(distance, crossX, crossY);
+        }
+        return new WallImpact(range, false, false);
+    }
+
     static boolean hasClearLine(double fromX, double fromY, double toX, double toY) {
         double dx = toX - fromX;
         double dy = toY - fromY;
