@@ -102,10 +102,10 @@ function mountMenu() {
             root.hidden = false; document.body.classList.add("menu-preview");
             render();
         },
-        snapshot(next, id) {
+        snapshot(next, id, keepArea = false) {
             quickRequested = false;
             snapshot = next; selfId = id; connected = true; busy = false;
-            const playing = ["preparing", "wave"].includes(next.phase);
+            const playing = ["preparing", "wave"].includes(next.phase) || keepArea;
             root.hidden = playing;
             document.body.classList.toggle("menu-preview", !playing);
             if (playing) { lastLobby = ""; return; }

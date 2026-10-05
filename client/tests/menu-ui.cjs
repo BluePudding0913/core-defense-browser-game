@@ -235,3 +235,9 @@ click('settings');
 assert.match(root.innerHTML, /name="pointer-shape"/);
 handlers.input({ target: { name: 'pointer-shape', value: 'cross' } });
 assert.equal(JSON.parse(saved.get('core-defense-pointer')).shape, 'cross');
+for (const phase of ['won', 'lost']) {
+    context.window.coreMenu.snapshot({ ...state, phase }, 'p1', true);
+    assert(root.hidden, 'result delay keeps the game area visible');
+    context.window.coreMenu.snapshot({ ...state, phase }, 'p1', false);
+    assert(!root.hidden, 'result menu appears after the delay');
+}

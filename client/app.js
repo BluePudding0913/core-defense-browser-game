@@ -432,6 +432,7 @@ function enterRoom(roomId) {
 }
 
 function leaveRoom() {
+    keepEndArea({ phase: "lobby" });
     endInteractionHold(true);
     keys.clear(); joystick = null; dashKey = false;
     if (pendingMove) clearTimeout(pendingMove.timer);
@@ -486,14 +487,36 @@ function applyRules(next) {
         WEAPON_AMMO_REFILL_COST = next.rules.shop.ammo;
         for (const [weapon, fields] of Object.entries(WEAPON_FIELDS)) {
             fields.capacity = next.rules.weapons[weapon].capacity;
-        }
             fields.refillCost = next.rules.weapons[weapon].refillCost;
+        }
     }
+}
+
+let endAreaPhase = null;
+let endAreaDeadline = 0;
+let endAreaTimer;
+
+function keepEndArea(next) {
+    if (!["won", "lost"].includes(next.phase)) {
+        clearTimeout(endAreaTimer);
+        endAreaPhase = null;
+        return false;
+    }
+    if (endAreaPhase !== next.phase) {
+        clearTimeout(endAreaTimer);
+        endAreaPhase = next.phase;
+        endAreaDeadline = performance.now() + 10000;
+        endAreaTimer = setTimeout(() => {
+            if (state && state.phase === endAreaPhase) receiveState(state);
+        }, 10000);
+    }
+    return performance.now() < endAreaDeadline;
 }
 
 function receiveState(next) {
     applyRules(next);
-    window.coreMenu?.snapshot(next, myPlayerId);
+    const keepArea = keepEndArea(next);
+    window.coreMenu?.snapshot(next, myPlayerId, keepArea);
     const beginsRound = next.phase === "wave"
         && (previousPhase !== "wave" || next.round !== previousRound);
     if (lastCoreHp !== undefined && next.core.hp < lastCoreHp) coreHitStarted = performance.now();
@@ -515,7 +538,7 @@ function receiveState(next) {
     updateHud();
     updateWorkbenchMaterials();
     updateRoomLobby(next);
-    if (["preparing", "wave"].includes(next.phase)) {
+    if (["preparing", "wave"].includes(next.phase) || keepArea) {
         menu.classList.add("hidden");
         hud.classList.remove("hidden");
     } else if (["lobby", "won", "lost"].includes(next.phase)) {
@@ -779,7 +802,8 @@ function updateHud() {
         ? ` / BREAKER:${(state.trippedBreakers || []).length}` : "";
     phaseDetail.textContent = state.phase === "preparing"
         ? `next round in ${Math.floor(prepSeconds / 60)}:${String(prepSeconds % 60).padStart(2, "0")}${blackoutStatus}`
-        : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}` : "";
+        : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}`
+            : state.phase === "won" ? "防衛成功" : state.phase === "lost" ? "防衛失敗" : "";
     const me = getMe();
     teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">

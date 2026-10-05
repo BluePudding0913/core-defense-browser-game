@@ -35,7 +35,7 @@ class Socket {
 }
 const context = {
     keys: new Set(['w']), joystick: {}, dashKey: true, pendingMove: null, firingPointer: {},
-    closeHowTo: () => {}, inventoryMenu: element(),
+    closeHowTo: () => {}, inventoryMenu: element(), keepEndArea: () => false,
     WebSocket: Socket, URLSearchParams, console,
     window: { location: { hostname: 'localhost', protocol: 'http:' } },
     URL_PARAMETERS: new URLSearchParams(), clientSessionId: 'room-regression-session',
