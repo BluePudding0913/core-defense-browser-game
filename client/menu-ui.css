@@ -7,6 +7,7 @@
 #menu-ui .ui-content { width: min(22rem, 100%); text-align: center; }
 #menu-ui h1 { margin: 0 0 clamp(40px, 12vh, 100px); color: #fff; font: 800 clamp(1.5rem, 4vw, 2rem) ui-monospace, monospace; letter-spacing: .11em; text-align: center; }
 #menu-ui h2 { margin: 0 0 24px; font-size: 1rem; text-align: center; outline: none; }
+#menu-ui .ui-connection-error { margin: 0 0 24px; color: rgb(255 255 255 / 70%); font-size: .85rem; }
 #menu-ui nav, #menu-ui form { display: grid; gap: .55rem; }
 #menu-ui button, #menu-ui input { width: 100%; min-height: 44px; padding: .72rem .9rem; border: 1px solid rgb(255 255 255 / 58%); border-radius: .3rem; background: rgb(255 255 255 / 8%); color: #fff; font: inherit; }
 #menu-ui button { font-weight: 900; cursor: pointer; }
@@ -23,7 +24,5 @@
 #menu-ui .room-member span { color: rgb(255 255 255 / 60%); font: 800 .7rem ui-monospace, monospace; white-space: nowrap; }
 #menu-ui .room-member.ready { border-color: rgb(121 216 255 / 65%); }
 #menu-ui .room-member.ready span { color: var(--accent-blue); }
-#menu-ui #ui-message { margin: 16px 0 0; color: rgb(255 255 255 / 70%); font-size: .8rem; line-height: 1.6; overflow-wrap: anywhere; }
-#menu-ui #ui-message:empty { display: none; }
 #menu-ui [hidden] { display: none !important; }
 @media (max-height: 520px) { #menu-ui .ui-shell { align-content: start; } #menu-ui h1 { margin-bottom: 24px; } }

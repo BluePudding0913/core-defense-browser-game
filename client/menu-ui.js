@@ -12,8 +12,8 @@ document.body.append(gameScript);
 function mountMenu() {
     const root = document.querySelector("#menu-ui");
     const escape = value => String(value).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-    let name = "", view = "guest", message = "サーバーに接続しています…";
-    let snapshot, selfId, busy = false, connected = false, lastLobby = "";
+    let name = "", view = "guest";
+    let snapshot, selfId, busy = false, connected = false, lastLobby = "", quickRequested = false;
     try { name = localStorage.getItem("core-defense-guest-name")?.trim() || ""; } catch { /* Optional storage. */ }
     if (name) view = "home";
     const back = to => `<button type="button" class="ui-back" data-action="${to}">戻る</button>`;
@@ -24,6 +24,7 @@ function mountMenu() {
         if (view === "guest" || view === "settings") content = `<h2>プレイヤー設定</h2><form data-form="name"><label>ゲストプレイヤー名<input name="name" maxlength="16" required autocomplete="nickname" value="${escape(name)}"></label><button>保存してつづける</button></form>${view === "settings" ? back("home") : ""}`;
         if (view === "home") content = `<h1>CORE DEFENSE</h1><nav aria-label="メインメニュー">${button("quick", "クイックマッチ")}${button("phrase", "合言葉")}${back("settings").replace("戻る", "設定")}</nav>`;
         if (view === "phrase") content = `<h2>合言葉</h2><nav>${button("create", "ルーム作成")}${button("search", "ルーム検索")}</nav>${back("home")}`;
+        if (view === "quick-error") content = `<h2>クイックマッチ</h2><p class="ui-connection-error" role="alert">接続できません</p>${button("quick", "再試行")}${back("home")}`;
         if (view === "create" || view === "search") content = `<h2>${view === "create" ? "ルーム作成" : "ルーム検索"}</h2><form data-form="${view}"><label>合言葉<input name="password" maxlength="32" autocomplete="off" required></label><button ${disabled()}>${view === "create" ? "作成" : "検索して参加"}</button></form>${back("phrase")}`;
         if (view === "lobby" && snapshot) {
             const owner = snapshot.roomOwnerId === selfId;
@@ -35,39 +36,42 @@ function mountMenu() {
             content += owner ? `<button data-action="start" ${!snapshot.allReady || !connected ? "disabled" : ""}>${snapshot.phase === "lobby" ? "開始" : "もう一度プレイ"}</button>` : `<button data-action="ready" ${disabled()}>${me?.ready ? "準備を取り消す" : "準備OK"}</button>`;
             content += button("leave", "退出");
         }
-        root.innerHTML = `<div class="ui-shell"><section class="ui-content">${content}<p id="ui-message" role="status">${escape(message)}</p></section></div>`;
+        root.innerHTML = `<div class="ui-shell"><section class="ui-content">${content}</section></div>`;
         updateMatchButtons();
         if (focus) (root.querySelector("input") || root.querySelector("button"))?.focus();
     }
-    function go(next) { view = next; message = ""; render(true); }
+    function go(next) { view = next; quickRequested = false; render(true); }
     function updateMatchButtons() {
         root.querySelectorAll('[data-action="quick"]').forEach(b => b.disabled = busy);
         root.querySelectorAll('form:not([data-form="name"]) button')
             .forEach(b => b.disabled = busy || !connected);
     }
     function status(text) {
-        message = text; busy = false;
-        root.querySelector("#ui-message").textContent = message;
+        busy = false;
+        if (quickRequested && text) { view = "quick-error"; render(); return; }
         updateMatchButtons();
     }
     function match(action, phrase = "") {
         if (busy) return;
+        quickRequested = action === "quick";
         window.coreMenu.phrase = phrase;
         window.coreGame.match(action, phrase, name);
-        status("ルームに接続しています…"); busy = true;
+        busy = true;
         updateMatchButtons();
     }
     window.coreMenu = {
         phrase: "",
         status,
-        rejected() { connected = false; busy = false; snapshot = null; lastLobby = ""; view = window.coreMenu.phrase ? "search" : "home"; render(); },
-        connected() { connected = true; busy = false; status(message.includes("接続") ? "" : message); },
-        disconnected(text) {
+        rejected() { connected = false; busy = false; snapshot = null; lastLobby = ""; view = quickRequested ? "quick-error" : window.coreMenu.phrase ? "search" : "home"; render(); },
+        connected() { connected = true; status(); },
+        disconnected() {
             connected = false; busy = false; lastLobby = "";
+            if (quickRequested) view = "quick-error";
             root.hidden = false; document.body.classList.add("menu-preview");
-            message = text; render();
+            render();
         },
         snapshot(next, id) {
+            quickRequested = false;
             snapshot = next; selfId = id; connected = true; busy = false;
             const playing = ["preparing", "wave"].includes(next.phase);
             root.hidden = playing;
@@ -77,7 +81,6 @@ function mountMenu() {
                 next.players.map(p => [p.id, p.name, p.human, p.ready])]);
             if (signature === lastLobby && view === "lobby") return;
             lastLobby = signature; view = "lobby";
-            message = next.phase === "won" ? "防衛成功" : next.phase === "lost" ? "防衛失敗" : "";
             render();
         }
     };
