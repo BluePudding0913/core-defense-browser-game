@@ -711,9 +711,9 @@ final class GameSession {
                 if (trigger != null) {
                     for (Enemy enemy : enemies) {
                         if (enemy.hp > 0 && distance(slot.x, slot.y, enemy.x, enemy.y) < 120) {
-                            damageEnemy(enemy, 90, null);
+                            damageEnemy(enemy, 450, null);
                             sendHitEffect("trap", "mine", slot.x, slot.y, enemy.x, enemy.y,
-                                    90, enemy.hp <= 0, 0, false);
+                                    450, enemy.hp <= 0, 0, false);
                         }
                     }
                     slot.defense = null;
