@@ -72,6 +72,7 @@ final class GameSession {
     int round;
     double prepTime;
     int queuedEnemies;
+    int queuedTinyEnemies;
     int queuedBosses;
     double coreHp;
     double coreMaxHp;
@@ -369,6 +370,9 @@ final class GameSession {
             queuedEnemies = (queuedEnemies * (10 + round - 40) + 4) / 5;
             queuedBosses *= 2;
         }
+        // Reserve one simultaneous swarm within the regular population on selected late rounds.
+        queuedTinyEnemies = round >= 40 && (round - 40) % 3 == 0
+                ? Math.min(queuedEnemies, 48 + (round - 40) * 4) : 0;
         roundEvent = round % 4 == 3 ? "blackout"
                 : round >= 5 && round % 4 == 1 ? "door_failure"
                 : round % 4 == 0 ? "boss_assault" : "none";
@@ -587,6 +591,11 @@ final class GameSession {
         if (queuedEnemies <= 0 && queuedBosses <= 0) return;
         spawnTimer -= dt;
         if (spawnTimer > 0) return;
+        while (queuedTinyEnemies > 0 && queuedEnemies > 0) {
+            spawnEnemy("tiny", nextRoundSpawn());
+            queuedTinyEnemies--;
+            queuedEnemies--;
+        }
         int batchSize = round >= 40 ? 2 + (round - 40) / 3 : 1;
         for (int i = 0; i < batchSize && (queuedEnemies > 0 || queuedBosses > 0); i++) {
             // Each member uses the next entrance so a burst pressures multiple sides.
@@ -608,7 +617,6 @@ final class GameSession {
         // Reserve a growing share for elites, retaining each entrance's original mix.
         double eliteRoll = random.nextDouble();
         double eliteChance = 0;
-        if (round >= 40 && eliteRoll < (eliteChance += 0.12)) return "tiny";
         if (round >= 34 && eliteRoll < (eliteChance += 0.12)) return "champion";
         if (round >= 26 && eliteRoll < (eliteChance += 0.14)) return "siege";
         if (round >= 18 && eliteRoll < (eliteChance += 0.16)) return "hunter";
@@ -2512,6 +2520,7 @@ final class GameSession {
         round = 0;
         prepTime = 0;
         queuedEnemies = 0;
+        queuedTinyEnemies = 0;
         queuedBosses = 0;
         roundEvent = "none";
         failedSpawnId = null;

@@ -50,16 +50,35 @@ class LateRoundPressureTest {
         for (var entry : batches.entrySet()) {
             beginRound(entry.getKey());
             int initialPopulation = game.queuedEnemies;
+            int swarm = game.queuedTinyEnemies;
             spawnTick(.05);
-            assertEquals(entry.getValue().intValue(), game.enemies.size(), "R" + entry.getKey());
-            assertEquals(initialPopulation - entry.getValue(), game.queuedEnemies);
+            assertEquals(swarm + entry.getValue(), game.enemies.size(), "R" + entry.getKey());
+            assertEquals(initialPopulation - swarm - entry.getValue(), game.queuedEnemies);
             if (!game.roundEvent.equals("door_failure")) {
-                assertEquals(entry.getValue().longValue(), game.enemies.stream().map(e -> e.spawnId).distinct().count());
+                assertEquals(entry.getValue().longValue(), game.enemies.stream().filter(e -> !e.type.equals("tiny"))
+                        .map(e -> e.spawnId).distinct().count());
             }
             spawnTick(.05);
-            assertEquals(entry.getValue().intValue(), game.enemies.size(), "Must wait between bursts");
+            assertEquals(swarm + entry.getValue(), game.enemies.size(), "Must wait between bursts");
             spawnTick(.24);
-            assertEquals(entry.getValue() * 2, game.enemies.size());
+            assertEquals(swarm + entry.getValue() * 2, game.enemies.size());
+        }
+    }
+
+    @Test void tinySwarmsAppearTogetherOnlyOnSelectedLateRounds() throws Exception {
+        Map<Integer, Integer> swarms = Map.of(40, 48, 43, 60, 46, 72, 49, 84);
+        for (int round = 1; round <= 50; round++) {
+            beginRound(round);
+            int expected = swarms.getOrDefault(round, 0);
+            assertEquals(expected, game.queuedTinyEnemies, "R" + round);
+            spawnTick(10);
+            assertEquals(expected, game.enemies.stream().filter(e -> e.type.equals("tiny")).count(), "R" + round);
+            assertEquals(0, game.queuedTinyEnemies, "Entire swarm must spawn in one tick");
+            if (expected > 0) assertTrue(game.enemies.stream().filter(e -> e.type.equals("tiny"))
+                    .map(e -> e.spawnId).distinct().count() > 1);
+            while (game.queuedEnemies > 0 || game.queuedBosses > 0) spawnTick(.3);
+            assertEquals(expected, game.enemies.stream().filter(e -> e.type.equals("tiny")).count(),
+                    "No additional tiny enemies during R" + round);
         }
     }
 
