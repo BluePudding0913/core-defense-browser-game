@@ -821,7 +821,7 @@ function updateHud() {
     phaseDetail.textContent = state.phase === "preparing"
         ? `next round in ${Math.floor(prepSeconds / 60)}:${String(prepSeconds % 60).padStart(2, "0")}${blackoutStatus}`
         : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}`
-            : state.phase === "won" ? "防衛成功" : state.phase === "lost" ? "防衛失敗" : "";
+            : "";
     const me = getMe();
     teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">
