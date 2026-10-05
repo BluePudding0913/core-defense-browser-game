@@ -512,6 +512,7 @@ function receiveState(next) {
     }
     receiveLog(next.noticeVersion, next.notice);
     updateHud();
+    updateWorkbenchMaterials();
     updateRoomLobby(next);
     if (["preparing", "wave"].includes(next.phase)) {
         menu.classList.add("hidden");
@@ -1040,6 +1041,8 @@ function reconcileLocalPrediction(snapshot) {
 
 function openActionMenu(title, options, layout = "default") {
     actionTitle.textContent = title;
+    document.querySelector("#workbench-materials").hidden = layout !== "workbench";
+    updateWorkbenchMaterials();
     actionMenu.classList.toggle("single-action", layout === "single");
     actionOptions.replaceChildren();
     for (const option of options) {
@@ -1227,7 +1230,15 @@ function openWorkbenchMenu(workbench) {
         detail: `${info.description} — ${Object.entries(RESOURCE_NAMES).filter(([key]) => info[key] > 0).map(([key, name]) => `${name} ${info[key]}`).join(" / ")}`,
         command: `CRAFT:${type}`,
         disabled: Object.keys(RESOURCE_NAMES).some(key => (me[key] || 0) < (info[key] || 0)),
-    })), workbench, INTERACTION_RANGE.workbench);
+    })), workbench, INTERACTION_RANGE.workbench, "workbench");
+}
+
+function updateWorkbenchMaterials() {
+    const materials = document.querySelector("#workbench-materials");
+    const me = getMe();
+    if (materials.hidden || !me) return;
+    materials.textContent = `所持材料：${Object.entries(RESOURCE_NAMES)
+        .map(([key, name]) => `${name} ${me[key] || 0}`).join(" / ")}`;
 }
 
 function openMedMenu() {
