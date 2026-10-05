@@ -41,6 +41,7 @@ class RocketAndBalanceTest {
         assertEquals(280, GameSession.weaponStats("sniper").damage());
         assertTrue(GameSession.weaponStats("revolver").damage() > GameSession.weaponStats("sniper").damage());
         assertEquals(240, GameSession.weaponAmmoCapacity("smg"));
+        assertEquals(1200, new Defense("barricade").maxHp);
     }
 
     @Test void rocketPurchaseRefillSnapshotAndRestartWork() throws Exception {

@@ -234,7 +234,7 @@ final class Defense {
             case "silverTurret" -> 320;
             case "wire" -> 100;
             case "mine" -> 1;
-            case "barricade" -> 260;
+            case "barricade" -> 1200;
             default -> 100;
         };
         this.hp = maxHp;
