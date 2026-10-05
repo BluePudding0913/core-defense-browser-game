@@ -364,7 +364,7 @@ function connect() {
                 else if (message.effect === "pickup") window.coreAudio?.play("pickup");
             }
         }
-        if (message.type === "effect" && ["hit", "core-pulse", "pickup", "player-hit", "explosion"].includes(message.effect)) {
+        if (message.type === "effect" && ["hit", "core-pulse", "pickup", "player-hit", "player-down", "explosion"].includes(message.effect)) {
             hitEffects.push({ ...message, started: performance.now() });
             if (hitEffects.length > 100) hitEffects.shift();
         }
@@ -2124,11 +2124,27 @@ function drawReviveEffect(x, y, progress) {
 function drawHitEffects() {
     const now = performance.now();
     hitEffects = hitEffects.filter(effect => now - effect.started
-        < (effect.effect === "core-pulse" || effect.effect === "pickup"
+        < (effect.effect === "player-down" ? 1200 : effect.effect === "core-pulse" || effect.effect === "pickup"
             || (effect.credits > 0 || effect.headshot) && effect.playerId === myPlayerId
             ? 900 : 360));
     for (const effect of hitEffects) {
         if (effect.effect === "player-hit") continue;
+        if (effect.effect === "player-down") {
+            const progress = (now - effect.started) / 1200;
+            ctx.save();
+            ctx.strokeStyle = "#ff5964";
+            ctx.lineWidth = 3;
+            for (let ring = 0; ring < 3; ring++) {
+                const expansion = progress - ring * .16;
+                if (expansion < 0) continue;
+                ctx.globalAlpha = (1 - progress) * .8;
+                ctx.beginPath();
+                ctx.arc(effect.x, effect.y, 12 + expansion * 180, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            ctx.restore();
+            continue;
+        }
         if (effect.effect === "explosion") {
             const progress = (now - effect.started) / 360;
             ctx.save(); ctx.globalAlpha = 1 - progress;

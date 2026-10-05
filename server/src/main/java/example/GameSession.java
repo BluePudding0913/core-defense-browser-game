@@ -2395,6 +2395,8 @@ final class GameSession {
         player.hp = Math.max(0, player.hp - damage);
         if (player.hp <= 0) {
             player.down = true;
+            events.broadcast("{\"type\":\"effect\",\"effect\":\"player-down\",\"playerId\":\"" + player.id
+                    + "\",\"x\":" + player.x + ",\"y\":" + player.y + "}");
             cancelAction(player);
             player.moveX = 0;
             player.moveY = 0;
