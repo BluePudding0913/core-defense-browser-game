@@ -21,10 +21,13 @@ const root = { get innerHTML() { return markup; }, set innerHTML(value) {
     querySelectorAll: selector => selector === 'form' && activeForm ? [activeForm] : [],
     addEventListener: (event, handler) => handlers[event] = handler };
 const body = { classList: { add() {}, remove() {}, toggle() {} }, append(script) { assert.equal(script.src, 'app.js'); } };
-const context = { document: { querySelector: () => root, body, createElement: () => ({}) },
-    location: { search: '' }, URLSearchParams, localStorage: { getItem() {}, setItem() {} },
+const saved = new Map(), styles = new Map();
+const context = { document: { querySelector: () => root, body, createElement: () => ({}),
+        documentElement: { style: { setProperty: (key, value) => styles.set(key, value) } } },
+    location: { search: '' }, URLSearchParams, localStorage: { getItem: key => saved.get(key), setItem: (key, value) => saved.set(key, value) },
     FormData: class { constructor(form) { this.data = form.data; } get(key) { return this.data[key]; } },
     window: { coreGame: { match: (...args) => calls.push(args), send: command => calls.push(command), leave: () => calls.push('leave') } } };
+vm.runInNewContext(fs.readFileSync('client/pointer-settings.js', 'utf8'), context);
 vm.runInNewContext(fs.readFileSync('client/menu-ui.js', 'utf8'), context);
 const submit = (form, data = {}) => handlers.submit({ preventDefault() {}, target: { dataset: { form }, data } });
 const click = (action, slot) => handlers.click({ target: { closest: () => ({ dataset: { action, slot } }) } });
@@ -203,6 +206,17 @@ assert.equal(result.textContent, '接続できません', 'reconnection preserve
 click('phrase'); click('search');
 assert.equal(result.textContent, '', 'reopening search clears its previous result');
 click('home'); click('settings');
+assert.match(root.innerHTML, /type="color" name="pointer-color" value="#0078ff"/);
+assert.match(root.innerHTML, /type="range" name="pointer-size"[^>]*value="6"/);
+handlers.input({ target: { name: 'pointer-color', value: '#ff9900' } });
+handlers.input({ target: { name: 'pointer-size', value: '20' } });
+assert.equal(styles.get('--pointer-color'), '#ff9900');
+assert.equal(styles.get('--pointer-size'), '20px');
+assert.equal(field('#pointer-size-value').textContent, '20px');
+assert.deepEqual(JSON.parse(saved.get('core-defense-pointer')), { color: '#ff9900', size: 20 });
+click('home'); click('settings');
+assert.match(root.innerHTML, /name="pointer-color" value="#ff9900"/);
+assert.match(root.innerHTML, /name="pointer-size"[^>]*value="20"/);
 assert(!matchButton.disabled, 'saved name enables confirmation even without a connection');
 assertEmptyGating('saved player name settings', '<Host>');
 assertInputSurvivesReconnects('saved player name settings');

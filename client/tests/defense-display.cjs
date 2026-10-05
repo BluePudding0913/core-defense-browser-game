@@ -37,5 +37,5 @@ assert(labels.some(([label]) => label === 'SHIELD 92 / 180'));
 context.hitEffects = [{ effect: 'explosion', x: 100, y: 100, radius: 140, started: 820 }];
 vm.runInContext('drawHitEffects()', context);
 assert(circles.some(([x, y, r]) => x === 100 && y === 100 && r === 87.5), 'blast ring grows around impact');
-assert(fs.readFileSync('client/style.css', 'utf8').includes("fill='%230078ff'"), 'pointer stays blue');
-console.log('Defense display passed: one-tile barricade, shield counters, blast ring and blue pointer');
+assert(fs.readFileSync('client/style.css', 'utf8').includes('cursor: var(--game-pointer, crosshair)'), 'game uses the player pointer preference');
+console.log('Defense display passed: one-tile barricade, shield counters, blast ring and configurable pointer');

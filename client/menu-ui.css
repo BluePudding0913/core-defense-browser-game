@@ -29,4 +29,12 @@
 #menu-ui .room-member.ready { border-color: rgb(121 216 255 / 65%); }
 #menu-ui .room-member.ready span { color: var(--accent-blue); }
 #menu-ui [hidden] { display: none !important; }
+#menu-ui .ui-pointer-settings { margin: .5rem 0; padding: .65rem .8rem; border: 1px solid rgb(255 255 255 / 30%); border-radius: .3rem; display: grid; gap: .6rem; }
+#menu-ui .ui-pointer-settings legend { padding: 0 .3rem; font-size: .85rem; }
+#menu-ui .ui-pointer-settings label { display: flex; align-items: center; gap: .6rem; text-align: left; font-size: .85rem; }
+#menu-ui .ui-pointer-settings input[type="color"] { width: 3rem; padding: .25rem; margin-left: auto; }
+#menu-ui .ui-pointer-settings input[type="range"] { flex: 1; width: 0; padding: 0; border: 0; accent-color: var(--pointer-color); }
+#menu-ui .ui-pointer-settings output { min-width: 4ch; text-align: right; }
+#menu-ui .ui-pointer-preview { height: 44px; display: grid; place-items: center; background: #181818; border-radius: .3rem; cursor: var(--game-pointer, crosshair); }
+#menu-ui .ui-pointer-preview span { width: var(--pointer-size); height: var(--pointer-size); background: var(--pointer-color); border-radius: 50%; }
 @media (max-height: 520px) { #menu-ui h1 { margin-bottom: 24px; } }
