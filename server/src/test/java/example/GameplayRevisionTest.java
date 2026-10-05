@@ -746,4 +746,23 @@ class GameplayRevisionTest {
         assertEquals(37,placed.defense.hp);
         assertEquals(0,player.silverTurretItems);
     }
+
+    @Test void upgradedTurretsDealMoreDamageAndSilverFiresFaster() throws Exception {
+        Method update = GameSession.class.getDeclaredMethod("updateDefenses", double.class);
+        update.setAccessible(true);
+        double[] damage = new double[3];
+        String[] types = {"turret", "copperTurret", "silverTurret"};
+        for (int i = 0; i < types.length; i++) {
+            game.trapSlots.clear(); game.enemies.clear();
+            TrapSlot slot = new TrapSlot("tier-test", "free", 1020, 1900, null);
+            slot.defense = new Defense(types[i]); game.trapSlots.add(slot);
+            Enemy enemy = new Enemy(9500, "grunt", GameMap.SPAWN_POINTS.get(0), 1000, 0, 0, 0);
+            enemy.x = 1140; enemy.y = 1900; game.enemies.add(enemy);
+            update.invoke(game, .05);
+            damage[i] = 1000 - enemy.hp;
+            assertEquals(i == 2 ? .45 : .7, slot.defense.cooldown, 1e-9);
+        }
+        assertEquals(damage[0] * 2, damage[1], 1e-9);
+        assertEquals(damage[0] * 3.5, damage[2], 1e-9);
+    }
 }
