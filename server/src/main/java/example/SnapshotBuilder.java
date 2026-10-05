@@ -23,7 +23,6 @@ final class SnapshotBuilder {
         json.append("\",\"roomId\":\"").append(escapeJson(roomId)).append('"');
         json.append(",\"roomPlayers\":").append(humans)
                 .append(",\"roomCapacity\":").append(capacity);
-        json.append(",\"cpuSlots\":").append(game.cpuSlots.stream().sorted().toList());
         json.append(",\"roomOwnerId\":")
                 .append(game.roomOwnerId == null ? "null"
                         : "\"" + escapeJson(game.roomOwnerId) + "\"")

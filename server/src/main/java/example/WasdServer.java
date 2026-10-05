@@ -332,8 +332,7 @@ public final class WasdServer extends WebSocketServer {
                         matchError(connection, "参加できるルームが見つかりません。合言葉・満員・プレイ中でないか確認してください"); return;
                     }
                 } else if (action.equals("quick")) {
-                    selected = rooms.values().stream().filter(r -> r.password == null
-                            && r.game.manualCpuSlots && matchAvailable(r, session))
+                    selected = rooms.values().stream().filter(r -> r.password == null && matchAvailable(r, session))
                             .sorted(java.util.Comparator.comparing(r -> r.id)).findFirst().orElse(null);
                 } else return;
                 if (selected == null) {
@@ -343,7 +342,6 @@ public final class WasdServer extends WebSocketServer {
                     while (rooms.containsKey(id));
                     selected = createRoom(id, session, cleanPlayerName(request.path("name").asText()));
                     selected.password = action.equals("create") ? phrase : null;
-                    selected.game.manualCpuSlots = true;
                     selected.emptySinceNanos = System.nanoTime();
                     rooms.put(id, selected);
                 }
@@ -359,7 +357,6 @@ public final class WasdServer extends WebSocketServer {
         room.reservations.entrySet().removeIf(e -> e.getValue() < System.nanoTime()
                 || room.game.players.stream().anyMatch(p -> p.human && e.getKey().equals(p.sessionId)));
         long available = room.game.players.stream().filter(p -> !p.human
-                && !room.game.cpuSlots.contains(p.slot)
                 && (p.sessionId == null || p.reconnectGrace <= 0 || session.equals(p.sessionId))).count();
         long reserved = room.reservations.keySet().stream().filter(s -> !s.equals(session)).count();
         return room.game.phase == GamePhase.LOBBY && available > reserved;

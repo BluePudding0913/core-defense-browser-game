@@ -117,7 +117,9 @@ const deadline = setTimeout(() => {
     const privateWelcome = await privateHost.next(m => m.type === 'welcome');
     const privateState = await privateHost.next(m => m.type === 'state');
     assert(privateState.privateRoom);
-    assert(!privateState.allReady, 'empty slots require manual CPU selection');
+    assert(privateState.allReady, 'host can start with automatic CPUs');
+    assert.equal(privateState.players.length, 4);
+    assert.equal(privateState.players.filter(p => !p.human).length, 3);
     const friendDirectory = await directoryClient();
     friendDirectory.peer.ws.send('LIST_ROOMS');
     const publicList = await friendDirectory.peer.next(m => m.type === 'rooms');
@@ -130,22 +132,21 @@ const deadline = setTimeout(() => {
     assert.equal((await match(friendDirectory, 'join', ` ${phrase} `)).roomId, privateRoom.roomId);
     const friend = await enter(friendDirectory, privateRoom.roomId, phrase);
     const friendWelcome = await friend.next(m => m.type === 'welcome');
-    friend.ws.send('ROOM_CPU:3');
     friend.ws.send('START');
     const guestState = await friend.next(m => m.type === 'state' && m.roomPlayers === 2);
-    assert.deepEqual(guestState.cpuSlots, []);
+    assert.equal(guestState.players.length, 4);
+    assert.equal(guestState.players.filter(p => !p.human).length, 2);
+    assert(!guestState.allReady);
     assert.equal(guestState.phase, 'lobby');
-    privateHost.ws.send('ROOM_CPU:3');
-    privateHost.ws.send('ROOM_CPU:4');
-    await friend.next(m => m.type === 'state' && m.cpuSlots.length === 2);
     friend.ws.send('ROOM_READY:1');
     await privateHost.next(m => m.type === 'state' && m.allReady);
     privateHost.ws.close();
     await friend.next(m => m.type === 'state' && m.roomOwnerId === friendWelcome.playerId);
-    friend.ws.send('ROOM_CPU:1');
-    await friend.next(m => m.type === 'state' && m.cpuSlots.includes(1) && m.allReady);
+    await friend.next(m => m.type === 'state' && m.roomOwnerId === friendWelcome.playerId && m.allReady);
     friend.ws.send('START');
-    await friend.next(m => m.type === 'state' && m.phase === 'preparing');
+    const automaticMatch = await friend.next(m => m.type === 'state' && m.phase === 'preparing');
+    assert.equal(automaticMatch.players.length, 4);
+    assert.equal(automaticMatch.players.filter(p => !p.human).length, 3);
     assert.equal((await match(privateDirectory, 'join', phrase)).type, 'error', 'playing rooms reject search');
     const quickDirectory = await directoryClient();
     const quickRoom = await match(quickDirectory, 'quick');
@@ -155,8 +156,7 @@ const deadline = setTimeout(() => {
     const quickState = await quickHost.next(m => m.type === 'state');
     assert.equal(quickState.roomOwnerId, quickWelcome.playerId);
     assert(!quickState.privateRoom);
-    quickHost.ws.send('ROOM_CPU:4');
-    await quickHost.next(m => m.type === 'state' && m.cpuSlots.includes(4));
+    assert(quickState.allReady);
     const quickGuestDirectory = await directoryClient();
     assert.equal((await match(quickGuestDirectory, 'quick')).roomId, quickRoom.roomId);
     const quickGuest = await enter(quickGuestDirectory, quickRoom.roomId);
@@ -164,9 +164,12 @@ const deadline = setTimeout(() => {
     const finalDirectory = await directoryClient();
     assert.equal((await match(finalDirectory, 'quick')).roomId, quickRoom.roomId);
     const extraDirectory = await directoryClient();
-    assert.notEqual((await match(extraDirectory, 'quick')).roomId, quickRoom.roomId,
-        'pending reservations and CPU slots count toward capacity');
-    console.log('Live matching passed: private phrases, isolation, duplicate/error cases, quick host, CPU permissions, owner transfer, start, reservations');
+    assert.equal((await match(extraDirectory, 'quick')).roomId, quickRoom.roomId,
+        'automatic CPU slots remain available for humans');
+    const overflowDirectory = await directoryClient();
+    assert.notEqual((await match(overflowDirectory, 'quick')).roomId, quickRoom.roomId,
+        'pending reservations count toward capacity');
+    console.log('Live matching passed: private phrases, isolation, errors, quick matching, automatic CPUs, owner transfer, start, reservations');
     console.log('Live server passed: create, owner lobby, room listing, guest join, ready, start');
 })().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => {
     clearTimeout(deadline);
