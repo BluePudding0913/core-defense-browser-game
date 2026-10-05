@@ -51,6 +51,7 @@ final class OutboundDispatcher implements AutoCloseable {
             }
             channel.queue.addLast(new Message(text, bytes, replaceable));
             channel.bytes += bytes;
+            metrics.appBacklogMax.accumulateAndGet(channel.bytes, Math::max);
         }
     }
 
@@ -88,9 +89,11 @@ final class OutboundDispatcher implements AutoCloseable {
                 if (connection instanceof WebSocketImpl impl) {
                     for (var buffer : impl.outQueue) libraryBytes += buffer.remaining();
                 }
+                metrics.libraryBacklogMax.accumulateAndGet(libraryBytes, Math::max);
                 if (buffered) {
                     long time = now.getAsLong();
                     if (!channel.stalled) { channel.stalled = true; channel.stalledSince = time; }
+                    metrics.stallNanosMax.accumulateAndGet(time - channel.stalledSince, Math::max);
                     if (libraryBytes > MAX_BYTES || time - channel.stalledSince >= STALL_NANOS)
                         disconnect(connection, channel);
                     return;
