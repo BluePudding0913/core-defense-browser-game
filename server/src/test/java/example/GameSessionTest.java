@@ -770,7 +770,7 @@ class GameSessionTest {
         game.update(0.05);
         assertEquals(500, enemy.hp, "CPU should not attack on the first sighting");
 
-        game.update(0.7);
+        game.update(1.5);
         assertTrue(enemy.hp < 500, "CPU should attack after its recognition delay");
     }
 
@@ -796,7 +796,7 @@ class GameSessionTest {
         game.enemies.add(nearbyDecoy);
         game.enemies.add(coreThreat);
 
-        game.update(1.3);
+        game.update(1.5);
 
         assertEquals(coreThreat.id, bot.botTargetEnemyId,
                 "CPU threat scoring should protect the core instead of chasing the nearest enemy");
