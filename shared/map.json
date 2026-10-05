@@ -105,7 +105,7 @@
         {"column":37,"row":28},{"column":38,"row":28},{"column":39,"row":28},{"column":40,"row":28},{"column":41,"row":28},{"column":42,"row":28},{"column":43,"row":28},{"column":44,"row":28}
       ]
     },
-    {"id":"forest","name":"FOREST LAB","terminalX":1620,"terminalY":740,"labelX":1140,"labelY":580,"color":"#ffffff","detail":"近づくだけで木材を回収できる森林区画",
+    {"id":"forest","name":"FOREST LAB","terminalX":1620,"terminalY":740,"labelX":1900,"labelY":580,"color":"#ffffff","detail":"近づくだけで木材を回収できる森林区画",
       "tiles": [
         {"column":35,"row":10},{"column":36,"row":10},{"column":37,"row":10},{"column":38,"row":10},{"column":39,"row":10},{"column":40,"row":10},{"column":41,"row":10},{"column":42,"row":10},{"column":43,"row":10},{"column":44,"row":10},
         {"column":35,"row":11},{"column":36,"row":11},{"column":37,"row":11},{"column":38,"row":11},{"column":39,"row":11},{"column":40,"row":11},{"column":41,"row":11},{"column":42,"row":11},{"column":43,"row":11},{"column":44,"row":11},
