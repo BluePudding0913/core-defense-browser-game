@@ -1,4 +1,4 @@
-/* Match e1b2fdf's compact menu and participant cards. */
+/* Compact menu and participant cards with e90d09e's white border highlights. */
 .menu-preview { touch-action: auto; user-select: auto; }
 .menu-preview > #menu, .menu-preview > #game, .menu-preview > #hud, .menu-preview > #rotate-message { display: none; }
 #menu-ui[hidden] { display: none; }
@@ -11,7 +11,8 @@
 #menu-ui nav, #menu-ui form { display: grid; gap: .55rem; }
 #menu-ui button, #menu-ui input { width: 100%; min-height: 44px; padding: .72rem .9rem; border: 1px solid rgb(255 255 255 / 58%); border-radius: .3rem; background: rgb(255 255 255 / 8%); color: #fff; font: inherit; }
 #menu-ui button { font-weight: 900; cursor: pointer; }
-#menu-ui button:hover:not(:disabled), #menu-ui button:active:not(:disabled), #menu-ui :is(button, input):focus-visible { border-color: #fff; outline: 2px solid #fff; outline-offset: 2px; }
+#menu-ui :is(button, input):focus { outline: none; }
+#menu-ui button:hover:not(:disabled), #menu-ui button:active:not(:disabled), #menu-ui :is(button, input):focus-visible { border-color: #fff; }
 #menu-ui button:disabled { opacity: .35; cursor: default; }
 #menu-ui .ui-back, #menu-ui [data-action="leave"] { margin-top: .55rem; }
 #menu-ui nav .ui-back { margin-top: 0; }
