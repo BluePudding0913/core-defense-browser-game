@@ -41,7 +41,8 @@ function mountMenu() {
     }
     function go(next) { view = next; message = ""; render(true); }
     function updateMatchButtons() {
-        root.querySelectorAll('[data-action="quick"], form:not([data-form="name"]) button')
+        root.querySelectorAll('[data-action="quick"]').forEach(b => b.disabled = busy);
+        root.querySelectorAll('form:not([data-form="name"]) button')
             .forEach(b => b.disabled = busy || !connected);
     }
     function status(text) {
