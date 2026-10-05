@@ -12,7 +12,7 @@ document.body.append(gameScript);
 function mountMenu() {
     const root = document.querySelector("#menu-ui");
     const escape = value => String(value).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-    let name = "", view = "guest";
+    let name = "", view = "guest", renderedView;
     let snapshot, selfId, busy = false, connected = false, lastLobby = "", quickRequested = false;
     try { name = localStorage.getItem("core-defense-guest-name")?.trim() || ""; } catch { /* Optional storage. */ }
     if (name) view = "home";
@@ -20,6 +20,12 @@ function mountMenu() {
     const button = (action, label) => `<button type="button" data-action="${action}">${label}</button>`;
     const disabled = () => busy || !connected ? "disabled" : "";
     function render(focus = false) {
+        // Keep live inputs (including focus, selection and IME composition) during reconnects.
+        if (renderedView === view && ["guest", "settings", "create", "search"].includes(view)) {
+            updateMatchButtons();
+            if (focus) root.querySelector("input")?.focus();
+            return;
+        }
         let content = "";
         if (view === "guest" || view === "settings") content = `<h2>プレイヤー設定</h2><form data-form="name"><label>ゲストプレイヤー名<input name="name" maxlength="16" required autocomplete="nickname" value="${escape(name)}"></label><button>保存してつづける</button></form>${view === "settings" ? back("home") : ""}`;
         if (view === "home") content = `<h1>CORE DEFENSE</h1><nav aria-label="メインメニュー">${button("quick", "クイックマッチ")}${button("phrase", "合言葉")}${back("settings").replace("戻る", "設定")}</nav>`;
@@ -37,6 +43,7 @@ function mountMenu() {
             content += button("leave", "退出");
         }
         root.innerHTML = `<div class="ui-shell"><section class="ui-content">${content}</section></div>`;
+        renderedView = view;
         updateMatchButtons();
         if (focus) (root.querySelector("input") || root.querySelector("button"))?.focus();
     }

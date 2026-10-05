@@ -6,7 +6,11 @@ const field = selector => {
     if (!fields.has(selector)) fields.set(selector, { textContent: '', focus() {} });
     return fields.get(selector);
 };
-const root = { innerHTML: '', hidden: false, querySelector: field, querySelectorAll: () => [],
+let markup = '', renderCount = 0;
+const matchButton = { disabled: true };
+const root = { get innerHTML() { return markup; }, set innerHTML(value) { markup = value; renderCount++; },
+    hidden: false, querySelector: field,
+    querySelectorAll: selector => selector === 'form:not([data-form="name"]) button' && /data-form="(?:create|search)"/.test(markup) ? [matchButton] : [],
     addEventListener: (event, handler) => handlers[event] = handler };
 const body = { classList: { add() {}, remove() {}, toggle() {} }, append(script) { assert.equal(script.src, 'app.js'); } };
 const context = { document: { querySelector: () => root, body, createElement: () => ({}) },
@@ -16,7 +20,19 @@ const context = { document: { querySelector: () => root, body, createElement: ()
 vm.runInNewContext(fs.readFileSync('client/menu-ui.js', 'utf8'), context);
 const submit = (form, data = {}) => handlers.submit({ preventDefault() {}, target: { dataset: { form }, data } });
 const click = (action, slot) => handlers.click({ target: { closest: () => ({ dataset: { action, slot } }) } });
+function assertInputSurvivesReconnects(label, hasMatchButton = false) {
+    const before = renderCount;
+    for (let attempt = 0; attempt < 3; attempt++) {
+        context.window.coreMenu.disconnected();
+        if (hasMatchButton) assert(matchButton.disabled, `${label}: disable matching while disconnected`);
+        context.window.coreMenu.connected();
+        if (hasMatchButton) assert(!matchButton.disabled, `${label}: enable matching after reconnect`);
+        context.window.coreMenu.status('connection error');
+    }
+    assert.equal(renderCount, before, `${label}: preserve the input DOM, draft, focus, selection and composition`);
+}
 assert.match(root.innerHTML, /ゲストプレイヤー名/);
+assertInputSurvivesReconnects('initial player name');
 submit('name', { name: ' ' });
 assert.doesNotMatch(root.innerHTML, /ui-message/);
 submit('name', { name: '<Host>' });
@@ -30,7 +46,9 @@ click('create');
 assert.match(root.innerHTML, /name="password"[^>]*required/);
 assert.doesNotMatch(root.innerHTML, /visibility|公開/);
 context.window.coreMenu.connected();
+assertInputSurvivesReconnects('create room password', true);
 submit('create', { password: ' 合言葉<&> ' });
+assert(matchButton.disabled, 'disable matching while the request is pending');
 submit('create', { password: 'duplicate' });
 assert.deepEqual(calls, [['create', '合言葉<&>', '<Host>']]);
 assert.doesNotMatch(root.innerHTML, /ui-members/, 'must wait for server response');
@@ -91,6 +109,12 @@ assert.doesNotMatch(root.innerHTML, /ルーム一覧から切断|ui-message/);
 click('home');
 context.window.coreMenu.connected();
 click('phrase'); click('search');
+assertInputSurvivesReconnects('search room password', true);
+const beforeRejection = renderCount;
+context.window.coreMenu.phrase = '合言葉';
+context.window.coreMenu.rejected();
+assert.equal(renderCount, beforeRejection, 'preserve search password when room entry is rejected');
+context.window.coreMenu.connected();
 const error = '参加できるルームが見つかりません。合言葉・満員・プレイ中でないか確認してください';
 context.window.coreMenu.status(error);
 assert.doesNotMatch(root.innerHTML, /ui-message|参加できるルームが見つかりません/);
@@ -100,6 +124,7 @@ click('create');
 assert.doesNotMatch(root.innerHTML, /参加できるルームが見つかりません/);
 context.window.coreMenu.status(error);
 click('home'); click('settings');
+assertInputSurvivesReconnects('saved player name settings');
 assert.doesNotMatch(root.innerHTML, /参加できるルームが見つかりません/);
 context.window.coreMenu.status(error);
 submit('name', { name: 'Host' });
