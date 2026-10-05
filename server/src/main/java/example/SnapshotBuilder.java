@@ -57,6 +57,7 @@ final class SnapshotBuilder {
         appendEnemies(json, game.enemies);
         appendSlots(json, game);
         appendResources(json, game);
+        appendFactories(json, game);
         appendDroppedResources(json, game.droppedResources);
         json.append('}');
         return json.toString();
@@ -177,6 +178,20 @@ final class SnapshotBuilder {
             json.append(",\"action\":")
                     .append(player.actionTarget == null ? "null" : "\"" + player.actionTarget + "\"");
             json.append(",\"actionProgress\":").append(roundOne(player.actionProgress)).append('}');
+        }
+        json.append(']');
+    }
+
+    private static void appendFactories(StringBuilder json, GameSession game) {
+        json.append(",\"factories\":[");
+        for (int i = 0; i < game.factories.size(); i++) {
+            MaterialFactory factory = game.factories.get(i);
+            if (i > 0) json.append(',');
+            json.append("{\"item\":\"").append(factory.shop.item())
+                    .append("\",\"purchased\":").append(factory.purchased)
+                    .append(",\"stock\":").append(factory.stock)
+                    .append(",\"capacity\":").append(MaterialFactory.CAPACITY)
+                    .append(",\"interval\":").append(factory.interval).append('}');
         }
         json.append(']');
     }

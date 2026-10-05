@@ -68,7 +68,7 @@ class GameMapTest {
             assertFalse(GameMap.canPlaceDefense(area.terminalX(), area.terminalY(), allAreas));
             assertFalse(GameMap.canPlaceCore(area.terminalX(), area.terminalY(), allAreas));
         }
-        assertEquals(12, floorTerminals);
+        assertEquals(13, floorTerminals);
     }
 
     @Test
@@ -226,7 +226,7 @@ class GameMapTest {
                 "terrain beside the route must block movement");
         assertFalse(GameMap.canOccupy(3, GameMap.CORE_Y, 5, Set.of()),
                 "the world boundary must block movement");
-        assertEquals(19, GameMap.AREAS.size());
+        assertEquals(20, GameMap.AREAS.size());
     }
 
     @Test
@@ -280,13 +280,15 @@ class GameMapTest {
 
     @Test
     void shopsAreDistributedAcrossTheSingleRouteAreas() {
-        Set<String> shopAreas = GameMap.SHOP_UNITS.stream().map(shop -> GameMap.AREAS.stream()
+        List<ShopUnit> weaponShops = GameMap.SHOP_UNITS.stream()
+                .filter(shop -> !shop.item().endsWith("Factory")).toList();
+        Set<String> shopAreas = weaponShops.stream().map(shop -> GameMap.AREAS.stream()
                 .filter(area -> area.contains(shop.x(), shop.y()))
                 .findFirst().map(UnlockArea::id).orElse("outside"))
                 .collect(Collectors.toSet());
 
-        assertEquals(9, GameMap.SHOP_UNITS.size());
-        assertEquals(GameMap.SHOP_UNITS.size(), shopAreas.size(),
+        assertEquals(9, weaponShops.size());
+        assertEquals(weaponShops.size(), shopAreas.size(),
                 "each shop should occupy a different progression area");
     }
 

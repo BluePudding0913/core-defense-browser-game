@@ -64,7 +64,7 @@ final class MapValidator {
             }
         }
         for (ShopUnit shop : map.shopUnits()) {
-            if (!Set.of("shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "ricochet", "rocket", "ammo").contains(shop.item())
+            if (!Set.of("shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "ricochet", "rocket", "ammo", "woodFactory", "oreFactory", "copperFactory", "silverFactory").contains(shop.item())
                     || shop.cost() <= 0) {
                 throw new IllegalStateException("Invalid shop unit: " + shop.id());
             }

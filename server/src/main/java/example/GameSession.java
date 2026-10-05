@@ -62,6 +62,8 @@ final class GameSession {
     final List<Enemy> enemies = new ArrayList<>();
     final List<TrapSlot> trapSlots = GameMap.createTrapSlots();
     final List<ResourceNode> resourceNodes = GameMap.createResourceNodes();
+    final List<MaterialFactory> factories = GameMap.SHOP_UNITS.stream()
+            .filter(shop -> shop.item().endsWith("Factory")).map(MaterialFactory::new).toList();
     final List<DroppedResource> droppedResources = new ArrayList<>();
     final Set<String> unlockedAreas = new HashSet<>();
     final List<String> activeSpawnIds = new ArrayList<>();
@@ -226,6 +228,7 @@ final class GameSession {
         updatePlayers(dt);
         updateRevives(dt);
         updateResources(dt);
+        updateFactories(dt);
 
         if (phase == GamePhase.PREPARING) {
             prepTime = Math.max(0, prepTime - dt);
@@ -499,6 +502,24 @@ final class GameSession {
                 cancelAction(player);
                 setNotice(target.name + "が復帰しました");
             }
+        }
+    }
+
+    private void updateFactories(double dt) {
+        for (MaterialFactory factory : factories) {
+            if (!isPointUnlocked(factory.shop.x(), factory.shop.y())) continue;
+            factory.produce(dt);
+            if (factory.stock == 0) continue;
+            Player collector = players.stream().filter(player -> !player.down
+                    && canInteract(player, factory.shop.x(), factory.shop.y(), 30))
+                    .findFirst().orElse(null);
+            if (collector == null) continue;
+            int amount = factory.stock;
+            addResource(collector, factory.resource, amount);
+            factory.stock = 0;
+            events.broadcast("{\"type\":\"effect\",\"effect\":\"pickup\",\"resource\":\""
+                    + factory.resource + "\",\"amount\":" + amount + ",\"playerId\":\"" + collector.id
+                    + "\",\"x\":" + factory.shop.x() + ",\"y\":" + factory.shop.y() + "}");
         }
     }
 
@@ -1841,6 +1862,15 @@ final class GameSession {
             feedback(player, "ショップに近づいてください");
             return;
         }
+        MaterialFactory factory = factories.stream().filter(unit -> unit.shop.item().equals(item))
+                .findFirst().orElse(null);
+        if (factory != null) {
+            if (factory.purchased) { feedback(player, "この製造装置は稼働中です"); return; }
+            if (!spend(player, shop.cost())) { feedback(player, "お金が足りません"); return; }
+            factory.purchased = true;
+            setNotice(shop.label() + "が稼働しました");
+            return;
+        }
         switch (item) {
             case "shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "ricochet", "rocket" ->
                     buyOrRefillWeapon(player, shop, item);
@@ -2446,6 +2476,11 @@ final class GameSession {
         nextDroppedResourceId = 1;
         trapSlots.clear();
         trapSlots.addAll(GameMap.createTrapSlots());
+        factories.forEach(factory -> {
+            factory.purchased = false;
+            factory.stock = 0;
+            factory.elapsed = 0;
+        });
         resourceNodes.clear();
         resourceNodes.addAll(GameMap.createResourceNodes());
         int index = 0;

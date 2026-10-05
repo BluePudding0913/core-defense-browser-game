@@ -1185,6 +1185,17 @@ function openPrepConsoleMenu() {
 
 function openShopPurchase(shop) {
     const me = getMe();
+    if (shop.item.endsWith("Factory")) {
+        const factory = (state.factories || []).find(unit => unit.item === shop.item);
+        openNearbyActionMenu(shop.label, [{
+            label: factory?.purchased ? "稼働中" : "BUY",
+            detail: factory?.purchased ? "在庫 " + factory.stock + "/" + factory.capacity + " / 近づいて回収"
+                : shop.cost + "G / " + shop.detail,
+            command: "BUY:" + shop.item,
+            disabled: Boolean(factory?.purchased) || !me || me.credits < shop.cost,
+        }], shop, INTERACTION_RANGE.shop, "single");
+        return;
+    }
     const weaponFields = WEAPON_FIELDS[shop.item];
     const alreadyOwned = Boolean(weaponFields && me[weaponFields.owned]);
     const ammo = alreadyOwned ? me[weaponFields.ammo] : 0;
@@ -1906,7 +1917,11 @@ function drawCore() {
 
 function drawShops() {
     SHOP_UNITS.filter(isUnlockedPoint)
-        .forEach(shop => drawStation(shop, shop.label, "#d8d8d8", "#111"));
+        .forEach(shop => {
+            const factory = (state.factories || []).find(unit => unit.item === shop.item);
+            const label = factory?.purchased ? shop.label + " " + factory.stock : shop.label;
+            drawStation(shop, label, factory?.purchased ? "#70bfff" : "#d8d8d8", "#111");
+        });
     if (isUnlockedPoint(MED)) drawStation(MED, "MED BAY", "#d8d8d8", "#111");
     if (isUnlockedPoint(WOODCUTTER)) drawStation(WOODCUTTER, "WOODCUTTER", "#a8a8a8");
     if (isUnlockedPoint(QUARRY)) drawStation(QUARRY, "QUARRY", "#808080");
