@@ -1957,14 +1957,14 @@ function drawDroppedResources() {
         ctx.translate(drop.x, drop.y + bob);
         ctx.fillStyle = drop.type === "wood" ? "#b8b8b8" : drop.type === "copper" ? "#aa754d" : drop.type === "silver" ? "#eee" : "#777";
         ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 1.5;
         if (drop.type === "wood") {
-            ctx.fillRect(-12, -8, 24, 16);
-            ctx.strokeRect(-12, -8, 24, 16);
+            ctx.fillRect(-8, -6, 16, 12);
+            ctx.strokeRect(-8, -6, 16, 12);
         } else {
             ctx.beginPath();
-            ctx.moveTo(0, -13); ctx.lineTo(13, -3); ctx.lineTo(8, 11);
-            ctx.lineTo(-9, 10); ctx.lineTo(-13, -4); ctx.closePath(); ctx.fill(); ctx.stroke();
+            ctx.moveTo(0, -10); ctx.lineTo(10, -2); ctx.lineTo(6, 9);
+            ctx.lineTo(-7, 8); ctx.lineTo(-10, -3); ctx.closePath(); ctx.fill(); ctx.stroke();
         }
         ctx.fillStyle = "#fff";
         ctx.font = "900 10px ui-monospace, monospace";
