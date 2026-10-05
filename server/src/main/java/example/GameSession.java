@@ -259,7 +259,7 @@ final class GameSession {
         }
         if (players.stream().noneMatch(player -> !player.down)) {
             phase = GamePhase.LOST;
-            setNotice("全員が倒れました");
+            setNotice("全員がダウンしました");
             return;
         }
         if (queuedEnemies == 0 && queuedBosses == 0 && enemies.isEmpty()) finishRound();
@@ -2537,7 +2537,7 @@ final class GameSession {
             player.dashing = false;
             player.firing = false;
             releaseCarriedCore(player);
-            setNotice(player.name + "が倒れました");
+            setNotice((player.human ? player.name : "CPU" + player.slot) + "がダウンしました");
         }
     }
 

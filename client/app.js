@@ -991,7 +991,7 @@ function showNotice(text) {
     const entry = {
         id: `${Date.now()}-${Math.random()}`,
         text: String(text),
-        danger: String(text).includes("DOWN") || String(text).includes("DESTROYED"),
+        danger: String(text).endsWith("がダウンしました") || String(text).includes("DOWN") || String(text).includes("DESTROYED"),
     };
     const previousPositions = new Map([...noticeElement.children]
         .map(element => [element.dataset.logId, element.getBoundingClientRect().top]));
