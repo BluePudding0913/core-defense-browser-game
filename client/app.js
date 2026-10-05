@@ -1180,7 +1180,7 @@ function canBuildAt(point, forCore = false) {
     if (PREP_CONSOLE && distance(point, PREP_CONSOLE) < 36) return false;
     if ((state.resources || []).some(node => distance(point, node) < 36)) return false;
     if (SPAWN_POINTS.some(spawn => distance(point, spawn) < 80)) return false;
-    if ((state.factories || []).some(unit => unit.placed && distance(point, unit) < 36)) return false;
+    if ((state.factories || []).some(unit => distance(point, unit) < (forCore ? 45 : 36))) return false;
     if (state.slots.some(slot => slot.defense && distance(point, slot) < (forCore ? 45 : 36))) return false;
     return !state.players.some(player => (forCore ? player.id !== myPlayerId && !player.down && distance(point, player) < 24
         : Math.abs(point.x - player.x) < 23 && Math.abs(point.y - player.y) < 23))
@@ -1215,13 +1215,11 @@ function openPrepConsoleMenu() {
 function openShopPurchase(shop) {
     const me = getMe();
     if (shop.item.endsWith("Factory")) {
-        const factory = (state.factories || []).find(unit => unit.item === shop.item);
         openNearbyActionMenu(shop.label, [{
-            label: factory?.purchased ? "購入済み" : "BUY",
-            detail: factory?.purchased ? "設置・回収して移動できます"
-                : shop.cost + "G",
+            label: "BUY",
+            detail: shop.cost + "G",
             command: "BUY:" + shop.item,
-            disabled: Boolean(factory?.purchased) || !me || me.credits < shop.cost,
+            disabled: !me || me.credits < shop.cost,
         }], shop, INTERACTION_RANGE.shop, "single");
         return;
     }
@@ -1510,9 +1508,9 @@ function findNearestInteraction() {
         if (separation <= range && hasInteractionPath(me, target)) choices.push({ kind, target, label, action, separation });
     };
 
-    (state.factories || []).filter(unit => unit.placed).forEach(unit =>
+    (state.factories || []).forEach(unit =>
         add("factory", unit, 70, "PICK UP", () => openNearbyActionMenu("QUARRY", [{
-            label: "PICK UP", detail: "在庫を保ったまま持ち運ぶ", command: "PICKUP_FACTORY:" + unit.item,
+            label: "PICK UP", detail: "回収して持ち運ぶ", command: "PICKUP_FACTORY:" + unit.id,
         }], unit, 70)));
     state.slots.filter(slot => slot.defense)
         .forEach(slot => add("defense", slot, INTERACTION_RANGE.trapSlot, "MANAGE", () => openSlotMenu(slot)));
@@ -1953,9 +1951,9 @@ function drawShops() {
         .forEach(shop => {
             drawStation(shop, shop.label, "#d8d8d8", "#111");
         });
-    (state.factories || []).filter(unit => unit.placed).forEach(unit => {
+    (state.factories || []).forEach(unit => {
         const shop = SHOP_UNITS.find(shop => shop.item === unit.item);
-        drawStation(unit, shop.label + " " + unit.stock, "#70bfff", "#111");
+        drawStation(unit, shop.label, "#70bfff", "#111");
     });
     if (isUnlockedPoint(MED)) drawStation(MED, "MED BAY", "#d8d8d8", "#111");
     if (isUnlockedPoint(WOODCUTTER)) drawStation(WOODCUTTER, "WOODCUTTER", "#a8a8a8");

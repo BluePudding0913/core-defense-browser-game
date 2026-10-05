@@ -1,21 +1,20 @@
 package example;
 
-/** A shared, portable machine purchased once per game. */
+/** One deployed quarry. Carried machines are interchangeable inventory items. */
 final class MaterialFactory {
-    static final int CAPACITY = 20;
+    final String id;
     final ShopUnit shop;
     final String resource;
     final double interval;
-    boolean purchased;
-    boolean placed;
-    double x;
-    double y;
-    String carriedBy;
-    int stock;
+    final double x;
+    final double y;
     double elapsed;
 
-    MaterialFactory(ShopUnit shop) {
+    MaterialFactory(String id, ShopUnit shop, MapPoint point) {
+        this.id = id;
         this.shop = shop;
+        x = point.x();
+        y = point.y();
         resource = shop.item().replace("Factory", "");
         interval = switch (resource) {
             case "wood", "ore" -> 5;
@@ -25,13 +24,10 @@ final class MaterialFactory {
         };
     }
 
-    void produce(double dt) {
-        if (!purchased || !placed || stock >= CAPACITY) return;
+    int produce(double dt) {
         elapsed += dt;
-        while (elapsed >= interval && stock < CAPACITY) {
-            elapsed -= interval;
-            stock++;
-        }
-        if (stock == CAPACITY) elapsed = 0;
+        int produced = (int) (elapsed / interval);
+        elapsed %= interval;
+        return produced;
     }
 }

@@ -192,13 +192,8 @@ final class SnapshotBuilder {
             MaterialFactory factory = game.factories.get(i);
             if (i > 0) json.append(',');
             json.append("{\"item\":\"").append(factory.shop.item())
-                    .append("\",\"purchased\":").append(factory.purchased)
-                    .append(",\"id\":\"").append(factory.shop.item()).append("\"")
-                    .append(",\"placed\":").append(factory.placed)
+                    .append("\",\"id\":\"").append(factory.id).append("\"")
                     .append(",\"x\":").append(factory.x).append(",\"y\":").append(factory.y)
-                    .append(",\"carriedBy\":").append(factory.carriedBy == null ? "null" : "\"" + escapeJson(factory.carriedBy) + "\"")
-                    .append(",\"stock\":").append(factory.stock)
-                    .append(",\"capacity\":").append(MaterialFactory.CAPACITY)
                     .append(",\"interval\":").append(factory.interval).append('}');
         }
         json.append(']');

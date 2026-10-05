@@ -24,9 +24,9 @@ for (const shop of shops) {
     assert.equal(options[0].command, 'BUY:' + shop.item);
     assert(options[0].detail.includes(shop.cost + 'G'));
     assert.equal(options[0].detail, shop.cost + 'G');
-    state.factories = [{ item: shop.item, purchased: true, stock: 7, capacity: 20 }];
-    open(); assert(options[0].disabled); assert.equal(options[0].label, '購入済み');
-    assert.equal(options[0].detail, '設置・回収して移動できます');
+    state.factories = [{ item: shop.item, id: 'quarry-1', x: 980, y: 1820 }];
+    open(); assert(!options[0].disabled); assert.equal(options[0].label, 'BUY');
+    assert.equal(options[0].detail, shop.cost + 'G');
     state.factories = [];
 }
 console.log('Material factory purchase UI passed');
@@ -42,7 +42,7 @@ for (const name of ['applyRules', 'equipmentEntries', 'placementSelection']) {
 }
 vm.runInContext('applyRules({rules:{recipes:{block:{name:"BLOCK"}},shop:{ammo:1000},weapons:{}}})', context);
 for (const shop of shops) {
-    me.buildItems = { [shop.item]: 1 };
+    me.buildItems = { [shop.item]: 2 };
     me.selectedBuild = shop.item;
     context.shop = shop;
     assert(vm.runInContext('equipmentEntries(getMe()).some(entry => entry.value === shop.item && entry.label === shop.label)', context));
@@ -52,3 +52,26 @@ for (const shop of shops) {
     assert.equal(vm.runInContext('placementSelection(getMe())', context), null);
 }
 console.log('Portable quarry inventory and placement UI passed');
+
+context.distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+context.hasInteractionPath = () => true;
+context.SHOP_UNITS = [];
+context.WORKBENCHES = [];
+context.AREAS = [];
+context.PREP_CONSOLE = null;
+context.MED = { x: 10000, y: 10000 };
+context.openMedMenu = () => {};
+context.openCoreMenu = () => {};
+context.INTERACTION_RANGE = { shop: 70, medBay: 95, core: 100 };
+state.phase = 'preparing'; state.slots = []; state.core = { x: 10000, y: 10000 };
+state.factories = [{ id: 'quarry-1', item: 'woodFactory', x: 980, y: 1820 },
+    { id: 'quarry-2', item: 'woodFactory', x: 1060, y: 1820 }];
+const interactionStart = source.indexOf('function findNearestInteraction(');
+const interactionEnd = source.indexOf('\nfunction ', interactionStart + 1);
+vm.runInContext(source.slice(interactionStart, interactionEnd), context);
+for (const unit of state.factories) {
+    me.x = unit.x; me.y = unit.y;
+    vm.runInContext('findNearestInteraction().action()', context);
+    assert.equal(options[0].command, 'PICKUP_FACTORY:' + unit.id);
+}
+console.log('Quarry pickup UI targets individual instances');
