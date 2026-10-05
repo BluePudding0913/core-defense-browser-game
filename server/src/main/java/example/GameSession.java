@@ -747,10 +747,19 @@ final class GameSession {
                         .min(Comparator.comparingDouble(enemy -> distance(enemy.x, enemy.y, coreX, coreY)))
                         .orElse(null);
                 if (target != null) {
+                    double tinyHitChance = switch (defense.type) {
+                        case "silverTurret" -> .4;
+                        case "copperTurret" -> .3;
+                        default -> .2;
+                    };
+                    boolean hit = !target.type.equals("tiny") || random.nextDouble() < tinyHitChance;
                     double turretDamage = (17+round*.5)*(defense.type.equals("silverTurret") ? 3.5 : defense.type.equals("copperTurret") ? 2 : 1);
-                    damageEnemy(target,turretDamage,null);
-                    sendHitEffect("trap", "turret", slot.x, slot.y, target.x, target.y,
-                            turretDamage, target.hp <= 0, 0, false);
+                    if (hit) damageEnemy(target,turretDamage,null);
+                    double missAngle = Math.atan2(target.y - slot.y, target.x - slot.x) + Math.PI / 2;
+                    sendHitEffect("trap", "turret", slot.x, slot.y,
+                            target.x + (hit ? 0 : Math.cos(missAngle) * 16),
+                            target.y + (hit ? 0 : Math.sin(missAngle) * 16),
+                            hit ? turretDamage : 0, target.hp <= 0, 0, false);
                     defense.cooldown = defense.type.equals("silverTurret") ? .45 : .7;
                 }
             } else if (defense.type.equals("mine")) {
