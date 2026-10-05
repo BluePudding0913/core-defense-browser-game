@@ -48,6 +48,10 @@ final class GameSession {
         return 350 + unlockedAreas.size() * 100;
     }
 
+    int unlockCost(String areaId) {
+        return areaId.equals("heavy-arms-area") ? 15_000 : unlockCost();
+    }
+
     int coreUpgradeCost(String type) {
         return switch (type) {
             case "hp" -> 300 + (int) ((coreMaxHp - 1000) * .6);
@@ -451,7 +455,7 @@ final class GameSession {
             case "forest" -> 14;
             case "relay-gallery" -> 16;
             case "mine" -> 18;
-            case "security-hall", "command-room", "rocket-room" -> 20;
+            case "security-hall", "command-room", "heavy-arms-area" -> 20;
             default -> Integer.MAX_VALUE; // Supply pockets and TIME CONTROL stay safe from spawning.
         };
         return currentRound >= firstRound;
@@ -1402,7 +1406,8 @@ final class GameSession {
     private boolean tryBotUnlock(Player bot) {
         if (bot.botSpendCooldown > 0 || bot.credits < unlockCost()) return false;
         UnlockArea area = GameMap.AREAS.stream()
-                .filter(unit -> !unlockedAreas.contains(unit.id()) && terminalAccessible(unit))
+                .filter(unit -> !unlockedAreas.contains(unit.id()) && terminalAccessible(unit)
+                        && bot.credits >= unlockCost(unit.id()))
                 .min(Comparator.comparingDouble(unit -> distance(bot.x, bot.y, unit.terminalX(), unit.terminalY())))
                 .orElse(null);
         return area != null && botUse(bot, area.terminalX(), area.terminalY(), 65,
@@ -2481,7 +2486,7 @@ final class GameSession {
             feedback(player, "開放端末に近づいてください");
             return;
         }
-        int cost = unlockCost();
+        int cost = unlockCost(areaId);
         if (spend(player, cost)) {
             unlockedAreas.add(areaId);
             // Opened areas only become spawn candidates when the next round starts.

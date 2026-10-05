@@ -67,3 +67,22 @@ for (const mutate of [
     assert.throws(() => run('validateMap(invalid)'));
 }
 console.log('Map regressions passed: full grid, floor terminals, collision boundaries, placement and validation');
+
+let unlockAction;
+context.state.rules = { unlockCost: 2250, areaUnlockCosts: { 'heavy-arms-area': 15000 } };
+context.state.areas['heavy-arms-area'] = false;
+context.getMe = () => ({ credits: 14999 });
+context.INTERACTION_RANGE = { areaTerminal: 100 };
+context.openNearbyActionMenu = (title, actions) => { unlockAction = actions[0]; };
+const unlockStart = source.indexOf('function openUnlockMenu(');
+const unlockEnd = source.indexOf('\nfunction ', unlockStart + 1);
+vm.runInContext(source.slice(unlockStart, unlockEnd), context);
+run('openUnlockMenu(AREAS.find(a => a.id === "heavy-arms-area"))');
+assert.equal(unlockAction.detail, '15000G');
+assert.equal(unlockAction.disabled, true);
+context.getMe = () => ({ credits: 15000 });
+run('openUnlockMenu(AREAS.find(a => a.id === "heavy-arms-area"))');
+assert.equal(unlockAction.disabled, false);
+run('openUnlockMenu(AREAS.find(a => a.id === "entry-room"))');
+assert.equal(unlockAction.detail, '2250G');
+console.log('Area price UI passed: high unlock price, affordability and default pricing');

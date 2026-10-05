@@ -30,6 +30,38 @@ class RocketAndBalanceTest {
         return enemy;
     }
 
+    @Test void heavyArmsUnlockAndPurchaseRequireTheirFullPrices() throws Exception {
+        game.unlockedAreas.remove("heavy-arms-area");
+        UnlockArea area = GameMap.areaById("heavy-arms-area");
+        player.x = 220; player.y = 620;
+        player.credits = 14_999;
+        game.handleMessage(player, "UNLOCK:heavy-arms-area");
+        assertFalse(game.unlockedAreas.contains(area.id()));
+        assertEquals(14_999, player.credits);
+        game.unlockedAreas.remove("sniper-room");
+        player.credits = 15_000;
+        game.handleMessage(player, "UNLOCK:heavy-arms-area");
+        assertFalse(game.unlockedAreas.contains(area.id()), "Sniper room must open first");
+        game.unlockedAreas.add("sniper-room");
+        game.handleMessage(player, "UNLOCK:heavy-arms-area");
+        assertTrue(game.unlockedAreas.contains(area.id()));
+        assertEquals(0, player.credits);
+
+        ShopUnit shop = GameMap.shopByItem("rocket");
+        player.x = shop.x(); player.y = shop.y(); player.credits = 7_999;
+        game.handleMessage(player, "BUY:rocket");
+        assertFalse(player.ownsRocket);
+        assertEquals(7_999, player.credits);
+        player.credits = 8_000;
+        game.handleMessage(player, "BUY:rocket");
+        assertTrue(player.ownsRocket);
+        assertEquals(0, player.credits);
+        var rules = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(SnapshotBuilder.build(game)).path("rules");
+        assertEquals(15_000, rules.path("areaUnlockCosts").path(area.id()).asInt());
+        assertEquals(game.unlockCost(), rules.path("areaUnlockCosts").path("entry-room").asInt());
+    }
+
     @Test void sniperPiercesBeyondItsOldRangeAndRevolverStillHitsHarder() {
         player.x = 1020; player.y = 1140;
         player.ownsSniper = true; player.sniperAmmo = 2;
@@ -46,7 +78,7 @@ class RocketAndBalanceTest {
 
     @Test void rocketPurchaseRefillSnapshotAndRestartWork() throws Exception {
         ShopUnit shop = GameMap.shopByItem("rocket");
-        player.x = shop.x(); player.y = shop.y(); player.credits = 2000;
+        player.x = shop.x(); player.y = shop.y(); player.credits = 8600;
         game.handleMessage(player, "WEAPON:rocket");
         assertEquals("pistol", player.weapon);
         game.handleMessage(player, "BUY:rocket");

@@ -103,7 +103,13 @@ final class SnapshotBuilder {
         ShopUnit ammo = GameMap.shopByItem("ammo");
         json.append("},\"shop\":{\"heal\":").append(GameConfig.HEAL_PRICE).append(",\"medkit\":").append(GameConfig.MEDKIT_PRICE).append(",\"ammo\":").append(ammo.cost())
             .append("},\"medkitHeal\":").append(GameConfig.MEDKIT_HEAL).append(",\"medkitCapacity\":").append(GameConfig.MEDKIT_CAPACITY).append(",\"unlockCost\":").append(game.unlockCost())
-            .append(",\"coreCosts\":{\"hp\":").append(game.coreUpgradeCost("hp"))
+            .append(",\"areaUnlockCosts\":{");
+        for (int i = 0; i < GameMap.AREAS.size(); i++) {
+            if (i > 0) json.append(',');
+            String areaId = GameMap.AREAS.get(i).id();
+            json.append('"').append(areaId).append("\":").append(game.unlockCost(areaId));
+        }
+        json.append("},\"coreCosts\":{\"hp\":").append(game.coreUpgradeCost("hp"))
             .append(",\"shield\":").append(game.coreUpgradeCost("shield")).append(",\"defense\":").append(game.coreUpgradeCost("defense"))
             .append(",\"regen\":").append(game.coreUpgradeCost("regen")).append("}}");
     }

@@ -235,6 +235,27 @@ class GameMapTest {
     }
 
     @Test
+    void heavyArmsAreaBranchesOnlyBelowSniperAndRestoresOldRocketWalls() {
+        assertTrue(GameMap.areaById("rocket-room") == null);
+        UnlockArea area = GameMap.areaById("heavy-arms-area");
+        assertEquals(68, area.tiles().size());
+        ShopUnit rocket = GameMap.shopByItem("rocket");
+        assertTrue(area.contains(rocket.x(), rocket.y()));
+        assertTrue(rocket.y() > GameMap.shopByItem("sniper").y());
+        assertFalse(GameMap.canOccupy(220, 660, 17, Set.of("sniper-room")));
+        for (int y = 620; y <= 860; y += 10) {
+            assertTrue(GameMap.canOccupy(220, y, 17, Set.of("sniper-room", area.id())),
+                    "Sniper doorway must connect to the new shop");
+        }
+        Set<String> allAreas = GameMap.AREAS.stream().map(UnlockArea::id).collect(Collectors.toSet());
+        for (int row = 3; row <= 4; row++) {
+            for (int col = 11; col <= 15; col++) {
+                assertFalse(GameMap.canOccupy(col * 40 + 20, row * 40 + 20, 5, allAreas));
+            }
+        }
+    }
+
+    @Test
     void serverCanDeliverTheSharedMapToClients() throws Exception {
         JsonNode message = new ObjectMapper().readTree(GameMap.clientMapMessage());
 

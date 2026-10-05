@@ -1289,7 +1289,7 @@ function openMedMenu() {
 }
 
 function openUnlockMenu(area) {
-    const cost = state.rules.unlockCost;
+    const cost = state.rules.areaUnlockCosts?.[area.id] ?? state.rules.unlockCost;
     const unlocked = state.areas[area.id];
     openNearbyActionMenu(area.name, [{
         label: unlocked ? "OPENED" : "OPEN",

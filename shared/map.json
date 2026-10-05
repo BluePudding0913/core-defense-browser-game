@@ -19,8 +19,8 @@
       "####################################################",
       "####################################################",
       "##........................##########################",
-      "##........#.....#.........##########################",
-      "##........#.....#.........##########################",
+      "##........#######.........##########################",
+      "##........#######.........##########################",
       "##........................##########################",
       "##........................##########################",
       "##.................................#################",
@@ -32,16 +32,16 @@
       "####....###....####....######....##..........#######",
       "####....###....####....######....##..........#######",
       "####....#####################................#######",
-      "#############################....##..........#######",
-      "###################################..........#######",
-      "########################################..##########",
-      "########################################..##########",
-      "########################################..##########",
-      "#############################................#######",
-      "#################################............#######",
-      "#############################....####........#######",
-      "#############################....####........##....#",
-      "#############################....####..............#",
+      "#####..######################....##..........#######",
+      "#####..############################..........#######",
+      "##........##############################..##########",
+      "##........##############################..##########",
+      "##........##############################..##########",
+      "##........###################................#######",
+      "##........#######################............#######",
+      "##........###################....####........#######",
+      "##........###################....####........##....#",
+      "##........###################....####..............#",
       "##############################..#####........##....#",
       "##############################..#####........#######",
       "#########################....................#######",
@@ -137,7 +137,7 @@
         {"column":17,"row":9},{"column":18,"row":9},{"column":19,"row":9},{"column":20,"row":9},{"column":21,"row":9},{"column":22,"row":9},{"column":23,"row":9},{"column":24,"row":9},{"column":25,"row":9}
       ]
     },
-    {"id":"security-hall","name":"SECURITY HALL","terminalX":660,"terminalY":260,"labelX":420,"labelY":140,"color":"#ffffff","detail":"最奥手前の防衛区画",
+    {"id":"security-hall","name":"SECURITY HALL","terminalX":660,"terminalY":260,"labelX":540,"labelY":140,"color":"#ffffff","detail":"最奥手前の防衛区画",
       "tiles": [
         {"column":10,"row":5},{"column":11,"row":5},{"column":12,"row":5},{"column":13,"row":5},{"column":14,"row":5},{"column":15,"row":5},{"column":16,"row":5},
         {"column":10,"row":6},{"column":11,"row":6},{"column":12,"row":6},{"column":13,"row":6},{"column":14,"row":6},{"column":15,"row":6},{"column":16,"row":6},
@@ -228,7 +228,20 @@
         {"column":4,"row":15},{"column":5,"row":15},{"column":6,"row":15},{"column":7,"row":15}
       ]
     },
-    {"id":"rocket-room","name":"ROCKET ROOM","terminalX":540,"terminalY":220,"labelX":660,"labelY":140,"color":"#ffffff","detail":"広い爆風で敵の集団を一掃","tiles":[{"column":11,"row":3},{"column":12,"row":3},{"column":13,"row":3},{"column":14,"row":3},{"column":15,"row":3},{"column":11,"row":4},{"column":12,"row":4},{"column":13,"row":4},{"column":14,"row":4},{"column":15,"row":4}]},
+    {"id":"heavy-arms-area","name":"HEAVY ARMS","terminalX":220,"terminalY":660,"labelX":460,"labelY":860,"color":"#ffffff","detail":"ロケランショップを備えた大型区画",
+      "tiles": [
+        {"column":5,"row":16},{"column":6,"row":16},
+        {"column":5,"row":17},{"column":6,"row":17},
+        {"column":2,"row":18},{"column":3,"row":18},{"column":4,"row":18},{"column":5,"row":18},{"column":6,"row":18},{"column":7,"row":18},{"column":8,"row":18},{"column":9,"row":18},
+        {"column":2,"row":19},{"column":3,"row":19},{"column":4,"row":19},{"column":5,"row":19},{"column":6,"row":19},{"column":7,"row":19},{"column":8,"row":19},{"column":9,"row":19},
+        {"column":2,"row":20},{"column":3,"row":20},{"column":4,"row":20},{"column":5,"row":20},{"column":6,"row":20},{"column":7,"row":20},{"column":8,"row":20},{"column":9,"row":20},
+        {"column":2,"row":21},{"column":3,"row":21},{"column":4,"row":21},{"column":5,"row":21},{"column":6,"row":21},{"column":7,"row":21},{"column":8,"row":21},{"column":9,"row":21},
+        {"column":2,"row":22},{"column":3,"row":22},{"column":4,"row":22},{"column":5,"row":22},{"column":6,"row":22},{"column":7,"row":22},{"column":8,"row":22},{"column":9,"row":22},
+        {"column":2,"row":23},{"column":3,"row":23},{"column":4,"row":23},{"column":5,"row":23},{"column":6,"row":23},{"column":7,"row":23},{"column":8,"row":23},{"column":9,"row":23},
+        {"column":2,"row":24},{"column":3,"row":24},{"column":4,"row":24},{"column":5,"row":24},{"column":6,"row":24},{"column":7,"row":24},{"column":8,"row":24},{"column":9,"row":24},
+        {"column":2,"row":25},{"column":3,"row":25},{"column":4,"row":25},{"column":5,"row":25},{"column":6,"row":25},{"column":7,"row":25},{"column":8,"row":25},{"column":9,"row":25}
+      ]
+    },
     {"id":"revolver-room","name":"REVOLVER ROOM","terminalX":500,"terminalY":420,"labelX":540,"labelY":620,"color":"#ffffff","detail":"十分な弾薬を補充できます","tiles":[{"column":12,"row":10},{"column":11,"row":11},{"column":12,"row":11},{"column":13,"row":11},{"column":14,"row":11},{"column":11,"row":12},{"column":12,"row":12},{"column":13,"row":12},{"column":14,"row":12},{"column":11,"row":13},{"column":12,"row":13},{"column":13,"row":13},{"column":14,"row":13},{"column":11,"row":14},{"column":12,"row":14},{"column":13,"row":14},{"column":14,"row":14}]}
   ],
   "spawnPoints": [
@@ -287,7 +300,7 @@
     {"id":"shop-sniper","item":"sniper","label":"SNIPER","x":220,"y":580,"cost":900,"detail":"十分な弾薬を補充できます"},
     {"id":"shop-ricochet","item":"ricochet","label":"RICOCHET","x":740,"y":1660,"cost":400,"detail":"壁で最大3回反射する単発弾"},
     {"id":"shop-revolver","item":"revolver","label":"REVOLVER","x":500,"y":540,"cost":1200,"detail":"十分な弾薬を補充できます"},
-    {"id":"shop-rocket","item":"rocket","label":"ROCKET","x":540,"y":140,"cost":1400,"detail":"着弾地点の周囲に爆風・中心ほど高威力"},
+    {"id":"shop-rocket","item":"rocket","label":"ROCKET","x":220,"y":860,"cost":8000,"detail":"着弾地点の周囲に爆風・中心ほど高威力"},
     {"id":"shop-lmg","item":"lmg","label":"LMG","x":1220,"y":580,"cost":850,"detail":"十分な弾薬を補充できます"}
   ],
   "workbenchUnits": [
@@ -305,7 +318,7 @@
     {"id":"breaker-forest","label":"FOREST LAB","x":1660,"y":420,"requiredArea":"forest"},
     {"id":"breaker-relay","label":"RELAY GALLERY","x":1220,"y":300,"requiredArea":"relay-gallery"},
     {"id":"breaker-mine","label":"MINE LAB","x":820,"y":100,"requiredArea":"mine"},
-    {"id":"breaker-security","label":"SECURITY HALL","x":660,"y":220,"requiredArea":"security-hall"},
+    {"id":"breaker-security","label":"SECURITY HALL","x":580,"y":220,"requiredArea":"security-hall"},
     {"id":"breaker-command","label":"COMMAND ROOM","x":100,"y":300,"requiredArea":"command-room"}
   ]
 }
