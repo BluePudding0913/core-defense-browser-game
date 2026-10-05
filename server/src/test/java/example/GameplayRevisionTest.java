@@ -810,4 +810,17 @@ class GameplayRevisionTest {
         assertTrue(game.activeSpawnIds.stream().filter(id -> id.startsWith("area-")).count()>7);
     }
 
+    @Test void roundClearRevivesDownedPlayersIncludingFinalRound() throws Exception {
+        Method finish=GameSession.class.getDeclaredMethod("finishRound"); finish.setAccessible(true);
+        for(int round:List.of(12,50)) {
+            game.round=round;
+            Player downed=game.players.get(1); downed.down=true; downed.hp=0;
+            player.hp=72; player.actionTarget=downed.id; player.actionProgress=2;
+            finish.invoke(game);
+            assertFalse(downed.down); assertEquals(45,downed.hp); assertEquals(72,player.hp);
+            assertNull(player.actionTarget); assertEquals(0,player.actionProgress);
+        }
+        assertTrue(broadcasts.stream().noneMatch(message -> message.contains("報酬は")));
+    }
+
 }

@@ -373,6 +373,14 @@ final class GameSession {
     }
 
     private void finishRound() {
+        for (Player player : players) {
+            if (player.down) {
+                player.down = false;
+                player.hp = 45;
+                player.moveX = player.moveY = 0;
+            }
+            cancelAction(player);
+        }
         if (round >= MAX_ROUNDS) {
             phase = GamePhase.WON;
             setNotice("すべての敵を倒しました。防衛成功です");
@@ -387,7 +395,7 @@ final class GameSession {
         activeSpawnIds.clear();
         roundEvent = "none";
         failedSpawnId = null;
-        setNotice("ラウンドを突破しました。報酬は" + reward + "Gです");
+        setNotice("ラウンドクリア");
     }
 
     private void selectRoundSpawns(int currentRound) {
