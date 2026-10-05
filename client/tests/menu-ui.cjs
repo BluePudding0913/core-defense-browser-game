@@ -213,7 +213,7 @@ handlers.input({ target: { name: 'pointer-size', value: '20' } });
 assert.equal(styles.get('--pointer-color'), '#ff9900');
 assert.equal(styles.get('--pointer-size'), '20px');
 assert.equal(field('#pointer-size-value').textContent, '20px');
-assert.deepEqual(JSON.parse(saved.get('core-defense-pointer')), { color: '#ff9900', size: 20 });
+assert.deepEqual(JSON.parse(saved.get('core-defense-pointer')), { color: '#ff9900', size: 20, shape: 'dot' });
 click('home'); click('settings');
 assert.match(root.innerHTML, /name="pointer-color" value="#ff9900"/);
 assert.match(root.innerHTML, /name="pointer-size"[^>]*value="20"/);
@@ -230,3 +230,8 @@ context.window.coreMenu.exited();
 assert.equal(root.hidden, false);
 assert.equal(context.window.coreMenu.phrase, '');
 assert.match(root.innerHTML, /data-action="quick"/);
+
+click('settings');
+assert.match(root.innerHTML, /name="pointer-shape"/);
+handlers.input({ target: { name: 'pointer-shape', value: 'cross' } });
+assert.equal(JSON.parse(saved.get('core-defense-pointer')).shape, 'cross');

@@ -36,5 +36,7 @@
 #menu-ui .ui-pointer-settings input[type="range"] { flex: 1; width: 0; padding: 0; border: 0; accent-color: var(--pointer-color); }
 #menu-ui .ui-pointer-settings output { min-width: 4ch; text-align: right; }
 #menu-ui .ui-pointer-preview { height: 44px; display: grid; place-items: center; background: #181818; border-radius: .3rem; cursor: var(--game-pointer, crosshair); }
-#menu-ui .ui-pointer-preview span { width: var(--pointer-size); height: var(--pointer-size); background: var(--pointer-color); border-radius: 50%; }
+#menu-ui .ui-pointer-preview span { width: calc(var(--pointer-size) + 6px); height: calc(var(--pointer-size) + 6px); background: var(--pointer-preview) center / contain no-repeat; }
 @media (max-height: 520px) { #menu-ui h1 { margin-bottom: 24px; } }
+
+#menu-ui .ui-pointer-settings select { margin-left: auto; min-width: 3rem; color: #fff; background: #181818; border: 1px solid #666; padding: .25rem; }

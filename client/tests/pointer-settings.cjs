@@ -44,3 +44,13 @@ blocked.api.update({ color: '#ffffff', size: 32 });
 assert.equal(blocked.styles.get('--pointer-size'), '32px');
 assert.equal(blocked.styles.get('--pointer-color'), '#ffffff');
 console.log('Pointer preferences passed: defaults, live cursor, persistence, validation and unavailable storage');
+
+for (const shape of ['cross', 'plus']) {
+    initial.api.update({ shape });
+    const cursor = decodeURIComponent(initial.styles.get('--game-pointer'));
+    assert.match(cursor, /<path /);
+    assert.doesNotMatch(cursor, /<circle /);
+    assert.equal(load(initial.stored()).api.get().shape, shape);
+}
+initial.api.update({ shape: 'invalid' });
+assert.equal(initial.api.get().shape, 'dot');
