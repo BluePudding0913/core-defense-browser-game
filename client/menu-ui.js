@@ -17,40 +17,49 @@ function mountMenu() {
     try { name = localStorage.getItem("core-defense-guest-name")?.trim() || ""; } catch { /* Optional storage. */ }
     if (name) view = "home";
     const back = to => `<button type="button" class="ui-back" data-action="${to}">戻る</button>`;
-    const button = (action, label, primary = false) => `<button type="button" ${primary ? 'class="ui-primary"' : ''} data-action="${action}">${label}</button>`;
+    const button = (action, label) => `<button type="button" data-action="${action}">${label}</button>`;
     const disabled = () => busy || !connected ? "disabled" : "";
     function render(focus = false) {
         let content = "";
-        if (view === "guest" || view === "settings") content = `<h2>プレイヤー設定</h2><form data-form="name"><label>ゲストプレイヤー名<input name="name" maxlength="16" required autocomplete="nickname" value="${escape(name)}"></label><button class="ui-primary">保存してつづける</button></form>${view === "settings" ? back("home") : ""}`;
-        if (view === "home") content = `<h1>CORE DEFENSE</h1><nav aria-label="メインメニュー">${button("quick", "クイックマッチ", true)}${button("phrase", "合言葉")}${back("settings").replace("戻る", "設定")}</nav>`;
-        if (view === "phrase") content = `<h2>合言葉</h2><nav>${button("create", "ルーム作成", true)}${button("search", "ルーム検索")}</nav>${back("home")}`;
-        if (view === "quick") content = `<h2>クイックマッチ</h2><p class="ui-meta">空いているルームへ参加します。部屋がなければホストになります。</p><form data-form="quick"><button class="ui-primary" ${disabled()}>検索して参加</button></form>${back("home")}`;
-        if (view === "create" || view === "search") content = `<h2>${view === "create" ? "ルーム作成" : "ルーム検索"}</h2><form data-form="${view}"><label>合言葉<input name="password" maxlength="32" autocomplete="off" required></label><button class="ui-primary" ${disabled()}>${view === "create" ? "作成" : "検索して参加"}</button></form>${back("phrase")}`;
+        if (view === "guest" || view === "settings") content = `<h2>プレイヤー設定</h2><form data-form="name"><label>ゲストプレイヤー名<input name="name" maxlength="16" required autocomplete="nickname" value="${escape(name)}"></label><button>保存してつづける</button></form>${view === "settings" ? back("home") : ""}`;
+        if (view === "home") content = `<h1>CORE DEFENSE</h1><nav aria-label="メインメニュー">${button("quick", "クイックマッチ")}${button("phrase", "合言葉")}${back("settings").replace("戻る", "設定")}</nav>`;
+        if (view === "phrase") content = `<h2>合言葉</h2><nav>${button("create", "ルーム作成")}${button("search", "ルーム検索")}</nav>${back("home")}`;
+        if (view === "create" || view === "search") content = `<h2>${view === "create" ? "ルーム作成" : "ルーム検索"}</h2><form data-form="${view}"><label>合言葉<input name="password" maxlength="32" autocomplete="off" required></label><button ${disabled()}>${view === "create" ? "作成" : "検索して参加"}</button></form>${back("phrase")}`;
         if (view === "lobby" && snapshot) {
             const owner = snapshot.roomOwnerId === selfId;
             const me = snapshot.players.find(p => p.id === selfId);
-            const editable = owner && ["lobby", "won", "lost"].includes(snapshot.phase) && connected;
-            content = `<h2>ルーム</h2><p class="ui-meta">CORE DEFENSE · ${snapshot.privateRoom ? '合言葉：<span class="ui-phrase">' + escape(window.coreMenu.phrase) + '</span>' : "クイックマッチ"}</p>`;
-            if (owner) content += '<p class="ui-meta">ホスト設定：空席のCPUを追加・削除できます。4枠を埋め、参加者の準備完了後に開始できます。</p>';
-            content += '<ol class="ui-members">' + snapshot.players.map((p, index) => {
-                const cpu = snapshot.cpuSlots.includes(index + 1);
-                return `<li class="${!p.human && !cpu ? "is-empty" : ""}"><span class="ui-slot">${index + 1}</span><span class="ui-member-name">${p.human ? escape(p.name) : cpu ? "CPU" : "空席"}</span>${!p.human && editable ? `<button data-action="cpu" data-slot="${index + 1}">${cpu ? "削除" : "＋ CPU"}</button>` : `<small>${p.id === snapshot.roomOwnerId ? "ホスト" : p.human ? p.ready ? "準備完了" : "準備中" : ""}</small>`}</li>`;
+            content = '<ol class="ui-members" aria-label="参加者">' + snapshot.players.filter(p => p.human).map(p => {
+                const host = p.id === snapshot.roomOwnerId;
+                return `<li class="room-member ${host || p.ready ? "ready" : ""}"><strong>${escape(p.name)}${host ? " · HOST" : ""}</strong>${host ? "" : `<span>${p.ready ? "準備完了" : "準備中"}</span>`}</li>`;
             }).join("") + '</ol>';
-            content += owner ? `<button class="ui-primary" data-action="start" ${!snapshot.allReady || !connected ? "disabled" : ""}>${snapshot.phase === "lobby" ? "開始" : "もう一度プレイ"}</button>` : `<button class="ui-primary" data-action="ready" ${disabled()}>${me?.ready ? "準備を取り消す" : "準備OK"}</button>`;
+            content += owner ? `<button data-action="start" ${!snapshot.allReady || !connected ? "disabled" : ""}>${snapshot.phase === "lobby" ? "開始" : "もう一度プレイ"}</button>` : `<button data-action="ready" ${disabled()}>${me?.ready ? "準備を取り消す" : "準備OK"}</button>`;
             content += button("leave", "退出");
         }
         root.innerHTML = `<div class="ui-shell"><section class="ui-content">${content}<p id="ui-message" role="status">${escape(message)}</p></section></div>`;
+        updateMatchButtons();
         if (focus) (root.querySelector("input") || root.querySelector("button"))?.focus();
+    }
+    function go(next) { view = next; message = ""; render(true); }
+    function updateMatchButtons() {
+        root.querySelectorAll('[data-action="quick"], form:not([data-form="name"]) button')
+            .forEach(b => b.disabled = busy || !connected);
     }
     function status(text) {
         message = text; busy = false;
         root.querySelector("#ui-message").textContent = message;
-        root.querySelectorAll("form button").forEach(b => b.disabled = !connected);
+        updateMatchButtons();
+    }
+    function match(action, phrase = "") {
+        if (busy) return;
+        window.coreMenu.phrase = phrase;
+        window.coreGame.match(action, phrase, name);
+        status("ルームに接続しています…"); busy = true;
+        updateMatchButtons();
     }
     window.coreMenu = {
         phrase: "",
         status,
-        rejected() { connected = false; busy = false; snapshot = null; lastLobby = ""; view = window.coreMenu.phrase ? "search" : "quick"; render(); },
+        rejected() { connected = false; busy = false; snapshot = null; lastLobby = ""; view = window.coreMenu.phrase ? "search" : "home"; render(); },
         connected() { connected = true; busy = false; status(message.includes("接続") ? "" : message); },
         disconnected(text) {
             connected = false; busy = false; lastLobby = "";
@@ -63,7 +72,7 @@ function mountMenu() {
             root.hidden = playing;
             document.body.classList.toggle("menu-preview", !playing);
             if (playing) { lastLobby = ""; return; }
-            const signature = JSON.stringify([id, next.roomId, next.privateRoom, next.phase, next.roomOwnerId, next.allReady, next.cpuSlots,
+            const signature = JSON.stringify([id, next.roomId, next.privateRoom, next.phase, next.roomOwnerId, next.allReady,
                 next.players.map(p => [p.id, p.name, p.human, p.ready])]);
             if (signature === lastLobby && view === "lobby") return;
             lastLobby = signature; view = "lobby";
@@ -80,29 +89,28 @@ function mountMenu() {
                 if (!value) throw new Error("ゲストプレイヤー名を入力してください。");
                 name = value;
                 try { localStorage.setItem("core-defense-guest-name", name); } catch { /* Optional storage. */ }
-                view = "home"; render(true); return;
+                go("home"); return;
             }
             if (busy) return;
             const action = form.dataset.form;
             const phrase = String(data.get("password") || "").trim();
-            if (action !== "quick" && !phrase) throw new Error("合言葉を入力してください。");
-            window.coreMenu.phrase = phrase;
-            window.coreGame.match(action === "search" ? "join" : action, phrase, name);
-            status("ルームに接続しています…"); busy = true;
-            root.querySelectorAll("form button").forEach(b => b.disabled = true);
+            if (!phrase) throw new Error("合言葉を入力してください。");
+            match(action === "search" ? "join" : action, phrase);
         } catch (error) { status(error.message); }
     });
     root.addEventListener("click", event => {
         const target = event.target.closest("button[data-action]");
         if (!target || target.disabled || busy) return;
         const action = target.dataset.action;
-        if (["home", "phrase", "create", "search", "quick", "settings"].includes(action)) { view = action; render(true); }
-        if (action === "cpu") window.coreGame.send(`ROOM_CPU:${target.dataset.slot}`);
+        if (["home", "phrase", "create", "search", "settings"].includes(action)) go(action);
+        if (action === "quick") {
+            try { match("quick"); } catch (error) { status(error.message); }
+        }
         if (action === "start") window.coreGame.send("START");
         if (action === "ready") window.coreGame.send(`ROOM_READY:${snapshot.players.find(p => p.id === selfId)?.ready ? 0 : 1}`);
         if (action === "leave") {
-            snapshot = null; lastLobby = ""; connected = false; view = "home";
-            window.coreMenu.phrase = ""; window.coreGame.leave(); render(true);
+            snapshot = null; lastLobby = ""; connected = false;
+            window.coreMenu.phrase = ""; window.coreGame.leave(); go("home");
         }
     });
     render();
