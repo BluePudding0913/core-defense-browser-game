@@ -34,6 +34,5 @@
 #menu-ui .ui-check small { margin-left: auto; }
 #menu-ui #ui-message { margin: 16px 0 0; color: #bbb; font-size: .8rem; line-height: 1.6; }
 #menu-ui #ui-message:empty { display: none; }
-#menu-ui .ui-preview-label { margin-top: 32px; font-size: .65rem; }
 #menu-ui [hidden] { display: none !important; }
-@media (max-height: 520px) { #menu-ui h1 { margin-bottom: 24px; } #menu-ui .ui-preview-label { margin-top: 16px; } }
+@media (max-height: 520px) { #menu-ui h1 { margin-bottom: 24px; } }

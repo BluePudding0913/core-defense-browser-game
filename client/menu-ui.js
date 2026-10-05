@@ -117,7 +117,7 @@ function mountMenuPreview() {
             content += room.owner ? '<label class="ui-check"><input id="ui-auto-fill" type="checkbox" ' + (room.autoFill ? 'checked' : '') + '>CPU自動補充 <small id="ui-countdown"></small></label><button class="ui-primary" data-action="start" ' + (full ? '' : 'disabled') + '>開始</button>' : '<button class="ui-primary" data-action="ready">' + (model.ready ? '準備を取り消す' : '準備OK') + '</button>';
             content += '<button class="ui-back" data-action="leave">退出</button>';
         }
-        root.innerHTML = '<div class="ui-shell">' + (view === 'guest' || view === 'home' ? '<h1>CORE DEFENSE</h1>' : '') + '<section class="ui-content">' + content + '<p id="ui-message" role="status">' + escape(message) + '</p></section><small class="ui-preview-label">UIプレビュー</small></div>';
+        root.innerHTML = '<div class="ui-shell">' + (view === 'guest' || view === 'home' ? '<h1>CORE DEFENSE</h1>' : '') + '<section class="ui-content">' + content + '<p id="ui-message" role="status">' + escape(message) + '</p></section></div>';
         updateCountdown();
         if (focus) (root.querySelector('h2') || root.querySelector('input') || root.querySelector('button'))?.focus();
     }
