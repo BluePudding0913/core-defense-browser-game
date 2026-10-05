@@ -729,16 +729,16 @@ class GameplayRevisionTest {
             ResourceNode node=game.resourceNodes.stream().filter(n -> n.type.equals(type)).findFirst().orElseThrow();
             player.x=node.x; player.y=node.y; game.update(.05);
         }
-        assertEquals(1,player.copper); assertEquals(1,player.silver);
+        assertEquals(3,player.copper); assertEquals(1,player.silver);
         WorkbenchUnit bench=GameMap.WORKBENCH_UNITS.get(0); player.x=bench.x();player.y=bench.y();
         player.wood=10;player.ore=20;player.copper=10;player.silver=10;
         game.handleMessage(player,"CRAFT:silverTurret");
-        assertEquals(1,player.silverTurretItems); assertEquals(6,player.copper); assertEquals(4,player.silver);
+        assertEquals(1,player.silverTurretItems); assertEquals(6,player.copper); assertEquals(2,player.silver);
         player.silver=0; game.handleMessage(player,"CRAFT:silverTurret"); assertEquals(1,player.silverTurretItems);
         var snapshot=new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
         assertEquals(50,snapshot.path("maxRounds").asInt());
         assertEquals(GameSession.weaponAmmoCapacity("dualPistol"),snapshot.path("rules").path("weapons").path("dualPistol").path("capacity").asInt());
-        assertEquals(6,snapshot.path("rules").path("recipes").path("silverTurret").path("silver").asInt());
+        assertEquals(8,snapshot.path("rules").path("recipes").path("silverTurret").path("silver").asInt());
     }
 
     @Test void directCarryTargetsNearbyObjectsAndRejectsRemoteObjects() {

@@ -24,7 +24,7 @@ final class GameConfig {
             "mine", Map.of("wood", 1, "ore", 5),
             "barricade", Map.of("wood", 6, "ore", 2),
             "copperTurret", Map.of("wood", 4, "ore", 6, "copper", 5),
-            "silverTurret", Map.of("wood", 4, "ore", 8, "copper", 4, "silver", 6));
+            "silverTurret", Map.of("wood", 4, "ore", 8, "copper", 4, "silver", 8));
 
     static final int MEDKIT_PRICE = 120;
     static final int MEDKIT_HEAL = 60;
