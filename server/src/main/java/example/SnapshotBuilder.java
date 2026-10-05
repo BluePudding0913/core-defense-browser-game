@@ -74,7 +74,7 @@ final class SnapshotBuilder {
                 .append(",\"price\":").append(shop == null ? 0 : shop.cost()).append(",\"refillCost\":").append(GameSession.ammoRefillCost())
                 .append(",\"damage\":").append(stats.damage()).append(",\"range\":").append(stats.range())
                 .append(",\"cooldown\":").append(stats.cooldown()).append(",\"ammoPerShot\":").append(key.equals("dualPistol") ? 2 : 1)
-                .append(",\"pellets\":").append(key.equals("shotgun") ? GameConfig.SHOTGUN_PELLETS : 1).append(",\"maxTargets\":").append(key.equals("shotgun") ? GameConfig.SHOTGUN_MAX_TARGETS : 1)
+                .append(",\"pellets\":").append(key.equals("shotgun") ? GameConfig.SHOTGUN_PELLETS : 1).append(",\"maxTargets\":").append(key.equals("sniper") || key.equals("revolver") ? -1 : key.equals("shotgun") ? GameConfig.SHOTGUN_MAX_TARGETS : 1)
                 .append(",\"name\":\"").append(key).append("\"}");
         }
         json.append("},\"recipes\":{");

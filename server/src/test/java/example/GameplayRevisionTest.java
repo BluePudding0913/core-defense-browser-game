@@ -178,7 +178,7 @@ class GameplayRevisionTest {
         for (String weapon : List.of("revolver", "lmg")) {
             ShopUnit shop = GameMap.shopByItem(weapon);
             int capacity = GameSession.weaponAmmoCapacity(weapon);
-            int damage = weapon.equals("revolver") ? 180 : 18;
+            int damage = weapon.equals("revolver") ? 320 : 18;
             player.credits = 2000;
             player.x = shop.x(); player.y = shop.y();
             game.handleMessage(player, "BUY:" + weapon);
@@ -197,7 +197,7 @@ class GameplayRevisionTest {
             game.enemies.clear(); game.enemies.add(enemy);
             game.handleMessage(player, "ATTACK:9001");
             assertEquals(1000 - damage, enemy.hp);
-            assertEquals(weapon.equals("revolver") ? .50 : .18, player.cooldown, 1e-9);
+            assertEquals(weapon.equals("revolver") ? 1.6 : .18, player.cooldown, 1e-9);
             assertEquals(capacity - 1, weapon.equals("revolver") ? player.revolverAmmo : player.lmgAmmo);
             game.handleMessage(player, "ATTACK:9001");
             assertEquals(1000 - damage, enemy.hp, "cooldown prevents an immediate second shot");
@@ -657,18 +657,50 @@ class GameplayRevisionTest {
         assertTrue(broadcasts.isEmpty());
     }
 
-    @Test void shotgunHitsMultiplePelletsOnOneEnemyAndNeverMoreThanFiveEnemies() {
+    @Test void shotgunFiresFourStraightRaysAndMissesBetweenThem() throws Exception {
         player.x=1020; player.y=1900; player.ownsShotgun=true; player.shotgunAmmo=10;
         game.handleMessage(player,"WEAPON:shotgun");
-        for(int i=0;i<6;i++) {
-            Enemy enemy=new Enemy(9400+i,"grunt",GameMap.SPAWN_POINTS.get(0),2000,0,0,0);
-            enemy.x=1100+i*5; enemy.y=1900; game.enemies.add(enemy);
+        for (int i=0;i<4;i++) {
+            double angle=(i-1.5)*.14;
+            Enemy enemy=new Enemy(9400+i,"runner",GameMap.SPAWN_POINTS.get(0),2000,0,0,0);
+            enemy.x=player.x+200*Math.cos(angle); enemy.y=player.y+200*Math.sin(angle);
+            game.enemies.add(enemy);
         }
-        game.handleMessage(player,"ATTACK:9400");
-        assertEquals(5,game.enemies.stream().filter(e -> e.hp<e.maxHp).count());
-        assertEquals(2000,game.enemies.get(5).hp);
-        assertTrue(2000-game.enemies.get(0).hp >= GameConfig.WEAPONS.get("shotgun").damage()*2);
+        Enemy gap=new Enemy(9410,"runner",GameMap.SPAWN_POINTS.get(0),2000,0,0,0);
+        gap.x=player.x+210*Math.cos(.32); gap.y=player.y+210*Math.sin(.32); game.enemies.add(gap);
+        game.handleMessage(player,"FIRE:1250:1900:1");
+        assertEquals(4,game.enemies.stream().filter(e -> e.hp<e.maxHp).count());
+        assertEquals(2000,gap.hp,"a target inside the old auto-hit cone must miss between rays");
         assertEquals(9,player.shotgunAmmo);
+        var json=new com.fasterxml.jackson.databind.ObjectMapper();
+        long rays=0;
+        for(String message:broadcasts) {
+            var effect=json.readTree(message);
+            if(effect.path("effect").asText().equals("hit") && effect.path("weapon").asText().equals("shotgun") && effect.path("damage").asDouble()==0) rays++;
+        }
+        assertEquals(4,rays,"every pellet has a visible straight trajectory");
+    }
+
+    @Test void sniperAndRevolverPierceAlignedEnemiesButRespectRangeAndWalls() {
+        for(String weapon:List.of("sniper","revolver")) {
+            game.enemies.clear(); player.x=1020; player.y=1900; player.cooldown=0; player.firing=false;
+            player.weapon=weapon; player.sniperAmmo=10; player.revolverAmmo=10;
+            for(int i=0;i<2;i++) {
+                Enemy enemy=new Enemy(9500+i,"grunt",GameMap.SPAWN_POINTS.get(0),2000,0,0,0);
+                enemy.x=1100+i*80; enemy.y=1900; game.enemies.add(enemy);
+            }
+            Enemy outside=new Enemy(9502,"grunt",GameMap.SPAWN_POINTS.get(0),2000,0,0,0);
+            outside.x=player.x+GameSession.weaponStats(weapon).range()+40; outside.y=1900; game.enemies.add(outside);
+            game.handleMessage(player,"FIRE:1400:1900:1");
+            assertTrue(game.enemies.get(0).hp<2000); assertTrue(game.enemies.get(1).hp<2000);
+            assertEquals(2000,outside.hp);
+            player.x=1020; player.y=1580; player.cooldown=0; player.firing=false;
+            game.enemies.clear();
+            Enemy behindWall=new Enemy(9503,"grunt",GameMap.SPAWN_POINTS.get(0),2000,0,0,0);
+            behindWall.x=1340; behindWall.y=1580; game.enemies.add(behindWall);
+            game.handleMessage(player,"FIRE:1340:1580:1");
+            assertEquals(2000,behindWall.hp);
+        }
     }
 
     @Test void weaponChangesPreserveReviveProgress() {

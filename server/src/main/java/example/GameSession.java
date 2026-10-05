@@ -1484,39 +1484,33 @@ final class GameSession {
         }
         double directionX = dx / length;
         double directionY = dy / length;
+        boolean shotgun = player.weapon.equals("shotgun");
+        int rays = shotgun ? GameConfig.SHOTGUN_PELLETS : 1;
+        double angle = Math.atan2(directionY, directionX);
+        for (int pellet = 0; pellet < rays; pellet++) {
+            double spreadAngle = shotgun ? (pellet - (rays - 1) / 2.0) * .14 : 0;
+            fireRay(player, weapon, Math.cos(angle + spreadAngle), Math.sin(angle + spreadAngle));
+        }
+    }
+
+    private void fireRay(Player player, WeaponStats weapon, double directionX, double directionY) {
         double shotDistance = GameMap.distanceToWall(player.x, player.y,
                 directionX, directionY, weapon.range());
         double endX = player.x + directionX * shotDistance;
         double endY = player.y + directionY * shotDistance;
-
         List<Enemy> candidates = enemies.stream().filter(enemy -> enemy.hp > 0)
-                .filter(enemy -> isInsideAttack(enemy, player, directionX, directionY,
-                        weapon, shotDistance))
+                .filter(enemy -> isInsideAttack(enemy, player, directionX, directionY, weapon, shotDistance))
                 .filter(enemy -> GameMap.hasClearLine(player.x, player.y, enemy.x, enemy.y))
                 .sorted(Comparator.comparingDouble(enemy ->
-                        distance(player.x, player.y, enemy.x, enemy.y))).toList();
-        List<Enemy> targets = player.weapon.equals("shotgun")
-                ? candidates.stream().limit(GameConfig.SHOTGUN_MAX_TARGETS).toList() : candidates.stream().limit(1).toList();
-        if (targets.isEmpty()) {
-            sendHitEffect(player.id, player.weapon, player.x, player.y, endX, endY,
-                    0, false, 0, false);
-            return;
-        }
+                        (enemy.x - player.x) * directionX + (enemy.y - player.y) * directionY)).toList();
+        boolean piercing = player.weapon.equals("sniper") || player.weapon.equals("revolver");
+        List<Enemy> targets = piercing ? candidates : candidates.stream().limit(1).toList();
+        // Draw the actual ray, including misses, instead of bending it toward an enemy.
+        sendHitEffect(player.id, player.weapon, player.x, player.y, endX, endY, 0, false, 0, false);
         for (Enemy hit : targets) {
             int creditsBeforeHit = player.credits;
-            boolean headshot = isHeadshot(hit, player, directionX, directionY,
-                    weapon, shotDistance);
-            int pellets = 1;
-            if (player.weapon.equals("shotgun")) {
-                double projection = (hit.x-player.x)*directionX+(hit.y-player.y)*directionY;
-                double perpendicular = Math.abs((hit.x-player.x)*directionY-(hit.y-player.y)*directionX);
-                double spread = 16 + projection * .28;
-                double alignment = Math.max(0, 1 - perpendicular / (spread + enemyRadius(hit)));
-                double coverage = Math.min(1, (enemyRadius(hit) * 2 + 16) / spread);
-                pellets = Math.max(1, Math.min(GameConfig.SHOTGUN_PELLETS,
-                        (int) Math.ceil(GameConfig.SHOTGUN_PELLETS * alignment * coverage)));
-            }
-            double damage = weapon.damage()*pellets*(headshot ? 2 : 1);
+            boolean headshot = isHeadshot(hit, player, directionX, directionY, weapon, shotDistance);
+            double damage = weapon.damage() * (headshot ? 2 : 1);
             damageEnemy(hit, damage, player);
             if (headshot) player.credits += 3;
             knockbackEnemy(player.x, player.y, hit, weapon.knockback());
@@ -1533,7 +1527,7 @@ final class GameSession {
         if (projection < 0 || projection > shotDistance) return false;
         double perpendicular = Math.abs(toEnemyX * directionY - toEnemyY * directionX);
         double enemyRadius = enemyRadius(enemy);
-        double spread = player.weapon.equals("shotgun") ? 16 + projection * 0.28 : weapon.width();
+        double spread = weapon.width();
         return perpendicular <= spread + enemyRadius;
     }
 
