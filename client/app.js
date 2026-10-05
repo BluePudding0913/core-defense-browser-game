@@ -1420,6 +1420,12 @@ window.addEventListener("keydown", event => {
         }
         return;
     }
+    if (key === "h" && state && ["preparing", "wave"].includes(state.phase)) {
+        event.preventDefault();
+        const me = getMe();
+        if (!event.repeat && me && !me.down && me.medkits > 0 && me.hp < 100) send("USE:medkit");
+        return;
+    }
     if (key === "e") {
         event.preventDefault();
         if (!event.repeat) toggleInventory();
