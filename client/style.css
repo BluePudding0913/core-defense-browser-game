@@ -303,6 +303,9 @@ button, input { font: inherit; }
 }
 .how-to-link:hover, .how-to-link:active { border-color: var(--accent-blue); color: var(--accent-blue); }
 .inventory-items { display: grid; gap: 1rem; padding: 1rem; }
+.inventory-health { color: var(--accent-blue); font: 800 1rem ui-monospace, monospace; }
+.weapon-icon.build-copperTurret::before, .weapon-icon.build-silverTurret::before { left: 1rem; top: .75rem; width: 2.7rem; height: 1.45rem; border: .14rem solid #eee; background: #777; }
+.weapon-icon.build-copperTurret::after, .weapon-icon.build-silverTurret::after { left: 2.12rem; top: -.25rem; width: .55rem; height: 1.45rem; background: #79d8ff; }
 .inventory-section h3 { margin: 0 0 .5rem; color: rgb(255 255 255 / 68%); font: 850 .78rem ui-monospace, monospace; letter-spacing: .12em; }
 .inventory-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .5rem; }
 .inventory-grid > button,

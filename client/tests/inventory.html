@@ -10,7 +10,7 @@
   const end = source.indexOf('\nfunction toggleInventory()', begin);
   if (begin < 0 || end < 0) throw new Error('Production inventory code not found');
   const container = document.querySelector('#inventory-items');
-  let me = {weapon:'pistol',wood:5,ore:3,down:false,buildItems:{},ownsShotgun:false};
+  let me = {weapon:'pistol',hp:42,wood:5,ore:3,copper:2,silver:1,medkits:1,down:false,buildItems:{},ownsShotgun:false};
   const sent = [], selected = [];
   let storedOrder = '[]';
   const orderStart = source.indexOf('let equipmentOrder =');
@@ -19,11 +19,15 @@
     source.slice(orderStart,orderEnd)+'\nreturn {equipmentEntries,reorderEquipment};')(
       ()=>me,{}, {getItem:()=>storedOrder,setItem:(_,value)=>{storedOrder=value;}});
   const entries = ordering.equipmentEntries;
-  const render = new Function('inventoryItems','getMe','equipmentEntries','WEAPON_FIELDS','ammoForWeapon','selectEquipment','send','reorderEquipment',
-    source.slice(begin,end)+'\nreturn updateInventory;')(container,()=>me,entries,{shotgun:{capacity:30}},()=>me.ammo||5,e=>selected.push(e.key),s=>sent.push(s),ordering.reorderEquipment);
+  const render = new Function('inventoryItems','getMe','equipmentEntries','WEAPON_FIELDS','ammoForWeapon','selectEquipment','send','reorderEquipment','RESOURCE_NAMES',
+    source.slice(begin,end)+'\nreturn updateInventory;')(container,()=>me,entries,{shotgun:{capacity:30}},()=>me.ammo||5,e=>selected.push(e.key),s=>sent.push(s),ordering.reorderEquipment,
+      {wood:'木材',ore:'鉄鉱石',copper:'銅',silver:'銀'});
   let checks=0;
   const check=(ok,msg)=>{if(!ok)throw new Error(msg);checks++;};
   render(me);
+  check(container.querySelector('.inventory-health').textContent==='HP 42 / 100','Inventory health missing');
+  check(container.querySelector('[data-resource="silver"] .resource-count').textContent==='×1','New material missing');
+  check(!!container.querySelector('[data-key="item:medkit"]'),'Healing item missing');
   const one=container.querySelector('[data-drop="wood"][data-amount="1"]');
   const all=container.querySelector('[data-drop="wood"][data-amount="all"]');
   one.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));

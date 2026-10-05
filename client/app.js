@@ -65,23 +65,18 @@ let SPAWN_POINTS = [];
 let SHOP_UNITS = [];
 let BREAKER_TERMINALS = [];
 let PREP_CONSOLE = null;
-const BUILD_INFO = {
-    block: { name: "BLOCK", wood: 4, ore: 0, description: "通路を塞ぐ基本ブロック" },
-    turret: { name: "AUTO TURRET", wood: 4, ore: 8, description: "範囲内の敵を自動射撃" },
-    wire: { name: "BARBED WIRE", wood: 2, ore: 4, description: "通過する敵を減速" },
-    mine: { name: "MINE", wood: 1, ore: 5, description: "接近した敵へ範囲ダメージ" },
-    barricade: { name: "BARRICADE", wood: 6, ore: 2, description: "高耐久の進路妨害" },
-};
-const WEAPON_FIELDS = Object.freeze({
-    dualPistol: { owned: "ownsDualPistol", ammo: "dualPistolAmmo", capacity: 60 },
-    shotgun: { owned: "ownsShotgun", ammo: "shotgunAmmo", capacity: 30 },
-    smg: { owned: "ownsSmg", ammo: "smgAmmo", capacity: 300 },
-    rifle: { owned: "ownsRifle", ammo: "rifleAmmo", capacity: 24 },
-    sniper: { owned: "ownsSniper", ammo: "sniperAmmo", capacity: 16 },
-    revolver: { owned: "ownsRevolver", ammo: "revolverAmmo", capacity: 36 },
-    lmg: { owned: "ownsLmg", ammo: "lmgAmmo", capacity: 150 },
+let BUILD_INFO = {};
+const RESOURCE_NAMES = { wood: "木材", ore: "鉄鉱石", copper: "銅", silver: "銀" };
+const WEAPON_FIELDS = ({
+    dualPistol: { owned: "ownsDualPistol", ammo: "dualPistolAmmo" },
+    shotgun: { owned: "ownsShotgun", ammo: "shotgunAmmo" },
+    smg: { owned: "ownsSmg", ammo: "smgAmmo" },
+    rifle: { owned: "ownsRifle", ammo: "rifleAmmo" },
+    sniper: { owned: "ownsSniper", ammo: "sniperAmmo" },
+    revolver: { owned: "ownsRevolver", ammo: "revolverAmmo" },
+    lmg: { owned: "ownsLmg", ammo: "lmgAmmo" },
 });
-const WEAPON_AMMO_REFILL_COST = 120;
+let WEAPON_AMMO_REFILL_COST;
 const INTERACTION_RANGE = Object.freeze({
     shop: 70,
     medBay: 95,
@@ -358,6 +353,15 @@ function connect() {
         }
         if (message.type === "state") receiveState(message);
         if (message.type === "log") receiveLog(message.version, message.message);
+        if (message.type === "effect") {
+            const me = getMe();
+            const actor = state?.players.find(player => player.id === message.playerId);
+            if (me && (message.playerId === myPlayerId || actor && distance(me, actor) < 600)) {
+                if (message.effect === "shot") window.coreAudio?.play(message.weapon);
+                else if (message.effect === "item-use") window.coreAudio?.play(BUILD_INFO[message.item] ? "build" : message.item || "item");
+                else if (message.effect === "pickup") window.coreAudio?.play("pickup");
+            }
+        }
         if (message.type === "effect" && ["hit", "core-pulse", "pickup", "player-hit"].includes(message.effect)) {
             hitEffects.push({ ...message, started: performance.now() });
             if (hitEffects.length > 100) hitEffects.shift();
@@ -371,6 +375,7 @@ function connect() {
     });
     socket.addEventListener("close", () => {
         if (socket !== connectingSocket) return;
+        endInteractionHold(true);
         clearTimeout(connectionAttemptTimer);
         smoothed.clear();
         predictedLocal = null;
@@ -467,7 +472,18 @@ function acknowledgeInputs(value) {
     pendingInputs = pendingInputs.filter(input => input.sequence > value);
 }
 
+function applyRules(next) {
+    if (next.rules) {
+        BUILD_INFO = next.rules.recipes;
+        WEAPON_AMMO_REFILL_COST = next.rules.shop.ammo;
+        for (const [weapon, fields] of Object.entries(WEAPON_FIELDS)) {
+            fields.capacity = next.rules.weapons[weapon].capacity;
+        }
+    }
+}
+
 function receiveState(next) {
+    applyRules(next);
     window.coreMenu?.snapshot(next, myPlayerId);
     const beginsRound = next.phase === "wave"
         && (previousPhase !== "wave" || next.round !== previousRound);
@@ -475,6 +491,7 @@ function receiveState(next) {
     lastCoreHp = next.core.hp;
     reconcileEnemySmoothing(next);
     state = next;
+    if (!getMe() || getMe().down || !["preparing", "wave"].includes(next.phase)) endInteractionHold(true);
     CORE.x = next.core.x;
     CORE.y = next.core.y;
     if (beginsRound) showRoundIntro(next.round);
@@ -624,6 +641,7 @@ function equipmentEntries(me) {
     if (me.ownsDualPistol) entries.push({ key: "weapon:dualPistol", kind: "weapon", value: "dualPistol", label: "DUAL PISTOL" });
     if (me.ownsRevolver) entries.push({ key: "weapon:revolver", kind: "weapon", value: "revolver", label: "REVOLVER" });
     if (me.ownsLmg) entries.push({ key: "weapon:lmg", kind: "weapon", value: "lmg", label: "LMG" });
+    if (me.medkits > 0) entries.push({ key: "item:medkit", kind: "item", value: "medkit", label: "回復キット" });
     for (const [type, info] of Object.entries(BUILD_INFO)) {
         if ((me.buildItems?.[type] || 0) > 0) entries.push({ key: `build:${type}`, kind: "build", value: type, label: info.name });
     }
@@ -642,6 +660,7 @@ function selectEquipment(entry) {
     }
     if (entry.kind === "weapon") send(`WEAPON:${entry.value}`);
     else if (entry.kind === "build") send(`EQUIP_BUILD:${entry.value}`);
+    else if (entry.kind === "item") { send(`USE:${entry.value}`); return; }
     showEquipmentPopup(entry.key);
 }
 
@@ -662,7 +681,7 @@ function cycleEquipment(direction = 1) {
     const me = getMe();
     if (!me) return;
     if (me.movingCore) return;
-    const entries = equipmentEntries(me);
+    const entries = equipmentEntries(me).filter(entry => entry.kind !== "item");
     const selectedKey = me.movingCore ? "core"
         : me.selectedBuild ? `build:${me.selectedBuild}` : `weapon:${me.weapon}`;
     const current = Math.max(0, entries.findIndex(entry => entry.key === selectedKey));
@@ -670,7 +689,40 @@ function cycleEquipment(direction = 1) {
 }
 
 weaponButton.addEventListener("click", () => cycleEquipment(1));
-interactButton.addEventListener("click", toggleNearestInteraction);
+// A release opens the menu; holding picks up the original target directly.
+let interactionHold = null;
+function beginInteractionHold() {
+    if (interactionHold || !state || !["preparing", "wave"].includes(state.phase)
+            || getMe()?.down || !inventoryMenu.classList.contains("hidden")
+            || !howToMenu.classList.contains("hidden")) return;
+    const interaction = findNearestInteraction();
+    const target = ["core", "defense"].includes(interaction?.kind)
+        ? interaction.kind === "core" ? "core" : interaction.target.id : null;
+    const hold = { used: false, timer: null };
+    interactionHold = hold;
+    if (target && actionMenu.classList.contains("hidden") && !placementSelection(getMe())) {
+        hold.timer = setTimeout(() => {
+            hold.used = true;
+            send(`CARRY_NEAREST:${target}`);
+        }, 500);
+    }
+}
+function endInteractionHold(cancel = false) {
+    const hold = interactionHold;
+    if (!hold) return;
+    clearTimeout(hold.timer);
+    interactionHold = null;
+    if (!cancel && !hold.used) toggleNearestInteraction();
+}
+interactButton.addEventListener("pointerdown", event => {
+    if (event.button !== 0) return;
+    interactButton.setPointerCapture(event.pointerId);
+    beginInteractionHold();
+});
+interactButton.addEventListener("pointerup", () => endInteractionHold());
+interactButton.addEventListener("pointercancel", () => endInteractionHold(true));
+interactButton.addEventListener("lostpointercapture", () => endInteractionHold(true));
+interactButton.addEventListener("click", event => { if (event.detail === 0) toggleNearestInteraction(); });
 window.addEventListener("wheel", event => {
     if (!state || !["preparing", "wave"].includes(state.phase)) return;
     if (!inventoryMenu.classList.contains("hidden")) return;
@@ -692,6 +744,7 @@ howToMenu.addEventListener("pointerdown", event => {
 });
 
 function openHowTo() {
+    endInteractionHold(true);
     howToMenu.classList.remove("hidden");
 }
 
@@ -752,12 +805,16 @@ function updateHud() {
 function updateInventory(me) {
     if (!inventoryItems.querySelector(".equipment-grid")) {
         inventoryItems.innerHTML = `
+            <div class="inventory-health" role="status"></div>
             <div class="inventory-section"><h3>EQUIPMENT</h3><div class="inventory-grid equipment-grid"></div></div>
             <div class="inventory-section"><h3>MATERIALS</h3><div class="inventory-grid materials-grid">
                 ${resourceInventoryCard("wood")}
                 ${resourceInventoryCard("ore")}
+                ${resourceInventoryCard("copper")}
+                ${resourceInventoryCard("silver")}
             </div></div>`;
     }
+    inventoryItems.querySelector(".inventory-health").textContent = `HP ${Math.ceil(me.hp)} / ${me.maxHp || 100}${me.down ? "（ダウン中）" : ""}`;
     const entries = equipmentEntries(me);
     const selectedKey = me.movingCore ? "core"
         : me.selectedBuild ? `build:${me.selectedBuild}` : `weapon:${me.weapon}`;
@@ -778,16 +835,18 @@ function updateInventory(me) {
         }
         if (grid.children[index] !== button) grid.insertBefore(button, grid.children[index] || null);
         button.classList.toggle("selected", selectedKey === entry.key);
+        button.disabled = entry.kind === "item" && (me.down || me.hp >= (me.maxHp || 100));
         button.querySelector("strong").textContent = `${index + 1}. ${entry.label}`;
         button.querySelector("span").textContent = entry.kind === "build" ? `×${me.buildItems[entry.value]}`
+            : entry.kind === "item" ? `×${me.medkits} · 使用する`
             : entry.kind === "core" ? ""
                 : WEAPON_FIELDS[entry.value] ? `${ammoForWeapon(me, entry.value)} / ${WEAPON_FIELDS[entry.value].capacity}`
                     : entry.value === "pistol" ? "∞" : "";
     });
-    for (const type of ["wood", "ore"]) {
+    for (const type of Object.keys(RESOURCE_NAMES)) {
         const card = inventoryItems.querySelector(`[data-resource="${type}"]`);
-        card.querySelector(".resource-count").textContent = `×${me[type]}`;
-        card.querySelectorAll("button").forEach(button => { button.disabled = me.down || me[type] < 1; });
+        card.querySelector(".resource-count").textContent = `×${me[type] || 0}`;
+        card.querySelectorAll("button").forEach(button => { button.disabled = me.down || !(me[type] > 0); });
     }
 }
 
@@ -808,7 +867,7 @@ inventoryItems.addEventListener("click", event => {
 
 function resourceInventoryCard(type) {
     return `<div class="inventory-resource" data-resource="${type}">
-        <strong>${type.toUpperCase()}</strong><span class="resource-count"></span>
+        <strong>${RESOURCE_NAMES[type]}</strong><span class="resource-count"></span>
         <div class="resource-actions">
             <button type="button" data-drop="${type}" data-amount="1">1個落とす</button>
             <button type="button" data-drop="${type}" data-amount="all">全部落とす</button>
@@ -853,6 +912,7 @@ inventoryItems.addEventListener("pointercancel", event => finishInventoryDrag(ev
 inventoryItems.addEventListener("lostpointercapture", event => finishInventoryDrag(event, false));
 
 function toggleInventory() {
+    endInteractionHold(true);
     if (!inventoryMenu.classList.contains("hidden")) {
         inventoryMenu.classList.add("hidden");
         return;
@@ -1032,7 +1092,7 @@ function openSlotMenu(slot) {
         }], slot, INTERACTION_RANGE.trapSlot);
     } else {
         const missing = slot.defense.maxHp - slot.defense.hp;
-        const metal = ["turret", "wire", "mine"].includes(slot.defense.type);
+        const metal = ["turret", "copperTurret", "silverTurret", "wire", "mine"].includes(slot.defense.type);
         const me = getMe();
         openNearbyActionMenu(`${slot.defense.type.toUpperCase()} — HP ${Math.ceil(slot.defense.hp)}/${Math.ceil(slot.defense.maxHp)}`, [{
             label: "REPAIR",
@@ -1080,10 +1140,7 @@ function canBuildAt(point, forCore = false) {
 
 function openCoreMenu() {
     const core = state.core;
-    const hpCost = 300 + Math.round((core.maxHp - 1000) * .6);
-    const shieldCost = 350 + Math.round(core.maxShield * .8);
-    const defenseCost = 450 + core.defense * 250;
-    const regenCost = 500 + core.regen * 300;
+    const { hp: hpCost, shield: shieldCost, defense: defenseCost, regen: regenCost } = state.rules.coreCosts;
     openNearbyActionMenu(`CORE HP ${Math.ceil(core.hp)} / ${Math.ceil(core.maxHp)}`, [
         option("MAX HP +250", hpCost, "UPGRADE:hp"),
         option("SHIELD +180", shieldCost, "UPGRADE:shield"),
@@ -1149,21 +1206,22 @@ function openWorkbenchMenu(workbench) {
     const me = getMe();
     openNearbyActionMenu("WORKBENCH", Object.entries(BUILD_INFO).map(([type, info]) => ({
         label: info.name,
-        detail: `${info.description} — WOOD ${info.wood} / ORE ${info.ore}`,
+        detail: `${info.description} — ${Object.entries(RESOURCE_NAMES).filter(([key]) => info[key] > 0).map(([key, name]) => `${name} ${info[key]}`).join(" / ")}`,
         command: `CRAFT:${type}`,
-        disabled: me.wood < info.wood || me.ore < info.ore,
+        disabled: Object.keys(RESOURCE_NAMES).some(key => (me[key] || 0) < (info[key] || 0)),
     })), workbench, INTERACTION_RANGE.workbench);
 }
 
 function openMedMenu() {
     const me = getMe();
-    openNearbyActionMenu("MED BAY", [option("FULL HEAL", 80, "BUY:heal", me.hp >= 100, me.hp >= 100 ? "HP最大" : `HP ${Math.ceil(me.hp)} → 100`)],
+    openNearbyActionMenu("MED BAY", [option("全回復", state.rules.shop.heal, "BUY:heal", me.hp >= 100, me.hp >= 100 ? "HP最大" : `HP ${Math.ceil(me.hp)} → 100`),
+        option("回復キット", state.rules.shop.medkit, "BUY:medkit", me.medkits >= state.rules.medkitCapacity,
+            `${state.rules.shop.medkit}G · 携帯してHPを${state.rules.medkitHeal}回復`)],
         MED, INTERACTION_RANGE.medBay);
 }
 
 function openUnlockMenu(area) {
-    const openCount = Object.values(state.areas).filter(Boolean).length;
-    const cost = 350 + openCount * 100;
+    const cost = state.rules.unlockCost;
     const unlocked = state.areas[area.id];
     openNearbyActionMenu(area.name, [{
         label: unlocked ? "OPENED" : "OPEN",
@@ -1340,7 +1398,7 @@ window.addEventListener("keydown", event => {
     }
     if (key === "r") {
         event.preventDefault();
-        if (!event.repeat) toggleNearestInteraction();
+        if (!event.repeat) beginInteractionHold();
         return;
     }
     if (key === "shift") {
@@ -1354,10 +1412,12 @@ window.addEventListener("keydown", event => {
 window.addEventListener("keyup", event => {
     if (isTypingTarget(event.target)) return;
     const key = event.key.toLowerCase();
+    if (key === "r") { endInteractionHold(); return; }
     if (key === "shift") { dashKey = false; setDash(false); return; }
     keys.delete(key); sendMovement();
 });
 window.addEventListener("blur", () => {
+    endInteractionHold(true);
     keys.clear(); joystick = null;
     dashKey = false; setDash(false);
     if (pendingMove) clearTimeout(pendingMove.timer);
@@ -1817,7 +1877,7 @@ function drawResources() {
         const bob = Math.sin(performance.now() / 260 + node.x * .01) * 3;
         ctx.save();
         ctx.translate(node.x, node.y + bob);
-        ctx.fillStyle = node.type === "wood" ? "#b0b0b0" : "#777";
+        ctx.fillStyle = node.type === "wood" ? "#b0b0b0" : node.type === "copper" ? "#aa754d" : node.type === "silver" ? "#eee" : "#777";
         ctx.strokeStyle = "white";
         ctx.lineWidth = 1.5;
         if (node.type === "wood") {
@@ -1837,7 +1897,7 @@ function drawDroppedResources() {
         const bob = Math.sin(performance.now() / 230 + drop.id) * 2;
         ctx.save();
         ctx.translate(drop.x, drop.y + bob);
-        ctx.fillStyle = drop.type === "wood" ? "#b8b8b8" : "#777";
+        ctx.fillStyle = drop.type === "wood" ? "#b8b8b8" : drop.type === "copper" ? "#aa754d" : drop.type === "silver" ? "#eee" : "#777";
         ctx.strokeStyle = "#fff";
         ctx.lineWidth = 2;
         if (drop.type === "wood") {
@@ -1874,9 +1934,10 @@ function drawDefense(slot) {
         ctx.fillStyle = "#929292"; ctx.fillRect(slot.x - 14, slot.y - 14, 28, 7);
         ctx.fillStyle = "#444"; ctx.fillRect(slot.x - 14, slot.y - 3, 10, 13);
         ctx.strokeStyle = "#bbb"; ctx.lineWidth = 2; ctx.strokeRect(slot.x - 18, slot.y - 18, 36, 36);
-    } else if (defense.type === "turret") {
+    } else if (["turret", "copperTurret", "silverTurret"].includes(defense.type)) {
         ctx.fillStyle = "#79d8ff"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
         ctx.strokeStyle = "#fff"; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(slot.x, slot.y); ctx.lineTo(slot.x, slot.y - 29); ctx.stroke();
+        if (defense.type !== "turret") { ctx.fillStyle = defense.type === "copperTurret" ? "#aa754d" : "#eee"; ctx.fillRect(slot.x - 8, slot.y - 8, 16, 16); }
     } else if (defense.type === "wire") {
         ctx.strokeStyle = "#b8b8b8"; ctx.lineWidth = 3; ctx.beginPath();
         for (let i = -24; i <= 24; i += 8) { ctx.moveTo(slot.x + i, slot.y - 20); ctx.lineTo(slot.x + i + 10, slot.y + 20); }
@@ -1923,6 +1984,11 @@ function drawEnemies() {
         ctx.strokeStyle = enemy.type === "boss" ? "#fff" : "#c8c8c8"; ctx.lineWidth = enemy.type === "boss" ? 5 : 2; ctx.stroke();
         ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(p.x - radius * .3, p.y - 3, 3, 0, Math.PI * 2); ctx.arc(p.x + radius * .3, p.y - 3, 3, 0, Math.PI * 2); ctx.fill();
         if (enemy.type !== "grunt") { ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText(enemy.type.toUpperCase(), p.x, p.y + radius + 15); }
+        if (enemy.type === "boss") {
+            drawBar(p.x - 44, p.y - radius - 17, 88, 6, clamp(enemy.hp / enemy.maxHp, 0, 1), "#ff5964");
+            ctx.fillStyle = "#fff"; ctx.font = "800 10px ui-monospace, monospace"; ctx.textAlign = "center";
+            ctx.fillText(`${Math.ceil(enemy.hp)} / ${Math.ceil(enemy.maxHp)}`, p.x, p.y - radius - 23);
+        }
     }
 }
 
@@ -1946,7 +2012,7 @@ function drawPlayers() {
             ctx.fillRect(-9, -9, 18, 18);
             ctx.restore();
         }
-        ctx.fillStyle = hit || player.down ? "#ff5964" : "#454545";
+        ctx.fillStyle = hit || player.down ? "#ff5964" : player.id === myPlayerId ? "#79d8ff" : "#454545";
         const playerSize = 10;
         ctx.fillRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize);
         if (player.id === myPlayerId) { ctx.strokeStyle = "white"; ctx.lineWidth = 1.5; ctx.strokeRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize); }
@@ -2027,7 +2093,7 @@ function drawHitEffects() {
             ctx.fillStyle = "white";
             ctx.font = "900 11px ui-monospace, monospace";
             ctx.textAlign = "center";
-            ctx.fillText(effect.resource === "wood" ? "+WOOD" : "+ORE",
+            ctx.fillText(`+${RESOURCE_NAMES[effect.resource] || effect.resource}`,
                 effect.x, effect.y - 18 - progress * 22);
             ctx.restore();
             continue;
