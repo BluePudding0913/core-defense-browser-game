@@ -107,7 +107,7 @@ class GameplayRevisionTest {
         player.sniperAmmo = 0; player.revolverAmmo = 35; player.lmgAmmo = 150;
         game.handleMessage(player, "BUY:ammo");
         assertEquals(880, player.credits);
-        assertEquals(List.of(90, 600, 96, 48, 108, 600), List.of(player.shotgunAmmo,
+        assertEquals(List.of(90, 240, 96, 48, 108, 600), List.of(player.shotgunAmmo,
                 player.smgAmmo, player.rifleAmmo, player.sniperAmmo, player.revolverAmmo, player.lmgAmmo));
         for (int i = 0; i < 3; i++) game.handleMessage(player, "BUY:ammo");
         assertEquals(880, player.credits);

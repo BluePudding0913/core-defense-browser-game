@@ -30,20 +30,22 @@ final class GameConfig {
     static final int MEDKIT_HEAL = 60;
     static final int MEDKIT_CAPACITY = 5;
     static final int HEAL_PRICE = 80;
+    static final double ROCKET_BLAST_RADIUS = 140;
     static final int SHOTGUN_PELLETS = 4;
     static final int SHOTGUN_MAX_TARGETS = 4;
     static final Map<String, Integer> AMMO_CAPACITIES = Map.of(
-            "shotgun", 90, "smg", 600, "rifle", 96, "sniper", 48,
-            "revolver", 108, "lmg", 600, "dualPistol", 240);
+            "shotgun", 90, "smg", 240, "rifle", 96, "sniper", 48,
+            "revolver", 108, "lmg", 600, "dualPistol", 240, "rocket", 12);
     static final Map<String, WeaponStats> WEAPONS = Map.of(
             "pistol", new WeaponStats(285, 26, .38, 0, 10),
             "bat", new WeaponStats(96, 20, 1, 115, 26),
             "shotgun", new WeaponStats(220, 24, 1.25, 55, 2),
             "smg", new WeaponStats(270, 12, .14, 0, 11),
             "rifle", new WeaponStats(430, 58, 1.15, 0, 8),
-            "sniper", new WeaponStats(650, 125, 1.8, 0, 5),
+            "sniper", new WeaponStats(2400, 280, 1.8, 0, 5),
             "revolver", new WeaponStats(360, 320, 1.6, 12, 5),
             "dualPistol", new WeaponStats(340, 72, .30, 0, 12),
+            "rocket", new WeaponStats(900, 400, 2.8, 65, 4),
             "lmg", new WeaponStats(360, 18, .18, 0, 14));
 
     record WeaponStats(double range, double damage, double cooldown, double knockback, double width) { }

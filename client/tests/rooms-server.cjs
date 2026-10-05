@@ -68,13 +68,14 @@ const deadline = setTimeout(() => {
     const map = await host.next(m => m.type === 'map');
     assert.equal(map.map.version, 5);
     const definition = JSON.parse(require('node:fs').readFileSync('shared/map.json', 'utf8'));
-    for (const field of ['tileMap', 'areas', 'trapSlots', 'resourceNodes', 'workbenchUnits',
+    for (const field of ['tileMap', 'areas', 'trapSlots', 'resourceNodes', 'shopUnits', 'workbenchUnits',
         'breakerTerminals', 'prepConsole']) {
         assert.deepEqual(map.map[field], definition[field], `${field} must reach the browser without relocation`);
     }
     const welcome = await host.next(m => m.type === 'welcome');
     host.ws.send('INPUT:1:HELLO:あ');
-    const lobby = await host.next(m => m.type === 'state' && m.phase === 'lobby');
+    const lobby = await host.next(m => m.type === 'state' && m.phase === 'lobby'
+        && m.players.some(p => p.id === welcome.playerId && p.ackInput >= 1));
     assert.equal(lobby.roomOwnerId, welcome.playerId);
     assert(lobby.allReady, 'the owner can start alone without a ready command');
     const guestSession = randomUUID();

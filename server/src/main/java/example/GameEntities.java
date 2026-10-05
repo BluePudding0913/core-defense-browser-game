@@ -47,6 +47,7 @@ final class Player {
     boolean ownsRifle;
     boolean ownsSniper;
     boolean ownsRevolver;
+    boolean ownsRocket;
     boolean ownsLmg;
     boolean ownsDualPistol;
     int shotgunAmmo;
@@ -54,6 +55,7 @@ final class Player {
     int rifleAmmo;
     int sniperAmmo;
     int revolverAmmo;
+    int rocketAmmo;
     int lmgAmmo;
     int dualPistolAmmo;
     int wood;

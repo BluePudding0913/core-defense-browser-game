@@ -10,6 +10,7 @@
     window.addEventListener("keydown", unlock, { once: true });
     window.coreAudio = {
         play(name) {
+            if (name === "rocket") name = "shotgun";
             if (!unlocked || !names.includes(name) || active.size >= 8) return;
             const audio = new Audio(`sounds/${name}.mp3`);
             audio.volume = .35;

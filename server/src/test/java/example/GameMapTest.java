@@ -285,7 +285,7 @@ class GameMapTest {
                 .findFirst().map(UnlockArea::id).orElse("outside"))
                 .collect(Collectors.toSet());
 
-        assertEquals(8, GameMap.SHOP_UNITS.size());
+        assertEquals(9, GameMap.SHOP_UNITS.size());
         assertEquals(GameMap.SHOP_UNITS.size(), shopAreas.size(),
                 "each shop should occupy a different progression area");
     }

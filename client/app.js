@@ -74,6 +74,7 @@ const WEAPON_FIELDS = ({
     rifle: { owned: "ownsRifle", ammo: "rifleAmmo" },
     sniper: { owned: "ownsSniper", ammo: "sniperAmmo" },
     revolver: { owned: "ownsRevolver", ammo: "revolverAmmo" },
+    rocket: { owned: "ownsRocket", ammo: "rocketAmmo" },
     lmg: { owned: "ownsLmg", ammo: "lmgAmmo" },
 });
 let WEAPON_AMMO_REFILL_COST;
@@ -362,7 +363,7 @@ function connect() {
                 else if (message.effect === "pickup") window.coreAudio?.play("pickup");
             }
         }
-        if (message.type === "effect" && ["hit", "core-pulse", "pickup", "player-hit"].includes(message.effect)) {
+        if (message.type === "effect" && ["hit", "core-pulse", "pickup", "player-hit", "explosion"].includes(message.effect)) {
             hitEffects.push({ ...message, started: performance.now() });
             if (hitEffects.length > 100) hitEffects.shift();
         }
@@ -652,6 +653,7 @@ function equipmentEntries(me) {
     if (me.ownsSniper) entries.push({ key: "weapon:sniper", kind: "weapon", value: "sniper", label: "SNIPER" });
     if (me.ownsDualPistol) entries.push({ key: "weapon:dualPistol", kind: "weapon", value: "dualPistol", label: "DUAL PISTOL" });
     if (me.ownsRevolver) entries.push({ key: "weapon:revolver", kind: "weapon", value: "revolver", label: "REVOLVER" });
+    if (me.ownsRocket) entries.push({ key: "weapon:rocket", kind: "weapon", value: "rocket", label: "ROCKET" });
     if (me.ownsLmg) entries.push({ key: "weapon:lmg", kind: "weapon", value: "lmg", label: "LMG" });
     if (me.medkits > 0) entries.push({ key: "item:medkit", kind: "item", value: "medkit", label: "回復キット" });
     for (const [type, info] of Object.entries(BUILD_INFO)) {
@@ -2106,6 +2108,13 @@ function drawHitEffects() {
             ? 900 : 360));
     for (const effect of hitEffects) {
         if (effect.effect === "player-hit") continue;
+        if (effect.effect === "explosion") {
+            const progress = (now - effect.started) / 360;
+            ctx.save(); ctx.globalAlpha = 1 - progress;
+            ctx.fillStyle = "rgb(255 164 64 / 25%)"; ctx.strokeStyle = "#ffa440"; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.arc(effect.x, effect.y, effect.radius * (.25 + .75 * progress), 0, Math.PI * 2);
+            ctx.fill(); ctx.stroke(); ctx.restore(); continue;
+        }
         if (effect.effect === "core-pulse") {
             const progress = (now - effect.started) / 900;
             ctx.save();
@@ -2140,7 +2149,7 @@ function drawHitEffects() {
         if (age < 360) {
             const progress = age / 360;
             ctx.save(); ctx.globalAlpha = 1 - progress; ctx.strokeStyle = "#ff5964";
-            if ((effect.weapon !== "shotgun" || effect.damage === 0) && !["bat", "mine"].includes(effect.weapon) && progress < .55) {
+            if ((effect.weapon !== "shotgun" || effect.damage === 0) && !["bat", "mine"].includes(effect.weapon) && (effect.weapon !== "rocket" || effect.damage === 0) && progress < .55) {
                 ctx.lineWidth = 1.35;
                 ctx.beginPath(); ctx.moveTo(effect.fromX, effect.fromY); ctx.lineTo(effect.x, effect.y); ctx.stroke();
             }

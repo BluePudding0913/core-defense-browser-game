@@ -75,6 +75,7 @@ final class SnapshotBuilder {
                 .append(",\"damage\":").append(stats.damage()).append(",\"range\":").append(stats.range())
                 .append(",\"cooldown\":").append(stats.cooldown()).append(",\"ammoPerShot\":").append(key.equals("dualPistol") ? 2 : 1)
                 .append(",\"pellets\":").append(key.equals("shotgun") ? GameConfig.SHOTGUN_PELLETS : 1).append(",\"maxTargets\":").append(key.equals("sniper") || key.equals("revolver") ? -1 : key.equals("shotgun") ? GameConfig.SHOTGUN_MAX_TARGETS : 1)
+                .append(",\"blastRadius\":").append(key.equals("rocket") ? GameConfig.ROCKET_BLAST_RADIUS : 0)
                 .append(",\"name\":\"").append(key).append("\"}");
         }
         json.append("},\"recipes\":{");
@@ -142,6 +143,7 @@ final class SnapshotBuilder {
                     .append(",\"ownsRifle\":").append(player.ownsRifle)
                     .append(",\"ownsSniper\":").append(player.ownsSniper)
                     .append(",\"ownsRevolver\":").append(player.ownsRevolver)
+                    .append(",\"ownsRocket\":").append(player.ownsRocket)
                     .append(",\"ownsLmg\":").append(player.ownsLmg)
                     .append(",\"ownsDualPistol\":").append(player.ownsDualPistol);
             json.append(",\"shotgunAmmo\":").append(player.shotgunAmmo)
@@ -149,6 +151,7 @@ final class SnapshotBuilder {
                     .append(",\"rifleAmmo\":").append(player.rifleAmmo)
                     .append(",\"sniperAmmo\":").append(player.sniperAmmo)
                     .append(",\"revolverAmmo\":").append(player.revolverAmmo)
+                    .append(",\"rocketAmmo\":").append(player.rocketAmmo)
                     .append(",\"lmgAmmo\":").append(player.lmgAmmo)
                     .append(",\"dualPistolAmmo\":").append(player.dualPistolAmmo);
             json.append(",\"wood\":").append(player.wood)
