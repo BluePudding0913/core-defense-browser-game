@@ -51,6 +51,7 @@ public final class WasdServer extends WebSocketServer {
     private boolean tlsEnabled;
     private double directoryBroadcastTimer;
     private final PerformanceMetrics performance = new PerformanceMetrics();
+    private final OutboundDispatcher outbound = new OutboundDispatcher(performance);
     private long expectedTickNanos;
     private long nextPerformanceLogNanos;
     private final long performanceLogNanos = TimeUnit.SECONDS.toNanos(
@@ -142,8 +143,8 @@ public final class WasdServer extends WebSocketServer {
             assignments.remove(previous);
             previous.close(4000, "reconnected");
         }
-        sendIfOpen(connection, GameMap.clientMapMessage());
-        sendIfOpen(connection, "{\"type\":\"welcome\",\"playerId\":\"" + assigned.id
+        queueMessage(connection, GameMap.clientMapMessage());
+        queueMessage(connection, "{\"type\":\"welcome\",\"playerId\":\"" + assigned.id
                 + "\",\"ackInput\":" + assigned.lastProcessedInput
                 + ",\"roomId\":\"" + escapeRoom(roomId) + "\",\"players\":"
                 + humanCount(room) + ",\"capacity\":" + PLAYER_COUNT
@@ -173,7 +174,7 @@ public final class WasdServer extends WebSocketServer {
                     assignment.room.ownerName = assignment.player.name;
                 }
             } catch (RuntimeException ignored) {
-                sendIfOpen(connection, "{\"type\":\"error\",\"message\":\"入力を処理できません\"}");
+                queueMessage(connection, "{\"type\":\"error\",\"message\":\"入力を処理できません\"}");
             }
         }
     }
@@ -181,6 +182,7 @@ public final class WasdServer extends WebSocketServer {
     @Override
     public void onClose(WebSocket connection, int code, String reason, boolean remote) {
         messageBudgets.remove(connection);
+        outbound.forget(connection);
         if (directoryConnections.remove(connection)) {
             directorySessions.remove(connection);
             return;
@@ -232,7 +234,7 @@ public final class WasdServer extends WebSocketServer {
             @Override
             public void send(Player player, String message) {
                 WebSocket connection = room.playerConnections.get(player);
-                sendIfOpen(connection, message);
+                outbound.offer(connection, message, message.startsWith("{\"type\":\"state\"") || message.startsWith("{\"type\":\"rooms\""), message.startsWith("{\"type\":\"effect\""));
             }
         });
         return room;
@@ -301,10 +303,14 @@ public final class WasdServer extends WebSocketServer {
         sendToRoom(room, snapshot);
     }
 
-    private static void sendToRoom(GameRoom room, String message) {
+    private void sendToRoom(GameRoom room, String message) {
         for (WebSocket connection : room.playerConnections.values()) {
-            sendIfOpen(connection, message);
+            outbound.offer(connection, message, message.startsWith("{\"type\":\"state\"") || message.startsWith("{\"type\":\"rooms\""), message.startsWith("{\"type\":\"effect\""));
         }
+    }
+
+    private void queueMessage(WebSocket connection, String message) {
+        outbound.offer(connection, message, false, false);
     }
 
     static void sendIfOpen(WebSocket connection, String message) {
@@ -336,7 +342,7 @@ public final class WasdServer extends WebSocketServer {
         String ownerName = cleanPlayerName(message.substring("CREATE_ROOM:".length()));
         synchronized (gameLock) {
             if (rooms.size() >= maxRooms) {
-                sendIfOpen(connection, "{\"type\":\"error\",\"message\":\"作成できる部屋数の上限に達しました\"}");
+                queueMessage(connection, "{\"type\":\"error\",\"message\":\"作成できる部屋数の上限に達しました\"}");
                 return;
             }
             String roomId;
@@ -344,7 +350,7 @@ public final class WasdServer extends WebSocketServer {
                 roomId = UUID.randomUUID().toString().substring(0, 6);
             } while (rooms.containsKey(roomId));
             rooms.put(roomId, createRoom(roomId, ownerSession, ownerName));
-            sendIfOpen(connection, "{\"type\":\"room-created\",\"roomId\":\"" + roomId + "\"}");
+            queueMessage(connection, "{\"type\":\"room-created\",\"roomId\":\"" + roomId + "\"}");
         }
         broadcastRoomLists();
     }
@@ -389,7 +395,7 @@ public final class WasdServer extends WebSocketServer {
                 }
                 selected.reservations.put(session, new MatchReservation(
                         System.nanoTime() + TimeUnit.SECONDS.toNanos(15), cleanPlayerName(request.path("name").asText())));
-                sendIfOpen(connection, "{\"type\":\"room-created\",\"roomId\":\"" + selected.id + "\"}");
+                queueMessage(connection, "{\"type\":\"room-created\",\"roomId\":\"" + selected.id + "\"}");
             }
         } catch (Exception invalid) {
             matchError(connection, "ルーム操作を処理できませんでした");
@@ -406,7 +412,7 @@ public final class WasdServer extends WebSocketServer {
     }
 
     private void matchError(WebSocket connection, String message) {
-        sendIfOpen(connection, "{\"type\":\"error\",\"message\":\"" + GameSupport.escapeJson(message) + "\"}");
+        queueMessage(connection, "{\"type\":\"error\",\"message\":\"" + GameSupport.escapeJson(message) + "\"}");
     }
 
     private void sendRoomList(WebSocket connection) {
@@ -434,7 +440,7 @@ public final class WasdServer extends WebSocketServer {
         json.append("]}");
         message = json.toString();
         }
-        sendIfOpen(connection, message);
+        outbound.offer(connection, message, message.startsWith("{\"type\":\"state\"") || message.startsWith("{\"type\":\"rooms\""), message.startsWith("{\"type\":\"effect\""));
     }
 
     private static String cleanPlayerName(String value) {
@@ -455,9 +461,15 @@ public final class WasdServer extends WebSocketServer {
                 supplied.getBytes(StandardCharsets.UTF_8));
     }
 
-    private static void reject(WebSocket connection, String message) {
+    private void reject(WebSocket connection, String message) {
         sendIfOpen(connection, "{\"type\":\"error\",\"message\":\"" + message + "\"}");
         connection.close(1008, "policy rejected");
+    }
+
+    @Override public void stop(int timeout, String reason) throws InterruptedException {
+        ticker.shutdownNow();
+        outbound.close();
+        super.stop(timeout, reason);
     }
 
     private void configureTls() {
