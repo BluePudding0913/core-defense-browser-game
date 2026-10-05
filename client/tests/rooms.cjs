@@ -36,6 +36,7 @@ class Socket {
 const context = {
     keys: new Set(['w']), joystick: {}, dashKey: true, pendingMove: null, firingPointer: {},
     closeHowTo: () => {}, inventoryMenu: element(), keepEndArea: () => false,
+    roundIntro: element(), roundIntroTimer: null, previousPhase: 'lost', previousRound: 5,
     WebSocket: Socket, URLSearchParams, console,
     window: { location: { hostname: 'localhost', protocol: 'http:' } },
     URL_PARAMETERS: new URLSearchParams(), clientSessionId: 'room-regression-session',
@@ -52,7 +53,7 @@ for (const name of ['nameInput', 'createRoomButton', 'joinRoomsButton', 'refresh
     'roomBrowser', 'roomLobby', 'roomCode', 'roomMembers', 'roomOwner']) context[name] = element();
 context.document = { querySelector: () => element() };
 vm.createContext(context);
-for (const name of ['connect', 'switchConnection', 'enterRoom', 'leaveRoom', 'updateRoomLobby']) {
+for (const name of ['connect', 'switchConnection', 'enterRoom', 'leaveRoom', 'updateRoomLobby', 'hideScreenIntro']) {
     vm.runInContext(extract(name), context);
 }
 // Load the actual listener registrations as well as the state-update functions.
@@ -122,7 +123,11 @@ context.myPlayerId = 1;
 run('updateRoomLobby(snapshot)');
 assert(!context.startButton.disabled);
 assert(context.readyRoomButton.classList.contains('hidden'));
+context.roundIntro.classList.add('show');
 run('leaveRoom()');
+assert(!context.roundIntro.classList.contains('show'));
+assert.equal(context.previousPhase, undefined);
+assert.equal(context.previousRound, undefined);
 assert.equal(context.keys.size, 0);
 assert.equal(context.joystick, null);
 assert.equal(context.firingPointer, null);

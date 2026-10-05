@@ -433,6 +433,9 @@ function enterRoom(roomId) {
 
 function leaveRoom() {
     keepEndArea({ phase: "lobby" });
+    hideScreenIntro();
+    previousPhase = undefined;
+    previousRound = undefined;
     endInteractionHold(true);
     keys.clear(); joystick = null; dashKey = false;
     if (pendingMove) clearTimeout(pendingMove.timer);
@@ -523,6 +526,7 @@ function receiveState(next) {
     window.coreMenu?.snapshot(next, myPlayerId, keepArea);
     const beginsRound = next.phase === "wave"
         && (previousPhase !== "wave" || next.round !== previousRound);
+    const endsDefense = ["won", "lost"].includes(next.phase) && previousPhase !== next.phase;
     if (lastCoreHp !== undefined && next.core.hp < lastCoreHp) coreHitStarted = performance.now();
     lastCoreHp = next.core.hp;
     reconcileEnemySmoothing(next);
@@ -531,6 +535,8 @@ function receiveState(next) {
     CORE.x = next.core.x;
     CORE.y = next.core.y;
     if (beginsRound) showRoundIntro(next.round);
+    else if (endsDefense) showScreenIntro(next.phase === "won" ? "防衛成功" : "防衛失敗");
+    else if (!["wave", "won", "lost"].includes(next.phase)) hideScreenIntro();
     previousRound = next.round;
     previousPhase = next.phase;
     reconcileLocalPrediction(next);
@@ -600,11 +606,19 @@ function reconcileEnemySmoothing(next) {
 }
 
 function showRoundIntro(round) {
-    roundIntro.textContent = `ROUND ${round}`;
+    showScreenIntro(`ROUND ${round}`);
+}
+
+function hideScreenIntro() {
+    clearTimeout(roundIntroTimer);
     roundIntro.classList.remove("show");
+}
+
+function showScreenIntro(text) {
+    hideScreenIntro();
+    roundIntro.textContent = text;
     void roundIntro.offsetWidth;
     roundIntro.classList.add("show");
-    clearTimeout(roundIntroTimer);
     roundIntroTimer = setTimeout(() => roundIntro.classList.remove("show"), 2400);
 }
 
