@@ -27,17 +27,17 @@ function mountMenu() {
             return;
         }
         let content = "";
-        if (view === "guest" || view === "settings") content = `<h2>プレイヤー設定</h2><form data-form="name"><label>ゲストプレイヤー名<input name="name" maxlength="16" required autocomplete="nickname" value="${escape(name)}"></label><button>保存してつづける</button></form>${view === "settings" ? back("home") : ""}`;
+        if (view === "guest" || view === "settings") content = `<h2>プレイヤー設定</h2><form data-form="name" novalidate><input name="name" maxlength="16" placeholder="ゲストプレイヤー名" aria-label="ゲストプレイヤー名" autocomplete="nickname" value="${escape(name)}"><button>決定</button></form>${view === "settings" ? back("home") : ""}`;
         if (view === "home") content = `<h1>CORE DEFENSE</h1><nav aria-label="メインメニュー">${button("quick", "クイックマッチ")}${button("phrase", "合言葉")}${back("settings").replace("戻る", "設定")}</nav>`;
         if (view === "phrase") content = `<h2>合言葉</h2><nav>${button("create", "ルーム作成")}${button("search", "ルーム検索")}</nav>${back("home")}`;
         if (view === "quick-error") content = `<h2>クイックマッチ</h2><p class="ui-connection-error" role="alert">接続できません</p>${button("quick", "再試行")}${back("home")}`;
-        if (view === "create" || view === "search") content = `<h2>${view === "create" ? "ルーム作成" : "ルーム検索"}</h2><form data-form="${view}"><label>合言葉<input name="password" maxlength="32" autocomplete="off" required></label><button ${disabled()}>${view === "create" ? "作成" : "検索して参加"}</button></form>${back("phrase")}`;
+        if (view === "create" || view === "search") content = `<h2>${view === "create" ? "ルーム作成" : "ルーム検索"}</h2><form data-form="${view}" novalidate><input name="password" maxlength="32" placeholder="合言葉" aria-label="合言葉" autocomplete="off"><button ${disabled()}>${view === "create" ? "作成" : "決定"}</button></form>${back("phrase")}`;
         if (view === "lobby" && snapshot) {
             const owner = snapshot.roomOwnerId === selfId;
             const me = snapshot.players.find(p => p.id === selfId);
             content = '<ol class="ui-members" aria-label="参加者">' + snapshot.players.filter(p => p.human).map(p => {
                 const host = p.id === snapshot.roomOwnerId;
-                return `<li class="room-member ${host || p.ready ? "ready" : ""}"><strong>${escape(p.name)}${host ? " · HOST" : ""}</strong>${host ? "" : `<span>${p.ready ? "準備完了" : "準備中"}</span>`}</li>`;
+                return `<li class="room-member ${host || p.ready ? "ready" : ""}"><strong>${escape(p.name)}</strong><span>${host ? "host" : p.ready ? "準備完了" : "準備中"}</span></li>`;
             }).join("") + '</ol>';
             content += owner ? `<button data-action="start" ${!snapshot.allReady || !connected ? "disabled" : ""}>${snapshot.phase === "lobby" ? "開始" : "もう一度プレイ"}</button>` : `<button data-action="ready" ${disabled()}>${me?.ready ? "準備を取り消す" : "準備OK"}</button>`;
             content += button("leave", "退出");
@@ -97,7 +97,7 @@ function mountMenu() {
         try {
             if (form.dataset.form === "name") {
                 const value = String(data.get("name") || "").trim().slice(0, 16);
-                if (!value) throw new Error("ゲストプレイヤー名を入力してください。");
+                if (!value) return;
                 name = value;
                 try { localStorage.setItem("core-defense-guest-name", name); } catch { /* Optional storage. */ }
                 go("home"); return;
@@ -105,7 +105,7 @@ function mountMenu() {
             if (busy) return;
             const action = form.dataset.form;
             const phrase = String(data.get("password") || "").trim();
-            if (!phrase) throw new Error("合言葉を入力してください。");
+            if (!phrase) return;
             match(action === "search" ? "join" : action, phrase);
         } catch (error) { status(error.message); }
     });

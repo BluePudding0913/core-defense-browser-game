@@ -510,8 +510,8 @@ function updateRoomLobby(snapshot) {
     roomOwner.textContent = `作成者: ${owner?.name || "接続待ち"}`;
     const humans = snapshot.players.filter(player => player.human);
     roomMembers.innerHTML = humans.map(player => `<div class="room-member ${player.id === snapshot.roomOwnerId || player.ready ? "ready" : ""}">
-        <strong>${escapeHtml(player.name)}${player.id === snapshot.roomOwnerId ? " · HOST" : ""}</strong>
-        ${player.id === snapshot.roomOwnerId ? "" : `<span>${player.ready ? "準備完了" : "準備中"}</span>`}
+        <strong>${escapeHtml(player.name)}</strong>
+        <span>${player.id === snapshot.roomOwnerId ? "host" : player.ready ? "準備完了" : "準備中"}</span>
     </div>`).join("");
     const me = snapshot.players.find(player => player.id === myPlayerId);
     const isOwner = myPlayerId === snapshot.roomOwnerId;
