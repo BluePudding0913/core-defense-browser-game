@@ -193,7 +193,7 @@ public final class WasdServer extends WebSocketServer {
                     room.game.setRoomOwner(nextOwner);
                 }
             }
-            if (room.playerConnections.isEmpty()) room.emptySinceNanos = System.nanoTime();
+            if (room.playerConnections.isEmpty()) rooms.remove(room.id, room);
         }
         broadcastRoomLists();
     }
@@ -517,6 +517,7 @@ public final class WasdServer extends WebSocketServer {
             this.id = id;
             this.ownerSession = ownerSession;
             this.ownerName = ownerName;
+            emptySinceNanos = System.nanoTime();
         }
     }
 }

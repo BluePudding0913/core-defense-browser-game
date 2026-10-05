@@ -109,6 +109,11 @@ const deadline = setTimeout(() => {
         await peer.opened;
         return peer;
     }
+    async function close(peer) {
+        const closed = new Promise(resolve => peer.ws.addEventListener('close', resolve, { once: true }));
+        peer.ws.close();
+        await closed;
+    }
     const privateDirectory = await directoryClient();
     assert.equal((await match(privateDirectory, 'create', ' ')).type, 'error');
     const privateRoom = await match(privateDirectory, 'create', phrase);
@@ -169,6 +174,27 @@ const deadline = setTimeout(() => {
     const overflowDirectory = await directoryClient();
     assert.notEqual((await match(overflowDirectory, 'quick')).roomId, quickRoom.roomId,
         'pending reservations count toward capacity');
+    // Replacing a socket must not delete the room when the old socket closes.
+    const replacement = await enter(quickDirectory, quickRoom.roomId);
+    const replacementWelcome = await replacement.next(m => m.type === 'welcome');
+    assert.equal(replacementWelcome.playerId, quickWelcome.playerId);
+    await replacement.next(m => m.type === 'state' && m.roomPlayers === 2);
+    await close(replacement);
+    await quickGuest.next(m => m.type === 'state' && m.roomPlayers === 1);
+    const observer = await directoryClient();
+    const remaining = await observer.peer.next(m => m.type === 'rooms');
+    assert(remaining.rooms.some(r => r.id === quickRoom.roomId), 'keep the room while a guest remains');
+    await close(quickGuest);
+    await observer.peer.next(m => m.type === 'rooms' && !m.rooms.some(r => r.id === quickRoom.roomId));
+    const missingPublic = await enter(observer, quickRoom.roomId);
+    assert.equal((await missingPublic.next(m => m.type === 'error')).type, 'error',
+        'the last exit removes the room even with outstanding reservations');
+    await close(friend);
+    assert.equal((await match(privateDirectory, 'join', phrase)).type, 'error');
+    const reusedPhrase = await match(privateDirectory, 'create', phrase);
+    assert(reusedPhrase.roomId, 'free the passphrase immediately after the last exit during play');
+    assert.notEqual(reusedPhrase.roomId, privateRoom.roomId);
+    console.log('Empty room cleanup passed: last exit, remaining guest, socket replacement, reservations, passphrase reuse');
     console.log('Live matching passed: private phrases, isolation, errors, quick matching, automatic CPUs, owner transfer, start, reservations');
     console.log('Live server passed: create, owner lobby, room listing, guest join, ready, start');
 })().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => {
