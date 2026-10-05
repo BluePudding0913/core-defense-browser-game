@@ -34,7 +34,7 @@ class LateRoundEnemiesTest {
         var field = GameSession.class.getDeclaredField("random");
         field.setAccessible(true);
         ((Random) field.get(game)).setSeed(20261006L);
-        Map<String, Integer> unlocks = Map.of("armored", 10, "hunter", 18, "siege", 26, "champion", 34);
+        Map<String, Integer> unlocks = Map.of("shield", 7, "armored", 10, "hunter", 18, "siege", 26, "champion", 34);
         for (int round = 1; round <= 50; round++) {
             game.round = round;
             Set<String> seen = new HashSet<>();

@@ -10,7 +10,7 @@ function extract(name) {
 const labels = [], bars = [], bodies = [];
 const ctx = {
     beginPath() {}, fill() {}, stroke() {},
-    arc(x, y, radius) { bodies.push({ radius, color: this.fillStyle }); },
+    arc(x, y, radius, start, end) { bodies.push({ radius, color: this.fillStyle, start, end }); },
     fillText(text) { labels.push(text); },
 };
 const context = vm.createContext({ ctx, Math, hitEffects: [],
@@ -20,7 +20,7 @@ const context = vm.createContext({ ctx, Math, hitEffects: [],
 });
 vm.runInContext(extract('enemyRadius'), context);
 vm.runInContext(extract('drawEnemies'), context);
-for (const type of ['grunt', 'runner', 'brute', 'boss', 'armored', 'hunter', 'siege', 'champion', 'warlord', 'titan', 'tiny']) {
+for (const type of ['grunt', 'runner', 'brute', 'boss', 'armored', 'hunter', 'siege', 'champion', 'warlord', 'titan', 'tiny', 'shield']) {
     labels.length = bars.length = bodies.length = 0;
     context.state.enemies = [{ type, x: 100, y: 100, hp: 500, maxHp: 1000 }];
     vm.runInContext('drawEnemies()', context);
@@ -30,6 +30,11 @@ for (const type of ['grunt', 'runner', 'brute', 'boss', 'armored', 'hunter', 'si
         assert.equal(bodies[0].radius, 3);
         assert(bodies.slice(1).every(eye => eye.radius < 1));
         assert.equal(labels.length, 0);
+    }
+    if (type === 'shield') {
+        assert.equal(bodies[0].radius, 24);
+        assert(bodies.some(part => part.radius === 28));
+        assert.notEqual(bodies[0].color, '#707070');
     }
     const isBoss = ['boss', 'warlord', 'titan'].includes(type);
     assert.equal(bars.length, isBoss ? 1 : 0);
@@ -41,4 +46,12 @@ for (const type of ['grunt', 'runner', 'brute', 'boss', 'armored', 'hunter', 'si
         assert.notEqual(bodies[0].color, '#707070');
     }
 }
-console.log('Enemy display passed: eleven enemy types, tiny body and eyes, distinct elite visuals and upgraded boss health bars');
+for (const [facingX, facingY] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
+    bodies.length = 0;
+    context.state.enemies = [{ type: 'shield', x: 100, y: 100, hp: 500, maxHp: 1000, facingX, facingY }];
+    vm.runInContext('drawEnemies()', context);
+    const shield = bodies.find(part => part.radius === 28);
+    assert(Math.abs((shield.start + shield.end) / 2 - Math.atan2(facingY, facingX)) < 1e-9);
+    assert(Math.abs(shield.end - shield.start - 2 * Math.PI / 3) < 1e-9);
+}
+console.log('Enemy display passed: twelve enemy types, frontal shield, tiny body and eyes, distinct elite visuals and boss health bars');

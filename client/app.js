@@ -2083,13 +2083,13 @@ function smoothEntity(prefix, entity) {
 
 function enemyRadius(enemy) {
     return ({ boss: 42, warlord: 44, titan: 48, brute: 28, armored: 30,
-        siege: 32, champion: 26, runner: 16, hunter: 18, tiny: 3 })[enemy.type] || 21;
+        siege: 32, champion: 26, runner: 16, hunter: 18, tiny: 3, shield: 24 })[enemy.type] || 21;
 }
 
 function drawEnemies() {
     const colors = { grunt: "#707070", runner: "#999", brute: "#505050", boss: "#2f2f2f",
         armored: "#626c78", hunter: "#a66e6e", siege: "#776951", champion: "#786283",
-        warlord: "#4d3030", titan: "#34253f", tiny: "#a9bd75" };
+        warlord: "#4d3030", titan: "#34253f", tiny: "#a9bd75", shield: "#466c80" };
     for (const enemy of state.enemies) {
         if (enemy.hp <= 0) continue;
         const p = smoothEntity("enemy", enemy), radius = enemyRadius(enemy);
@@ -2110,6 +2110,11 @@ function drawEnemies() {
         ctx.strokeStyle = isBoss ? "#fff" : "#c8c8c8"; ctx.lineWidth = isBoss ? 5 : Math.min(2, radius / 3); ctx.stroke();
         const eyeRadius = Math.min(3, radius * .2), eyeOffset = Math.min(3, radius * .5);
         ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(p.x - radius * .3, p.y - eyeOffset, eyeRadius, 0, Math.PI * 2); ctx.arc(p.x + radius * .3, p.y - eyeOffset, eyeRadius, 0, Math.PI * 2); ctx.fill();
+        if (enemy.type === "shield") {
+            const angle = Math.atan2(enemy.facingY ?? 1, enemy.facingX ?? 0);
+            ctx.strokeStyle = "#83d5f2"; ctx.lineWidth = 7;
+            ctx.beginPath(); ctx.arc(p.x, p.y, radius + 4, angle - Math.PI / 3, angle + Math.PI / 3); ctx.stroke();
+        }
         if (enemy.type !== "grunt" && enemy.type !== "tiny") { ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText(enemy.type.toUpperCase(), p.x, p.y + radius + 15); }
         if (isBoss) {
             drawBar(p.x - 44, p.y - radius - 17, 88, 6, clamp(enemy.hp / enemy.maxHp, 0, 1), "#ff5964");

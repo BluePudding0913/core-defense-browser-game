@@ -233,7 +233,12 @@ final class SnapshotBuilder {
             json.append("\",\"x\":").append(roundOne(enemy.x));
             json.append(",\"y\":").append(roundOne(enemy.y))
                     .append(",\"hp\":").append(roundOne(enemy.hp));
-            json.append(",\"maxHp\":").append(roundOne(enemy.maxHp)).append('}');
+            json.append(",\"maxHp\":").append(roundOne(enemy.maxHp));
+            if (enemy.type.equals("shield")) {
+                json.append(",\"facingX\":").append(enemy.facingX)
+                        .append(",\"facingY\":").append(enemy.facingY);
+            }
+            json.append('}');
         }
         json.append(']');
     }

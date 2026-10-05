@@ -625,6 +625,7 @@ final class GameSession {
         if (round >= 26 && eliteRoll < (eliteChance += 0.14)) return "siege";
         if (round >= 18 && eliteRoll < (eliteChance += 0.16)) return "hunter";
         if (round >= 10 && eliteRoll < (eliteChance += 0.18)) return "armored";
+        if (round >= 7 && eliteRoll < (eliteChance += 0.10)) return "shield";
         double bruteChance = round >= 5 ? 0.18 : 0;
         double runnerChance = round >= 3 ? 0.25 : 0;
         if (spawn.enemyBias().equals("runner")) {
@@ -656,6 +657,12 @@ final class GameSession {
         double damage;
         int reward;
         switch (type) {
+            case "shield" -> {
+                hp = 100 + round * 9;
+                speed = 32 + round * .6;
+                damage = 14 + round;
+                reward = 35;
+            }
             case "tiny" -> {
                 hp = 20 + round * 2;
                 speed = 110 + round * 2;
@@ -758,6 +765,7 @@ final class GameSession {
                     };
                     boolean hit = !target.type.equals("tiny") || random.nextDouble() < tinyHitChance;
                     double turretDamage = (17+round*.5)*(defense.type.equals("silverTurret") ? 3.5 : defense.type.equals("copperTurret") ? 2 : 1);
+                    turretDamage = target.shieldedDamage(turretDamage, slot.x, slot.y);
                     if (hit) damageEnemy(target,turretDamage,null);
                     double missAngle = Math.atan2(target.y - slot.y, target.x - slot.x) + Math.PI / 2;
                     sendHitEffect("trap", "turret", slot.x, slot.y,
@@ -843,6 +851,7 @@ final class GameSession {
                 continue;
             }
             if (playerTarget != null) {
+                enemy.faceToward(playerTarget.x, playerTarget.y);
                 double targetDistance = distance(enemy.x, enemy.y, playerTarget.x, playerTarget.y);
                 if (targetDistance <= 36) {
                     if (enemy.attackCooldown <= 0) {
@@ -864,6 +873,7 @@ final class GameSession {
             double targetDistance = distance(enemy.x, enemy.y, targetX, targetY);
 
             if (routeTarget == null && distance(enemy.x, enemy.y, coreX, coreY) <= 72) {
+                enemy.faceToward(coreX, coreY);
                 if (enemy.attackCooldown <= 0) {
                     damageCore(enemy.damage);
                     enemy.attackCooldown = 0.9;
@@ -919,6 +929,7 @@ final class GameSession {
     }
 
     private void attackDefense(Enemy enemy, TrapSlot slot) {
+        enemy.faceToward(slot.x, slot.y);
         if (enemy.attackCooldown <= 0 && slot.defense != null) {
             slot.defense.hp -= enemy.damage;
             enemy.attackCooldown = 0.9;
@@ -952,6 +963,7 @@ final class GameSession {
         }
         double dx = targetX - enemy.x;
         double dy = targetY - enemy.y;
+        enemy.faceToward(targetX, targetY);
         double length = Math.max(1, Math.hypot(dx, dy));
         double nextX = clamp(enemy.x + dx / length * amount, 18, WORLD_W - 18);
         double nextY = clamp(enemy.y + dy / length * amount, 18, WORLD_H - 18);
@@ -1102,6 +1114,7 @@ final class GameSession {
             case "champion" -> 260;
             case "siege" -> 240;
             case "armored" -> 200;
+            case "shield" -> 170;
             case "hunter" -> 190;
             case "brute" -> 180;
             case "runner" -> 125;
@@ -1741,6 +1754,7 @@ final class GameSession {
             int creditsBeforeHit = player.credits;
             boolean headshot = isHeadshot(hit, player, originX, originY, directionX, directionY, weapon, shotDistance);
             double damage = weapon.damage() * (headshot ? 2 : 1);
+            if (!player.weapon.equals("bat")) damage = hit.shieldedDamage(damage, originX, originY);
             damageEnemy(hit, damage, player);
             if (headshot) player.credits += 3;
             knockbackEnemy(originX, originY, hit, weapon.knockback());
@@ -1787,6 +1801,7 @@ final class GameSession {
             case "warlord" -> 44;
             case "titan" -> 48;
             case "armored" -> 30;
+            case "shield" -> 24;
             case "siege" -> 32;
             case "champion" -> 26;
             case "hunter" -> 18;

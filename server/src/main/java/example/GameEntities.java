@@ -187,6 +187,8 @@ final class Enemy {
     double attackCooldown;
     double specialCooldown;
     double slow = 1;
+    double facingX;
+    double facingY = 1;
     double wanderX;
     double wanderY;
     double wanderTimer;
@@ -212,6 +214,12 @@ final class Enemy {
         this.damage = damage;
         this.reward = reward;
         this.route = List.copyOf(spawn.route());
+        for (MapPoint point : route) {
+            if (Math.hypot(point.x() - x, point.y() - y) > 1) {
+                faceToward(point.x(), point.y());
+                break;
+            }
+        }
         this.targetPriority = switch (type) {
             case "hunter" -> "players";
             case "siege" -> "defenses";
@@ -226,6 +234,24 @@ final class Enemy {
 
     boolean isBoss() {
         return type.equals("boss") || type.equals("warlord") || type.equals("titan");
+    }
+
+    void faceToward(double targetX, double targetY) {
+        double dx = targetX - x, dy = targetY - y;
+        double length = Math.hypot(dx, dy);
+        if (length > .001) {
+            facingX = dx / length;
+            facingY = dy / length;
+        }
+    }
+
+    double shieldedDamage(double damage, double sourceX, double sourceY) {
+        if (!type.equals("shield")) return damage;
+        double dx = sourceX - x, dy = sourceY - y;
+        double length = Math.hypot(dx, dy);
+        // A 120-degree frontal arc; melee and explosions bypass this method.
+        return length > .001 && (dx * facingX + dy * facingY) / length >= .5 - 1e-9
+                ? damage * .2 : damage;
     }
 }
 
