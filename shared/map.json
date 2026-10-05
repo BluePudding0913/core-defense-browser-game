@@ -277,10 +277,10 @@
     {"id":"early-ore-2","type":"ore","x":1460,"y":1340,"requiredArea":"ore-room"}
   ],
   "shopUnits": [
-    {"id":"wood-factory","item":"woodFactory","label":"木材製造装置","x":1300,"y":1460,"cost":4000,"detail":"5秒で1個 / 最大20個 / 全員で共有"},
-    {"id":"ore-factory","item":"oreFactory","label":"鉄製造装置","x":1380,"y":1460,"cost":5000,"detail":"5秒で1個 / 最大20個 / 全員で共有"},
-    {"id":"copper-factory","item":"copperFactory","label":"銅製造装置","x":1460,"y":1460,"cost":7000,"detail":"8秒で1個 / 最大20個 / 全員で共有"},
-    {"id":"silver-factory","item":"silverFactory","label":"銀製造装置","x":1540,"y":1460,"cost":10000,"detail":"12秒で1個 / 最大20個 / 全員で共有"},
+    {"id":"wood-factory","item":"woodFactory","label":"QUARRY W","x":1300,"y":1460,"cost":4000,"detail":""},
+    {"id":"ore-factory","item":"oreFactory","label":"QUARRY I","x":1380,"y":1460,"cost":5000,"detail":""},
+    {"id":"copper-factory","item":"copperFactory","label":"QUARRY C","x":1460,"y":1460,"cost":7000,"detail":""},
+    {"id":"silver-factory","item":"silverFactory","label":"QUARRY S","x":1540,"y":1460,"cost":10000,"detail":""},
     {"id":"shop-shotgun","item":"shotgun","label":"SHOTGUN","x":1340,"y":1620,"cost":450,"detail":"十分な弾薬を補充できます"},
     {"id":"shop-smg","item":"smg","label":"SMG","x":1980,"y":1020,"cost":550,"detail":"十分な弾薬を補充できます"},
     {"id":"shop-ammo","item":"ammo","label":"AMMO","x":1740,"y":660,"cost":120,"detail":"Refill all owned weapons to MAX"},

@@ -23,10 +23,10 @@ for (const shop of shops) {
     open(); assert.equal(options[0].label, 'BUY'); assert(!options[0].disabled);
     assert.equal(options[0].command, 'BUY:' + shop.item);
     assert(options[0].detail.includes(shop.cost + 'G'));
-    assert(options[0].detail.includes(shop.detail));
+    assert.equal(options[0].detail, shop.cost + 'G');
     state.factories = [{ item: shop.item, purchased: true, stock: 7, capacity: 20 }];
     open(); assert(options[0].disabled); assert.equal(options[0].label, '稼働中');
-    assert(options[0].detail.includes('7/20'));
+    assert.equal(options[0].detail, '在庫 7/20');
     state.factories = [];
 }
 console.log('Material factory purchase UI passed');

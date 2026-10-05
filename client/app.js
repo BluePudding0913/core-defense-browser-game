@@ -1189,8 +1189,8 @@ function openShopPurchase(shop) {
         const factory = (state.factories || []).find(unit => unit.item === shop.item);
         openNearbyActionMenu(shop.label, [{
             label: factory?.purchased ? "稼働中" : "BUY",
-            detail: factory?.purchased ? "在庫 " + factory.stock + "/" + factory.capacity + " / 近づいて回収"
-                : shop.cost + "G / " + shop.detail,
+            detail: factory?.purchased ? "在庫 " + factory.stock + "/" + factory.capacity
+                : shop.cost + "G",
             command: "BUY:" + shop.item,
             disabled: Boolean(factory?.purchased) || !me || me.credits < shop.cost,
         }], shop, INTERACTION_RANGE.shop, "single");
