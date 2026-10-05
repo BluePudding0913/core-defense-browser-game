@@ -115,6 +115,10 @@ public final class WasdServer extends WebSocketServer {
             }
             assigned = room.game.connectPlayer(sessionId);
             if (assigned != null) {
+                MatchReservation reservation = room.reservations.remove(sessionId);
+                if (reservation != null && reservation.expiresAt() >= System.nanoTime()) {
+                    room.game.handleMessage(assigned, "HELLO:" + reservation.name());
+                }
                 assignments.put(connection, new ConnectionAssignment(room, assigned));
                 previous = room.playerConnections.put(assigned, connection);
                 room.emptySinceNanos = 0;
@@ -122,6 +126,7 @@ public final class WasdServer extends WebSocketServer {
                     room.ownerSession = sessionId;
                     room.game.setRoomOwner(assigned);
                 }
+                if (assigned.id.equals(room.game.roomOwnerId)) room.ownerName = assigned.name;
             }
         }
         if (assigned == null) {
@@ -345,7 +350,8 @@ public final class WasdServer extends WebSocketServer {
                     selected.emptySinceNanos = System.nanoTime();
                     rooms.put(id, selected);
                 }
-                selected.reservations.put(session, System.nanoTime() + TimeUnit.SECONDS.toNanos(15));
+                selected.reservations.put(session, new MatchReservation(
+                        System.nanoTime() + TimeUnit.SECONDS.toNanos(15), cleanPlayerName(request.path("name").asText())));
                 connection.send("{\"type\":\"room-created\",\"roomId\":\"" + selected.id + "\"}");
             }
         } catch (Exception invalid) {
@@ -354,7 +360,7 @@ public final class WasdServer extends WebSocketServer {
     }
 
     private boolean matchAvailable(GameRoom room, String session) {
-        room.reservations.entrySet().removeIf(e -> e.getValue() < System.nanoTime()
+        room.reservations.entrySet().removeIf(e -> e.getValue().expiresAt() < System.nanoTime()
                 || room.game.players.stream().anyMatch(p -> p.human && e.getKey().equals(p.sessionId)));
         long available = room.game.players.stream().filter(p -> !p.human
                 && (p.sessionId == null || p.reconnectGrace <= 0 || session.equals(p.sessionId))).count();
@@ -501,6 +507,7 @@ public final class WasdServer extends WebSocketServer {
     }
 
     private record ConnectionAssignment(GameRoom room, Player player) { }
+    private record MatchReservation(long expiresAt, String name) { }
 
     private static final class GameRoom {
         final String id;
@@ -509,7 +516,7 @@ public final class WasdServer extends WebSocketServer {
         String ownerSession;
         String ownerName;
         String password;
-        final Map<String, Long> reservations = new java.util.HashMap<>();
+        final Map<String, MatchReservation> reservations = new java.util.HashMap<>();
         double snapshotTimer;
         long emptySinceNanos;
 

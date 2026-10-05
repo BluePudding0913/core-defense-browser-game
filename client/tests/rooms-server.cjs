@@ -122,6 +122,8 @@ const deadline = setTimeout(() => {
     const privateWelcome = await privateHost.next(m => m.type === 'welcome');
     const privateState = await privateHost.next(m => m.type === 'state');
     assert(privateState.privateRoom);
+    assert.equal(privateState.players.find(p => p.id === privateWelcome.playerId).name, 'Host',
+        'private room names are set before the first snapshot');
     assert(privateState.allReady, 'host can start with automatic CPUs');
     assert.equal(privateState.players.length, 4);
     assert.equal(privateState.players.filter(p => !p.human).length, 3);
@@ -139,6 +141,8 @@ const deadline = setTimeout(() => {
     const friendWelcome = await friend.next(m => m.type === 'welcome');
     friend.ws.send('START');
     const guestState = await friend.next(m => m.type === 'state' && m.roomPlayers === 2);
+    assert.equal(guestState.players.find(p => p.id === friendWelcome.playerId).name, 'Host',
+        'joining by phrase sets the name before broadcasting');
     assert.equal(guestState.players.length, 4);
     assert.equal(guestState.players.filter(p => !p.human).length, 2);
     assert(!guestState.allReady);
@@ -160,12 +164,17 @@ const deadline = setTimeout(() => {
     const quickWelcome = await quickHost.next(m => m.type === 'welcome');
     const quickState = await quickHost.next(m => m.type === 'state');
     assert.equal(quickState.roomOwnerId, quickWelcome.playerId);
+    assert.equal(quickState.players.find(p => p.id === quickWelcome.playerId).name, 'Host',
+        'quick match never publishes the default Player 1 name');
     assert(!quickState.privateRoom);
     assert(quickState.allReady);
     const quickGuestDirectory = await directoryClient();
     assert.equal((await match(quickGuestDirectory, 'quick')).roomId, quickRoom.roomId);
     const quickGuest = await enter(quickGuestDirectory, quickRoom.roomId);
-    await quickGuest.next(m => m.type === 'welcome');
+    const quickGuestWelcome = await quickGuest.next(m => m.type === 'welcome');
+    const quickGuestState = await quickGuest.next(m => m.type === 'state');
+    assert.equal(quickGuestState.players.find(p => p.id === quickGuestWelcome.playerId).name, 'Host',
+        'quick match guests also have their name in the first snapshot');
     const finalDirectory = await directoryClient();
     assert.equal((await match(finalDirectory, 'quick')).roomId, quickRoom.roomId);
     const extraDirectory = await directoryClient();
