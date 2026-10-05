@@ -1169,13 +1169,14 @@ function openCoreMenu() {
 
 function openPrepConsoleMenu() {
     const me = getMe();
+    const cost = state.prepExtensionCost ?? PREP_CONSOLE.cost;
     const queued = state.phase === "wave" && state.nextPrepBonus > 0
         ? ` / 予約 +${Math.floor(state.nextPrepBonus / 60)}:00` : "";
     openNearbyActionMenu("TIME CONTROL", [{
         label: "+1:00",
-        detail: `${PREP_CONSOLE.cost}G${queued}`,
+        detail: `${cost}G${queued}`,
         command: "EXTEND_PREP",
-        disabled: !me || me.credits < PREP_CONSOLE.cost,
+        disabled: !me || me.credits < cost,
     }], PREP_CONSOLE, 95, "single");
 }
 

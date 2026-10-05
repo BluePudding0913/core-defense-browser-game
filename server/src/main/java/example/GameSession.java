@@ -1404,7 +1404,7 @@ final class GameSession {
                 .findFirst().orElse(null);
         if (obsolete != null) return botUse(bot, obsolete.x, obsolete.y, 70, () -> removeDefense(bot, obsolete.id));
         if (bot.botExtendedRound != round && prepTime < 6 && coreHp < coreMaxHp * .7
-                && bot.credits >= 10 && unlockedAreas.contains("operations-room")
+                && bot.credits >= prepExtensionCost() && unlockedAreas.contains("operations-room")
                 && isAssignedBot(bot, GameMap.PREP_CONSOLE.x(), GameMap.PREP_CONSOLE.y())) {
             return botUse(bot, GameMap.PREP_CONSOLE.x(), GameMap.PREP_CONSOLE.y(), 70, () -> {
                 extendPrepTime(bot); bot.botExtendedRound = round;
@@ -2290,6 +2290,10 @@ final class GameSession {
         }
     }
 
+    int prepExtensionCost() {
+        return GameMap.PREP_CONSOLE.cost() + Math.max(0, round - 10) * 100;
+    }
+
     private void extendPrepTime(Player player) {
         PrepConsole console = GameMap.PREP_CONSOLE;
         if (!canUseFacilities() || player.down
@@ -2298,7 +2302,7 @@ final class GameSession {
             feedback(player, "準備時間の操作端末に近づいてください");
             return;
         }
-        if (!spend(player, console.cost())) {
+        if (!spend(player, prepExtensionCost())) {
             feedback(player, "お金が足りません");
             return;
         }

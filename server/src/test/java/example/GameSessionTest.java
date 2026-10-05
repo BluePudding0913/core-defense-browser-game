@@ -935,9 +935,9 @@ class GameSessionTest {
     }
 
     @Test
-    void timeControlExtendsPreparationByOneMinuteForTenGold() {
+    void timeControlExtendsPreparationByOneMinuteForOneHundredGold() {
         startPreparing();
-        player.credits = 10;
+        player.credits = 100;
         game.unlockedAreas.add(GameMap.PREP_CONSOLE.requiredArea());
         player.x = GameMap.PREP_CONSOLE.x();
         player.y = GameMap.PREP_CONSOLE.y();
@@ -947,13 +947,13 @@ class GameSessionTest {
         game.handleMessage(player, "EXTEND_PREP");
 
         assertEquals(previousTime + 60, game.prepTime);
-        assertEquals(previousGold - 10, player.credits);
+        assertEquals(previousGold - 100, player.credits);
     }
 
     @Test
     void timeControlDuringWaveExtendsTheNextBreak() {
         startWave();
-        player.credits = 10;
+        player.credits = 100;
         game.unlockedAreas.add(GameMap.PREP_CONSOLE.requiredArea());
         player.x = GameMap.PREP_CONSOLE.x();
         player.y = GameMap.PREP_CONSOLE.y();
@@ -967,6 +967,30 @@ class GameSessionTest {
         game.update(0.05);
         assertEquals(GameConfig.PREP_SECONDS + 60, game.prepTime);
         assertEquals(0, game.nextPrepBonusSeconds);
+    }
+
+    @Test
+    void timeControlPriceTracksRoundsAndRejectsInsufficientGold() throws Exception {
+        startPreparing();
+        game.unlockedAreas.add(GameMap.PREP_CONSOLE.requiredArea());
+        player.x = GameMap.PREP_CONSOLE.x();
+        player.y = GameMap.PREP_CONSOLE.y();
+        for (int round : new int[]{0, 9, 10, 11, 12, 50}) {
+            game.round = round;
+            int price = 100 + Math.max(0, round - 10) * 100;
+            var state = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
+            assertEquals(price, state.path("prepExtensionCost").asInt());
+            double before = game.prepTime;
+            player.credits = price - 1;
+            game.handleMessage(player, "EXTEND_PREP");
+            assertEquals(before, game.prepTime);
+            assertEquals(price - 1, player.credits);
+            player.credits = price * 2;
+            game.handleMessage(player, "EXTEND_PREP");
+            game.handleMessage(player, "EXTEND_PREP");
+            assertEquals(before + 120, game.prepTime);
+            assertEquals(0, player.credits);
+        }
     }
 
     @Test

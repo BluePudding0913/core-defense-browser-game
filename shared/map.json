@@ -292,7 +292,7 @@
     {"id":"workbench-relay","x":1340,"y":380,"requiredArea":"relay-gallery"},
     {"id":"workbench-command","x":300,"y":300,"requiredArea":"command-room"}
   ],
-  "prepConsole": {"id":"prep-console","x":1260,"y":980,"requiredArea":"operations-room","cost":10,"seconds":60},
+  "prepConsole": {"id":"prep-console","x":1260,"y":980,"requiredArea":"operations-room","cost":100,"seconds":60},
   "breakerTerminals": [
     {"id":"breaker-outside","label":"OUTSIDE","x":820,"y":1940,"requiredArea":null},
     {"id":"breaker-entry","label":"ENTRY ROOM","x":1140,"y":1580,"requiredArea":"entry-room"},
