@@ -98,6 +98,7 @@ final class GameSession {
     private final GameEventSink events;
     private final List<String> activeLanes = new ArrayList<>();
     private final Random random = new Random();
+    final PerformanceMetrics performance = new PerformanceMetrics();
     private double spawnTimer;
     private int nextEnemyId = 1;
     private int nextDefenseId = 1;
@@ -1312,6 +1313,16 @@ final class GameSession {
 
     private List<MapPoint> findPath(double fromX, double fromY, double targetX, double targetY,
             double radius, boolean avoidDefenses) {
+        long started = System.nanoTime();
+        try {
+            return findPathUnmeasured(fromX, fromY, targetX, targetY, radius, avoidDefenses);
+        } finally {
+            performance.path.record(System.nanoTime() - started);
+        }
+    }
+
+    private List<MapPoint> findPathUnmeasured(double fromX, double fromY, double targetX, double targetY,
+            double radius, boolean avoidDefenses) {
         int columns = WORLD_W / GameMap.TILE_SIZE;
         int rows = WORLD_H / GameMap.TILE_SIZE;
         int startColumn = (int) clamp(Math.floor(fromX / GameMap.TILE_SIZE), 0, columns - 1);
@@ -1329,6 +1340,7 @@ final class GameSession {
 
         while (!queue.isEmpty()) {
             int current = queue.removeFirst();
+            performance.pathVisits.increment();
             int column = current % columns;
             int row = current / columns;
             for (int[] direction : directions) {
