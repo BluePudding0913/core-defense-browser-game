@@ -112,7 +112,7 @@ final class GameSession {
     GameSession(GameEventSink events) {
         this.events = events;
         for (int slot = 1; slot <= PLAYER_COUNT; slot++) players.add(new Player(slot));
-        resetWorld(false);
+        resetWorld();
     }
 
     Player connectPlayer() {
@@ -120,7 +120,7 @@ final class GameSession {
     }
 
     Player connectPlayer(String sessionId) {
-        if (phase == GamePhase.WON || phase == GamePhase.LOST) resetWorld(true);
+        if (phase == GamePhase.WON || phase == GamePhase.LOST) resetWorld();
         String reconnectId = sessionId == null || sessionId.isBlank() ? null : sessionId;
         Player assigned = reconnectId == null ? null : players.stream()
                 .filter(player -> reconnectId.equals(player.sessionId))
@@ -141,6 +141,7 @@ final class GameSession {
                 assigned.lastProcessedInput = 0;
                 assigned.name = "Player " + assigned.slot;
             }
+            refreshCpuNames();
             setNotice(assigned.name + (rejoining ? "が再参加しました" : "が参加しました"));
         }
         return assigned;
@@ -152,7 +153,7 @@ final class GameSession {
         player.human = false;
         player.roomReady = false;
         player.reconnectGrace = player.sessionId == null ? 0 : RECONNECT_GRACE_SECONDS;
-        if (player.sessionId == null) player.name = "CPU " + player.slot;
+        refreshCpuNames();
         player.moveX = 0;
         player.moveY = 0;
         player.dashHeld = false;
@@ -268,13 +269,22 @@ final class GameSession {
     }
 
     private void updateReconnectReservations(double dt) {
+        boolean expired = false;
         for (Player player : players) {
             if (player.human || player.sessionId == null) continue;
             player.reconnectGrace = Math.max(0, player.reconnectGrace - dt);
             if (player.reconnectGrace <= 0) {
                 player.sessionId = null;
-                player.name = "CPU " + player.slot;
+                expired = true;
             }
+        }
+        if (expired) refreshCpuNames();
+    }
+
+    private void refreshCpuNames() {
+        int cpuNumber = 1;
+        for (Player player : players) {
+            if (!player.human && player.sessionId == null) player.name = "CPU " + cpuNumber++;
         }
     }
 
@@ -338,7 +348,7 @@ final class GameSession {
     }
 
     private void startMatch(Player host, boolean debugMode) {
-        resetWorld(true);
+        resetWorld();
         if (debugMode) {
             host.credits = 100_000;
             GameConfig.WEAPONS.keySet().forEach(weapon -> giveBotWeapon(host, weapon));
@@ -2520,7 +2530,7 @@ final class GameSession {
             player.dashing = false;
             player.firing = false;
             releaseCarriedCore(player);
-            setNotice((player.human ? player.name : "CPU" + player.slot) + "がダウンしました");
+            setNotice(player.name + "がダウンしました");
         }
     }
 
@@ -2531,7 +2541,7 @@ final class GameSession {
         player.movingCore = false;
     }
 
-    private void resetWorld(boolean preserveHumans) {
+    private void resetWorld() {
         pathfinder.clear();
         phase = GamePhase.LOBBY;
         round = 0;
@@ -2636,9 +2646,9 @@ final class GameSession {
             player.botPathTargetX = Double.NaN;
             player.botPathTargetY = Double.NaN;
             cancelAction(player);
-            if (!preserveHumans && !player.human) player.name = "CPU " + player.slot;
             index++;
         }
+        refreshCpuNames();
     }
 
     private Player playerById(String id) {

@@ -862,7 +862,7 @@ function updateHud() {
     teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">
             <div class="teammate-label">
-                <span>${player.id === myPlayerId ? "YOU" : player.human ? escapeHtml(player.name) : `CPU${player.id.at(-1)}`}</span>
+                <span>${player.id === myPlayerId ? "YOU" : escapeHtml(player.name)}</span>
                 <span class="player-stats">${player.down ? "DOWN" : ""}<b>${player.credits}G</b></span>
             </div>
             <div class="hp-line"><span style="width:${player.hp}%"></span></div>

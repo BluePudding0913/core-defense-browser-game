@@ -28,6 +28,49 @@ class GameSessionTest {
     }
 
     @Test
+    void cpuNamesStaySequentialAsHumansJoinLeaveAndRestart() {
+        assertEquals(List.of("CPU 1", "CPU 2", "CPU 3"), cpuNames());
+        Player guest = game.connectPlayer();
+        assertEquals(List.of("CPU 1", "CPU 2"), cpuNames());
+        game.handleMessage(guest, "ROOM_READY:1");
+        game.handleMessage(player, "START");
+        assertEquals(List.of("CPU 1", "CPU 2"), cpuNames());
+        Player third = game.connectPlayer();
+        assertEquals(List.of("CPU 1"), cpuNames());
+        Player fourth = game.connectPlayer();
+        assertEquals(List.of(), cpuNames());
+        game.disconnectPlayer(guest);
+        game.disconnectPlayer(fourth);
+        assertEquals(List.of("CPU 1", "CPU 2"), cpuNames());
+        assertEquals("CPU 1", guest.name);
+        assertEquals("CPU 2", fourth.name);
+        game.phase = GamePhase.LOST;
+        game.handleMessage(third, "ROOM_READY:1");
+        game.handleMessage(player, "START");
+        assertEquals(GamePhase.PREPARING, game.phase);
+        assertEquals(List.of("CPU 1", "CPU 2"), cpuNames());
+    }
+
+    @Test
+    void reconnectReservationKeepsTheHumanNameUntilItExpires() {
+        Player guest = game.connectPlayer("test-session-b");
+        game.handleMessage(guest, "HELLO:Guest");
+        game.disconnectPlayer(guest);
+        assertEquals("Guest", guest.name);
+        assertEquals(List.of("CPU 1", "CPU 2"), cpuNames());
+        game.update(GameConfig.RECONNECT_GRACE_SECONDS + 1);
+        assertEquals(List.of("CPU 1", "CPU 2", "CPU 3"), cpuNames());
+        assertEquals("CPU 1", guest.name);
+        assertSame(guest, game.connectPlayer("test-session-b"));
+        assertEquals(List.of("CPU 1", "CPU 2"), cpuNames());
+    }
+
+    private List<String> cpuNames() {
+        return game.players.stream().filter(candidate -> !candidate.human && candidate.sessionId == null)
+                .map(candidate -> candidate.name).toList();
+    }
+
+    @Test
     void startReadyClearAndNextRoundProgressThroughExpectedPhases() {
         game.handleMessage(player, "ROOM_READY:1");
         game.handleMessage(player, "START");

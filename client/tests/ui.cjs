@@ -52,3 +52,24 @@ for(const [rescuer,target,expected] of [['ally','other',0],['me','other',1],['al
  vm.runInContext('drawPlayers()',context); assert.equal(bars.length,expected);
 }
 console.log('UI regressions passed: revive visibility, locked floors, terminal paths');
+
+context.roundElement = {};
+context.phaseElement = { classList: { add() {} } };
+context.phaseDetail = {};
+context.teamElement = {};
+context.selfVitals = { classList: { toggle() {} } };
+context.getMe = () => null;
+context.state = { round: 1, phase: 'preparing', prepTime: 60, players: [
+ { id: 'me', name: 'Host', human: true },
+ { id: 'p2', name: '<Guest>', human: true, hp: 100, credits: 0 },
+ { id: 'p3', name: 'CPU 1', human: false, hp: 100, credits: 0 },
+ { id: 'p4', name: 'CPU 2', human: false, hp: 100, credits: 0 }
+] };
+vm.runInContext(extract('escapeHtml').split('\n')[0], context);
+vm.runInContext(extract('updateHud'), context);
+vm.runInContext('updateHud()', context);
+assert.match(context.teamElement.innerHTML, /<span>CPU 1<\/span>/);
+assert.match(context.teamElement.innerHTML, /<span>CPU 2<\/span>/);
+assert.match(context.teamElement.innerHTML, /&lt;Guest&gt;/);
+assert.doesNotMatch(context.teamElement.innerHTML, /CPU[34]|Host/);
+console.log('CPU HUD names passed: server numbering and escaped player names');
