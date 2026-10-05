@@ -588,7 +588,9 @@ function updateRoomLobby(snapshot) {
 
 function reconcileEnemySmoothing(next) {
     const restarted = state && (["won", "lost"].includes(state.phase)
-        && ["lobby", "preparing"].includes(next.phase) || next.round < state.round);
+        && ["lobby", "preparing"].includes(next.phase) || next.round < state.round
+        || next.roomId !== state.roomId);
+    const receivedAt = performance.now();
     const previousIds = restarted
         ? new Set()
         : new Set((state?.enemies || []).map(enemy => enemy.id));
@@ -599,10 +601,44 @@ function reconcileEnemySmoothing(next) {
         }
     }
     for (const enemy of next.enemies) {
-        if (!previousIds.has(enemy.id) || !smoothed.has(`enemy-${enemy.id}`)) {
-            smoothed.set(`enemy-${enemy.id}`, { x: enemy.x, y: enemy.y });
-        }
+        const key = `enemy-${enemy.id}`;
+        const point = previousIds.has(enemy.id) && smoothed.has(key)
+            ? smoothed.get(key) : { x: enemy.x, y: enemy.y };
+        recordEnemyMotion(point, enemy, receivedAt);
+        smoothed.set(key, point);
     }
+}
+
+function recordEnemyMotion(point, enemy, receivedAt) {
+    const history = point.history || (point.history = []);
+    const last = history[history.length - 1];
+    if (last && (receivedAt - last.time > 500
+            || Math.hypot(enemy.x - last.x, enemy.y - last.y) > 160)) {
+        history.length = 0;
+        point.x = enemy.x;
+        point.y = enemy.y;
+    }
+    const sample = { x: enemy.x, y: enemy.y, time: receivedAt };
+    if (history.length && receivedAt <= history[history.length - 1].time) history[history.length - 1] = sample;
+    else history.push(sample);
+    if (history.length > 6) history.shift();
+}
+
+function interpolateEnemyMotion(point, now) {
+    const history = point.history;
+    // Buffer one 100ms state interval plus a small allowance for delivery jitter.
+    const renderAt = now - 120;
+    let before = history[0], after = before;
+    for (const sample of history) {
+        after = sample;
+        if (sample.time >= renderAt) break;
+        before = sample;
+    }
+    const duration = after.time - before.time;
+    const fraction = duration > 0 ? Math.max(0, Math.min(1, (renderAt - before.time) / duration)) : 0;
+    point.x = before.x + (after.x - before.x) * fraction;
+    point.y = before.y + (after.y - before.y) * fraction;
+    return point;
 }
 
 function showRoundIntro(round) {
@@ -2077,6 +2113,7 @@ function drawDefense(slot) {
 function smoothEntity(prefix, entity) {
     const key = `${prefix}-${entity.id}`;
     const point = smoothed.get(key) || { x: entity.x, y: entity.y };
+    if (prefix === "enemy" && point.history?.length) return interpolateEnemyMotion(point, performance.now());
     point.x += (entity.x - point.x) * .32; point.y += (entity.y - point.y) * .32;
     smoothed.set(key, point); return point;
 }
