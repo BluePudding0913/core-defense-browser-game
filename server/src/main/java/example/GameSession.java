@@ -342,7 +342,7 @@ final class GameSession {
         failedSpawnId = roundEvent.equals("door_failure")
                 ? activeSpawnIds.get(random.nextInt(activeSpawnIds.size())) : null;
         if (roundEvent.equals("blackout") && !blackoutActive) startBlackout();
-        spawnTimer = 0;
+        spawnTimer = round == 1 ? 8 : 0;
         nextSpawnIndex = 0;
         coreShield = coreMaxShield;
         switch (roundEvent) {
@@ -976,7 +976,7 @@ final class GameSession {
             case "smg" -> 210;
             case "rifle" -> 315;
             case "sniper" -> 450;
-            case "revolver" -> 250;
+            case "revolver" -> 360;
             case "lmg" -> 290;
             default -> 215;
         };
@@ -995,14 +995,16 @@ final class GameSession {
     private static void selectBotWeapon(Player bot, double targetDistance) {
         if (targetDistance <= 72 && (!hasBotRangedAmmo(bot) || bot.hp > 70)) {
             bot.equipWeapon("bat");
+        } else if (bot.ownsRevolver && bot.revolverAmmo > 0 && targetDistance <= 500) {
+            bot.equipWeapon("revolver");
         } else if (targetDistance > 390 && bot.ownsSniper && bot.sniperAmmo > 0) {
             bot.equipWeapon("sniper");
         } else if (targetDistance > 260 && bot.ownsRifle && bot.rifleAmmo > 0) {
             bot.equipWeapon("rifle");
         } else if (bot.ownsLmg && bot.lmgAmmo > 0 && targetDistance <= 360) {
             bot.equipWeapon("lmg");
-        } else if (bot.ownsRevolver && bot.revolverAmmo > 0 && targetDistance <= 360) {
-            bot.equipWeapon("revolver");
+        } else if (bot.ownsDualPistol && bot.dualPistolAmmo >= 2 && targetDistance <= 300) {
+            bot.equipWeapon("dualPistol");
         } else if (targetDistance > 155 && bot.ownsSmg && bot.smgAmmo > 0) {
             bot.equipWeapon("smg");
         } else if (targetDistance <= 190 && bot.ownsShotgun && bot.shotgunAmmo > 0) {
@@ -1025,7 +1027,8 @@ final class GameSession {
                 || bot.ownsRifle && bot.rifleAmmo > 0
                 || bot.ownsSniper && bot.sniperAmmo > 0
                 || bot.ownsRevolver && bot.revolverAmmo > 0
-                || bot.ownsLmg && bot.lmgAmmo > 0;
+                || bot.ownsLmg && bot.lmgAmmo > 0
+                || bot.ownsDualPistol && bot.dualPistolAmmo >= 2;
     }
 
     private void moveBotToSaferPosition(Player bot, Enemy enemy) {
@@ -1242,10 +1245,10 @@ final class GameSession {
                 .min(Comparator.comparingDouble(slot -> distance(bot.x, bot.y, slot.x, slot.y))).orElse(null);
         if (damaged != null) return botUse(bot, damaged.x, damaged.y, 70, () -> repair(bot, damaged.id));
         List<String> preference = switch (bot.slot) {
-            case 1 -> List.of("shotgun", "revolver", "rifle", "smg", "lmg", "sniper");
-            case 2 -> List.of("smg", "lmg", "shotgun", "revolver", "sniper", "rifle");
-            case 3 -> List.of("revolver", "rifle", "shotgun", "smg", "lmg", "sniper");
-            default -> List.of("sniper", "lmg", "smg", "shotgun", "revolver", "rifle");
+            case 1 -> List.of("dualPistol", "shotgun", "revolver", "rifle", "smg", "lmg", "sniper");
+            case 2 -> List.of("dualPistol", "smg", "lmg", "shotgun", "revolver", "sniper", "rifle");
+            case 3 -> List.of("dualPistol", "revolver", "rifle", "shotgun", "smg", "lmg", "sniper");
+            default -> List.of("dualPistol", "sniper", "lmg", "smg", "shotgun", "revolver", "rifle");
         };
         for (String item : preference) {
             ShopUnit shop = GameMap.shopByItem(item);
@@ -1399,6 +1402,7 @@ final class GameSession {
             case "sniper" -> bot.ownsSniper;
             case "revolver" -> bot.ownsRevolver;
             case "lmg" -> bot.ownsLmg;
+            case "dualPistol" -> bot.ownsDualPistol;
             default -> true;
         };
     }
@@ -1411,6 +1415,7 @@ final class GameSession {
             case "sniper" -> bot.ownsSniper = true;
             case "revolver" -> bot.ownsRevolver = true;
             case "lmg" -> bot.ownsLmg = true;
+            case "dualPistol" -> bot.ownsDualPistol = true;
             default -> { return; }
         }
         setWeaponAmmo(bot, item, weaponAmmoCapacity(item));
@@ -1434,7 +1439,8 @@ final class GameSession {
                 || player.weapon.equals("rifle") && player.rifleAmmo <= 0
                 || player.weapon.equals("sniper") && player.sniperAmmo <= 0
                 || player.weapon.equals("revolver") && player.revolverAmmo <= 0
-                || player.weapon.equals("lmg") && player.lmgAmmo <= 0;
+                || player.weapon.equals("lmg") && player.lmgAmmo <= 0
+                || player.weapon.equals("dualPistol") && player.dualPistolAmmo < 2;
         if (empty) {
             feedback(player, "NO AMMO");
             player.firing = false;
@@ -1446,6 +1452,7 @@ final class GameSession {
         if (player.weapon.equals("sniper")) player.sniperAmmo--;
         if (player.weapon.equals("revolver")) player.revolverAmmo--;
         if (player.weapon.equals("lmg")) player.lmgAmmo--;
+        if (player.weapon.equals("dualPistol")) player.dualPistolAmmo -= 2;
 
         player.cooldown = weapon.cooldown();
         player.cooldownMax = weapon.cooldown();
@@ -1481,8 +1488,9 @@ final class GameSession {
             int creditsBeforeHit = player.credits;
             boolean headshot = isHeadshot(hit, player, directionX, directionY,
                     weapon, shotDistance);
-            double damage = weapon.damage() * (headshot ? 1.5 : 1);
+            double damage = weapon.damage() * (headshot ? 2 : 1);
             damageEnemy(hit, damage, player);
+            if (headshot) player.credits += 3;
             knockbackEnemy(player.x, player.y, hit, weapon.knockback());
             sendHitEffect(player.id, player.weapon, player.x, player.y, hit.x, hit.y,
                     damage, hit.hp <= 0, player.credits - creditsBeforeHit, headshot);
@@ -1535,7 +1543,8 @@ final class GameSession {
             case "smg" -> new WeaponStats(270, 12, 0.14, 0, 11);
             case "rifle" -> new WeaponStats(430, 58, 1.15, 0, 8);
             case "sniper" -> new WeaponStats(650, 125, 1.8, 0, 5);
-            case "revolver" -> new WeaponStats(360, 100, .70, 12, 7);
+            case "revolver" -> new WeaponStats(500, 180, .50, 12, 7);
+            case "dualPistol" -> new WeaponStats(300, 52, .45, 0, 10);
             case "lmg" -> new WeaponStats(360, 18, .18, 0, 14);
             default -> new WeaponStats(285, 26, 0.38, 0, 10);
         };
@@ -1604,7 +1613,8 @@ final class GameSession {
                 || weapon.equals("rifle") && player.ownsRifle
                 || weapon.equals("sniper") && player.ownsSniper
                 || weapon.equals("revolver") && player.ownsRevolver
-                || weapon.equals("lmg") && player.ownsLmg;
+                || weapon.equals("lmg") && player.ownsLmg
+                || weapon.equals("dualPistol") && player.ownsDualPistol;
         if (owned) {
             releaseCarriedCore(player);
             player.equipWeapon(weapon);
@@ -1641,15 +1651,15 @@ final class GameSession {
             return;
         }
         switch (item) {
-            case "shotgun", "smg", "rifle", "sniper", "revolver", "lmg" ->
+            case "shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "dualPistol" ->
                     buyOrRefillWeapon(player, shop, item);
             case "ammo" -> {
                 if (!player.ownsShotgun && !player.ownsSmg
-                        && !player.ownsRifle && !player.ownsSniper && !player.ownsRevolver && !player.ownsLmg) {
+                        && !player.ownsRifle && !player.ownsSniper && !player.ownsRevolver && !player.ownsLmg && !player.ownsDualPistol) {
                     feedback(player, "NO AMMO WEAPON");
                     return;
                 }
-                List<String> owned = List.of("shotgun", "smg", "rifle", "sniper", "revolver", "lmg")
+                List<String> owned = List.of("shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "dualPistol")
                         .stream().filter(weapon -> botOwnsWeapon(player, weapon)).toList();
                 if (owned.stream().allMatch(weapon -> weaponAmmo(player, weapon) >= weaponAmmoCapacity(weapon))) {
                     feedback(player, "AMMO FULL");
@@ -1698,6 +1708,7 @@ final class GameSession {
             case "sniper" -> player.sniperAmmo;
             case "revolver" -> player.revolverAmmo;
             case "lmg" -> player.lmgAmmo;
+            case "dualPistol" -> player.dualPistolAmmo;
             default -> 0;
         };
     }
@@ -1710,6 +1721,7 @@ final class GameSession {
             case "sniper" -> 16;
             case "revolver" -> 36;
             case "lmg" -> 150;
+            case "dualPistol" -> 60;
             default -> 0;
         };
     }
@@ -1723,6 +1735,7 @@ final class GameSession {
             case "sniper" -> player.sniperAmmo = ammo;
             case "revolver" -> player.revolverAmmo = ammo;
             case "lmg" -> player.lmgAmmo = ammo;
+            case "dualPistol" -> player.dualPistolAmmo = ammo;
             default -> { }
         }
     }
@@ -2221,12 +2234,14 @@ final class GameSession {
             player.ownsSniper = false;
             player.ownsRevolver = false;
             player.ownsLmg = false;
+            player.ownsDualPistol = false;
             player.shotgunAmmo = 0;
             player.smgAmmo = 0;
             player.rifleAmmo = 0;
             player.sniperAmmo = 0;
             player.revolverAmmo = 0;
             player.lmgAmmo = 0;
+            player.dualPistolAmmo = 0;
             player.wood = 0;
             player.ore = 0;
             player.gatherCooldown = 0;

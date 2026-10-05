@@ -9,7 +9,7 @@ function extract(name) {
     return source.slice(begin, end < 0 ? undefined : end);
 }
 let options;
-const me = { ownsRevolver: true, revolverAmmo: 36, ownsLmg: true, lmgAmmo: 150, credits: 2000 };
+const me = { ownsDualPistol: true, dualPistolAmmo: 60, ownsRevolver: true, revolverAmmo: 36, ownsLmg: true, lmgAmmo: 150, credits: 2000 };
 const context = vm.createContext({ me, getMe: () => me, BUILD_INFO: {}, equipmentOrder: [],
     WEAPON_AMMO_REFILL_COST: 120, INTERACTION_RANGE: { shop: 100 },
     openNearbyActionMenu: (title, entries) => { options = entries; }
@@ -19,7 +19,7 @@ vm.runInContext(source.slice(start, source.indexOf('\n});', start) + 4), context
 for (const name of ['equipmentEntries', 'ammoForWeapon', 'openShopPurchase']) {
     vm.runInContext(extract(name), context);
 }
-for (const [weapon, capacity] of [['revolver', 36], ['lmg', 150]]) {
+for (const [weapon, capacity] of [['dualPistol', 60], ['revolver', 36], ['lmg', 150]]) {
     context.weapon = weapon;
     context.shop = map.shopUnits.find(shop => shop.item === weapon);
     assert(context.shop);
@@ -37,11 +37,11 @@ for (const [weapon, capacity] of [['revolver', 36], ['lmg', 150]]) {
 context.shop = map.shopUnits.find(shop => shop.item === 'ammo');
 vm.runInContext('openShopPurchase(shop)', context);
 assert.equal(options[0].label, 'REFILL');
-me.revolverAmmo = 36; me.lmgAmmo = 150;
+me.dualPistolAmmo = 60; me.revolverAmmo = 36; me.lmgAmmo = 150;
 vm.runInContext('openShopPurchase(shop)', context);
 assert.equal(options[0].label, 'FULL');
 assert(options[0].disabled);
-me.ownsRevolver = me.ownsLmg = false;
+me.ownsDualPistol = me.ownsRevolver = me.ownsLmg = false;
 vm.runInContext('openShopPurchase(shop)', context);
 assert.equal(options[0].label, 'LOCKED');
 assert(options[0].disabled);

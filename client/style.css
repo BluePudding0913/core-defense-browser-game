@@ -627,3 +627,6 @@ button, input { font: inherit; }
 .equipment-grid > button.dragging { opacity: .35; cursor: grabbing; }
 .equipment-grid > button.drop-target { background: rgb(255 255 255 / 7%); }
 .inventory-grid > button:focus-visible, .resource-actions button:focus-visible { outline: 1px solid currentColor; outline-offset: 2px; }
+
+.weapon-icon.dualPistol::before { left: .4rem; top: .4rem; width: 3.2rem; height: .6rem; box-shadow: 0 1rem 0 #aaa; }
+.weapon-icon.dualPistol::after { left: 2.8rem; top: .9rem; width: .65rem; height: .65rem; background: #888; box-shadow: 0 1rem 0 #888; }

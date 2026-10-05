@@ -73,6 +73,7 @@ const BUILD_INFO = {
     barricade: { name: "BARRICADE", wood: 6, ore: 2, description: "高耐久の進路妨害" },
 };
 const WEAPON_FIELDS = Object.freeze({
+    dualPistol: { owned: "ownsDualPistol", ammo: "dualPistolAmmo", capacity: 60 },
     shotgun: { owned: "ownsShotgun", ammo: "shotgunAmmo", capacity: 30 },
     smg: { owned: "ownsSmg", ammo: "smgAmmo", capacity: 90 },
     rifle: { owned: "ownsRifle", ammo: "rifleAmmo", capacity: 24 },
@@ -606,6 +607,7 @@ function equipmentEntries(me) {
     if (me.ownsSmg) entries.push({ key: "weapon:smg", kind: "weapon", value: "smg", label: "SMG" });
     if (me.ownsRifle) entries.push({ key: "weapon:rifle", kind: "weapon", value: "rifle", label: "RIFLE" });
     if (me.ownsSniper) entries.push({ key: "weapon:sniper", kind: "weapon", value: "sniper", label: "SNIPER" });
+    if (me.ownsDualPistol) entries.push({ key: "weapon:dualPistol", kind: "weapon", value: "dualPistol", label: "DUAL PISTOL" });
     if (me.ownsRevolver) entries.push({ key: "weapon:revolver", kind: "weapon", value: "revolver", label: "REVOLVER" });
     if (me.ownsLmg) entries.push({ key: "weapon:lmg", kind: "weapon", value: "lmg", label: "LMG" });
     for (const [type, info] of Object.entries(BUILD_INFO)) {

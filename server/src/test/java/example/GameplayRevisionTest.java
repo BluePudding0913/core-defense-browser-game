@@ -13,6 +13,88 @@ class GameplayRevisionTest {
     Player player;
     final java.util.List<String> broadcasts = new java.util.ArrayList<>();
 
+    @Test void openingWaveWaitsEightSecondsAndClearGrantsThirtySeconds() {
+        game.prepTime = 0;
+        game.update(.05);
+        assertEquals(1, game.round);
+        for (int i = 0; i < 159; i++) game.update(.05);
+        assertTrue(game.enemies.isEmpty(), "ROUND1 must allow time before spawning");
+        assertEquals(9, game.queuedEnemies);
+        game.update(.1);
+        assertFalse(game.enemies.isEmpty());
+        assertEquals(8, game.queuedEnemies);
+        game.enemies.clear(); game.queuedEnemies = 0;
+        game.update(.05);
+        assertEquals(GamePhase.PREPARING, game.phase);
+        assertEquals(30, game.prepTime);
+    }
+
+    @Test void revolverCannotBeUnlockedFromEntryButCanFromSecurity() {
+        player.credits = 10_000;
+        game.unlockedAreas.add("entry-room");
+        player.x = 940; player.y = 1580;
+        game.handleMessage(player, "UNLOCK:revolver-room");
+        assertFalse(game.unlockedAreas.contains("revolver-room"));
+        assertEquals(10_000, player.credits);
+        game.unlockedAreas.add("security-hall");
+        player.x = 500; player.y = 380;
+        game.handleMessage(player, "UNLOCK:revolver-room");
+        assertTrue(game.unlockedAreas.contains("revolver-room"));
+    }
+
+    @Test void dualPistolConsumesTwoRoundsAndSupportsRefillSnapshotAndRestart() throws Exception {
+        ShopUnit shop = GameMap.shopByItem("dualPistol");
+        player.x = shop.x(); player.y = shop.y(); player.credits = 1000;
+        game.handleMessage(player, "BUY:dualPistol");
+        assertFalse(player.ownsDualPistol);
+        game.unlockedAreas.add("dualPistol-room");
+        game.handleMessage(player, "BUY:dualPistol");
+        assertEquals(600, player.credits);
+        assertTrue(player.ownsDualPistol);
+        assertEquals(60, player.dualPistolAmmo);
+        player.x = 1020; player.y = 1900;
+        Enemy enemy = new Enemy(9300, "grunt", GameMap.SPAWN_POINTS.get(0), 500, 0, 0, 50);
+        enemy.x = 1120; enemy.y = 1900;
+        game.enemies.add(enemy);
+        game.handleMessage(player, "ATTACK:9300");
+        assertEquals(448, enemy.hp);
+        assertEquals(58, player.dualPistolAmmo);
+        assertEquals(.45, player.cooldown);
+        player.cooldown = 0; player.dualPistolAmmo = 1;
+        game.handleMessage(player, "ATTACK:9300");
+        assertEquals(448, enemy.hp, "a pair requires two rounds");
+        player.x = shop.x(); player.y = shop.y();
+        game.handleMessage(player, "BUY:dualPistol");
+        assertEquals(60, player.dualPistolAmmo);
+        player.dualPistolAmmo = 0;
+        game.unlockedAreas.add("forest");
+        ShopUnit ammo = GameMap.shopByItem("ammo");
+        player.x = ammo.x(); player.y = ammo.y();
+        game.handleMessage(player, "BUY:ammo");
+        assertEquals(60, player.dualPistolAmmo);
+        var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
+        var self = snapshot.path("players").get(player.slot - 1);
+        assertTrue(self.path("ownsDualPistol").asBoolean());
+        assertEquals(60, self.path("dualPistolAmmo").asInt());
+        game.phase = GamePhase.WON;
+        game.players.forEach(p -> p.roomReady = true);
+        game.handleMessage(player, "START");
+        assertFalse(player.ownsDualPistol);
+        assertEquals(0, player.dualPistolAmmo);
+    }
+
+    @Test void headshotsAddThreeGoldEvenWhenTheEnemyDies() {
+        player.x = 1020; player.y = 1900;
+        Enemy enemy = new Enemy(9301, "grunt", GameMap.SPAWN_POINTS.get(0), 40, 0, 0, 10);
+        enemy.x = 1120; enemy.y = 1900;
+        game.enemies.add(enemy);
+        game.handleMessage(player, "FIRE:1120:1889.5:1");
+        assertEquals(0, enemy.hp);
+        assertEquals(13, player.credits);
+        assertTrue(broadcasts.stream().anyMatch(message -> message.contains("\"headshot\":true")
+                && message.contains("\"damage\":52.0") && message.contains("\"credits\":13")));
+    }
+
     @Test void ammoUnitFillsEveryOwnedWeaponToItsCapAndNeverChargesWhenFull() {
         game.unlockedAreas.add("forest");
         ShopUnit ammo = GameMap.shopByItem("ammo");
@@ -66,14 +148,14 @@ class GameplayRevisionTest {
         }
     }
 
-    @Test void revolverTerminalMovesOneTileRightAndStillUnlocksFromTheMainRoute() {
-        UnlockArea terminal = GameMap.areaById("revolver-room");
+    @Test void dualPistolUsesTheFormerRevolverRoom() {
+        UnlockArea terminal = GameMap.areaById("dualPistol-room");
         assertEquals(860 + GameMap.TILE_SIZE, terminal.terminalX());
         assertEquals(1580, terminal.terminalY());
         game.unlockedAreas.add("entry-room");
         player.x = 940; player.y = 1580; player.credits = 1000;
-        game.handleMessage(player, "UNLOCK:revolver-room");
-        assertTrue(game.unlockedAreas.contains("revolver-room"));
+        game.handleMessage(player, "UNLOCK:dualPistol-room");
+        assertTrue(game.unlockedAreas.contains("dualPistol-room"));
         assertEquals(550, player.credits);
     }
 
@@ -96,7 +178,7 @@ class GameplayRevisionTest {
         for (String weapon : List.of("revolver", "lmg")) {
             ShopUnit shop = GameMap.shopByItem(weapon);
             int capacity = weapon.equals("revolver") ? 36 : 150;
-            int damage = weapon.equals("revolver") ? 100 : 18;
+            int damage = weapon.equals("revolver") ? 180 : 18;
             player.credits = 2000;
             player.x = shop.x(); player.y = shop.y();
             game.handleMessage(player, "BUY:" + weapon);
@@ -115,7 +197,7 @@ class GameplayRevisionTest {
             game.enemies.clear(); game.enemies.add(enemy);
             game.handleMessage(player, "ATTACK:9001");
             assertEquals(1000 - damage, enemy.hp);
-            assertEquals(weapon.equals("revolver") ? .70 : .18, player.cooldown, 1e-9);
+            assertEquals(weapon.equals("revolver") ? .50 : .18, player.cooldown, 1e-9);
             assertEquals(capacity - 1, weapon.equals("revolver") ? player.revolverAmmo : player.lmgAmmo);
             game.handleMessage(player, "ATTACK:9001");
             assertEquals(1000 - damage, enemy.hp, "cooldown prevents an immediate second shot");

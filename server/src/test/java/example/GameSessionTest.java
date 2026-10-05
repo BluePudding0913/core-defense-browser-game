@@ -151,6 +151,7 @@ class GameSessionTest {
     void enemiesCycleAcrossTheFixedSpawnLocationsForTheRound() {
         startWave();
         game.players.forEach(candidate -> candidate.human = true);
+        for (int i = 0; i < 160; i++) game.update(.05);
         for (int i = 0; i < 4; i++) game.update(1.5);
 
         Set<String> usedSpawns = game.enemies.stream().map(enemy -> enemy.spawnId)
@@ -253,9 +254,9 @@ class GameSessionTest {
         game.handleMessage(player, "FIRE:" + enemy.x + ":" + (enemy.y - 10.5) + ":1");
         game.handleMessage(player, "FIRE:" + enemy.x + ":" + (enemy.y - 10.5) + ":0");
 
-        assertEquals(461, enemy.hp, 0.001, "a pistol headshot should deal 1.5x damage");
+        assertEquals(448, enemy.hp, 0.001, "a pistol headshot should deal 2x damage");
         assertTrue(events.broadcasts.stream().anyMatch(message ->
-                message.contains("\"headshot\":true") && message.contains("\"damage\":39.0")),
+                message.contains("\"headshot\":true") && message.contains("\"damage\":52.0")),
                 "the hit effect should identify the headshot for client feedback");
     }
 
