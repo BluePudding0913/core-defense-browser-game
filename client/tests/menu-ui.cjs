@@ -19,8 +19,8 @@ for (const stage of ['any', '1', '2', '3']) {
 assert.throws(() => menu.joinPassword('wrong'));
 assert.equal(menu.joinPassword(' CORE ').visibility, 'private');
 assert.throws(() => menu.join({ members: ['A', 'B', 'C', 'CPU'] }));
-assert.throws(() => menu.create({ stage: '1', visibility: 'private', password: ' ', autoFill: true }));
-menu.create({ stage: '2', visibility: 'private', password: 'test', autoFill: true }, 1000);
+assert.throws(() => menu.create({ stage: '1', visibility: 'private', password: ' ' }));
+menu.create({ stage: '2', visibility: 'private', password: 'test' });
 assert.deepEqual(menu.room.members, ['Player', null, null, null]);
 menu.toggleCpu(1);
 assert.equal(menu.room.members[1], 'CPU');
@@ -28,19 +28,15 @@ menu.toggleCpu(1);
 assert.equal(menu.room.members[1], null);
 menu.toggleCpu(0);
 assert.equal(menu.room.members[0], 'Player');
-assert.equal(menu.tick(30999), false);
-assert.equal(menu.tick(31000), true);
+for (const slot of [1, 2, 3]) menu.toggleCpu(slot);
 assert.deepEqual(menu.room.members, ['Player', 'CPU', 'CPU', 'CPU']);
 menu.toggleCpu(2);
-assert.equal(menu.tick(32000), false, 'removed CPU must remain removed after one-shot fill');
-menu.setAutoFill(true, 40000);
-menu.setAutoFill(false, 40001);
-assert.equal(menu.tick(100000), false, 'turning off auto-fill cancels the deadline');
+assert.deepEqual(menu.room.members, ['Player', 'CPU', null, 'CPU']);
 menu.leave();
-assert.equal(menu.tick(100000), false);
+assert.equal(menu.room, null);
 menu.rooms = menu.rooms.filter(room => room.visibility === 'private');
 assert.throws(() => menu.quickMatch('any'), /公開ルーム/);
-console.log('Menu preview checks passed: name, matching, passwords, capacity, host permissions, CPU timer');
+console.log('Menu preview checks passed: name, matching, passwords, capacity, host permissions, manual CPU management');
 
 // Exercise actual screen rendering and delegated form/click handlers without a server.
 const fs = require('node:fs');
@@ -58,7 +54,7 @@ function mount(saved = {}) {
         return fields.get(selector);
     };
     const root = { innerHTML: '', addEventListener: (name, handler) => handlers[name] = handler,
-        querySelector: selector => selector === '#ui-countdown' && !root.innerHTML.includes('id="ui-countdown"') ? null : field(selector) };
+        querySelector: selector => field(selector) };
     const context = {
         document: { querySelector: () => root, activeElement: null },
         location: { search: '' }, URLSearchParams,
@@ -73,7 +69,7 @@ function mount(saved = {}) {
         submit: (name, data) => handlers.submit({ preventDefault() {}, target: { dataset: { form: name }, data } }),
         click: (action, slot) => handlers.click({ target: { closest: () => ({ dataset: { action, slot } }) } }),
         change: target => handlers.change({ target }),
-        tick: time => { now = time; timer(); }
+        tick: time => { now = time; timer?.(); }
     };
 }
 const ui = mount();
@@ -87,17 +83,28 @@ ui.click('home');
 assert.equal(ui.storage.get('core-defense-guest-name'), '<Guest>');
 assert.match(mount(Object.fromEntries(ui.storage)).root.innerHTML, /メインメニュー/);
 ui.click('create');
+assert.doesNotMatch(ui.root.innerHTML, /autoFill|自動補充|秒後/);
 ui.change({ name: 'visibility', value: 'private' });
 assert.equal(ui.field('#ui-create-password').hidden, false);
 assert.equal(ui.field('password-input').required, true);
-ui.submit('create', { stage: '3', visibility: 'private', password: '<phrase>', autoFill: 'on' });
+ui.submit('create', { stage: '3', visibility: 'private', password: '<phrase>' });
 assert.match(ui.root.innerHTML, /&lt;phrase&gt;/);
+assert.doesNotMatch(ui.root.innerHTML, /ui-auto-fill|ui-countdown|自動補充/);
 assert.equal((ui.root.innerHTML.match(/<li class=/g) || []).length, 4);
 assert.match(ui.root.innerHTML, /data-action="start" disabled/);
 ui.click('cpu', '1');
 assert.match(ui.root.innerHTML, /CPUを削除/);
-ui.tick(31000);
+ui.tick(61000);
+assert.match(ui.root.innerHTML, /data-action="start" disabled/);
+assert.equal((ui.root.innerHTML.match(/is-empty/g) || []).length, 2);
+ui.click('cpu', '2');
+ui.click('cpu', '3');
 assert.doesNotMatch(ui.root.innerHTML, /data-action="start" disabled/);
+ui.click('cpu', '2');
+ui.tick(121000);
+assert.match(ui.root.innerHTML, /data-action="start" disabled/);
+assert.equal((ui.root.innerHTML.match(/is-empty/g) || []).length, 1);
+ui.click('cpu', '2');
 ui.click('start');
 assert.match(ui.field('#ui-message').textContent, /ゲームは開始しません/);
 ui.click('leave');
@@ -111,11 +118,12 @@ ui.click('ready');
 assert.match(ui.root.innerHTML, /準備完了/);
 ui.click('leave');
 ui.click('settings');
-ui.submit('settings', { name: 'NewName', wait: '15' });
-assert.equal(ui.storage.get('core-defense-cpu-wait'), '15');
+assert.doesNotMatch(ui.root.innerHTML, /CPU補充|name="wait"/);
+ui.submit('settings', { name: 'NewName' });
+assert.equal(ui.storage.get('core-defense-guest-name'), 'NewName');
 ui.click('quick');
 assert.match(ui.root.innerHTML, /どれでも/);
 ui.submit('quick', { stage: '2' });
 assert.match(ui.root.innerHTML, /ステージ2/);
 assert.match(ui.root.innerHTML, /公開ルーム/);
-console.log('Menu screen checks passed: forms, storage, escaping, navigation, countdown, host/guest controls');
+console.log('Menu screen checks passed: forms, storage, escaping, navigation, manual CPU slots, host/guest controls');

@@ -5,7 +5,6 @@ class MenuPreview {
     constructor() {
         this.name = "";
         this.room = null;
-        this.waitSeconds = 30;
         this.ready = false;
         this.rooms = [
             { stage: "1", visibility: "public", members: ["Player1", null, null, "CPU"] },
@@ -19,21 +18,20 @@ class MenuPreview {
         if (!clean) throw new Error("ゲストプレイヤー名を入力してください。");
         this.name = clean;
     }
-    create({ stage, visibility, password, autoFill }, now = Date.now()) {
+    create({ stage, visibility, password }) {
         if (!["1", "2", "3"].includes(stage)) throw new Error("ステージを選んでください。");
         if (!["public", "private"].includes(visibility)) throw new Error("公開範囲を選んでください。");
         const phrase = password.trim();
         if (visibility === "private" && !phrase) throw new Error("合言葉を入力してください。");
         this.room = { stage, visibility, password: visibility === "private" ? phrase : "",
-            members: [this.name, null, null, null], autoFill, owner: true, selfSlot: 0,
-            deadline: autoFill ? now + this.waitSeconds * 1000 : null };
+            members: [this.name, null, null, null], owner: true, selfSlot: 0 };
         this.ready = true;
         return this.room;
     }
     join(room) {
         const slot = room.members.indexOf(null);
         if (slot < 0) throw new Error("このルームは満員です。");
-        this.room = { ...room, members: [...room.members], owner: false, selfSlot: slot, autoFill: false, deadline: null };
+        this.room = { ...room, members: [...room.members], owner: false, selfSlot: slot };
         this.room.members[slot] = this.name;
         this.ready = false;
         return this.room;
@@ -55,17 +53,6 @@ class MenuPreview {
         if (!this.room?.owner || !Number.isInteger(slot) || slot < 0 || slot > 3 || slot === this.room.selfSlot) return;
         if (this.room.members[slot] === null) this.room.members[slot] = "CPU";
         else if (this.room.members[slot] === "CPU") this.room.members[slot] = null;
-    }
-    setAutoFill(enabled, now = Date.now()) {
-        if (!this.room?.owner) return;
-        this.room.autoFill = enabled;
-        this.room.deadline = enabled ? now + this.waitSeconds * 1000 : null;
-    }
-    tick(now = Date.now()) {
-        if (!this.room?.owner || !this.room.autoFill || this.room.deadline === null || now < this.room.deadline) return false;
-        this.room.members = this.room.members.map(member => member === null ? "CPU" : member);
-        this.room.deadline = null;
-        return true;
     }
     leave() { this.room = null; this.ready = false; }
 }
@@ -89,8 +76,6 @@ function mountMenuPreview() {
     try {
         const name = localStorage.getItem("core-defense-guest-name");
         if (name?.trim()) { model.setName(name); view = "home"; }
-        const seconds = Number(localStorage.getItem("core-defense-cpu-wait"));
-        if ([15, 30, 60].includes(seconds)) model.waitSeconds = seconds;
     } catch { /* Storage is optional. */ }
     const stages = (any = false) => `${any ? '<option value="any">どれでも</option>' : ""}${[1, 2, 3].map(stage => `<option value="${stage}">ステージ${stage}</option>`).join("")}`;
 
@@ -101,9 +86,9 @@ function mountMenuPreview() {
         if (view === "guest") content = '<form data-form="guest"><label>ゲストプレイヤー名<input name="name" maxlength="16" autocomplete="nickname" required value="' + escape(model.name) + '"></label><button class="ui-primary">つづける</button></form>';
         if (view === "home") content = '<nav aria-label="メインメニュー"><button class="ui-primary" data-action="quick">クイックマッチ</button><button data-action="create">ルームを作る</button><button data-action="password">合言葉で参加</button><button class="ui-back" data-action="settings">設定</button></nav>';
         if (view === "quick") content = heading('クイックマッチ') + '<form data-form="quick"><label>ステージ<select name="stage">' + stages(true) + '</select></label><button class="ui-primary">検索して参加</button></form>' + back;
-        if (view === "create") content = heading('ルームを作る') + '<form data-form="create"><label>ステージ<select name="stage">' + stages() + '</select></label><fieldset><legend>公開範囲</legend><div class="ui-segment"><label><input type="radio" name="visibility" value="public" checked>公開</label><label><input type="radio" name="visibility" value="private">合言葉あり</label></div></fieldset><label id="ui-create-password" hidden>合言葉<input name="password" maxlength="32" disabled></label><label class="ui-check"><input type="checkbox" name="autoFill" checked>' + model.waitSeconds + '秒後に空席をCPUで補充</label><button class="ui-primary">作成</button></form>' + back;
+        if (view === "create") content = heading('ルームを作る') + '<form data-form="create"><label>ステージ<select name="stage">' + stages() + '</select></label><fieldset><legend>公開範囲</legend><div class="ui-segment"><label><input type="radio" name="visibility" value="public" checked>公開</label><label><input type="radio" name="visibility" value="private">合言葉あり</label></div></fieldset><label id="ui-create-password" hidden>合言葉<input name="password" maxlength="32" disabled></label><button class="ui-primary">作成</button></form>' + back;
         if (view === "password") content = heading('合言葉で参加') + '<form data-form="password"><label>合言葉<input name="password" maxlength="32" autocomplete="off" required></label><button class="ui-primary">参加</button></form>' + back;
-        if (view === "settings") content = heading('設定') + '<form data-form="settings"><label>ゲストプレイヤー名<input name="name" maxlength="16" autocomplete="nickname" required value="' + escape(model.name) + '"></label><label>CPU補充まで<select name="wait">' + [15, 30, 60].map(seconds => '<option value="' + seconds + '" ' + (seconds === model.waitSeconds ? 'selected' : '') + '>' + seconds + '秒</option>').join('') + '</select></label><button class="ui-primary">保存</button></form>' + back;
+        if (view === "settings") content = heading('設定') + '<form data-form="settings"><label>ゲストプレイヤー名<input name="name" maxlength="16" autocomplete="nickname" required value="' + escape(model.name) + '"></label><button class="ui-primary">保存</button></form>' + back;
         if (view === "lobby") {
             const room = model.room;
             const full = room.members.every(member => member !== null);
@@ -114,27 +99,17 @@ function mountMenuPreview() {
                 const status = index === 0 ? 'ホスト' : self ? (model.ready ? '準備完了' : 'あなた') : '';
                 return '<li class="' + (member === null ? 'is-empty' : '') + '"><span class="ui-slot">' + (index + 1) + '</span><span class="ui-member-name">' + label + '</span>' + (room.owner && (member === null || cpu) ? '<button type="button" data-action="cpu" data-slot="' + index + '" aria-label="' + (index + 1) + '番の枠のCPUを' + (cpu ? '削除' : '追加') + '">' + (cpu ? '削除' : '＋ CPU') + '</button>' : '<small>' + status + '</small>') + '</li>';
             }).join('') + '</ol>';
-            content += room.owner ? '<label class="ui-check"><input id="ui-auto-fill" type="checkbox" ' + (room.autoFill ? 'checked' : '') + '>CPU自動補充 <small id="ui-countdown"></small></label><button class="ui-primary" data-action="start" ' + (full ? '' : 'disabled') + '>開始</button>' : '<button class="ui-primary" data-action="ready">' + (model.ready ? '準備を取り消す' : '準備OK') + '</button>';
+            content += room.owner ? '<button class="ui-primary" data-action="start" ' + (full ? '' : 'disabled') + '>開始</button>' : '<button class="ui-primary" data-action="ready">' + (model.ready ? '準備を取り消す' : '準備OK') + '</button>';
             content += '<button class="ui-back" data-action="leave">退出</button>';
         }
         root.innerHTML = '<div class="ui-shell">' + (view === 'guest' || view === 'home' ? '<h1>CORE DEFENSE</h1>' : '') + '<section class="ui-content">' + content + '<p id="ui-message" role="status">' + escape(message) + '</p></section></div>';
-        updateCountdown();
         if (focus) (root.querySelector('h2') || root.querySelector('input') || root.querySelector('button'))?.focus();
     }
     function go(next) { view = next; message = ""; render(); }
     function saveSettings() {
         try {
             localStorage.setItem("core-defense-guest-name", model.name);
-            localStorage.setItem("core-defense-cpu-wait", model.waitSeconds);
         } catch { message = "このブラウザでは設定を保存できません。今回の操作には反映しました。"; }
-    }
-    function updateCountdown() {
-        const label = root.querySelector("#ui-countdown");
-        if (!label) return;
-        const room = model.room;
-        label.textContent = !room.autoFill ? ""
-            : room.deadline === null ? "完了"
-                : `あと${Math.max(0, Math.ceil((room.deadline - Date.now()) / 1000))}秒`;
     }
     root.addEventListener("submit", event => {
         event.preventDefault();
@@ -144,11 +119,10 @@ function mountMenuPreview() {
             message = "";
             if (form.dataset.form === "guest" || form.dataset.form === "settings") {
                 model.setName(data.get("name"));
-                if (form.dataset.form === "settings") model.waitSeconds = Number(data.get("wait"));
                 saveSettings();
                 view = "home";
             } else if (form.dataset.form === "create") {
-                model.create({ stage: data.get("stage"), visibility: data.get("visibility"), password: data.get("password") || "", autoFill: data.has("autoFill") });
+                model.create({ stage: data.get("stage"), visibility: data.get("visibility"), password: data.get("password") || "" });
                 view = "lobby";
             } else if (form.dataset.form === "quick") { model.quickMatch(data.get("stage")); view = "lobby"; }
             else if (form.dataset.form === "password") { model.joinPassword(data.get("password")); view = "lobby"; }
@@ -163,7 +137,6 @@ function mountMenuPreview() {
             field.querySelector("input").disabled = !privateRoom;
             field.querySelector("input").required = privateRoom;
         }
-        if (event.target.id === "ui-auto-fill") { model.setAutoFill(event.target.checked); updateCountdown(); }
     });
     root.addEventListener("click", event => {
         const button = event.target.closest("button[data-action]");
@@ -178,16 +151,5 @@ function mountMenuPreview() {
         if (action === "ready") { model.ready = !model.ready; render(false); root.querySelector('[data-action="ready"]').focus(); }
         if (action === "start") root.querySelector("#ui-message").textContent = "準備完了！ このプレビューではゲームは開始しません。";
     });
-    setInterval(() => {
-        if (view !== "lobby") return;
-        if (model.tick()) {
-            const focused = document.activeElement;
-            const focusedSelector = focused?.id === "ui-auto-fill" ? "#ui-auto-fill"
-                : focused?.dataset.slot ? `[data-slot="${focused.dataset.slot}"]`
-                    : focused?.dataset.action ? `[data-action="${focused.dataset.action}"]` : null;
-            render(false);
-            if (focusedSelector) root.querySelector(focusedSelector)?.focus();
-        } else updateCountdown();
-    }, 500);
     render(false);
 }
