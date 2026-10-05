@@ -1833,7 +1833,6 @@ final class GameSession {
                 List<String> owned = List.of("shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "ricochet", "rocket")
                         .stream().filter(weapon -> botOwnsWeapon(player, weapon)).toList();
                 if (owned.stream().allMatch(weapon -> weaponAmmo(player, weapon) >= weaponAmmoCapacity(weapon))) {
-                    feedback(player, "弾薬は満タンです");
                     return;
                 }
                 if (spend(player, shop.cost())) {
@@ -1852,7 +1851,6 @@ final class GameSession {
         if (botOwnsWeapon(player, item)) {
             int capacity = weaponAmmoCapacity(item);
             if (weaponAmmo(player, item) >= capacity) {
-                feedback(player, "弾薬は満タンです");
                 return;
             }
             if (spend(player, ammoRefillCost())) {
