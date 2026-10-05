@@ -16,7 +16,9 @@ public final class RoomLoadProbe {
         int count = args.length > 0 ? Integer.parseInt(args[0]) : 4;
         int enemies = args.length > 1 ? Integer.parseInt(args[1]) : 200;
         int seconds = args.length > 2 ? Integer.parseInt(args[2]) : 12;
-        if (count < 1 || count > 64 || enemies < 0 || seconds < 1) throw new IllegalArgumentException();
+        double speed = args.length > 3 ? Double.parseDouble(args[3]) : 0;
+        if (count < 1 || count > 64 || enemies < 0 || seconds < 1
+                || !Double.isFinite(speed) || speed < 0) throw new IllegalArgumentException();
         WasdServer server = new WasdServer("127.0.0.1", 0);
         server.setDaemon(true);
         List<Peer> peers = new ArrayList<>();
@@ -46,7 +48,7 @@ public final class RoomLoadProbe {
                     game.coreHp = game.coreMaxHp = 1e12;
                     for (int enemy = 0; enemy < enemies; enemy++) {
                         SpawnPoint spawn = GameMap.SPAWN_POINTS.get(enemy % GameMap.SPAWN_POINTS.size());
-                        game.enemies.add(new Enemy(enemy + 1, "normal", spawn, 1e9, 0, 0, 0));
+                        game.enemies.add(new Enemy(enemy + 1, "normal", spawn, 1e9, speed, 0, 0));
                     }
                 }
                 @SuppressWarnings("unchecked") Map<String, Object> rooms = (Map<String, Object>) field(server, "rooms");
@@ -87,7 +89,7 @@ public final class RoomLoadProbe {
             Thread.sleep(200);
             System.gc();
             System.out.println("LOAD rooms=" + count + " enemiesPerHeavyRoom=" + enemies + " seconds=" + seconds
-                    + " java=" + System.getProperty("java.version") + " cpus=" + Runtime.getRuntime().availableProcessors());
+                    + " enemySpeed=" + speed + " java=" + System.getProperty("java.version") + " cpus=" + Runtime.getRuntime().availableProcessors());
             System.out.println("CONTROL ack=" + peers.get(0).latency.summary()
                     + " states=" + peers.get(0).states.get() + " maxStateGapMs=" + peers.get(0).maxGap / 1e6);
             System.out.println("HEAP retainedBefore=" + heapBefore + " retainedAfter=" + heapBytes()

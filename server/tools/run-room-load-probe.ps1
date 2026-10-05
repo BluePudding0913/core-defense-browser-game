@@ -1,4 +1,4 @@
-param([int]$Rooms = 4, [int]$Enemies = 200, [int]$Seconds = 12, [string]$BaselineRef = '')
+param([int]$Rooms = 4, [int]$Enemies = 200, [int]$Seconds = 12, [string]$BaselineRef = '', [double]$Speed = 0)
 $ErrorActionPreference = 'Stop'
 Push-Location (Split-Path $PSScriptRoot -Parent)
 try {
@@ -31,6 +31,6 @@ try {
         [IO.File]::WriteAllLines((Join-Path (Get-Location) "$probeBaselineDirectory/classes/map.json"), $probeMap, [Text.UTF8Encoding]::new($false))
         $probeRuntimeClasspath = "$probeBaselineDirectory/classes;$probeRuntimeClasspath"
     }
-    & "$probeJavaHome/bin/java.exe" -Xmx512m -cp $probeRuntimeClasspath example.RoomLoadProbe $Rooms $Enemies $Seconds
+    & "$probeJavaHome/bin/java.exe" -Xmx512m -cp $probeRuntimeClasspath example.RoomLoadProbe $Rooms $Enemies $Seconds $Speed
     if ($LASTEXITCODE -ne 0) { throw 'Probe failed.' }
 } finally { Pop-Location }

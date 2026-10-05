@@ -101,6 +101,7 @@ final class GameSession {
     private final Random random = new Random();
     final PerformanceMetrics performance = new PerformanceMetrics();
     private final RoomPathfinder pathfinder = new RoomPathfinder(performance);
+    private final EnemyTravel enemyTravel = new EnemyTravel();
     private double spawnTimer;
     private int nextEnemyId = 1;
     private int nextDefenseId = 1;
@@ -996,14 +997,7 @@ final class GameSession {
     }
 
     private boolean canEnemyTravel(double fromX, double fromY, double toX, double toY) {
-        // Test the whole body, including locked areas, rather than a point sight line.
-        int steps = Math.max(1, (int) Math.ceil(distance(fromX, fromY, toX, toY) / 2));
-        for (int i = 0; i <= steps; i++) {
-            double fraction = (double) i / steps;
-            if (!GameMap.canOccupy(fromX + (toX - fromX) * fraction,
-                    fromY + (toY - fromY) * fraction, 17, unlockedAreas)) return false;
-        }
-        return true;
+        return enemyTravel.canTravel(fromX, fromY, toX, toY, 17, unlockedAreas);
     }
 
     private void damageCore(double rawDamage) {
