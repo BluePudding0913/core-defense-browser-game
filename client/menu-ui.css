@@ -1,6 +1,7 @@
 /* Match the original menu: one column, monochrome, only essential controls. */
 .menu-preview { touch-action: auto; user-select: auto; }
-.menu-preview > #menu, .menu-preview > #game, .menu-preview > #rotate-message { display: none; }
+.menu-preview > #menu, .menu-preview > #game, .menu-preview > #hud, .menu-preview > #rotate-message { display: none; }
+#menu-ui[hidden] { display: none; }
 #menu-ui { position: fixed; inset: 0; overflow-y: auto; background: #101010; padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); }
 #menu-ui .ui-shell { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 #menu-ui h1 { margin: 0 0 clamp(40px, 10vh, 100px); color: #fff; font: 800 clamp(1.35rem, 4vw, 2rem) ui-monospace, monospace; letter-spacing: .11em; white-space: nowrap; }

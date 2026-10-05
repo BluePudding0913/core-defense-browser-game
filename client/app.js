@@ -287,6 +287,7 @@ function connect() {
     const parameters = new URLSearchParams({ session: clientSessionId });
     const access = URL_PARAMETERS.get("access");
     if (access) parameters.set("access", access);
+    if (connectionTarget.phrase) parameters.set("phrase", connectionTarget.phrase);
     if (connectionTarget.mode === "directory") parameters.set("directory", "1");
     else parameters.set("room", connectionTarget.roomId);
     menuStatus.textContent = connectionTarget.mode === "directory"
@@ -295,16 +296,19 @@ function connect() {
     creatingRoom = false;
     updateRoomButtons();
     const connectingSocket = socket;
+    let welcomed = false;
     clearTimeout(connectionAttemptTimer);
     connectionAttemptTimer = setTimeout(() => {
         if (socket === connectingSocket && connectingSocket.readyState === WebSocket.CONNECTING) {
             menuStatus.textContent = "ゲームサーバーに接続できません。公開されたWSSサーバーが必要です。";
+            window.coreMenu?.status(menuStatus.textContent);
         }
     }, 6000);
     socket.addEventListener("open", () => {
         if (socket !== connectingSocket) return;
         clearTimeout(connectionAttemptTimer);
         if (connectionTarget.mode === "directory") {
+            window.coreMenu?.connected();
             menuStatus.textContent = "";
             updateRoomButtons();
             setMenuView("home");
@@ -317,6 +321,12 @@ function connect() {
         if (socket !== connectingSocket) return;
         let message;
         try { message = JSON.parse(data); } catch { return; }
+        if (message.type === "error" || message.type === "feedback") window.coreMenu?.status(message.message);
+        if (message.type === "error" && !welcomed && connectionTarget.mode !== "directory" && window.coreMenu) {
+            window.coreMenu.rejected();
+            leaveRoom();
+            return;
+        }
         if (message.type === "rooms") {
             renderRoomList(message.rooms || []);
             return;
@@ -337,6 +347,7 @@ function connect() {
             return;
         }
         if (message.type === "welcome") {
+            welcomed = true;
             myPlayerId = message.playerId;
             connectionTarget.roomId = message.roomId;
             acknowledgeInputs(message.ackInput);
@@ -376,6 +387,7 @@ function connect() {
         creatingRoom = false;
         updateRoomButtons();
         startButton.disabled = true;
+        window.coreMenu?.disconnected(menuStatus.textContent);
         clearTimeout(reconnectTimer);
         reconnectTimer = setTimeout(connect, 2000);
     });
@@ -383,6 +395,7 @@ function connect() {
         if (socket !== connectingSocket) return;
         clearTimeout(connectionAttemptTimer);
         menuStatus.textContent = "接続できません。Javaサーバーを起動してください。";
+        window.coreMenu?.status(menuStatus.textContent);
     });
 }
 
@@ -408,7 +421,7 @@ function enterRoom(roomId) {
     roomMembers.innerHTML = "";
     readyRoomButton.disabled = true;
     startButton.classList.add("hidden");
-    switchConnection({ mode: "room", roomId });
+    switchConnection({ mode: "room", roomId, phrase: window.coreMenu?.phrase || "" });
 }
 
 function leaveRoom() {
@@ -455,6 +468,7 @@ function acknowledgeInputs(value) {
 }
 
 function receiveState(next) {
+    window.coreMenu?.snapshot(next, myPlayerId);
     const beginsRound = next.phase === "wave"
         && (previousPhase !== "wave" || next.round !== previousRound);
     if (lastCoreHp !== undefined && next.core.hp < lastCoreHp) coreHitStarted = performance.now();
@@ -496,8 +510,8 @@ function updateRoomLobby(snapshot) {
     roomOwner.textContent = `作成者: ${owner?.name || "接続待ち"}`;
     const humans = snapshot.players.filter(player => player.human);
     roomMembers.innerHTML = humans.map(player => `<div class="room-member ${player.id === snapshot.roomOwnerId || player.ready ? "ready" : ""}">
-        <strong>${escapeHtml(player.name)}</strong>
-        <span>${player.id === snapshot.roomOwnerId ? "host" : player.ready ? "準備完了" : "準備中"}</span>
+        <strong>${escapeHtml(player.name)}${player.id === snapshot.roomOwnerId ? " · HOST" : ""}</strong>
+        ${player.id === snapshot.roomOwnerId ? "" : `<span>${player.ready ? "準備完了" : "準備中"}</span>`}
     </div>`).join("");
     const me = snapshot.players.find(player => player.id === myPlayerId);
     const isOwner = myPlayerId === snapshot.roomOwnerId;
@@ -2077,6 +2091,17 @@ async function initialize() {
     animate();
 }
 
+window.coreGame = {
+    match(action, password, name) {
+        if (socket?.readyState !== WebSocket.OPEN || connectionTarget.mode !== "directory") {
+            throw new Error("サーバーへの接続を待ってから再試行してください。");
+        }
+        nameInput.value = name;
+        socket.send("MATCH:" + JSON.stringify({ action, password, name }));
+    },
+    send,
+    leave: leaveRoom
+};
 initialize();
 
 function areaContains(area, x, y) {

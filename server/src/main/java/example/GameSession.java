@@ -71,6 +71,8 @@ final class GameSession {
     int blackoutBreakerTotal;
     int nextPrepBonusSeconds;
     String roomOwnerId;
+    boolean manualCpuSlots;
+    final Set<Integer> cpuSlots = new HashSet<>();
 
     private final GameEventSink events;
     private final List<String> activeLanes = new ArrayList<>();
@@ -101,6 +103,7 @@ final class GameSession {
         if (assigned == null) {
             assigned = players.stream()
                     .filter(player -> !player.human
+                            && (!manualCpuSlots || !cpuSlots.contains(player.slot))
                             && (player.sessionId == null || player.reconnectGrace <= 0))
                     .findFirst().orElse(null);
         }
@@ -165,6 +168,17 @@ final class GameSession {
                 }
             }
             case "ROOM_READY" -> setRoomReady(player, parts);
+            case "ROOM_CPU" -> {
+                if (manualCpuSlots && (phase == GamePhase.LOBBY || phase == GamePhase.WON || phase == GamePhase.LOST)
+                        && player.id.equals(roomOwnerId) && parts.length >= 2) {
+                    int slot = Integer.parseInt(parts[1]);
+                    Player target = players.stream().filter(p -> p.slot == slot && !p.human).findFirst().orElse(null);
+                    if (target != null) {
+                        if (!cpuSlots.remove(slot)) cpuSlots.add(slot);
+                        players.forEach(p -> p.roomReady = false);
+                    }
+                }
+            }
             case "MOVE" -> handleMove(player, parts);
             case "DASH" -> handleDash(player, parts);
             case "ATTACK" -> { if (parts.length >= 2) attack(player, Integer.parseInt(parts[1])); }
@@ -318,6 +332,7 @@ final class GameSession {
 
     boolean roomReadyForStart() {
         return players.stream().anyMatch(player -> player.human)
+                && (!manualCpuSlots || players.stream().allMatch(p -> p.human || cpuSlots.contains(p.slot)))
                 && players.stream().filter(player -> player.human)
                         .allMatch(player -> player.id.equals(roomOwnerId) || player.roomReady);
     }

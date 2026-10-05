@@ -93,6 +93,80 @@ const deadline = setTimeout(() => {
         && m.players.filter(p => p.human).length === 2);
     host.ws.send('INPUT:3:START');
     await host.next(m => m.type === 'state' && m.phase === 'preparing');
+    const phrase = '友達 : & <秘密>';
+    async function directoryClient() {
+        const session = randomUUID();
+        const peer = client(`${base}session=${session}&directory=1`);
+        await peer.opened;
+        return { session, peer };
+    }
+    async function match(directory, action, password = '') {
+        directory.peer.ws.send('MATCH:' + JSON.stringify({ action, password, name: 'Host' }));
+        return directory.peer.next(m => m.type === 'room-created' || m.type === 'error');
+    }
+    async function enter(directory, roomId, password = '') {
+        const peer = client(`${base}session=${directory.session}&room=${roomId}&phrase=${encodeURIComponent(password)}`);
+        await peer.opened;
+        return peer;
+    }
+    const privateDirectory = await directoryClient();
+    assert.equal((await match(privateDirectory, 'create', ' ')).type, 'error');
+    const privateRoom = await match(privateDirectory, 'create', phrase);
+    assert(privateRoom.roomId);
+    const privateHost = await enter(privateDirectory, privateRoom.roomId, phrase);
+    const privateWelcome = await privateHost.next(m => m.type === 'welcome');
+    const privateState = await privateHost.next(m => m.type === 'state');
+    assert(privateState.privateRoom);
+    assert(!privateState.allReady, 'empty slots require manual CPU selection');
+    const friendDirectory = await directoryClient();
+    friendDirectory.peer.ws.send('LIST_ROOMS');
+    const publicList = await friendDirectory.peer.next(m => m.type === 'rooms');
+    assert(!publicList.rooms.some(r => r.id === privateRoom.roomId));
+    assert(!JSON.stringify(publicList).includes(phrase));
+    assert.equal((await match(friendDirectory, 'create', phrase)).type, 'error');
+    assert.equal((await match(friendDirectory, 'join', 'wrong')).type, 'error');
+    const denied = await enter(friendDirectory, privateRoom.roomId, 'wrong');
+    assert.equal((await denied.next(m => m.type === 'error')).type, 'error');
+    assert.equal((await match(friendDirectory, 'join', ` ${phrase} `)).roomId, privateRoom.roomId);
+    const friend = await enter(friendDirectory, privateRoom.roomId, phrase);
+    const friendWelcome = await friend.next(m => m.type === 'welcome');
+    friend.ws.send('ROOM_CPU:3');
+    friend.ws.send('START');
+    const guestState = await friend.next(m => m.type === 'state' && m.roomPlayers === 2);
+    assert.deepEqual(guestState.cpuSlots, []);
+    assert.equal(guestState.phase, 'lobby');
+    privateHost.ws.send('ROOM_CPU:3');
+    privateHost.ws.send('ROOM_CPU:4');
+    await friend.next(m => m.type === 'state' && m.cpuSlots.length === 2);
+    friend.ws.send('ROOM_READY:1');
+    await privateHost.next(m => m.type === 'state' && m.allReady);
+    privateHost.ws.close();
+    await friend.next(m => m.type === 'state' && m.roomOwnerId === friendWelcome.playerId);
+    friend.ws.send('ROOM_CPU:1');
+    await friend.next(m => m.type === 'state' && m.cpuSlots.includes(1) && m.allReady);
+    friend.ws.send('START');
+    await friend.next(m => m.type === 'state' && m.phase === 'preparing');
+    assert.equal((await match(privateDirectory, 'join', phrase)).type, 'error', 'playing rooms reject search');
+    const quickDirectory = await directoryClient();
+    const quickRoom = await match(quickDirectory, 'quick');
+    assert.notEqual(quickRoom.roomId, privateRoom.roomId);
+    const quickHost = await enter(quickDirectory, quickRoom.roomId);
+    const quickWelcome = await quickHost.next(m => m.type === 'welcome');
+    const quickState = await quickHost.next(m => m.type === 'state');
+    assert.equal(quickState.roomOwnerId, quickWelcome.playerId);
+    assert(!quickState.privateRoom);
+    quickHost.ws.send('ROOM_CPU:4');
+    await quickHost.next(m => m.type === 'state' && m.cpuSlots.includes(4));
+    const quickGuestDirectory = await directoryClient();
+    assert.equal((await match(quickGuestDirectory, 'quick')).roomId, quickRoom.roomId);
+    const quickGuest = await enter(quickGuestDirectory, quickRoom.roomId);
+    await quickGuest.next(m => m.type === 'welcome');
+    const finalDirectory = await directoryClient();
+    assert.equal((await match(finalDirectory, 'quick')).roomId, quickRoom.roomId);
+    const extraDirectory = await directoryClient();
+    assert.notEqual((await match(extraDirectory, 'quick')).roomId, quickRoom.roomId,
+        'pending reservations and CPU slots count toward capacity');
+    console.log('Live matching passed: private phrases, isolation, duplicate/error cases, quick host, CPU permissions, owner transfer, start, reservations');
     console.log('Live server passed: create, owner lobby, room listing, guest join, ready, start');
 })().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => {
     clearTimeout(deadline);
