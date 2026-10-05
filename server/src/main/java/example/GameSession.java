@@ -1716,7 +1716,7 @@ final class GameSession {
     private static int weaponAmmoCapacity(String item) {
         return switch (item) {
             case "shotgun" -> 30;
-            case "smg" -> 90;
+            case "smg" -> 300;
             case "rifle" -> 24;
             case "sniper" -> 16;
             case "revolver" -> 36;

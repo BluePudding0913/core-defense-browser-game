@@ -75,7 +75,7 @@ const BUILD_INFO = {
 const WEAPON_FIELDS = Object.freeze({
     dualPistol: { owned: "ownsDualPistol", ammo: "dualPistolAmmo", capacity: 60 },
     shotgun: { owned: "ownsShotgun", ammo: "shotgunAmmo", capacity: 30 },
-    smg: { owned: "ownsSmg", ammo: "smgAmmo", capacity: 90 },
+    smg: { owned: "ownsSmg", ammo: "smgAmmo", capacity: 300 },
     rifle: { owned: "ownsRifle", ammo: "rifleAmmo", capacity: 24 },
     sniper: { owned: "ownsSniper", ammo: "sniperAmmo", capacity: 16 },
     revolver: { owned: "ownsRevolver", ammo: "revolverAmmo", capacity: 36 },

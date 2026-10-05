@@ -172,7 +172,7 @@ class GameSessionTest {
         game.handleMessage(player, "BUY:smg");
         assertTrue(player.ownsSmg);
         assertEquals("smg", player.weapon);
-        assertEquals(90, player.smgAmmo);
+        assertEquals(300, player.smgAmmo);
 
         ShopUnit sniperShop = GameMap.shopByItem("sniper");
         player.x = sniperShop.x();
@@ -186,7 +186,7 @@ class GameSessionTest {
         player.x = ammoShop.x();
         player.y = ammoShop.y();
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(90, player.smgAmmo);
+        assertEquals(300, player.smgAmmo);
         assertEquals(16, player.sniperAmmo);
     }
 
