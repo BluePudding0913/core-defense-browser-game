@@ -791,6 +791,7 @@ function updateHud() {
     if (me) {
         const health = clamp(me.hp, 0, 100);
         healthHeart.style.setProperty("--health", `${health}%`);
+        healthHeart.classList.toggle("full", health === 100);
         healthHeart.setAttribute("aria-label", `体力 ${Math.ceil(health)}%`);
         selfCredits.textContent = `${me.credits}G`;
         const selectedBuild = me.selectedBuild && (me.buildItems?.[me.selectedBuild] || 0) > 0
