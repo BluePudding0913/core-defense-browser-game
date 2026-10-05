@@ -22,7 +22,6 @@ import static example.GameSupport.distance;
 import static example.GameSupport.escapeJson;
 import static example.GameSupport.roundOne;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -99,6 +98,7 @@ final class GameSession {
     private final List<String> activeLanes = new ArrayList<>();
     private final Random random = new Random();
     final PerformanceMetrics performance = new PerformanceMetrics();
+    private final RoomPathfinder pathfinder = new RoomPathfinder(performance);
     private double spawnTimer;
     private int nextEnemyId = 1;
     private int nextDefenseId = 1;
@@ -1315,65 +1315,10 @@ final class GameSession {
             double radius, boolean avoidDefenses) {
         long started = System.nanoTime();
         try {
-            return findPathUnmeasured(fromX, fromY, targetX, targetY, radius, avoidDefenses);
+            return pathfinder.find(fromX, fromY, targetX, targetY, radius, avoidDefenses, unlockedAreas, trapSlots);
         } finally {
             performance.path.record(System.nanoTime() - started);
         }
-    }
-
-    private List<MapPoint> findPathUnmeasured(double fromX, double fromY, double targetX, double targetY,
-            double radius, boolean avoidDefenses) {
-        int columns = WORLD_W / GameMap.TILE_SIZE;
-        int rows = WORLD_H / GameMap.TILE_SIZE;
-        int startColumn = (int) clamp(Math.floor(fromX / GameMap.TILE_SIZE), 0, columns - 1);
-        int startRow = (int) clamp(Math.floor(fromY / GameMap.TILE_SIZE), 0, rows - 1);
-        int start = startRow * columns + startColumn;
-        int[] parent = new int[columns * rows];
-        java.util.Arrays.fill(parent, -1);
-        parent[start] = start;
-        ArrayDeque<Integer> queue = new ArrayDeque<>();
-        queue.add(start);
-        int best = start;
-        double bestDistance = distance((startColumn + 0.5) * GameMap.TILE_SIZE,
-                (startRow + 0.5) * GameMap.TILE_SIZE, targetX, targetY);
-        int[][] directions = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
-
-        while (!queue.isEmpty()) {
-            int current = queue.removeFirst();
-            performance.pathVisits.increment();
-            int column = current % columns;
-            int row = current / columns;
-            for (int[] direction : directions) {
-                int nextColumn = column + direction[0];
-                int nextRow = row + direction[1];
-                if (nextColumn < 0 || nextColumn >= columns || nextRow < 0 || nextRow >= rows) {
-                    continue;
-                }
-                int next = nextRow * columns + nextColumn;
-                if (parent[next] >= 0) continue;
-                double x = (nextColumn + 0.5) * GameMap.TILE_SIZE;
-                double y = (nextRow + 0.5) * GameMap.TILE_SIZE;
-                if (!(avoidDefenses ? canOccupy(x, y, radius)
-                        : GameMap.canOccupy(x, y, radius, unlockedAreas))) continue;
-                parent[next] = current;
-                queue.addLast(next);
-                double targetDistance = distance(x, y, targetX, targetY);
-                if (targetDistance < bestDistance) {
-                    bestDistance = targetDistance;
-                    best = next;
-                }
-            }
-        }
-        if (best == start) return List.of();
-        List<MapPoint> path = new ArrayList<>();
-        for (int current = best; current != start; current = parent[current]) {
-            int column = current % columns;
-            int row = current / columns;
-            path.add(new MapPoint((column + 0.5) * GameMap.TILE_SIZE,
-                    (row + 0.5) * GameMap.TILE_SIZE));
-        }
-        Collections.reverse(path);
-        return List.copyOf(path);
     }
 
     private void moveBotAway(Player bot, double x, double y) {
@@ -2557,6 +2502,7 @@ final class GameSession {
     }
 
     private void resetWorld(boolean preserveHumans) {
+        pathfinder.clear();
         phase = GamePhase.LOBBY;
         round = 0;
         prepTime = 0;
