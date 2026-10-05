@@ -52,3 +52,15 @@ soundContext.window.coreAudio.play('shotgun');
 assert.equal(activeAudio[0].path, 'sounds/shotgun.mp3');
 for (const file of fs.readdirSync('client/sounds')) assert.equal(fs.statSync('client/sounds/' + file).size, 0);
 console.log('Gameplay UI passed: tap/hold/cancel/down/placement, authoritative rules, silent audio placeholders');
+
+const entranceLines = [];
+context.TILE_MAP = { tileSize: 40, rows: ['###', '#.#', '###'], legend: { '#': { solid: true }, '.': { solid: false } } };
+context.state = { phase: 'wave', activeSpawns: ['area-room'], areas: { room: true } };
+context.ctx = { save() {}, restore() {}, beginPath() {}, moveTo(x, y) { entranceLines.push([x, y]); }, lineTo() {}, stroke() {} };
+vm.runInContext(extract('drawSpawnEntrance'), context);
+run('drawSpawnEntrance({id:"area-room", x:60, y:60})');
+assert.equal(entranceLines.length, 1);
+assert.equal(context.ctx.strokeStyle, '#ff5964');
+context.state.areas.room = false;
+run('drawSpawnEntrance({id:"area-room", x:60, y:60})');
+assert.equal(entranceLines.length, 1, 'locked rooms hide their wall markers');

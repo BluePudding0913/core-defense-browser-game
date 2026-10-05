@@ -87,6 +87,7 @@ function mountMenu() {
     }
     window.coreMenu = {
         phrase: "",
+        exited() { window.coreMenu.phrase = ""; snapshot = null; lastLobby = ""; quickRequested = false; root.hidden = false; document.body.classList.add("menu-preview"); go("home"); },
         status,
         rejected() { connected = false; busy = false; snapshot = null; lastLobby = ""; view = quickRequested ? "quick-error" : window.coreMenu.phrase ? (view === "create" ? "create" : "search") : "home"; render(); },
         connected() { connected = true; status(); },

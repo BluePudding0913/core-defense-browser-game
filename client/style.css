@@ -631,3 +631,6 @@ button, input { font: inherit; }
 
 .weapon-icon.dualPistol::before { left: .4rem; top: .4rem; width: 3.2rem; height: .6rem; box-shadow: 0 1rem 0 #aaa; }
 .weapon-icon.dualPistol::after { left: 2.8rem; top: .9rem; width: .65rem; height: .65rem; background: #888; box-shadow: 0 1rem 0 #888; }
+
+#game { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12'%3E%3Ccircle cx='6' cy='6' r='3' fill='%230078ff'/%3E%3C/svg%3E") 6 6, crosshair; }
+.leave-game { position: absolute; left: 12px; top: 12px; pointer-events: auto; border: 1px solid #777; border-radius: 4px; padding: 5px 9px; background: #181818; color: #eee; cursor: pointer; }

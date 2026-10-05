@@ -34,6 +34,8 @@ class Socket {
     message(message) { this.handlers.message({ data: JSON.stringify(message) }); }
 }
 const context = {
+    keys: new Set(['w']), joystick: {}, dashKey: true, pendingMove: null, firingPointer: {},
+    closeHowTo: () => {}, inventoryMenu: element(),
     WebSocket: Socket, URLSearchParams, console,
     window: { location: { hostname: 'localhost', protocol: 'http:' } },
     URL_PARAMETERS: new URLSearchParams(), clientSessionId: 'room-regression-session',
@@ -121,6 +123,11 @@ run('updateRoomLobby(snapshot)');
 assert(!context.startButton.disabled);
 assert(context.readyRoomButton.classList.contains('hidden'));
 run('leaveRoom()');
+assert.equal(context.keys.size, 0);
+assert.equal(context.joystick, null);
+assert.equal(context.firingPointer, null);
+assert.equal(context.dashKey, false);
+assert(context.inventoryMenu.classList.contains('hidden'));
 assert(!context.nameInput.classList.contains('hidden'));
 assert.equal(context.nameInput.value, 'あ');
 assert(context.createRoomButton.disabled && context.joinRoomsButton.disabled);

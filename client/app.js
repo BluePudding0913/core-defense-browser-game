@@ -430,6 +430,12 @@ function enterRoom(roomId) {
 }
 
 function leaveRoom() {
+    endInteractionHold(true);
+    keys.clear(); joystick = null; dashKey = false;
+    if (pendingMove) clearTimeout(pendingMove.timer);
+    pendingMove = null; firingPointer = null;
+    closeActionMenu(); inventoryMenu.classList.add("hidden"); closeHowTo();
+    window.coreMenu?.exited();
     setMenuView("home");
     hitEffects = [];
     state = undefined;
@@ -608,6 +614,12 @@ refreshRoomsButton.addEventListener("click", () => {
     }
 });
 leaveRoomButton.addEventListener("click", leaveRoom);
+document.querySelector("#leave-game").addEventListener("click", () => {
+    if (window.confirm("ゲームから退出しますか？")) {
+        window.coreMenu.phrase = "";
+        leaveRoom();
+    }
+});
 
 let equipmentOrder = loadEquipmentOrder();
 function loadEquipmentOrder() {
@@ -1693,8 +1705,29 @@ function drawWorld() {
             }
         }
     }
+    SPAWN_POINTS.forEach(drawSpawnEntrance);
     if (DEBUG_MODE) SPAWN_POINTS.forEach(drawDebugSpawn);
     ctx.strokeStyle = "#5f5f5f"; ctx.lineWidth = 3; ctx.strokeRect(1, 1, WORLD.width - 2, WORLD.height - 2);
+}
+
+function drawSpawnEntrance(spawn) {
+    if (spawn.id.startsWith("area-") && !state?.areas[spawn.id.slice(5)]) return;
+    const TILE_SIZE = TILE_MAP.tileSize;
+    const cell = { column: Math.floor(spawn.x / TILE_SIZE), row: Math.floor(spawn.y / TILE_SIZE) };
+    const incoming = state?.phase === "wave" && state.activeSpawns.includes(spawn.id);
+    ctx.save();
+    ctx.strokeStyle = incoming ? "#ff5964" : "#996536";
+    ctx.lineWidth = 5;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const symbol = TILE_MAP.rows[cell.row + dy]?.[cell.column + dx];
+        const wall = TILE_MAP.legend[symbol];
+        if (!wall?.solid) continue;
+        const x = spawn.x + dx * TILE_SIZE / 2, y = spawn.y + dy * TILE_SIZE / 2;
+        ctx.beginPath(); ctx.moveTo(x - dy * 13, y - dx * 13);
+        ctx.lineTo(x + dy * 13, y + dx * 13); ctx.stroke();
+        break;
+    }
+    ctx.restore();
 }
 
 function drawDebugSpawn(spawn) {
@@ -2091,10 +2124,14 @@ function drawHitEffects() {
             const progress = (now - effect.started) / 900;
             ctx.save();
             ctx.globalAlpha = 1 - progress;
-            ctx.fillStyle = "white";
+            ctx.fillStyle = "#164b70";
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 3;
             ctx.font = "900 11px ui-monospace, monospace";
             ctx.textAlign = "center";
-            ctx.fillText(`+${RESOURCE_NAMES[effect.resource] || effect.resource}`,
+            ctx.strokeText(`+${RESOURCE_NAMES[effect.resource] || effect.resource}${effect.amount > 1 ? ` ×${effect.amount}` : ""}`,
+                effect.x, effect.y - 18 - progress * 22);
+            ctx.fillText(`+${RESOURCE_NAMES[effect.resource] || effect.resource}${effect.amount > 1 ? ` ×${effect.amount}` : ""}`,
                 effect.x, effect.y - 18 - progress * 22);
             ctx.restore();
             continue;
@@ -2103,7 +2140,7 @@ function drawHitEffects() {
         if (age < 360) {
             const progress = age / 360;
             ctx.save(); ctx.globalAlpha = 1 - progress; ctx.strokeStyle = "#ff5964";
-            if (!["bat", "mine"].includes(effect.weapon) && progress < .55) {
+            if ((effect.weapon !== "shotgun" || effect.damage === 0) && !["bat", "mine"].includes(effect.weapon) && progress < .55) {
                 ctx.lineWidth = 1.35;
                 ctx.beginPath(); ctx.moveTo(effect.fromX, effect.fromY); ctx.lineTo(effect.x, effect.y); ctx.stroke();
             }

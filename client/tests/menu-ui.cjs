@@ -211,3 +211,8 @@ context.window.coreMenu.status(error);
 submit('name', { name: 'Host' });
 assert.doesNotMatch(root.innerHTML, /参加できるルームが見つかりません/);
 console.log('Live menu passed: navigation, server requests, snapshots, permissions, disconnect, gameplay');
+context.window.coreMenu.phrase = 'private phrase';
+context.window.coreMenu.exited();
+assert.equal(root.hidden, false);
+assert.equal(context.window.coreMenu.phrase, '');
+assert.match(root.innerHTML, /data-action="quick"/);
