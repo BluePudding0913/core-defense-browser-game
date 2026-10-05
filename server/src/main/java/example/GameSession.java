@@ -914,8 +914,7 @@ final class GameSession {
             bot.dashHeld = false;
             bot.botSpendCooldown = Math.max(0, bot.botSpendCooldown - dt);
             if (bot.down) {
-                bot.moveX = 0;
-                bot.moveY = 0;
+                updateDownedBot(bot);
                 continue;
             }
 
@@ -979,6 +978,27 @@ final class GameSession {
                     steerBot(bot, 0, 0);
                 }
             }
+        }
+    }
+
+    private void updateDownedBot(Player bot) {
+        bot.moveX = bot.moveY = 0;
+        List<Player> survivors = players.stream().filter(player -> !player.down)
+                .sorted(Comparator.comparingDouble(player -> distance(bot.x, bot.y, player.x, player.y)))
+                .toList();
+        for (Player survivor : survivors) {
+            if (distance(bot.x, bot.y, survivor.x, survivor.y) <= 65
+                    && GameMap.hasClearLine(bot.x, bot.y, survivor.x, survivor.y)) return;
+            MapPoint waypoint = nextBotWaypoint(bot, survivor.x, survivor.y);
+            if (waypoint == null) continue;
+            double dx = waypoint.x() - bot.x;
+            double dy = waypoint.y() - bot.y;
+            double length = Math.max(1, Math.hypot(dx, dy));
+            // Crawling must not be pushed away from rescuers by normal bot steering.
+            bot.moveX = dx / length;
+            bot.moveY = dy / length;
+            updateFacing(bot, bot.moveX, bot.moveY);
+            return;
         }
     }
 
