@@ -106,10 +106,10 @@ class GameplayRevisionTest {
         player.ownsShotgun = player.ownsSmg = player.ownsRifle = true;
         player.ownsSniper = player.ownsRevolver = player.ownsLmg = true;
         player.shotgunAmmo = 29; player.smgAmmo = 1; player.rifleAmmo = 12;
-        player.sniperAmmo = 0; player.revolverAmmo = 35; player.lmgAmmo = 150;
+        player.sniperAmmo = 0; player.revolverAmmo = 25; player.lmgAmmo = 150;
         game.handleMessage(player, "BUY:ammo");
         assertEquals(880, player.credits);
-        assertEquals(List.of(90, 240, 96, 48, 108, 600), List.of(player.shotgunAmmo,
+        assertEquals(List.of(90, 240, 96, 48, 30, 600), List.of(player.shotgunAmmo,
                 player.smgAmmo, player.rifleAmmo, player.sniperAmmo, player.revolverAmmo, player.lmgAmmo));
         for (int i = 0; i < 3; i++) game.handleMessage(player, "BUY:ammo");
         assertEquals(880, player.credits);
@@ -228,7 +228,7 @@ class GameplayRevisionTest {
         ShopUnit ammo = GameMap.shopByItem("ammo");
         player.x = ammo.x(); player.y = ammo.y();
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(108, player.revolverAmmo);
+        assertEquals(30, player.revolverAmmo);
         assertEquals(600, player.lmgAmmo);
     }
 

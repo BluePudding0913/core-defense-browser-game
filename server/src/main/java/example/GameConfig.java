@@ -35,7 +35,7 @@ final class GameConfig {
     static final int SHOTGUN_MAX_TARGETS = 4;
     static final Map<String, Integer> AMMO_CAPACITIES = Map.of(
             "shotgun", 90, "smg", 240, "rifle", 96, "sniper", 48,
-            "revolver", 108, "lmg", 600, "ricochet", 240, "rocket", 12);
+            "revolver", 30, "lmg", 600, "ricochet", 240, "rocket", 12);
     static final Map<String, WeaponStats> WEAPONS = Map.of(
             "pistol", new WeaponStats(285, 26, .38, 0, 2),
             "bat", new WeaponStats(96, 20, 1, 115, 26),
