@@ -28,3 +28,6 @@ tailscale-*.log
 
 #for AI-Agents
 AGENTS.md
+
+# Codex development worktree
+/td-codex/
