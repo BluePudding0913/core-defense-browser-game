@@ -120,7 +120,7 @@ click('quick');
 assert.equal(calls.length, beforeQuick + 1, 'ignore duplicate clicks while matching');
 assert.deepEqual(calls.at(-1), ['quick', '', '<Host>']);
 context.window.coreMenu.status('満員'); context.window.coreMenu.rejected();
-assert.match(root.innerHTML, /クイックマッチ/);
+assert.doesNotMatch(root.innerHTML, /<h2>|クイックマッチ/);
 assert.match(root.innerHTML, /接続できません/);
 assert.match(root.innerHTML, /再試行/);
 click('home');

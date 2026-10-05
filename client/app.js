@@ -300,7 +300,7 @@ function connect() {
     clearTimeout(connectionAttemptTimer);
     connectionAttemptTimer = setTimeout(() => {
         if (socket === connectingSocket && connectingSocket.readyState === WebSocket.CONNECTING) {
-            menuStatus.textContent = "ゲームサーバーに接続できません。公開されたWSSサーバーが必要です。";
+            menuStatus.textContent = "接続できません。時間をおいて再試行してください。";
             window.coreMenu?.status(menuStatus.textContent);
         }
     }, 6000);
@@ -341,7 +341,7 @@ function connect() {
                 menuStatus.textContent = "";
             } catch (error) {
                 console.error(error);
-                menuStatus.textContent = "サーバーのマップデータが不正です。サーバーを再ビルドしてください。";
+                menuStatus.textContent = "ゲームデータを読み込めません。時間をおいて再試行してください。";
                 startButton.disabled = true;
             }
             return;
@@ -394,7 +394,7 @@ function connect() {
     socket.addEventListener("error", () => {
         if (socket !== connectingSocket) return;
         clearTimeout(connectionAttemptTimer);
-        menuStatus.textContent = "接続できません。Javaサーバーを起動してください。";
+        menuStatus.textContent = "接続できません。時間をおいて再試行してください。";
         window.coreMenu?.status(menuStatus.textContent);
     });
 }
