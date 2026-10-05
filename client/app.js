@@ -1999,11 +1999,14 @@ function smoothEntity(prefix, entity) {
 }
 
 function enemyRadius(enemy) {
-    return enemy.type === "boss" ? 42 : enemy.type === "brute" ? 28 : enemy.type === "runner" ? 16 : 21;
+    return ({ boss: 42, warlord: 44, titan: 48, brute: 28, armored: 30,
+        siege: 32, champion: 26, runner: 16, hunter: 18 })[enemy.type] || 21;
 }
 
 function drawEnemies() {
-    const colors = { grunt: "#707070", runner: "#999", brute: "#505050", boss: "#2f2f2f" };
+    const colors = { grunt: "#707070", runner: "#999", brute: "#505050", boss: "#2f2f2f",
+        armored: "#626c78", hunter: "#a66e6e", siege: "#776951", champion: "#786283",
+        warlord: "#4d3030", titan: "#34253f" };
     for (const enemy of state.enemies) {
         if (enemy.hp <= 0) continue;
         const p = smoothEntity("enemy", enemy), radius = enemyRadius(enemy);
@@ -2020,10 +2023,11 @@ function drawEnemies() {
             ctx.restore();
         }
         ctx.fillStyle = colors[enemy.type] || colors.grunt; ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = enemy.type === "boss" ? "#fff" : "#c8c8c8"; ctx.lineWidth = enemy.type === "boss" ? 5 : 2; ctx.stroke();
+        const isBoss = ["boss", "warlord", "titan"].includes(enemy.type);
+        ctx.strokeStyle = isBoss ? "#fff" : "#c8c8c8"; ctx.lineWidth = isBoss ? 5 : 2; ctx.stroke();
         ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(p.x - radius * .3, p.y - 3, 3, 0, Math.PI * 2); ctx.arc(p.x + radius * .3, p.y - 3, 3, 0, Math.PI * 2); ctx.fill();
         if (enemy.type !== "grunt") { ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText(enemy.type.toUpperCase(), p.x, p.y + radius + 15); }
-        if (enemy.type === "boss") {
+        if (isBoss) {
             drawBar(p.x - 44, p.y - radius - 17, 88, 6, clamp(enemy.hp / enemy.maxHp, 0, 1), "#ff5964");
             ctx.fillStyle = "#fff"; ctx.font = "800 10px ui-monospace, monospace"; ctx.textAlign = "center";
             ctx.fillText(`${Math.ceil(enemy.hp)} / ${Math.ceil(enemy.maxHp)}`, p.x, p.y - radius - 23);

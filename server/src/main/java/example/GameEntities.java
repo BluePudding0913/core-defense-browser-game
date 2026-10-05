@@ -211,11 +211,20 @@ final class Enemy {
         this.damage = damage;
         this.reward = reward;
         this.route = List.copyOf(spawn.route());
-        this.targetPriority = spawn.targetPriority();
-        this.specialCooldown = type.equals("boss") ? 4.5 : 0;
+        this.targetPriority = switch (type) {
+            case "hunter" -> "players";
+            case "siege" -> "defenses";
+            case "warlord", "titan" -> "core";
+            default -> spawn.targetPriority();
+        };
+        this.specialCooldown = isBoss() ? 4.5 : 0;
         this.wanderX = Math.floorMod(id * 47, 41) - 20;
         this.wanderY = Math.floorMod(id * 71, 41) - 20;
         this.wanderTimer = 0.55 + Math.floorMod(id, 7) * 0.11;
+    }
+
+    boolean isBoss() {
+        return type.equals("boss") || type.equals("warlord") || type.equals("titan");
     }
 }
 

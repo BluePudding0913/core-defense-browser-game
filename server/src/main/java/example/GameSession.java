@@ -548,7 +548,7 @@ final class GameSession {
         if (spawnTimer > 0) return;
         SpawnPoint spawn = nextRoundSpawn();
         if (queuedBosses > 0 && queuedEnemies <= queuedBosses * 2) {
-            spawnEnemy("boss", spawn);
+            spawnEnemy(round >= 40 ? "titan" : round >= 24 ? "warlord" : "boss", spawn);
             queuedBosses--;
         } else if (queuedEnemies > 0) {
             spawnEnemy(selectEnemyType(spawn), spawn);
@@ -560,6 +560,13 @@ final class GameSession {
     }
 
     private String selectEnemyType(SpawnPoint spawn) {
+        // Reserve a growing share for elites, retaining each entrance's original mix.
+        double eliteRoll = random.nextDouble();
+        double eliteChance = 0;
+        if (round >= 34 && eliteRoll < (eliteChance += 0.12)) return "champion";
+        if (round >= 26 && eliteRoll < (eliteChance += 0.14)) return "siege";
+        if (round >= 18 && eliteRoll < (eliteChance += 0.16)) return "hunter";
+        if (round >= 10 && eliteRoll < (eliteChance += 0.18)) return "armored";
         double bruteChance = round >= 5 ? 0.18 : 0;
         double runnerChance = round >= 3 ? 0.25 : 0;
         if (spawn.enemyBias().equals("runner")) {
@@ -608,6 +615,42 @@ final class GameSession {
                 speed = 32;
                 damage = 48;
                 reward = 475;
+            }
+            case "armored" -> {
+                hp = 260 + round * 18;
+                speed = 42 + round;
+                damage = 24 + round * 1.5;
+                reward = 65;
+            }
+            case "hunter" -> {
+                hp = 90 + round * 8;
+                speed = 170 + round * 3;
+                damage = 16 + round * 1.2;
+                reward = 55;
+            }
+            case "siege" -> {
+                hp = 380 + round * 22;
+                speed = 34 + round * 0.6;
+                damage = 38 + round * 2;
+                reward = 95;
+            }
+            case "champion" -> {
+                hp = 300 + round * 20;
+                speed = 105 + round * 1.5;
+                damage = 28 + round * 1.6;
+                reward = 110;
+            }
+            case "warlord" -> {
+                hp = 1900 + round * 55;
+                speed = 42;
+                damage = 68;
+                reward = 650;
+            }
+            case "titan" -> {
+                hp = 2600 + round * 70;
+                speed = 36;
+                damage = 90;
+                reward = 850;
             }
             default -> {
                 hp = 56 + round * 6.25;
@@ -693,12 +736,12 @@ final class GameSession {
             }
 
             advanceEnemyRoute(enemy);
-            if (enemy.type.equals("boss")) {
+            if (enemy.isBoss()) {
                 enemy.specialCooldown = Math.max(0, enemy.specialCooldown - dt);
                 if (enemy.specialCooldown <= 0
                         && distance(enemy.x, enemy.y, coreX, coreY) <= 260) {
                     useBossCorePulse(enemy);
-                    enemy.specialCooldown = 6;
+                    enemy.specialCooldown = enemy.type.equals("titan") ? 4 : enemy.type.equals("warlord") ? 5 : 6;
                 }
             }
             double defenseRange = switch (enemy.targetPriority) {
@@ -962,7 +1005,11 @@ final class GameSession {
         double score = 1_050 - Math.min(1_050, distance(enemy.x, enemy.y, coreX, coreY));
         score += enemy.routeIndex * 85;
         score += switch (enemy.type) {
-            case "boss" -> 460;
+            case "boss", "warlord", "titan" -> 460;
+            case "champion" -> 260;
+            case "siege" -> 240;
+            case "armored" -> 200;
+            case "hunter" -> 190;
             case "brute" -> 180;
             case "runner" -> 125;
             default -> 70;
@@ -973,7 +1020,7 @@ final class GameSession {
         score -= distance(bot.x, bot.y, enemy.x, enemy.y) * 0.34;
         long otherClaims = players.stream().filter(player -> player != bot && !player.human
                 && player.botTargetEnemyId == enemy.id).count();
-        score -= otherClaims * (enemy.type.equals("boss") ? 35 : 145);
+        score -= otherClaims * (enemy.isBoss() ? 35 : 145);
         return score;
     }
 
@@ -1609,6 +1656,12 @@ final class GameSession {
     private static double enemyRadius(Enemy enemy) {
         return switch (enemy.type) {
             case "boss" -> 42;
+            case "warlord" -> 44;
+            case "titan" -> 48;
+            case "armored" -> 30;
+            case "siege" -> 32;
+            case "champion" -> 26;
+            case "hunter" -> 18;
             case "brute" -> 28;
             case "runner" -> 16;
             default -> 21;
