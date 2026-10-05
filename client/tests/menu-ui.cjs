@@ -17,7 +17,7 @@ const root = { get innerHTML() { return markup; }, set innerHTML(value) {
     activeForm = formType ? { dataset: { form: formType },
         querySelector: selector => selector === 'input' ? input : matchButton } : null;
 },
-    hidden: false, querySelector: field,
+    hidden: false, querySelector: selector => selector === '.ui-search-result' && !markup.includes('ui-search-result') ? null : field(selector),
     querySelectorAll: selector => selector === 'form' && activeForm ? [activeForm] : [],
     addEventListener: (event, handler) => handlers[event] = handler };
 const body = { classList: { add() {}, remove() {}, toggle() {} }, append(script) { assert.equal(script.src, 'app.js'); } };
@@ -62,9 +62,11 @@ assert.match(root.innerHTML, /クイックマッチ/);
 assert.match(root.innerHTML, />合言葉</);
 assert.doesNotMatch(root.innerHTML, /ルーム作成|ルーム検索/);
 click('phrase');
+assert.doesNotMatch(root.innerHTML, /<h2>/, 'passphrase menu has no heading');
 assert.match(root.innerHTML, /ルーム作成/);
 assert.match(root.innerHTML, /ルーム検索/);
 click('create');
+assert.doesNotMatch(root.innerHTML, /<h2>/, 'creation form has no heading');
 assert.match(root.innerHTML, /name="password"[^>]*placeholder="合言葉"/);
 assert.doesNotMatch(root.innerHTML, /<label|\brequired\b/);
 assert.doesNotMatch(root.innerHTML, /visibility|公開/);
@@ -137,6 +139,9 @@ assert.doesNotMatch(root.innerHTML, /ルーム一覧から切断|ui-message/);
 click('home');
 context.window.coreMenu.connected();
 click('phrase'); click('search');
+assert.doesNotMatch(root.innerHTML, /<h2>/, 'search heading is replaced by results');
+const result = field('.ui-search-result');
+assert(result.hidden, 'no result is shown before searching');
 assert.match(root.innerHTML, />決定<\/button>/);
 assert.doesNotMatch(root.innerHTML, /検索して参加|<label|\brequired\b/);
 assert(matchButton.disabled, 'search starts with disabled confirmation');
@@ -149,12 +154,32 @@ assert.equal(renderCount, beforeRejection, 'preserve search password when room e
 context.window.coreMenu.connected();
 const error = '参加できるルームが見つかりません。合言葉・満員・プレイ中でないか確認してください';
 context.window.coreMenu.status(error);
-assert.doesNotMatch(root.innerHTML, /ui-message|参加できるルームが見つかりません/);
+assert.equal(result.textContent, '見つかりませんでした');
+assert(!result.hidden);
+assert.equal(renderCount, beforeRejection, 'results do not replace the input DOM');
+context.window.coreMenu.connected();
+assert.equal(result.textContent, '見つかりませんでした', 'reconnection preserves the result');
+edit('別の合言葉');
+assert(result.hidden, 'editing clears the old result');
+submit('search', { password: '別の合言葉' });
+assert.equal(result.textContent, '検索中…');
+assert(!result.hidden);
+assert(matchButton.disabled);
+context.window.coreMenu.status('<接続エラー>');
+assert.equal(result.textContent, '<接続エラー>', 'errors are rendered as text');
+assert(!matchButton.disabled, 'failed search allows retry');
+submit('search', { password: '別の合言葉' });
+context.window.coreMenu.disconnected();
+assert.equal(result.textContent, '接続できません', 'disconnection ends the searching message');
+assert(matchButton.disabled);
+context.window.coreMenu.connected();
 click('phrase');
 assert.doesNotMatch(root.innerHTML, /参加できるルームが見つかりません/);
 click('create');
 assert.doesNotMatch(root.innerHTML, /参加できるルームが見つかりません/);
 context.window.coreMenu.status(error);
+click('phrase'); click('search');
+assert(result.hidden, 'reopening search clears its previous result');
 click('home'); click('settings');
 assert(!matchButton.disabled, 'saved name enables confirmation even without a connection');
 assertEmptyGating('saved player name settings', '<Host>');
