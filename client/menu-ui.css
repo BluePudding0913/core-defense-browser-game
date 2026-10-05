@@ -4,11 +4,11 @@
 #menu-ui[hidden] { display: none; }
 #menu-ui { position: fixed; inset: 0; z-index: 9; overflow-y: auto; background: #101010; padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); }
 #menu-ui .ui-shell { min-height: 100%; display: grid; align-content: safe center; justify-items: center; }
-#menu-ui .ui-content { width: min(22rem, 100%); text-align: center; }
+#menu-ui .ui-content { position: relative; width: min(22rem, 100%); text-align: center; }
 #menu-ui h1 { margin: 0 0 clamp(40px, 12vh, 100px); color: #fff; font: 800 clamp(1.5rem, 4vw, 2rem) ui-monospace, monospace; letter-spacing: .11em; text-align: center; }
 #menu-ui h2 { margin: 0 0 24px; font-size: 1rem; text-align: center; outline: none; }
 #menu-ui .ui-connection-error, #menu-ui .ui-search-result { margin: 0 0 24px; color: rgb(255 255 255 / 70%); font-size: .85rem; }
-#menu-ui .ui-search-result { height: 2.8em; line-height: 1.4; overflow-y: auto; overflow-wrap: anywhere; }
+#menu-ui .ui-search-result { position: absolute; bottom: 100%; left: 0; right: 0; height: 2.8em; line-height: 1.4; overflow-y: auto; overflow-wrap: anywhere; }
 #menu-ui nav, #menu-ui form { display: grid; gap: .55rem; }
 #menu-ui button, #menu-ui input { width: 100%; min-height: 44px; padding: .72rem .9rem; border: 1px solid rgb(255 255 255 / 58%); border-radius: .3rem; background: rgb(255 255 255 / 8%); color: #fff; font: inherit; }
 #menu-ui button { font-weight: 900; cursor: pointer; }
@@ -26,3 +26,4 @@
 #menu-ui .room-member.ready span { color: var(--accent-blue); }
 #menu-ui [hidden] { display: none !important; }
 @media (max-height: 520px) { #menu-ui .ui-shell { align-content: start; } #menu-ui h1 { margin-bottom: 24px; } }
+@media (max-height: 520px) { #menu-ui .ui-shell:has(form[data-form="create"]), #menu-ui .ui-shell:has(form[data-form="search"]) { padding-top: 64px; } }
