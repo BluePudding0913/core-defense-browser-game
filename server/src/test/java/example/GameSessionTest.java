@@ -431,7 +431,7 @@ class GameSessionTest {
         assertEquals(0, player.ore, "ore must remain locked when only the wood room is open");
         game.unlockedAreas.add("ore-room");
         game.update(0.05);
-        assertEquals(1, player.ore);
+        assertEquals(3, player.ore);
     }
 
     @Test

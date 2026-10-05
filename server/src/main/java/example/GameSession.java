@@ -509,8 +509,12 @@ final class GameSession {
                     .filter(player -> !player.down && distance(player.x, player.y, node.x, node.y) <= 24)
                     .findFirst().orElse(null);
             if (collector == null) continue;
-            addResource(collector, node.type, node.type.equals("copper") ? 3 : 1);
-            int amount = node.type.equals("copper") ? 3 : 1;
+            int amount = switch (node.type) {
+                case "copper" -> 2;
+                case "ore" -> 3;
+                default -> 1;
+            };
+            addResource(collector, node.type, amount);
             node.available = false;
             node.respawnTimer = 7 + Math.floorMod(node.id.hashCode(), 5);
             events.broadcast("{\"type\":\"effect\",\"effect\":\"pickup\",\"resource\":\""
