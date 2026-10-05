@@ -1156,7 +1156,7 @@ function canBuildAt(point, forCore = false) {
 function openCoreMenu() {
     const core = state.core;
     const { hp: hpCost, shield: shieldCost, defense: defenseCost, regen: regenCost } = state.rules.coreCosts;
-    openNearbyActionMenu(`CORE HP ${Math.ceil(core.hp)} / ${Math.ceil(core.maxHp)}`, [
+    openNearbyActionMenu(`CORE HP ${Math.ceil(core.hp)} / ${Math.ceil(core.maxHp)} · SHIELD ${Math.ceil(core.shield)} / ${Math.ceil(core.maxShield)}`, [
         option("MAX HP +250", hpCost, "UPGRADE:hp"),
         option("SHIELD +180", shieldCost, "UPGRADE:shield"),
         option(`DEFENSE Lv.${core.defense + 1}`, defenseCost, "UPGRADE:defense", core.defense >= 4),
@@ -1876,6 +1876,8 @@ function drawCore() {
         ctx.strokeRect(x - hitSize / 2, y - hitSize / 2, hitSize, hitSize);
     }
     ctx.restore();
+    ctx.fillStyle = "#70bfff"; ctx.font = "900 10px ui-monospace, monospace"; ctx.textAlign = "center";
+    ctx.fillText(`SHIELD ${Math.ceil(core.shield)} / ${Math.ceil(core.maxShield)}`, x, y - size / 2 - 12);
     if (!carrier) {
         ctx.fillStyle = "white"; ctx.font = "900 8px ui-monospace, monospace"; ctx.textAlign = "center";
         ctx.fillText("CORE", x, y + 3);
