@@ -40,7 +40,7 @@ interface GameEventSink {
 
 /** Authoritative state and rules for one four-player match. */
 final class GameSession {
-    private static final double BOT_REACTION_SECONDS = 0.5;
+    private static final double BOT_REACTION_SECONDS = 1.5;
 
     static int ammoRefillCost() {
         return 120;

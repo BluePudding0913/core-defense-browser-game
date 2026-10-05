@@ -40,15 +40,15 @@ class CpuReactionDelayTest {
     }
 
     void assertDelayedShot() throws Exception {
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < 29; i++) {
             tick();
-            assertEquals(0, bot.cooldown, "No shot before 0.5 seconds");
+            assertEquals(0, bot.cooldown, "No shot before 1.5 seconds");
         }
         tick();
-        assertTrue(bot.cooldown > 0, "First shot at 0.5 seconds");
+        assertTrue(bot.cooldown > 0, "First shot at 1.5 seconds");
     }
 
-    @Test void allCpuSlotsWaitHalfASecondBeforeFiring() throws Exception {
+    @Test void allCpuSlotsWaitOneAndAHalfSecondsBeforeFiring() throws Exception {
         for (int slot = 1; slot <= 4; slot++) {
             setup();
             bot = game.players.get(slot - 1);
