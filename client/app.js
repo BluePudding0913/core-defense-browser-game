@@ -796,8 +796,9 @@ function updateHud() {
         weaponButton.disabled = me.movingCore;
         updateInventory(me);
         const placing = Boolean(placementSelection(me));
-        interactLabel.textContent = placing ? "PLACE" : "INTERACT";
-        interactButton.classList.toggle("hidden", !placing && !findNearestInteraction());
+        const interaction = findNearestInteraction();
+        interactLabel.textContent = placing ? "PLACE" : ["core", "defense"].includes(interaction?.kind) ? "長押しで運搬" : "INTERACT";
+        interactButton.classList.toggle("hidden", !placing && !interaction);
     }
 }
 
@@ -1101,7 +1102,7 @@ function openSlotMenu(slot) {
             disabled: slot.defense.hp >= slot.defense.maxHp || (metal ? me.ore : me.wood) < 1,
         }, {
             label: "PICK UP",
-            detail: "撤去してインベントリへ戻す",
+            detail: "耐久値を保ったまま回収。R長押しでも運搬できます",
             command: `REMOVE:${slot.id}`,
         }], slot, INTERACTION_RANGE.trapSlot);
     }
