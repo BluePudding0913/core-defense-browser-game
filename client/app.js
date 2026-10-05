@@ -2094,7 +2094,7 @@ async function initialize() {
 window.coreGame = {
     match(action, password, name) {
         if (socket?.readyState !== WebSocket.OPEN || connectionTarget.mode !== "directory") {
-            throw new Error("サーバーへの接続を待ってから再試行してください。");
+            throw new Error("接続できません");
         }
         nameInput.value = name;
         socket.send("MATCH:" + JSON.stringify({ action, password, name }));

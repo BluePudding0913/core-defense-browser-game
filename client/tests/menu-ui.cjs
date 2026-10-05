@@ -17,7 +17,7 @@ const root = { get innerHTML() { return markup; }, set innerHTML(value) {
     activeForm = formType ? { dataset: { form: formType },
         querySelector: selector => selector === 'input' ? input : matchButton } : null;
 },
-    hidden: false, querySelector: selector => selector === '.ui-search-result' && !markup.includes('ui-search-result') ? null : field(selector),
+    hidden: false, querySelector: selector => selector === '.ui-match-result' && !markup.includes('ui-match-result') ? null : field(selector),
     querySelectorAll: selector => selector === 'form' && activeForm ? [activeForm] : [],
     addEventListener: (event, handler) => handlers[event] = handler };
 const body = { classList: { add() {}, remove() {}, toggle() {} }, append(script) { assert.equal(script.src, 'app.js'); } };
@@ -140,7 +140,7 @@ click('home');
 context.window.coreMenu.connected();
 click('phrase'); click('search');
 assert.doesNotMatch(root.innerHTML, /<h2>/, 'search heading is replaced by results');
-const result = field('.ui-search-result');
+const result = field('.ui-match-result');
 assert.equal(result.textContent, '', 'result space is empty before searching');
 assert.match(root.innerHTML, />決定<\/button>/);
 assert.doesNotMatch(root.innerHTML, /検索して参加|<label|\brequired\b/);
@@ -177,7 +177,28 @@ click('phrase');
 assert.doesNotMatch(root.innerHTML, /参加できるルームが見つかりません/);
 click('create');
 assert.doesNotMatch(root.innerHTML, /参加できるルームが見つかりません/);
-context.window.coreMenu.status(error);
+assert.equal(result.textContent, '', 'creation starts with no stale feedback');
+edit('新しい合言葉');
+const beforeCreateError = renderCount;
+submit('create', { password: '新しい合言葉' });
+assert.equal(result.textContent, '作成中…');
+assert(matchButton.disabled);
+context.window.coreMenu.status('その合言葉は使用中です');
+assert.equal(result.textContent, 'その合言葉は使用中です');
+assert(!matchButton.disabled, 'creation errors allow retry');
+edit('別の合言葉');
+assert.equal(result.textContent, '', 'editing clears creation errors');
+submit('create', { password: '別の合言葉' });
+context.window.coreMenu.disconnected();
+assert.equal(result.textContent, '接続できません', 'creation shows connection failures like search');
+assert(matchButton.disabled);
+context.window.coreMenu.rejected();
+assert.match(root.innerHTML, /data-form="create"/, 'rejected entry stays on creation');
+assert.equal(renderCount, beforeCreateError, 'creation errors preserve input DOM and draft');
+assert.equal(input.value, '別の合言葉');
+context.window.coreMenu.connected();
+assert(!matchButton.disabled);
+assert.equal(result.textContent, '接続できません', 'reconnection preserves the creation error');
 click('phrase'); click('search');
 assert.equal(result.textContent, '', 'reopening search clears its previous result');
 click('home'); click('settings');

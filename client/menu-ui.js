@@ -14,7 +14,7 @@ function mountMenu() {
     const escape = value => String(value).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
     let name = "", view = "guest", renderedView;
     let snapshot, selfId, busy = false, connected = false, lastLobby = "", quickRequested = false;
-    let searchResult = "";
+    let matchResult = "";
     try { name = localStorage.getItem("core-defense-guest-name")?.trim() || ""; } catch { /* Optional storage. */ }
     if (name) view = "home";
     const back = to => `<button type="button" class="ui-back" data-action="${to}">戻る</button>`;
@@ -24,7 +24,7 @@ function mountMenu() {
         // Keep live inputs (including focus, selection and IME composition) during reconnects.
         if (renderedView === view && ["guest", "settings", "create", "search"].includes(view)) {
             updateMatchButtons();
-            updateSearchResult();
+            updateMatchResult();
             if (focus) root.querySelector("input")?.focus();
             return;
         }
@@ -33,7 +33,7 @@ function mountMenu() {
         if (view === "home") content = `<h1>CORE DEFENSE</h1><nav aria-label="メインメニュー">${button("quick", "クイックマッチ")}${button("phrase", "合言葉")}${back("settings").replace("戻る", "設定")}</nav>`;
         if (view === "phrase") content = `<nav aria-label="合言葉">${button("create", "ルーム作成")}${button("search", "ルーム検索")}</nav>${back("home")}`;
         if (view === "quick-error") content = `<p class="ui-connection-error" role="alert">接続できません</p>${button("quick", "再試行")}${back("home")}`;
-        if (view === "create" || view === "search") content = `${view === "search" ? '<p class="ui-search-result" role="status"></p>' : ''}<form data-form="${view}" novalidate><input name="password" maxlength="32" placeholder="合言葉" aria-label="合言葉" autocomplete="off"><button ${disabled()}>${view === "create" ? "作成" : "決定"}</button></form>${back("phrase")}`;
+        if (view === "create" || view === "search") content = `<p class="ui-match-result" role="status"></p><form data-form="${view}" novalidate><input name="password" maxlength="32" placeholder="合言葉" aria-label="合言葉" autocomplete="off"><button ${disabled()}>${view === "create" ? "作成" : "決定"}</button></form>${back("phrase")}`;
         if (view === "lobby" && snapshot) {
             const owner = snapshot.roomOwnerId === selfId;
             const me = snapshot.players.find(p => p.id === selfId);
@@ -47,14 +47,14 @@ function mountMenu() {
         root.innerHTML = `<div class="ui-shell"><section class="ui-content">${content}</section></div>`;
         renderedView = view;
         updateMatchButtons();
-        updateSearchResult();
+        updateMatchResult();
         if (focus) (root.querySelector("input") || root.querySelector("button"))?.focus();
     }
-    function go(next) { view = next; quickRequested = false; searchResult = ""; render(true); }
-    function updateSearchResult() {
-        const result = root.querySelector('.ui-search-result');
+    function go(next) { view = next; quickRequested = false; matchResult = ""; render(true); }
+    function updateMatchResult() {
+        const result = root.querySelector('.ui-match-result');
         if (!result) return;
-        result.textContent = searchResult;
+        result.textContent = matchResult;
     }
     function updateMatchButtons() {
         root.querySelectorAll('[data-action="quick"]').forEach(b => b.disabled = busy);
@@ -67,9 +67,9 @@ function mountMenu() {
     function status(text) {
         busy = false;
         if (quickRequested && text) { view = "quick-error"; render(); return; }
-        if (view === "search" && text) {
-            searchResult = text.includes("参加できるルームが見つかりません") ? "見つかりませんでした" : text;
-            updateSearchResult();
+        if (["create", "search"].includes(view) && text) {
+            matchResult = view === "search" && text.includes("参加できるルームが見つかりません") ? "見つかりませんでした" : text;
+            updateMatchResult();
         }
         updateMatchButtons();
     }
@@ -77,7 +77,10 @@ function mountMenu() {
         if (busy) return;
         quickRequested = action === "quick";
         window.coreMenu.phrase = phrase;
-        if (action === "join") { searchResult = "検索中…"; updateSearchResult(); }
+        if (action === "join" || action === "create") {
+            matchResult = action === "create" ? "作成中…" : "検索中…";
+            updateMatchResult();
+        }
         window.coreGame.match(action, phrase, name);
         busy = true;
         updateMatchButtons();
@@ -85,10 +88,10 @@ function mountMenu() {
     window.coreMenu = {
         phrase: "",
         status,
-        rejected() { connected = false; busy = false; snapshot = null; lastLobby = ""; view = quickRequested ? "quick-error" : window.coreMenu.phrase ? "search" : "home"; render(); },
+        rejected() { connected = false; busy = false; snapshot = null; lastLobby = ""; view = quickRequested ? "quick-error" : window.coreMenu.phrase ? (view === "create" ? "create" : "search") : "home"; render(); },
         connected() { connected = true; status(); },
         disconnected() {
-            if (view === "search" && busy) searchResult = "接続できません";
+            if (["create", "search"].includes(view)) matchResult = "接続できません";
             connected = false; busy = false; lastLobby = "";
             if (quickRequested) view = "quick-error";
             root.hidden = false; document.body.classList.add("menu-preview");
@@ -109,7 +112,7 @@ function mountMenu() {
         }
     };
     root.addEventListener("input", () => {
-        if (view === "search" && !busy) { searchResult = ""; updateSearchResult(); }
+        if (["create", "search"].includes(view) && !busy) { matchResult = ""; updateMatchResult(); }
         updateMatchButtons();
     });
     root.addEventListener("submit", event => {
