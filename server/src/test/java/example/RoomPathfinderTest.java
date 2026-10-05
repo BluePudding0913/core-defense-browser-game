@@ -32,7 +32,7 @@ class RoomPathfinderTest {
             List<MapPoint> actual = finder.find(fromX, fromY, tx, ty, 17, false, areas, List.of());
             assertEquals(expected.size(), actual.size());
             if (!expected.isEmpty()) assertEquals(expected.get(expected.size() - 1), actual.get(actual.size() - 1));
-            if (i % 3 != 0) assertEquals(expected, actual, "non-centered and unreachable fallback");
+            if (i % 3 == 2) assertEquals(expected, actual, "unreachable fallback");
             double x = fromX, y = fromY;
             for (MapPoint point : actual) {
                 assertTrue(GameMap.canOccupy(point.x(), point.y(), 17, areas));

@@ -60,10 +60,13 @@ final class RoomPathfinder {
         }
         boolean[] walkable = masks.computeIfAbsent(profile, this::buildMask);
         int target = cell(targetX, targetY);
-        boolean centered = x(target) == targetX && y(target) == targetY;
+        // Strictly inside a tile, its center is the unique closest grid point.
+        // Exact boundary ties and wall targets keep the legacy forward fallback.
+        boolean nearestCell = Math.abs(x(target) - targetX) < GameMap.TILE_SIZE / 2.0
+                && Math.abs(y(target) - targetY) < GameMap.TILE_SIZE / 2.0;
         FieldKey fieldKey = new FieldKey(target, profile);
         List<MapPoint> result = null;
-        if (centered && walkable[target] && walkable[start]) {
+        if (nearestCell && walkable[target] && walkable[start]) {
             int count = requests.merge(fieldKey, 1, Integer::sum);
             int[] next = fields.get(fieldKey);
             if (next == null && count >= 2) {
@@ -75,8 +78,9 @@ final class RoomPathfinder {
                 result = follow(start, target, next);
             }
         }
-        // Wall/unreachable/non-centered targets retain the original closest-reachable fallback.
-        if (result == null) result = forward(start, targetX, targetY, walkable);
+        // Wall/unreachable/tied targets retain the original closest-reachable fallback.
+        if (result == null) result = forward(start, targetX, targetY, walkable,
+                nearestCell && walkable[target] ? target : -1);
         routes.put(key, result);
         return result;
     }
@@ -99,14 +103,14 @@ final class RoomPathfinder {
         return mask;
     }
 
-    private List<MapPoint> forward(int start, double targetX, double targetY, boolean[] walkable) {
+    private List<MapPoint> forward(int start, double targetX, double targetY, boolean[] walkable, int goal) {
         if (++generation == 0) { Arrays.fill(visited, 0); generation = 1; }
         int head = 0, tail = 0, best = start;
         double bestDistance = GameSupport.distance(x(start), y(start), targetX, targetY);
         visited[start] = generation;
         parent[start] = start;
         queue[tail++] = start;
-        search: while (head < tail && bestDistance != 0) {
+        search: while (head < tail && bestDistance != 0 && best != goal) {
             int current = queue[head++];
             for (int direction = 0; direction < 4; direction++) {
                 int next = neighbor(current, direction);
@@ -118,7 +122,7 @@ final class RoomPathfinder {
                 if (distance < bestDistance) {
                     best = next;
                     bestDistance = distance;
-                    if (distance == 0) break search;
+                    if (distance == 0 || next == goal) break search;
                 }
             }
         }
