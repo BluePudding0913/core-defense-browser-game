@@ -271,7 +271,7 @@ class GameplayRevisionTest {
         }
     }
 
-    @Test void regularWavePopulationIsReducedByOneQuarterThroughoutMatch() {
+    @Test void regularWavePopulationIsReducedByOneQuarterBeforeLateRounds() {
         for (int round : new int[]{1, 3, 10, 20}) {
             game.phase = GamePhase.PREPARING;
             game.round = round - 1;

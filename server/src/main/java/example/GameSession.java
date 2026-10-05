@@ -355,6 +355,11 @@ final class GameSession {
         phase = GamePhase.WAVE;
         queuedEnemies = 6 + round * 3;
         queuedBosses = round % 4 == 0 ? round / 4 : 0;
+        if (round >= 40) {
+            // Double the R40 population, then add 20 percentage points per round.
+            queuedEnemies = (queuedEnemies * (10 + round - 40) + 4) / 5;
+            queuedBosses *= 2;
+        }
         roundEvent = round % 4 == 3 ? "blackout"
                 : round >= 5 && round % 4 == 1 ? "door_failure"
                 : round % 4 == 0 ? "boss_assault" : "none";
@@ -546,17 +551,21 @@ final class GameSession {
         if (queuedEnemies <= 0 && queuedBosses <= 0) return;
         spawnTimer -= dt;
         if (spawnTimer > 0) return;
-        SpawnPoint spawn = nextRoundSpawn();
-        if (queuedBosses > 0 && queuedEnemies <= queuedBosses * 2) {
-            spawnEnemy(round >= 40 ? "titan" : round >= 24 ? "warlord" : "boss", spawn);
-            queuedBosses--;
-        } else if (queuedEnemies > 0) {
-            spawnEnemy(selectEnemyType(spawn), spawn);
-            queuedEnemies--;
+        int batchSize = round >= 40 ? 2 + (round - 40) / 3 : 1;
+        for (int i = 0; i < batchSize && (queuedEnemies > 0 || queuedBosses > 0); i++) {
+            // Each member uses the next entrance so a burst pressures multiple sides.
+            SpawnPoint spawn = nextRoundSpawn();
+            if (queuedBosses > 0 && queuedEnemies <= queuedBosses * 2) {
+                spawnEnemy(round >= 40 ? "titan" : round >= 24 ? "warlord" : "boss", spawn);
+                queuedBosses--;
+            } else if (queuedEnemies > 0) {
+                spawnEnemy(selectEnemyType(spawn), spawn);
+                queuedEnemies--;
+            }
+            double eventMultiplier = roundEvent.equals("door_failure")
+                    && spawn.id().equals(failedSpawnId) ? 0.58 : 1;
+            spawnTimer = Math.max(0.28, (1.15 - round * 0.045) * eventMultiplier);
         }
-        double eventMultiplier = roundEvent.equals("door_failure")
-                && spawn.id().equals(failedSpawnId) ? 0.58 : 1;
-        spawnTimer = Math.max(0.28, (1.15 - round * 0.045) * eventMultiplier);
     }
 
     private String selectEnemyType(SpawnPoint spawn) {

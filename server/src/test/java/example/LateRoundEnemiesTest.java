@@ -69,7 +69,7 @@ class LateRoundEnemiesTest {
         assertEquals("champion", snapshot.path("enemies").get(5).path("type").asText());
     }
 
-    @Test void scheduledBossesUpgradeWithoutChangingTheBossBudget() throws Exception {
+    @Test void scheduledBossesUpgradeAndStayWithinTheQueuedBudget() throws Exception {
         for (int round : new int[]{4, 20, 24, 36, 40, 48}) {
             game.round = round; game.enemies.clear();
             game.queuedEnemies = 0; game.queuedBosses = round / 4;
@@ -77,7 +77,7 @@ class LateRoundEnemiesTest {
             Enemy boss = game.enemies.get(0);
             assertEquals(round >= 40 ? "titan" : round >= 24 ? "warlord" : "boss", boss.type);
             assertTrue(boss.isBoss());
-            assertEquals(round / 4 - 1, game.queuedBosses);
+            assertEquals(round / 4 - game.enemies.size(), game.queuedBosses);
         }
         game.round = 40;
         Enemy boss = spawn("boss"), warlord = spawn("warlord"), titan = spawn("titan");
