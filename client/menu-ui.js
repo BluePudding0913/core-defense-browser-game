@@ -33,7 +33,7 @@ function mountMenu() {
         if (view === "home") content = `<h1>CORE DEFENSE</h1><nav aria-label="メインメニュー">${button("quick", "クイックマッチ")}${button("phrase", "合言葉")}${back("settings").replace("戻る", "設定")}</nav>`;
         if (view === "phrase") content = `<nav aria-label="合言葉">${button("create", "ルーム作成")}${button("search", "ルーム検索")}</nav>${back("home")}`;
         if (view === "quick-error") content = `<h2>クイックマッチ</h2><p class="ui-connection-error" role="alert">接続できません</p>${button("quick", "再試行")}${back("home")}`;
-        if (view === "create" || view === "search") content = `${view === "search" ? '<p class="ui-search-result" role="status" hidden></p>' : ''}<form data-form="${view}" novalidate><input name="password" maxlength="32" placeholder="合言葉" aria-label="合言葉" autocomplete="off"><button ${disabled()}>${view === "create" ? "作成" : "決定"}</button></form>${back("phrase")}`;
+        if (view === "create" || view === "search") content = `${view === "search" ? '<p class="ui-search-result" role="status"></p>' : ''}<form data-form="${view}" novalidate><input name="password" maxlength="32" placeholder="合言葉" aria-label="合言葉" autocomplete="off"><button ${disabled()}>${view === "create" ? "作成" : "決定"}</button></form>${back("phrase")}`;
         if (view === "lobby" && snapshot) {
             const owner = snapshot.roomOwnerId === selfId;
             const me = snapshot.players.find(p => p.id === selfId);
@@ -55,7 +55,6 @@ function mountMenu() {
         const result = root.querySelector('.ui-search-result');
         if (!result) return;
         result.textContent = searchResult;
-        result.hidden = !searchResult;
     }
     function updateMatchButtons() {
         root.querySelectorAll('[data-action="quick"]').forEach(b => b.disabled = busy);
