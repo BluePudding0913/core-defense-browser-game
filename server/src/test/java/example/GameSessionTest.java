@@ -935,6 +935,55 @@ class GameSessionTest {
     }
 
     @Test
+    void lateBlackoutsUseAtMostTwoDistinctAccessibleBreakers() throws Exception {
+        startPreparing();
+        game.unlockedAreas.add("entry-room");
+        game.unlockedAreas.add("transit-hall");
+        var randomField = GameSession.class.getDeclaredField("random");
+        randomField.setAccessible(true);
+        ((java.util.Random) randomField.get(game)).setSeed(1234);
+        var startBlackout = GameSession.class.getDeclaredMethod("startBlackout");
+        startBlackout.setAccessible(true);
+        for (int round : new int[]{19, 20, 50}) {
+            game.round = round;
+            Set<Integer> counts = new java.util.HashSet<>();
+            for (int attempt = 0; attempt < 100; attempt++) {
+                startBlackout.invoke(game);
+                counts.add(game.blackoutBreakerTotal);
+                assertEquals(game.blackoutBreakerTotal, game.trippedBreakers.size());
+                for (String id : game.trippedBreakers) {
+                    BreakerTerminal breaker = GameMap.breakerById(id);
+                    assertTrue(breaker.requiredArea() == null
+                            || game.unlockedAreas.contains(breaker.requiredArea()));
+                }
+            }
+            assertEquals(round < 20 ? Set.of(1) : Set.of(1, 2), counts);
+        }
+        game.unlockedAreas.clear();
+        startBlackout.invoke(game);
+        assertEquals(1, game.blackoutBreakerTotal, "only accessible breakers may trip");
+    }
+
+    @Test
+    void twoBreakerBlackoutRequiresBothResets() {
+        startPreparing();
+        game.unlockedAreas.add("entry-room");
+        List<BreakerTerminal> breakers = GameMap.BREAKER_TERMINALS.stream()
+                .filter(b -> b.requiredArea() == null || b.requiredArea().equals("entry-room"))
+                .limit(2).toList();
+        game.blackoutActive = true;
+        game.blackoutBreakerTotal = 2;
+        breakers.forEach(b -> game.trippedBreakers.add(b.id()));
+        for (int i = 0; i < breakers.size(); i++) {
+            BreakerTerminal breaker = breakers.get(i);
+            player.x = breaker.x(); player.y = breaker.y();
+            game.handleMessage(player, "BREAKER:" + breaker.id());
+            assertEquals(i == 0, game.blackoutActive);
+            assertEquals(1 - i, game.trippedBreakers.size());
+        }
+    }
+
+    @Test
     void timeControlExtendsPreparationByOneMinuteForOneHundredGold() {
         startPreparing();
         player.credits = 100;

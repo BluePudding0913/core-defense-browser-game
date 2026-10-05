@@ -2317,12 +2317,13 @@ final class GameSession {
 
     private void startBlackout() {
         trippedBreakers.clear();
-        List<BreakerTerminal> available = GameMap.BREAKER_TERMINALS.stream()
+        List<BreakerTerminal> available = new ArrayList<>(GameMap.BREAKER_TERMINALS.stream()
                 .filter(breaker -> breaker.requiredArea() == null
                         || unlockedAreas.contains(breaker.requiredArea()))
-                .toList();
-        if (!available.isEmpty()) {
-            trippedBreakers.add(available.get(random.nextInt(available.size())).id());
+                .toList());
+        int breakerCount = round >= 20 ? 1 + random.nextInt(2) : 1;
+        for (int i = 0; i < breakerCount && !available.isEmpty(); i++) {
+            trippedBreakers.add(available.remove(random.nextInt(available.size())).id());
         }
         blackoutBreakerTotal = trippedBreakers.size();
         blackoutActive = blackoutBreakerTotal > 0;

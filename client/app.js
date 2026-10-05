@@ -1666,11 +1666,11 @@ function drawBlackout() {
     const total = Math.max(1, state.blackoutBreakerTotal || remaining);
     const severity = remaining / total;
     const flicker = Math.sin(performance.now() / 83) * 5;
-    const lightRadius = 235 + (1 - severity) * 110 + flicker;
-    const edgeDarkness = Math.round(54 + severity * 34);
-    const light = ctx.createRadialGradient(x, y, 55, x, y, lightRadius);
-    light.addColorStop(0, "rgb(1 5 8 / 0%)");
-    light.addColorStop(.48, "rgb(1 5 8 / 20%)");
+    const lightRadius = 170 + (1 - severity) * 70 + flicker;
+    const edgeDarkness = Math.round(90 + severity * 8);
+    const light = ctx.createRadialGradient(x, y, 30, x, y, lightRadius);
+    light.addColorStop(0, "rgb(1 5 8 / 8%)");
+    light.addColorStop(.48, "rgb(1 5 8 / 45%)");
     light.addColorStop(1, `rgb(1 5 8 / ${edgeDarkness}%)`);
     ctx.fillStyle = light;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
