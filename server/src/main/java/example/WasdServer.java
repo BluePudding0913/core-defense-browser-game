@@ -22,6 +22,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import org.java_websocket.WebSocket;
@@ -33,7 +38,8 @@ import org.java_websocket.server.WebSocketServer;
 public final class WasdServer extends WebSocketServer {
     private static final long EMPTY_ROOM_RETENTION_NANOS = TimeUnit.SECONDS.toNanos(60);
 
-    private final Object gameLock = new Object();
+    private final Object registryLock = new Object();
+    private final ThreadPoolExecutor roomWorkers;
     private final Map<WebSocket, MessageBudget> messageBudgets = new ConcurrentHashMap<>();
     private final Map<String, GameRoom> rooms = new ConcurrentHashMap<>();
     private final Map<WebSocket, ConnectionAssignment> assignments = new ConcurrentHashMap<>();
@@ -50,6 +56,12 @@ public final class WasdServer extends WebSocketServer {
     private final String bindHost;
     private boolean tlsEnabled;
     private double directoryBroadcastTimer;
+    private final PerformanceMetrics performance = new PerformanceMetrics();
+    private final OutboundDispatcher outbound = new OutboundDispatcher(performance);
+    private long expectedTickNanos;
+    private long nextPerformanceLogNanos;
+    private final long performanceLogNanos = TimeUnit.SECONDS.toNanos(
+            nonnegativeIntEnvironment("CORE_PERF_LOG_SECONDS", 0));
 
     public WasdServer(int port) {
         this(null, port);
@@ -60,6 +72,14 @@ public final class WasdServer extends WebSocketServer {
                 ? new InetSocketAddress(port) : new InetSocketAddress(bindHost, port));
         this.bindHost = bindHost == null || bindHost.isBlank() ? "0.0.0.0" : bindHost;
         maxRooms = positiveIntEnvironment("CORE_MAX_ROOMS", 64);
+        int workerCount = positiveIntEnvironment("CORE_ROOM_WORKERS",
+                Math.max(2, Math.min(4, Runtime.getRuntime().availableProcessors())));
+        roomWorkers = new ThreadPoolExecutor(workerCount, workerCount, 0, TimeUnit.SECONDS,
+                new ArrayBlockingQueue<>(maxRooms), runnable -> {
+                    Thread thread = new Thread(runnable, "core-room-update");
+                    thread.setDaemon(true);
+                    return thread;
+                });
         accessToken = trimmedEnvironment("CORE_ACCESS_TOKEN");
         allowedOrigins = parseAllowedOrigins(trimmedEnvironment("CORE_ALLOWED_ORIGINS"));
         configureTls();
@@ -96,10 +116,14 @@ public final class WasdServer extends WebSocketServer {
 
         Player assigned;
         WebSocket previous = null;
-        GameRoom room;
-        synchronized (gameLock) {
-            room = rooms.get(roomId);
-            if (room == null) {
+        GameRoom room = rooms.get(roomId);
+        if (room == null) {
+            reject(connection, "ルームが見つかりません。検索し直してください");
+            return;
+        }
+        long lockStarted = lockRoom(room);
+        try {
+            if (room.closed || rooms.get(roomId) != room) {
                 reject(connection, "ルームが見つかりません。検索し直してください");
                 return;
             }
@@ -111,6 +135,10 @@ public final class WasdServer extends WebSocketServer {
             boolean reconnecting = room.game.players.stream().anyMatch(p -> sessionId.equals(p.sessionId));
             if (!reconnecting && room.game.phase != GamePhase.LOBBY) {
                 reject(connection, "このルームはプレイ中です");
+                return;
+            }
+            if (!reconnecting && !matchAvailable(room, sessionId)) {
+                reject(connection, "この部屋は満員です");
                 return;
             }
             assigned = room.game.connectPlayer(sessionId);
@@ -127,7 +155,18 @@ public final class WasdServer extends WebSocketServer {
                     room.game.setRoomOwner(assigned);
                 }
                 if (assigned.id.equals(room.game.roomOwnerId)) room.ownerName = assigned.name;
+                // Queue the handshake before exposing this connection to periodic snapshots.
+                queueMessage(connection, GameMap.clientMapMessage());
+                queueMessage(connection, "{\"type\":\"welcome\",\"playerId\":\"" + assigned.id
+                        + "\",\"ackInput\":" + assigned.lastProcessedInput
+                        + ",\"roomId\":\"" + escapeRoom(roomId) + "\",\"players\":"
+                        + humanCount(room) + ",\"capacity\":" + PLAYER_COUNT
+                        + ",\"owner\":" + assigned.id.equals(room.game.roomOwnerId) + "}");
+                sendSnapshot(room);
+                refreshView(room);
             }
+        } finally {
+            unlockRoom(room, lockStarted);
         }
         if (assigned == null) {
             reject(connection, "この部屋は満員です");
@@ -137,13 +176,6 @@ public final class WasdServer extends WebSocketServer {
             assignments.remove(previous);
             previous.close(4000, "reconnected");
         }
-        sendIfOpen(connection, GameMap.clientMapMessage());
-        sendIfOpen(connection, "{\"type\":\"welcome\",\"playerId\":\"" + assigned.id
-                + "\",\"ackInput\":" + assigned.lastProcessedInput
-                + ",\"roomId\":\"" + escapeRoom(roomId) + "\",\"players\":"
-                + humanCount(room) + ",\"capacity\":" + PLAYER_COUNT
-                + ",\"owner\":" + assigned.id.equals(room.game.roomOwnerId) + "}");
-        sendSnapshot(room);
         broadcastRoomLists();
         System.out.println(roomId + "/" + assigned.id + " connected from "
                 + connection.getRemoteSocketAddress());
@@ -159,34 +191,40 @@ public final class WasdServer extends WebSocketServer {
         }
         ConnectionAssignment assignment = assignments.get(connection);
         if (assignment == null || message == null || message.length() > 160) return;
-        synchronized (gameLock) {
+        long lockStarted = lockRoom(assignment.room);
+        try {
             try {
+                if (assignment.room.closed) return;
                 if (assignment.room.playerConnections.get(assignment.player) != connection) return;
                 assignment.room.game.handleMessage(assignment.player, message.trim());
                 if (assignment.player.sessionId != null
                         && assignment.player.sessionId.equals(assignment.room.ownerSession)) {
                     assignment.room.ownerName = assignment.player.name;
                 }
+                refreshView(assignment.room);
             } catch (RuntimeException ignored) {
-                sendIfOpen(connection, "{\"type\":\"error\",\"message\":\"入力を処理できません\"}");
+                queueMessage(connection, "{\"type\":\"error\",\"message\":\"入力を処理できません\"}");
             }
+        } finally {
+            unlockRoom(assignment.room, lockStarted);
         }
     }
 
     @Override
     public void onClose(WebSocket connection, int code, String reason, boolean remote) {
         messageBudgets.remove(connection);
+        outbound.forget(connection);
         if (directoryConnections.remove(connection)) {
             directorySessions.remove(connection);
             return;
         }
-        synchronized (gameLock) {
-            ConnectionAssignment assignment = assignments.remove(connection);
-            if (assignment == null) return;
-            GameRoom room = assignment.room;
-            if (room.playerConnections.remove(assignment.player, connection)) {
-                room.game.disconnectPlayer(assignment.player);
-            }
+        ConnectionAssignment assignment = assignments.remove(connection);
+        if (assignment == null) return;
+        GameRoom room = assignment.room;
+        long lockStarted = lockRoom(room);
+        try {
+            if (!room.playerConnections.remove(assignment.player, connection)) return;
+            room.game.disconnectPlayer(assignment.player);
             if (assignment.player.sessionId != null
                     && assignment.player.sessionId.equals(room.ownerSession)
                     && !room.playerConnections.isEmpty()) {
@@ -198,7 +236,13 @@ public final class WasdServer extends WebSocketServer {
                     room.game.setRoomOwner(nextOwner);
                 }
             }
-            if (room.playerConnections.isEmpty()) rooms.remove(room.id, room);
+            if (room.playerConnections.isEmpty()) {
+                room.closed = true;
+                rooms.remove(room.id, room);
+            }
+            refreshView(room);
+        } finally {
+            unlockRoom(room, lockStarted);
         }
         broadcastRoomLists();
     }
@@ -210,8 +254,13 @@ public final class WasdServer extends WebSocketServer {
 
     @Override
     public void onStart() {
+        if (ticker.isShutdown()) return;
         setConnectionLostTimeout(30);
-        ticker.scheduleAtFixedRate(this::tickSafely, 0, 50, TimeUnit.MILLISECONDS);
+        try { ticker.scheduleAtFixedRate(this::tickSafely, 0, 50, TimeUnit.MILLISECONDS); }
+        catch (RejectedExecutionException stopping) {
+            if (ticker.isShutdown()) return;
+            throw stopping;
+        }
         System.out.println("CORE Defense server: " + (tlsEnabled ? "wss" : "ws")
                 + "://" + bindHost + ":" + getPort() + " (rooms=" + maxRooms + ")");
     }
@@ -227,56 +276,126 @@ public final class WasdServer extends WebSocketServer {
             @Override
             public void send(Player player, String message) {
                 WebSocket connection = room.playerConnections.get(player);
-                sendIfOpen(connection, message);
+                queueMessage(connection, message);
             }
         });
+        refreshView(room);
         return room;
     }
 
     private void tickSafely() {
+        long started = System.nanoTime();
+        if (expectedTickNanos != 0) performance.scheduleDelay.record(started - expectedTickNanos);
+        expectedTickNanos = (expectedTickNanos == 0 ? started : expectedTickNanos) + 50_000_000;
         try {
-            synchronized (gameLock) {
-                long now = System.nanoTime();
-                ArrayList<String> expiredRooms = new ArrayList<>();
-                for (GameRoom room : rooms.values()) {
-                    room.game.update(TICK_SECONDS);
-                    room.snapshotTimer -= TICK_SECONDS;
-                    if (room.snapshotTimer <= 0) {
-                        room.snapshotTimer = SNAPSHOT_INTERVAL;
-                        sendSnapshot(room);
-                    }
-                    if (room.playerConnections.isEmpty() && room.emptySinceNanos > 0
-                            && now - room.emptySinceNanos >= EMPTY_ROOM_RETENTION_NANOS) {
-                        expiredRooms.add(room.id);
-                    }
+            for (GameRoom room : rooms.values()) {
+                if (room.closed) continue;
+                if (!room.updating.compareAndSet(false, true)) {
+                    room.game.performance.skippedTicks.increment();
+                    continue;
                 }
-                expiredRooms.forEach(rooms::remove);
-                directoryBroadcastTimer -= TICK_SECONDS;
-                if (directoryBroadcastTimer <= 0) {
-                    directoryBroadcastTimer = 0.5;
-                    broadcastRoomLists();
+                long scheduled = System.nanoTime();
+                try {
+                    roomWorkers.execute(() -> {
+                        try { updateRoom(room, scheduled); }
+                        finally { room.updating.set(false); }
+                    });
+                } catch (RejectedExecutionException full) {
+                    room.updating.set(false);
+                    room.game.performance.skippedTicks.increment();
                 }
+            }
+            directoryBroadcastTimer -= TICK_SECONDS;
+            if (directoryBroadcastTimer <= 0) {
+                directoryBroadcastTimer = 0.5;
+                broadcastRoomLists();
             }
         } catch (RuntimeException error) {
             error.printStackTrace();
+        } finally {
+            performance.update.record(System.nanoTime() - started);
+            logPerformanceIfDue();
         }
+    }
+
+    private void updateRoom(GameRoom room, long scheduled) {
+        long lockStarted = lockRoom(room);
+        try {
+            if (room.closed) return;
+            room.game.performance.scheduleDelay.record(System.nanoTime() - scheduled);
+            long updateStarted = System.nanoTime();
+            try { room.game.update(TICK_SECONDS); }
+            finally { room.game.performance.update.record(System.nanoTime() - updateStarted); }
+            room.snapshotTimer -= TICK_SECONDS;
+            if (room.snapshotTimer <= 0) {
+                room.snapshotTimer = SNAPSHOT_INTERVAL;
+                sendSnapshot(room);
+            }
+            cleanReservations(room);
+            if (room.playerConnections.isEmpty() && room.emptySinceNanos > 0
+                    && System.nanoTime() - room.emptySinceNanos >= EMPTY_ROOM_RETENTION_NANOS) {
+                room.closed = true;
+                rooms.remove(room.id, room);
+            }
+        } catch (RuntimeException error) {
+            room.game.performance.updateFailures.increment();
+            long now = System.nanoTime();
+            if (now >= room.nextErrorLogNanos) {
+                room.nextErrorLogNanos = now + TimeUnit.SECONDS.toNanos(1);
+                System.err.println("Room " + room.id + " update failed: " + error);
+            }
+        } finally {
+            try { refreshView(room); }
+            finally { unlockRoom(room, lockStarted); }
+        }
+    }
+
+    private static long lockRoom(GameRoom room) {
+        long started = System.nanoTime();
+        room.lock.lock();
+        long acquired = System.nanoTime();
+        room.game.performance.lockWait.record(acquired - started);
+        return acquired;
+    }
+
+    private static void unlockRoom(GameRoom room, long started) {
+        room.game.performance.lockHeld.record(System.nanoTime() - started);
+        room.lock.unlock();
+    }
+
+    private void logPerformanceIfDue() {
+        long now = System.nanoTime();
+        if (performanceLogNanos == 0 || now < nextPerformanceLogNanos) return;
+        nextPerformanceLogNanos = now + performanceLogNanos;
+        System.out.println("PERF server " + performance.summary());
+        rooms.values().stream().sorted(java.util.Comparator.comparingLong(
+                (GameRoom room) -> room.game.performance.update.max()).reversed()).limit(3)
+                .forEach(room -> System.out.println("PERF room=" + room.id + " "
+                        + room.game.performance.summary()));
     }
 
     private void sendSnapshot(GameRoom room) {
         if (room.playerConnections.isEmpty()) return;
-        String snapshot;
-        synchronized (gameLock) {
-            snapshot = SnapshotBuilder.build(room.game, room.id, humanCount(room), PLAYER_COUNT);
-            snapshot = snapshot.substring(0, snapshot.length() - 1)
-                    + ",\"privateRoom\":" + (room.password != null) + "}";
-        }
+        // Caller holds the room lock; output is only queued here.
+        long snapshotStarted = System.nanoTime();
+        String snapshot = SnapshotBuilder.build(room.game, room.id, humanCount(room), PLAYER_COUNT);
+        snapshot = snapshot.substring(0, snapshot.length() - 1)
+                + ",\"privateRoom\":" + (room.password != null) + "}";
+        room.game.performance.snapshot.record(System.nanoTime() - snapshotStarted);
+        room.game.performance.snapshotBytes.add(snapshot.getBytes(StandardCharsets.UTF_8).length);
         sendToRoom(room, snapshot);
     }
 
-    private static void sendToRoom(GameRoom room, String message) {
+    private void sendToRoom(GameRoom room, String message) {
         for (WebSocket connection : room.playerConnections.values()) {
-            sendIfOpen(connection, message);
+            queueMessage(connection, message);
         }
+    }
+
+    private void queueMessage(WebSocket connection, String message) {
+        outbound.offer(connection, message,
+                message.startsWith("{\"type\":\"state\"") || message.startsWith("{\"type\":\"rooms\""),
+                message.startsWith("{\"type\":\"effect\""));
     }
 
     static void sendIfOpen(WebSocket connection, String message) {
@@ -306,9 +425,9 @@ public final class WasdServer extends WebSocketServer {
         String ownerSession = directorySessions.get(connection);
         if (ownerSession == null) return;
         String ownerName = cleanPlayerName(message.substring("CREATE_ROOM:".length()));
-        synchronized (gameLock) {
+        synchronized (registryLock) {
             if (rooms.size() >= maxRooms) {
-                sendIfOpen(connection, "{\"type\":\"error\",\"message\":\"作成できる部屋数の上限に達しました\"}");
+                queueMessage(connection, "{\"type\":\"error\",\"message\":\"作成できる部屋数の上限に達しました\"}");
                 return;
             }
             String roomId;
@@ -316,7 +435,7 @@ public final class WasdServer extends WebSocketServer {
                 roomId = UUID.randomUUID().toString().substring(0, 6);
             } while (rooms.containsKey(roomId));
             rooms.put(roomId, createRoom(roomId, ownerSession, ownerName));
-            sendIfOpen(connection, "{\"type\":\"room-created\",\"roomId\":\"" + roomId + "\"}");
+            queueMessage(connection, "{\"type\":\"room-created\",\"roomId\":\"" + roomId + "\"}");
         }
         broadcastRoomLists();
     }
@@ -332,72 +451,117 @@ public final class WasdServer extends WebSocketServer {
             String phrase = request.path("password").asText().strip();
             String session = directorySessions.get(connection);
             if (session == null) return;
-            synchronized (gameLock) {
-                GameRoom selected = null;
-                if (action.equals("join") || action.equals("create")) {
-                    if (phrase.isEmpty() || phrase.length() > 32) {
-                        matchError(connection, "合言葉を1〜32文字で入力してください"); return;
-                    }
-                    selected = rooms.values().stream().filter(r -> phrase.equals(r.password)).findFirst().orElse(null);
-                    if (action.equals("create") && selected != null) {
+            String name = cleanPlayerName(request.path("name").asText());
+            if (!Set.of("join", "create", "quick").contains(action)) return;
+            if (!action.equals("quick") && (phrase.isEmpty() || phrase.length() > 32)) {
+                matchError(connection, "合言葉を1〜32文字で入力してください"); return;
+            }
+            GameRoom selected = null;
+            if (action.equals("quick")) {
+                for (GameRoom candidate : rooms.values().stream()
+                        .filter(room -> !room.closed && room.password == null
+                                && room.view.available(session, System.nanoTime()))
+                        .sorted(java.util.Comparator.comparing(room -> room.id)).toList()) {
+                    long started = lockRoom(candidate);
+                    try { if (reserve(candidate, session, name)) selected = candidate; }
+                    finally { unlockRoom(candidate, started); }
+                    if (selected != null) break;
+                }
+            }
+            if (action.equals("join")) {
+                GameRoom candidate = rooms.values().stream()
+                        .filter(room -> !room.closed && phrase.equals(room.password)).findFirst().orElse(null);
+                if (candidate != null) {
+                    long started = lockRoom(candidate);
+                    try { if (reserve(candidate, session, name)) selected = candidate; }
+                    finally { unlockRoom(candidate, started); }
+                }
+                if (selected == null) {
+                    matchError(connection, "参加できるルームが見つかりません。合言葉・満員・プレイ中でないか確認してください"); return;
+                }
+            } else if (selected == null) {
+                synchronized (registryLock) {
+                    if (action.equals("create") && rooms.values().stream()
+                            .anyMatch(room -> !room.closed && phrase.equals(room.password))) {
                         matchError(connection, "その合言葉は使用中です。別の合言葉を入力してください"); return;
                     }
-                    if (action.equals("join") && (selected == null || !matchAvailable(selected, session))) {
-                        matchError(connection, "参加できるルームが見つかりません。合言葉・満員・プレイ中でないか確認してください"); return;
+                    if (action.equals("quick")) {
+                        for (GameRoom candidate : rooms.values().stream()
+                                .filter(room -> !room.closed && room.password == null)
+                                .sorted(java.util.Comparator.comparing(room -> room.id)).toList()) {
+                            // Never wait for a busy room while holding the registry lock.
+                            if (!candidate.lock.tryLock()) continue;
+                            try { if (reserve(candidate, session, name)) selected = candidate; }
+                            finally { candidate.lock.unlock(); }
+                            if (selected != null) break;
+                        }
                     }
-                } else if (action.equals("quick")) {
-                    selected = rooms.values().stream().filter(r -> r.password == null && matchAvailable(r, session))
-                            .sorted(java.util.Comparator.comparing(r -> r.id)).findFirst().orElse(null);
-                } else return;
-                if (selected == null) {
-                    if (rooms.size() >= maxRooms) { matchError(connection, "作成できる部屋数の上限に達しました"); return; }
-                    String id;
-                    do { id = UUID.randomUUID().toString().replace("-", "").substring(0, 24); }
-                    while (rooms.containsKey(id));
-                    selected = createRoom(id, session, cleanPlayerName(request.path("name").asText()));
-                    selected.password = action.equals("create") ? phrase : null;
-                    selected.emptySinceNanos = System.nanoTime();
-                    rooms.put(id, selected);
+                    if (selected == null) {
+                        if (rooms.size() >= maxRooms) {
+                            matchError(connection, "作成できる部屋数の上限に達しました"); return;
+                        }
+                        String id;
+                        do { id = UUID.randomUUID().toString().replace("-", "").substring(0, 24); }
+                        while (rooms.containsKey(id));
+                        selected = createRoom(id, session, name);
+                        selected.password = action.equals("create") ? phrase : null;
+                        selected.reservations.put(session, new MatchReservation(
+                                System.nanoTime() + TimeUnit.SECONDS.toNanos(15), name));
+                        refreshView(selected);
+                        rooms.put(id, selected);
+                    }
                 }
-                selected.reservations.put(session, new MatchReservation(
-                        System.nanoTime() + TimeUnit.SECONDS.toNanos(15), cleanPlayerName(request.path("name").asText())));
-                sendIfOpen(connection, "{\"type\":\"room-created\",\"roomId\":\"" + selected.id + "\"}");
             }
+            queueMessage(connection, "{\"type\":\"room-created\",\"roomId\":\"" + selected.id + "\"}");
         } catch (Exception invalid) {
             matchError(connection, "ルーム操作を処理できませんでした");
         }
     }
 
     private boolean matchAvailable(GameRoom room, String session) {
+        cleanReservations(room);
+        refreshView(room);
+        return !room.closed && room.view.available(session, System.nanoTime());
+    }
+
+    private boolean reserve(GameRoom room, String session, String name) {
+        if (room.closed || rooms.get(room.id) != room || !matchAvailable(room, session)) return false;
+        room.reservations.put(session, new MatchReservation(System.nanoTime() + TimeUnit.SECONDS.toNanos(15), name));
+        refreshView(room);
+        return true;
+    }
+
+    private static void cleanReservations(GameRoom room) {
         room.reservations.entrySet().removeIf(e -> e.getValue().expiresAt() < System.nanoTime()
                 || room.game.players.stream().anyMatch(p -> p.human && e.getKey().equals(p.sessionId)));
-        long available = room.game.players.stream().filter(p -> !p.human
-                && (p.sessionId == null || p.reconnectGrace <= 0 || session.equals(p.sessionId))).count();
-        long reserved = room.reservations.keySet().stream().filter(s -> !s.equals(session)).count();
-        return room.game.phase == GamePhase.LOBBY && available > reserved;
+    }
+
+    private static void refreshView(GameRoom room) {
+        room.view = new RoomView(room.id, room.ownerName, room.password != null, room.game.phase,
+                room.game.players.stream().map(p -> new Seat(p.sessionId, p.human, p.reconnectGrace)).toList(),
+                Map.copyOf(room.reservations));
     }
 
     private void matchError(WebSocket connection, String message) {
-        sendIfOpen(connection, "{\"type\":\"error\",\"message\":\"" + GameSupport.escapeJson(message) + "\"}");
+        queueMessage(connection, "{\"type\":\"error\",\"message\":\"" + GameSupport.escapeJson(message) + "\"}");
     }
 
     private void sendRoomList(WebSocket connection) {
         if (!connection.isOpen()) return;
         String message;
-        synchronized (gameLock) {
-        ArrayList<GameRoom> visibleRooms = new ArrayList<>(rooms.values());
-        visibleRooms.removeIf(room -> room.password != null);
-        visibleRooms.sort(java.util.Comparator.comparing(room -> room.id));
+        var visibleRooms = rooms.values().stream().filter(room -> !room.closed)
+                .map(room -> room.view).filter(view -> !view.privateRoom)
+                .sorted(java.util.Comparator.comparing(view -> view.id)).toList();
         StringBuilder json = new StringBuilder("{\"type\":\"rooms\",\"rooms\":[");
         for (int index = 0; index < visibleRooms.size(); index++) {
-            GameRoom room = visibleRooms.get(index);
+            RoomView room = visibleRooms.get(index);
             if (index > 0) json.append(',');
-            int players = humanCount(room);
-            String phase = room.game.phase.name().toLowerCase(java.util.Locale.ROOT);
-            boolean joinable = room.game.phase == GamePhase.LOBBY
-                    && players > 0 && matchAvailable(room, directorySessions.getOrDefault(connection, ""));
+            int players = (int) room.seats.stream().filter(Seat::human).count();
+            String phase = room.phase.name().toLowerCase(java.util.Locale.ROOT);
+            boolean joinable = players > 0 && room.available(
+                    directorySessions.getOrDefault(connection, ""), System.nanoTime());
             json.append("{\"id\":\"").append(escapeRoom(room.id))
-                    .append("\",\"owner\":\"").append(escapeRoom(room.ownerName))
+                    .append("\",\"owner\":\"").append(escapeRoom(room.owner))
                     .append("\",\"players\":").append(players)
                     .append(",\"capacity\":").append(PLAYER_COUNT)
                     .append(",\"phase\":\"").append(phase)
@@ -405,8 +569,7 @@ public final class WasdServer extends WebSocketServer {
         }
         json.append("]}");
         message = json.toString();
-        }
-        sendIfOpen(connection, message);
+        queueMessage(connection, message);
     }
 
     private static String cleanPlayerName(String value) {
@@ -427,9 +590,16 @@ public final class WasdServer extends WebSocketServer {
                 supplied.getBytes(StandardCharsets.UTF_8));
     }
 
-    private static void reject(WebSocket connection, String message) {
+    private void reject(WebSocket connection, String message) {
         sendIfOpen(connection, "{\"type\":\"error\",\"message\":\"" + message + "\"}");
         connection.close(1008, "policy rejected");
+    }
+
+    @Override public void stop(int timeout, String reason) throws InterruptedException {
+        ticker.shutdownNow();
+        roomWorkers.shutdownNow();
+        outbound.close();
+        super.stop(timeout, reason);
     }
 
     private void configureTls() {
@@ -492,6 +662,11 @@ public final class WasdServer extends WebSocketServer {
         }
     }
 
+    private static int nonnegativeIntEnvironment(String name, int fallback) {
+        String value = trimmedEnvironment(name);
+        return value == null ? fallback : Math.max(0, Integer.parseInt(value));
+    }
+
     private static String trimmedEnvironment(String name) {
         String value = System.getenv(name);
         return value == null || value.isBlank() ? null : value.trim();
@@ -517,9 +692,24 @@ public final class WasdServer extends WebSocketServer {
 
     private record ConnectionAssignment(GameRoom room, Player player) { }
     private record MatchReservation(long expiresAt, String name) { }
+    private record Seat(String session, boolean human, double reconnectGrace) { }
+    private record RoomView(String id, String owner, boolean privateRoom, GamePhase phase,
+            java.util.List<Seat> seats, Map<String, MatchReservation> reservations) {
+        boolean available(String session, long now) {
+            long available = seats.stream().filter(seat -> !seat.human
+                    && (seat.session == null || seat.reconnectGrace <= 0 || session.equals(seat.session))).count();
+            long reserved = reservations.entrySet().stream()
+                    .filter(entry -> !entry.getKey().equals(session) && entry.getValue().expiresAt >= now).count();
+            return phase == GamePhase.LOBBY && available > reserved;
+        }
+    }
 
     private static final class GameRoom {
         final String id;
+        final ReentrantLock lock = new ReentrantLock();
+        final AtomicBoolean updating = new AtomicBoolean();
+        volatile boolean closed;
+        volatile RoomView view;
         final Map<Player, WebSocket> playerConnections = new ConcurrentHashMap<>();
         GameSession game;
         String ownerSession;
@@ -528,6 +718,7 @@ public final class WasdServer extends WebSocketServer {
         final Map<String, MatchReservation> reservations = new java.util.HashMap<>();
         double snapshotTimer;
         long emptySinceNanos;
+        long nextErrorLogNanos;
 
         GameRoom(String id, String ownerSession, String ownerName) {
             this.id = id;
