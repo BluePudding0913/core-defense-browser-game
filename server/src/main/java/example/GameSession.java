@@ -520,8 +520,8 @@ final class GameSession {
             int produced = factory.produce(dt);
             for (int i = 0; i < produced; i++) {
                 List<MapPoint> emptyTiles = new ArrayList<>();
-                for (int row = -4; row <= 4; row++) {
-                    for (int column = -4; column <= 4; column++) {
+                for (int row = -1; row <= 1; row++) {
+                    for (int column = -1; column <= 1; column++) {
                         MapPoint point = new MapPoint(factory.x + column * GameMap.TILE_SIZE,
                                 factory.y + row * GameMap.TILE_SIZE);
                         if (canPlaceDefenseAt(point, null) && droppedResources.stream().noneMatch(drop ->

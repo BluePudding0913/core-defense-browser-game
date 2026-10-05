@@ -17,9 +17,9 @@ final class MaterialFactory {
         y = point.y();
         resource = shop.item().replace("Factory", "");
         interval = switch (resource) {
-            case "wood", "ore" -> 5;
-            case "copper" -> 8;
-            case "silver" -> 12;
+            case "wood", "ore" -> 10;
+            case "copper" -> 16;
+            case "silver" -> 24;
             default -> throw new IllegalArgumentException("Unknown factory resource: " + resource);
         };
     }

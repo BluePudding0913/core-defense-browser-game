@@ -86,9 +86,9 @@ class QuarryInstancesTest {
         assertFalse(snapshot.path("factories").get(0).has("capacity"));
     }
 
-    @Test void eachInstanceProducesIndependentlyAndEachMaterialKeepsItsRate() {
+    @Test void eachInstanceProducesIndependentlyAndEachMaterialUsesSlowerRate() {
         String[] items = {"woodFactory", "oreFactory", "copperFactory", "silverFactory"};
-        double[] intervals = {5, 5, 8, 12};
+        double[] intervals = {10, 10, 16, 24};
         for (int i = 0; i < items.length; i++) {
             MaterialFactory machine = new MaterialFactory("test", GameMap.shopByItem(items[i]), new MapPoint(980, 1820));
             assertEquals(intervals[i], machine.interval);
@@ -96,25 +96,25 @@ class QuarryInstancesTest {
             assertEquals(1, machine.produce(intervals[i] / 2));
         }
         buy("woodFactory", 2);
-        MaterialFactory first = deploy(buyer, 980); moveAway(); game.update(2);
-        MaterialFactory second = deploy(buyer, 1060); moveAway(); game.update(3);
+        MaterialFactory first = deploy(buyer, 980); moveAway(); game.update(4);
+        MaterialFactory second = deploy(buyer, 1060); moveAway(); game.update(6);
         assertEquals(1, game.droppedResources.size());
-        assertEquals(0, first.elapsed); assertEquals(3, second.elapsed);
-        game.update(2); assertEquals(2, game.droppedResources.size());
+        assertEquals(0, first.elapsed); assertEquals(6, second.elapsed);
+        game.update(4); assertEquals(2, game.droppedResources.size());
     }
 
-    @Test void dropsUseDistinctEmptyUnlockedTilesWithinNineByNineAndCanBeCollected() {
+    @Test void dropsUseDistinctEmptyUnlockedTilesWithinThreeByThreeAndCanBeCollected() {
         buy("silverFactory", 1);
         MaterialFactory factory = deploy(buyer, 980); moveAway();
         game.unlockedAreas.clear();
-        game.update(120);
-        assertEquals(10, game.droppedResources.size());
+        game.update(240);
+        assertEquals(8, game.droppedResources.size(), "Only the eight surrounding tiles can hold drops");
         Set<String> tiles = new HashSet<>();
         for (DroppedResource drop : game.droppedResources) {
             assertEquals("silver", drop.type); assertEquals(1, drop.amount);
             assertEquals(0, drop.pickupDelay);
-            assertTrue(Math.abs(drop.x - factory.x) <= 4 * GameMap.TILE_SIZE);
-            assertTrue(Math.abs(drop.y - factory.y) <= 4 * GameMap.TILE_SIZE);
+            assertTrue(Math.abs(drop.x - factory.x) <= GameMap.TILE_SIZE);
+            assertTrue(Math.abs(drop.y - factory.y) <= GameMap.TILE_SIZE);
             assertTrue(GameMap.canPlaceDefense(drop.x, drop.y, game.unlockedAreas));
             assertTrue(Math.hypot(drop.x - factory.x, drop.y - factory.y) >= 40);
             assertTrue(tiles.add(drop.x + "," + drop.y));
@@ -137,8 +137,8 @@ class QuarryInstancesTest {
         defense.defense = new Defense("block"); game.trapSlots.add(defense);
         DroppedResource existing = new DroppedResource(1000, "silver", 980, 1780, 1, null);
         existing.pickupDelay = 0; game.droppedResources.add(existing);
-        game.update(25);
-        assertEquals(11, game.droppedResources.size());
+        game.update(10);
+        assertEquals(3, game.droppedResources.size());
         for (DroppedResource drop : game.droppedResources) {
             if (drop == existing) continue;
             assertTrue(Math.hypot(drop.x - blocker.x, drop.y - blocker.y) >= 36);
@@ -151,15 +151,15 @@ class QuarryInstancesTest {
 
     @Test void blockedProductionKeepsNoStockOrBacklog() {
         buy("woodFactory", 1); MaterialFactory factory = deploy(buyer, 980); moveAway();
-        for (int row = -4; row <= 4; row++) for (int column = -4; column <= 4; column++) {
+        for (int row = -1; row <= 1; row++) for (int column = -1; column <= 1; column++) {
             DroppedResource drop = new DroppedResource(1000 + game.droppedResources.size(), "ore",
                     factory.x + column * 40, factory.y + row * 40, 1, null);
             drop.pickupDelay = 0; game.droppedResources.add(drop);
         }
-        game.update(100); assertEquals(81, game.droppedResources.size());
+        game.update(100); assertEquals(9, game.droppedResources.size());
         assertEquals(0, factory.elapsed);
         game.droppedResources.clear(); game.update(.05); assertTrue(game.droppedResources.isEmpty());
-        game.update(4.95); assertEquals(1, game.droppedResources.size());
+        game.update(9.95); assertEquals(1, game.droppedResources.size());
     }
 
     @Test void pickupTargetsOneInstanceResetsProgressAndRejectsInvalidActions() {
@@ -169,7 +169,7 @@ class QuarryInstancesTest {
         assertEquals(2, buyer.buildItemCount("woodFactory"));
         MaterialFactory first = deploy(buyer, 980);
         game.handleMessage(buyer, "PLACE_FRONT"); assertEquals(1, game.factories.size(), "Cannot overlap machines");
-        MaterialFactory second = deploy(buyer, 1060); moveAway(); game.update(3);
+        MaterialFactory second = deploy(buyer, 1060); moveAway(); game.update(6);
         game.handleMessage(buyer, "PICKUP_FACTORY:" + first.id); assertEquals(2, game.factories.size());
         Player teammate = game.players.get(1); teammate.x = first.x; teammate.y = first.y; teammate.down = true;
         game.handleMessage(teammate, "PICKUP_FACTORY:" + first.id); assertEquals(2, game.factories.size());
@@ -181,13 +181,13 @@ class QuarryInstancesTest {
         assertEquals(1, teammate.buildItemCount("woodFactory"), "Stale pickup cannot duplicate inventory");
         MaterialFactory replacement = deploy(teammate, 980);
         assertEquals(0, replacement.elapsed); assertNotEquals(first.id, replacement.id);
-        moveAway(); game.update(2); assertEquals(0, replacement.elapsed - 2);
+        moveAway(); game.update(4); assertEquals(0, replacement.elapsed - 4);
         assertEquals(1, game.droppedResources.size(), "Only the older instance completes this cycle");
     }
 
     @Test void endStatesPauseProductionAndRestartClearsInstancesInventoryAndDrops() {
         buy("woodFactory", 2); deploy(buyer, 980); moveAway();
-        game.phase = GamePhase.WAVE; game.queuedEnemies = 100; game.update(5);
+        game.phase = GamePhase.WAVE; game.queuedEnemies = 100; game.update(10);
         assertEquals(1, game.droppedResources.size());
         game.phase = GamePhase.LOST; game.update(100);
         assertEquals(1, game.droppedResources.size());
