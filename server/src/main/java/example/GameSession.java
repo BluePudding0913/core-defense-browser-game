@@ -1654,7 +1654,7 @@ final class GameSession {
 
     private void fireRicochet(Player player, WeaponStats weapon, double dx, double dy) {
         double x = player.x, y = player.y, remaining = weapon.range();
-        for (int bounce = 0; bounce <= 3 && remaining > .01; bounce++) {
+        for (int bounce = 0; bounce <= 2 && remaining > .01; bounce++) {
             GameMap.WallImpact wall = GameMap.rayWall(x, y, dx, dy, remaining);
             double length = Math.max(0, wall.distance() - .001);
             if (fireSegment(player, weapon, x, y, dx, dy, length)) return;

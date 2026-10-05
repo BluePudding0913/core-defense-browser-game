@@ -57,6 +57,13 @@ class RicochetAndAimTest {
         assertTrue(corner.flipX()); assertTrue(corner.flipY());
     }
 
+    @Test void ricochetStopsAfterTwoReflections() {
+        player.weapon = "ricochet"; player.ricochetAmmo = 1;
+        game.handleMessage(player, "FIRE:1200:1900:1");
+        assertEquals(3, effects.stream().filter(m -> m.contains("\"effect\":\"hit\"")
+                && m.contains("\"damage\":0.0")).count());
+    }
+
     @Test void ordinaryGunsMissOffAxisAndPistolEmitsOneTrajectory() {
         for (String weapon : List.of("pistol", "smg", "rifle", "sniper", "revolver", "lmg")) {
             game.enemies.clear(); player.cooldown = 0; player.firing = false;
