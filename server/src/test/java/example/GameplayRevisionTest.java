@@ -409,7 +409,7 @@ class GameplayRevisionTest {
         for (int round = 1; round <= 20; round++) {
             select.invoke(game, round);
             long indoors = game.activeSpawnIds.stream().filter(id -> id.startsWith("area-")).count();
-            assertTrue(indoors <= (round < 8 ? 0 : round < 14 ? 1 : 2));
+            assertTrue(indoors <= (round < 8 ? 0 : round < 12 ? 3 : GameMap.AREAS.size()));
             assertFalse(game.activeSpawnIds.contains("area-operations-room"));
             assertFalse(game.activeSpawnIds.contains("area-wood-room"));
             assertFalse(game.activeSpawnIds.contains("area-ore-room"));
@@ -797,4 +797,17 @@ class GameplayRevisionTest {
         assertEquals(damage[0] * 2, damage[1], 1e-9);
         assertEquals(damage[0] * 3.5, damage[2], 1e-9);
     }
+    @Test void allEntrancesAreAtWallsAndWeaponRoomsJoinByRoundTwelve() throws Exception {
+        for(SpawnPoint spawn:GameMap.SPAWN_POINTS) {
+            assertTrue(GameMap.isWallEntrance(GameMap.TILE_MAP.cellAt(spawn.x(),spawn.y())),spawn.id());
+        }
+        game.unlockedAreas.addAll(GameMap.AREAS.stream().map(UnlockArea::id).toList());
+        Method select=GameSession.class.getDeclaredMethod("selectRoundSpawns",int.class); select.setAccessible(true);
+        select.invoke(game,12);
+        for(String room:List.of("shotgun-room","smg-room","rifle-room","sniper-room","revolver-room","lmg-room","dualPistol-room")) {
+            assertTrue(game.activeSpawnIds.contains("area-"+room),room);
+        }
+        assertTrue(game.activeSpawnIds.stream().filter(id -> id.startsWith("area-")).count()>7);
+    }
+
 }

@@ -208,7 +208,26 @@ final class GameMap {
     }
 
     private static List<SpawnPoint> buildSpawnPoints() {
-        List<SpawnPoint> spawns = new ArrayList<>(DEFINITION.spawnPoints());
+        List<SpawnPoint> spawns = new ArrayList<>();
+        for (SpawnPoint original : DEFINITION.spawnPoints()) {
+            MapPoint best = null;
+            double nearest = Double.MAX_VALUE;
+            for (int row = 0; row < TILE_MAP.rows().size(); row++) {
+                for (int column = 0; column < TILE_MAP.rows().get(row).length(); column++) {
+                    AreaTile tile = new AreaTile(column, row);
+                    MapPoint center = TILE_MAP.center(tile);
+                    if (!isWallEntrance(tile) || !canOccupy(center.x(), center.y(), 17, Set.of())) continue;
+                    if (spawns.stream().anyMatch(spawn -> GameSupport.distance(
+                            center.x(), center.y(), spawn.x(), spawn.y()) < TILE_SIZE * 2)) continue;
+                    double distance = GameSupport.distance(center.x(), center.y(), original.x(), original.y());
+                    if (distance < nearest) { nearest = distance; best = center; }
+                }
+            }
+            if (best == null) throw new IllegalStateException("No wall entrance for " + original.id());
+            spawns.add(new SpawnPoint(original.id(), original.name(), best.x(), best.y(),
+                    original.lane(), original.enemyBias(), original.speedMultiplier(),
+                    original.targetPriority(), original.route()));
+        }
         Set<String> allAreas = AREAS.stream().map(UnlockArea::id)
                 .collect(java.util.stream.Collectors.toSet());
         for (UnlockArea area : AREAS) {
@@ -217,7 +236,7 @@ final class GameMap {
             for (AreaTile tile : area.tiles()) {
                 MapPoint center = TILE_MAP.center(tile);
                 double x = center.x(), y = center.y();
-                if (!canOccupy(x, y, 17, allAreas)) continue;
+                if (!isWallEntrance(tile) || !canOccupy(x, y, 17, allAreas)) continue;
                 double distance = GameSupport.distance(x, y, area.terminalX(), area.terminalY());
                 if (distance > farthest) {
                     farthest = distance;
@@ -228,6 +247,16 @@ final class GameMap {
                     "interior", "balanced", 1, "core", List.of(best)));
         }
         return List.copyOf(spawns);
+    }
+
+    static boolean isWallEntrance(AreaTile tile) {
+        TileType floor = TILE_MAP.typeAt(tile.column(), tile.row());
+        if (floor == null || floor.solid()) return false;
+        for (int[] offset : new int[][]{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+            TileType wall = TILE_MAP.typeAt(tile.column() + offset[0], tile.row() + offset[1]);
+            if (wall != null && wall.solid()) return true;
+        }
+        return false;
     }
 
     static String spawnArea(SpawnPoint spawn) {

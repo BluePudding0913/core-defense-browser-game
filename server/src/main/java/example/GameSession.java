@@ -410,7 +410,7 @@ final class GameSession {
         List<SpawnPoint> interior = new ArrayList<>(GameMap.SPAWN_POINTS.stream()
                 .filter(spawn -> interiorSpawnEligible(spawn, currentRound)).toList());
         Collections.shuffle(interior, random);
-        int interiorLimit = currentRound >= 14 ? 2 : 1;
+        int interiorLimit = currentRound < 8 ? 0 : currentRound < 12 ? 3 : interior.size();
         for (SpawnPoint spawn : interior.subList(0, Math.min(interiorLimit, interior.size()))) addRoundSpawn(spawn);
     }
 
@@ -420,7 +420,8 @@ final class GameSession {
         int firstRound = switch (area) {
             case "entry-room" -> 8;
             case "transit-hall" -> 10;
-            case "armory-wing" -> 12;
+            case "armory-wing", "shotgun-room", "smg-room", "dualPistol-room" -> 10;
+            case "rifle-room", "sniper-room", "revolver-room", "lmg-room" -> 12;
             case "forest" -> 14;
             case "relay-gallery" -> 16;
             case "mine" -> 18;
