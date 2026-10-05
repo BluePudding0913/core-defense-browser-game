@@ -2140,13 +2140,9 @@ function drawHitEffects() {
             const progress = (now - effect.started) / 900;
             ctx.save();
             ctx.globalAlpha = 1 - progress;
-            ctx.fillStyle = "#164b70";
-            ctx.strokeStyle = "#fff";
-            ctx.lineWidth = 3;
+            ctx.fillStyle = "#000";
             ctx.font = "900 11px ui-monospace, monospace";
             ctx.textAlign = "center";
-            ctx.strokeText(`+${RESOURCE_NAMES[effect.resource] || effect.resource}${effect.amount > 1 ? ` ×${effect.amount}` : ""}`,
-                effect.x, effect.y - 18 - progress * 22);
             ctx.fillText(`+${RESOURCE_NAMES[effect.resource] || effect.resource}${effect.amount > 1 ? ` ×${effect.amount}` : ""}`,
                 effect.x, effect.y - 18 - progress * 22);
             ctx.restore();
