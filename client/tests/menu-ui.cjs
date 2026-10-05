@@ -8,9 +8,17 @@ const field = selector => {
 };
 let markup = '', renderCount = 0;
 const matchButton = { disabled: true };
-const root = { get innerHTML() { return markup; }, set innerHTML(value) { markup = value; renderCount++; },
+const input = { value: '', focus() {} };
+let activeForm;
+const root = { get innerHTML() { return markup; }, set innerHTML(value) {
+    markup = value; renderCount++;
+    const formType = markup.match(/data-form="([^"]+)"/)?.[1];
+    input.value = markup.match(/value="([^"]*)"/)?.[1] || '';
+    activeForm = formType ? { dataset: { form: formType },
+        querySelector: selector => selector === 'input' ? input : matchButton } : null;
+},
     hidden: false, querySelector: field,
-    querySelectorAll: selector => selector === 'form:not([data-form="name"]) button' && /data-form="(?:create|search)"/.test(markup) ? [matchButton] : [],
+    querySelectorAll: selector => selector === 'form' && activeForm ? [activeForm] : [],
     addEventListener: (event, handler) => handlers[event] = handler };
 const body = { classList: { add() {}, remove() {}, toggle() {} }, append(script) { assert.equal(script.src, 'app.js'); } };
 const context = { document: { querySelector: () => root, body, createElement: () => ({}) },
@@ -20,6 +28,15 @@ const context = { document: { querySelector: () => root, body, createElement: ()
 vm.runInNewContext(fs.readFileSync('client/menu-ui.js', 'utf8'), context);
 const submit = (form, data = {}) => handlers.submit({ preventDefault() {}, target: { dataset: { form }, data } });
 const click = (action, slot) => handlers.click({ target: { closest: () => ({ dataset: { action, slot } }) } });
+function edit(value) { input.value = value; handlers.input({ target: input }); }
+function assertEmptyGating(label, valid = '入力') {
+    for (const value of ['', '　 ']) {
+        edit(value);
+        assert(matchButton.disabled, `${label}: blank and whitespace-only inputs disable confirmation`);
+    }
+    edit(valid);
+    assert(!matchButton.disabled, `${label}: typing enables confirmation`);
+}
 function assertInputSurvivesReconnects(label, hasMatchButton = false) {
     const before = renderCount;
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -35,6 +52,8 @@ assert.match(root.innerHTML, /ゲストプレイヤー名/);
 assert.match(root.innerHTML, /placeholder="ゲストプレイヤー名"/);
 assert.match(root.innerHTML, /<button>決定<\/button>/);
 assert.doesNotMatch(root.innerHTML, /<label|\brequired\b/);
+assert(matchButton.disabled, 'initial empty name disables confirmation');
+assertEmptyGating('initial player name');
 assertInputSurvivesReconnects('initial player name');
 submit('name', { name: ' ' });
 assert.doesNotMatch(root.innerHTML, /ui-message/);
@@ -50,6 +69,8 @@ assert.match(root.innerHTML, /name="password"[^>]*placeholder="合言葉"/);
 assert.doesNotMatch(root.innerHTML, /<label|\brequired\b/);
 assert.doesNotMatch(root.innerHTML, /visibility|公開/);
 context.window.coreMenu.connected();
+assert(matchButton.disabled, 'connecting does not enable an empty password');
+assertEmptyGating('create room password');
 assertInputSurvivesReconnects('create room password', true);
 submit('create', { password: ' ' });
 assert.equal(calls.length, 0, 'blank input quietly stays on the form');
@@ -118,6 +139,8 @@ context.window.coreMenu.connected();
 click('phrase'); click('search');
 assert.match(root.innerHTML, />決定<\/button>/);
 assert.doesNotMatch(root.innerHTML, /検索して参加|<label|\brequired\b/);
+assert(matchButton.disabled, 'search starts with disabled confirmation');
+assertEmptyGating('search room password');
 assertInputSurvivesReconnects('search room password', true);
 const beforeRejection = renderCount;
 context.window.coreMenu.phrase = '合言葉';
@@ -133,6 +156,8 @@ click('create');
 assert.doesNotMatch(root.innerHTML, /参加できるルームが見つかりません/);
 context.window.coreMenu.status(error);
 click('home'); click('settings');
+assert(!matchButton.disabled, 'saved name enables confirmation even without a connection');
+assertEmptyGating('saved player name settings', '<Host>');
 assertInputSurvivesReconnects('saved player name settings');
 assert.doesNotMatch(root.innerHTML, /参加できるルームが見つかりません/);
 context.window.coreMenu.status(error);

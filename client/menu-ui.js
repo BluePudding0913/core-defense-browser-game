@@ -50,8 +50,11 @@ function mountMenu() {
     function go(next) { view = next; quickRequested = false; render(true); }
     function updateMatchButtons() {
         root.querySelectorAll('[data-action="quick"]').forEach(b => b.disabled = busy);
-        root.querySelectorAll('form:not([data-form="name"]) button')
-            .forEach(b => b.disabled = busy || !connected);
+        root.querySelectorAll('form').forEach(form => {
+            const empty = !form.querySelector('input').value.trim();
+            form.querySelector('button').disabled = empty
+                || (form.dataset.form !== "name" && (busy || !connected));
+        });
     }
     function status(text) {
         busy = false;
@@ -91,6 +94,7 @@ function mountMenu() {
             render();
         }
     };
+    root.addEventListener("input", updateMatchButtons);
     root.addEventListener("submit", event => {
         event.preventDefault();
         const form = event.target, data = new FormData(form);
