@@ -881,7 +881,13 @@ final class GameSession {
                     enemy.attackCooldown = 0.9;
                 }
             } else {
-                moveEnemyToward(enemy, targetX + enemy.wanderX, targetY + enemy.wanderY,
+                // Keep narrow routes centered; wandering is only safe in open space.
+                if (GameMap.canOccupy(targetX, targetY, 37, unlockedAreas)
+                        && canEnemyTravel(enemy.x, enemy.y, targetX + enemy.wanderX, targetY + enemy.wanderY)) {
+                    targetX += enemy.wanderX;
+                    targetY += enemy.wanderY;
+                }
+                moveEnemyToward(enemy, targetX, targetY,
                         enemy.speed * enemy.slow * dt);
             }
         }
@@ -950,27 +956,53 @@ final class GameSession {
     }
 
     private void moveEnemyToward(Enemy enemy, double targetX, double targetY, double amount) {
-        if (!GameMap.hasClearLine(enemy.x, enemy.y, targetX, targetY)) {
-            if (enemy.pathTimer <= 0) {
-                enemy.path = findPath(enemy.x, enemy.y, targetX, targetY, 17, false);
+        if (amount <= 0) return;
+        if (!canEnemyTravel(enemy.x, enemy.y, targetX, targetY)) {
+            boolean targetChanged = !Double.isFinite(enemy.pathTargetX)
+                    || distance(enemy.pathTargetX, enemy.pathTargetY, targetX, targetY) > GameMap.TILE_SIZE / 2.0;
+            if (targetChanged || enemy.pathTimer <= 0) {
+                List<MapPoint> path = new ArrayList<>(findPath(enemy.x, enemy.y, targetX, targetY, 17, false));
+                // An off-center start can clip the inside of a corner on its first step.
+                if (!path.isEmpty() && !canEnemyTravel(enemy.x, enemy.y, path.get(0).x(), path.get(0).y())) {
+                    path.add(0, GameMap.snapToTile(enemy.x, enemy.y));
+                }
+                enemy.path = List.copyOf(path);
                 enemy.pathIndex = 0;
                 enemy.pathTimer = 1;
+                enemy.pathTargetX = targetX;
+                enemy.pathTargetY = targetY;
             }
             while (enemy.pathIndex < enemy.path.size()
-                    && distance(enemy.x, enemy.y, enemy.path.get(enemy.pathIndex).x(), enemy.path.get(enemy.pathIndex).y()) < 8) enemy.pathIndex++;
-            if (enemy.pathIndex < enemy.path.size()) {
-                targetX = enemy.path.get(enemy.pathIndex).x();
-                targetY = enemy.path.get(enemy.pathIndex).y();
-            }
+                    && distance(enemy.x, enemy.y, enemy.path.get(enemy.pathIndex).x(), enemy.path.get(enemy.pathIndex).y()) < .001) enemy.pathIndex++;
+            if (enemy.pathIndex >= enemy.path.size()) return;
+            targetX = enemy.path.get(enemy.pathIndex).x();
+            targetY = enemy.path.get(enemy.pathIndex).y();
         }
         double dx = targetX - enemy.x;
         double dy = targetY - enemy.y;
         enemy.faceToward(targetX, targetY);
-        double length = Math.max(1, Math.hypot(dx, dy));
-        double nextX = clamp(enemy.x + dx / length * amount, 18, WORLD_W - 18);
-        double nextY = clamp(enemy.y + dy / length * amount, 18, WORLD_H - 18);
-        if (canOccupy(nextX, enemy.y, 17)) enemy.x = nextX;
-        if (canOccupy(enemy.x, nextY, 17)) enemy.y = nextY;
+        double length = Math.hypot(dx, dy);
+        if (length < .001) return;
+        double step = Math.min(amount, length);
+        double nextX = enemy.x + dx / length * step;
+        double nextY = enemy.y + dy / length * step;
+        if (canEnemyTravel(enemy.x, enemy.y, nextX, nextY) && canOccupy(nextX, nextY, 17)) {
+            enemy.x = nextX;
+            enemy.y = nextY;
+        } else {
+            enemy.pathTimer = 0;
+        }
+    }
+
+    private boolean canEnemyTravel(double fromX, double fromY, double toX, double toY) {
+        // Test the whole body, including locked areas, rather than a point sight line.
+        int steps = Math.max(1, (int) Math.ceil(distance(fromX, fromY, toX, toY) / 2));
+        for (int i = 0; i <= steps; i++) {
+            double fraction = (double) i / steps;
+            if (!GameMap.canOccupy(fromX + (toX - fromX) * fraction,
+                    fromY + (toY - fromY) * fraction, 17, unlockedAreas)) return false;
+        }
+        return true;
     }
 
     private void damageCore(double rawDamage) {
