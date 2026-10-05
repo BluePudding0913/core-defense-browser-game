@@ -10,7 +10,7 @@ function extract(name) {
 }
 let options;
 const me = { ownsRicochet: true, ricochetAmmo: 60, ownsSmg: true, smgAmmo: 300, ownsRevolver: true, revolverAmmo: 36, ownsLmg: true, lmgAmmo: 150, ownsRocket: true, rocketAmmo: 12, credits: 2000 };
-const context = vm.createContext({ me, getMe: () => me, BUILD_INFO: {}, equipmentOrder: [],
+const context = vm.createContext({ me, getMe: () => me, BUILD_INFO: {}, equipmentOrder: [], SHOP_UNITS: map.shopUnits,
     WEAPON_AMMO_REFILL_COST: 120, INTERACTION_RANGE: { shop: 100 },
     openNearbyActionMenu: (title, entries) => { options = entries; }
 });

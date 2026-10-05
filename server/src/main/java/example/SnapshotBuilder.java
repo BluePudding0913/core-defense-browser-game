@@ -173,7 +173,11 @@ final class SnapshotBuilder {
                     .append(",\"mine\":").append(player.mineItems)
                     .append(",\"barricade\":").append(player.barricadeItems)
                     .append(",\"copperTurret\":").append(player.copperTurretItems)
-                    .append(",\"silverTurret\":").append(player.silverTurretItems).append('}');
+                    .append(",\"silverTurret\":").append(player.silverTurretItems);
+            for (String item : List.of("woodFactory", "oreFactory", "copperFactory", "silverFactory")) {
+                json.append(",\"").append(item).append("\":").append(player.buildItemCount(item));
+            }
+            json.append('}');
             json.append(",\"kills\":").append(player.kills);
             json.append(",\"action\":")
                     .append(player.actionTarget == null ? "null" : "\"" + player.actionTarget + "\"");
@@ -189,6 +193,10 @@ final class SnapshotBuilder {
             if (i > 0) json.append(',');
             json.append("{\"item\":\"").append(factory.shop.item())
                     .append("\",\"purchased\":").append(factory.purchased)
+                    .append(",\"id\":\"").append(factory.shop.item()).append("\"")
+                    .append(",\"placed\":").append(factory.placed)
+                    .append(",\"x\":").append(factory.x).append(",\"y\":").append(factory.y)
+                    .append(",\"carriedBy\":").append(factory.carriedBy == null ? "null" : "\"" + escapeJson(factory.carriedBy) + "\"")
                     .append(",\"stock\":").append(factory.stock)
                     .append(",\"capacity\":").append(MaterialFactory.CAPACITY)
                     .append(",\"interval\":").append(factory.interval).append('}');

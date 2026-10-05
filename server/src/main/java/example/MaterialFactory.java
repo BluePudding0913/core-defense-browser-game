@@ -1,12 +1,16 @@
 package example;
 
-/** A shared, fixed machine purchased once per game. */
+/** A shared, portable machine purchased once per game. */
 final class MaterialFactory {
     static final int CAPACITY = 20;
     final ShopUnit shop;
     final String resource;
     final double interval;
     boolean purchased;
+    boolean placed;
+    double x;
+    double y;
+    String carriedBy;
     int stock;
     double elapsed;
 
@@ -22,7 +26,7 @@ final class MaterialFactory {
     }
 
     void produce(double dt) {
-        if (!purchased || stock >= CAPACITY) return;
+        if (!purchased || !placed || stock >= CAPACITY) return;
         elapsed += dt;
         while (elapsed >= interval && stock < CAPACITY) {
             elapsed -= interval;

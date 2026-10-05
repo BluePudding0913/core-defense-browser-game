@@ -483,7 +483,10 @@ function acknowledgeInputs(value) {
 
 function applyRules(next) {
     if (next.rules) {
-        BUILD_INFO = next.rules.recipes;
+        BUILD_INFO = { ...next.rules.recipes };
+        SHOP_UNITS.filter(shop => shop.item.endsWith("Factory")).forEach(shop => {
+            BUILD_INFO[shop.item] = { name: shop.label, description: "持ち運べる製造装置", shopOnly: true };
+        });
         WEAPON_AMMO_REFILL_COST = next.rules.shop.ammo;
         for (const [weapon, fields] of Object.entries(WEAPON_FIELDS)) {
             fields.capacity = next.rules.weapons[weapon].capacity;
@@ -1177,6 +1180,7 @@ function canBuildAt(point, forCore = false) {
     if (PREP_CONSOLE && distance(point, PREP_CONSOLE) < 36) return false;
     if ((state.resources || []).some(node => distance(point, node) < 36)) return false;
     if (SPAWN_POINTS.some(spawn => distance(point, spawn) < 80)) return false;
+    if ((state.factories || []).some(unit => unit.placed && distance(point, unit) < 36)) return false;
     if (state.slots.some(slot => slot.defense && distance(point, slot) < (forCore ? 45 : 36))) return false;
     return !state.players.some(player => (forCore ? player.id !== myPlayerId && !player.down && distance(point, player) < 24
         : Math.abs(point.x - player.x) < 23 && Math.abs(point.y - player.y) < 23))
@@ -1213,8 +1217,8 @@ function openShopPurchase(shop) {
     if (shop.item.endsWith("Factory")) {
         const factory = (state.factories || []).find(unit => unit.item === shop.item);
         openNearbyActionMenu(shop.label, [{
-            label: factory?.purchased ? "稼働中" : "BUY",
-            detail: factory?.purchased ? "在庫 " + factory.stock + "/" + factory.capacity
+            label: factory?.purchased ? "購入済み" : "BUY",
+            detail: factory?.purchased ? "設置・回収して移動できます"
                 : shop.cost + "G",
             command: "BUY:" + shop.item,
             disabled: Boolean(factory?.purchased) || !me || me.credits < shop.cost,
@@ -1261,7 +1265,7 @@ function openQuarryMenu() {
 
 function openWorkbenchMenu(workbench) {
     const me = getMe();
-    openNearbyActionMenu("WORKBENCH", Object.entries(BUILD_INFO).map(([type, info]) => ({
+    openNearbyActionMenu("WORKBENCH", Object.entries(BUILD_INFO).filter(([, info]) => !info.shopOnly).map(([type, info]) => ({
         label: info.name,
         detail: `${info.description} — ${Object.entries(RESOURCE_NAMES).filter(([key]) => info[key] > 0).map(([key, name]) => `${name} ${info[key]}`).join(" / ")}`,
         command: `CRAFT:${type}`,
@@ -1506,6 +1510,10 @@ function findNearestInteraction() {
         if (separation <= range && hasInteractionPath(me, target)) choices.push({ kind, target, label, action, separation });
     };
 
+    (state.factories || []).filter(unit => unit.placed).forEach(unit =>
+        add("factory", unit, 70, "PICK UP", () => openNearbyActionMenu("QUARRY", [{
+            label: "PICK UP", detail: "在庫を保ったまま持ち運ぶ", command: "PICKUP_FACTORY:" + unit.item,
+        }], unit, 70)));
     state.slots.filter(slot => slot.defense)
         .forEach(slot => add("defense", slot, INTERACTION_RANGE.trapSlot, "MANAGE", () => openSlotMenu(slot)));
     SHOP_UNITS.forEach(shop => add("shop", shop, INTERACTION_RANGE.shop,
@@ -1943,10 +1951,12 @@ function drawCore() {
 function drawShops() {
     SHOP_UNITS.filter(isUnlockedPoint)
         .forEach(shop => {
-            const factory = (state.factories || []).find(unit => unit.item === shop.item);
-            const label = factory?.purchased ? shop.label + " " + factory.stock : shop.label;
-            drawStation(shop, label, factory?.purchased ? "#70bfff" : "#d8d8d8", "#111");
+            drawStation(shop, shop.label, "#d8d8d8", "#111");
         });
+    (state.factories || []).filter(unit => unit.placed).forEach(unit => {
+        const shop = SHOP_UNITS.find(shop => shop.item === unit.item);
+        drawStation(unit, shop.label + " " + unit.stock, "#70bfff", "#111");
+    });
     if (isUnlockedPoint(MED)) drawStation(MED, "MED BAY", "#d8d8d8", "#111");
     if (isUnlockedPoint(WOODCUTTER)) drawStation(WOODCUTTER, "WOODCUTTER", "#a8a8a8");
     if (isUnlockedPoint(QUARRY)) drawStation(QUARRY, "QUARRY", "#808080");
@@ -2119,6 +2129,12 @@ function drawPlayers() {
         const playerSize = 10;
         ctx.fillRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize);
         if (player.id === myPlayerId) { ctx.strokeStyle = "white"; ctx.lineWidth = 1.5; ctx.strokeRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize); }
+        if (player.selectedBuild?.endsWith("Factory") && player.buildItems?.[player.selectedBuild] > 0) {
+            ctx.fillStyle = "#70bfff";
+            ctx.fillRect(-9, -24, 18, 16);
+            ctx.fillStyle = "#111";
+            ctx.fillRect(-5, -20, 10, 8);
+        }
         ctx.restore();
         if (player.id === myPlayerId) drawLocalWeaponCooldown(p.x, p.y, player);
         ctx.textAlign = "center"; ctx.fillStyle = "#454545"; ctx.font = "800 11px system-ui";

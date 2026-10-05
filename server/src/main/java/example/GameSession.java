@@ -192,6 +192,7 @@ final class GameSession {
             case "WEAPON" -> { if (parts.length >= 2) switchWeapon(player, parts[1]); }
             case "BUY" -> { if (parts.length >= 2) buy(player, parts[1]); }
             case "BUILD" -> { if (parts.length >= 3) build(player, parts[1], parts[2]); }
+            case "PICKUP_FACTORY" -> { if (parts.length >= 2) pickupFactory(player, parts[1]); }
             case "REMOVE" -> { if (parts.length >= 2) removeDefense(player, parts[1]); }
             case "REPAIR" -> { if (parts.length >= 2) repair(player, parts[1]); }
             case "UPGRADE" -> { if (parts.length >= 2) upgradeCore(player, parts[1]); }
@@ -507,11 +508,11 @@ final class GameSession {
 
     private void updateFactories(double dt) {
         for (MaterialFactory factory : factories) {
-            if (!isPointUnlocked(factory.shop.x(), factory.shop.y())) continue;
+            if (!factory.placed || !isPointUnlocked(factory.x, factory.y)) continue;
             factory.produce(dt);
             if (factory.stock == 0) continue;
             Player collector = players.stream().filter(player -> !player.down
-                    && canInteract(player, factory.shop.x(), factory.shop.y(), 30))
+                    && canInteract(player, factory.x, factory.y, 30))
                     .findFirst().orElse(null);
             if (collector == null) continue;
             int amount = factory.stock;
@@ -519,7 +520,7 @@ final class GameSession {
             factory.stock = 0;
             events.broadcast("{\"type\":\"effect\",\"effect\":\"pickup\",\"resource\":\""
                     + factory.resource + "\",\"amount\":" + amount + ",\"playerId\":\"" + collector.id
-                    + "\",\"x\":" + factory.shop.x() + ",\"y\":" + factory.shop.y() + "}");
+                    + "\",\"x\":" + factory.x + ",\"y\":" + factory.y + "}");
         }
     }
 
@@ -1865,10 +1866,14 @@ final class GameSession {
         MaterialFactory factory = factories.stream().filter(unit -> unit.shop.item().equals(item))
                 .findFirst().orElse(null);
         if (factory != null) {
-            if (factory.purchased) { feedback(player, "この製造装置は稼働中です"); return; }
+            if (factory.purchased) { feedback(player, "この製造装置は購入済みです"); return; }
             if (!spend(player, shop.cost())) { feedback(player, "お金が足りません"); return; }
             factory.purchased = true;
-            setNotice(shop.label() + "が稼働しました");
+            factory.carriedBy = player.id;
+            player.addBuildItem(item, 1);
+            player.selectedBuild = item;
+            releaseCarriedCore(player);
+            feedback(player, shop.label() + "を購入しました。Rで設置できます");
             return;
         }
         switch (item) {
@@ -2035,7 +2040,7 @@ final class GameSession {
         if (type.equals("none")) {
             releaseCarriedCore(player);
             player.selectedBuild = null;
-        } else if (BUILD_RECIPES.containsKey(type) && player.buildItemCount(type) > 0) {
+        } else if ((BUILD_RECIPES.containsKey(type) || type.endsWith("Factory")) && player.buildItemCount(type) > 0) {
             releaseCarriedCore(player);
             player.selectedBuild = type;
         }
@@ -2063,6 +2068,12 @@ final class GameSession {
 
     private void carryNearest(Player player, String target) {
         if (!canUseFacilities() || player.down || player.movingCore || player.selectedBuild != null) return;
+        MaterialFactory quarry = factories.stream().filter(unit -> unit.placed
+                && (target == null || unit.shop.item().equals(target))
+                && canInteract(player, unit.x, unit.y, 70))
+                .min(Comparator.comparingDouble(unit -> distance(player.x, player.y, unit.x, unit.y)))
+                .orElse(null);
+        if (quarry != null && target != null) { pickupFactory(player, quarry.shop.item()); return; }
         TrapSlot slot = trapSlots.stream()
                 .filter(unit -> unit.defense != null && canInteract(player, unit.x, unit.y, 100))
                 .filter(unit -> target == null || unit.id.equals(target))
@@ -2070,7 +2081,12 @@ final class GameSession {
                 .orElse(null);
         boolean nearCore = (target == null || target.equals("core"))
                 && canInteract(player, coreX, coreY, 100);
-        if (nearCore && (slot == null || distance(player.x, player.y, coreX, coreY)
+        if (quarry != null && (slot == null || distance(player.x, player.y, quarry.x, quarry.y)
+                <= distance(player.x, player.y, slot.x, slot.y))
+                && (!nearCore || distance(player.x, player.y, quarry.x, quarry.y)
+                <= distance(player.x, player.y, coreX, coreY))) {
+            pickupFactory(player, quarry.shop.item());
+        } else if (nearCore && (slot == null || distance(player.x, player.y, coreX, coreY)
                 <= distance(player.x, player.y, slot.x, slot.y))) {
             equipCore(player);
         } else if (slot != null) {
@@ -2126,6 +2142,8 @@ final class GameSession {
             return;
         }
         if (!GameMap.canPlaceCore(point.x(), point.y(), unlockedAreas)
+                || factories.stream().anyMatch(unit -> unit.placed
+                        && distance(point.x(), point.y(), unit.x, unit.y) < 45)
                 || trapSlots.stream().anyMatch(slot -> slot.defense != null
                         && distance(point.x(), point.y(), slot.x, slot.y) < 45)
                 || players.stream().anyMatch(other -> other != player && !other.down
@@ -2154,12 +2172,43 @@ final class GameSession {
         if (player.movingCore) {
             placeCore(player, new String[] {"PLACE_CORE",
                     Double.toString(targetX), Double.toString(targetY)});
+        } else if (player.selectedBuild != null && player.selectedBuild.endsWith("Factory")) {
+            placeFactory(player, GameMap.snapToTile(targetX, targetY));
         } else if (player.selectedBuild != null) {
             placeDefense(player, new String[] {"PLACE",
                     Double.toString(targetX), Double.toString(targetY), player.selectedBuild});
         } else {
             feedback(player, "先に設置するアイテムを選んでください");
         }
+    }
+
+    private void placeFactory(Player player, MapPoint point) {
+        MaterialFactory factory = factories.stream().filter(unit -> unit.shop.item().equals(player.selectedBuild)
+                && player.id.equals(unit.carriedBy) && !unit.placed).findFirst().orElse(null);
+        if (factory == null || !canPlaceDefenseAt(point, null)) {
+            feedback(player, "ここには設置できません");
+            return;
+        }
+        factory.x = point.x();
+        factory.y = point.y();
+        factory.placed = true;
+        factory.carriedBy = null;
+        player.addBuildItem(factory.shop.item(), -1);
+        player.selectedBuild = null;
+        feedback(player, "製造装置を設置しました");
+    }
+
+    private void pickupFactory(Player player, String item) {
+        if (!canUseFacilities() || player.down) return;
+        MaterialFactory factory = factories.stream().filter(unit -> unit.shop.item().equals(item)
+                && unit.placed && canInteract(player, unit.x, unit.y, 70)).findFirst().orElse(null);
+        if (factory == null) return;
+        factory.placed = false;
+        factory.carriedBy = player.id;
+        player.addBuildItem(item, 1);
+        player.selectedBuild = item;
+        releaseCarriedCore(player);
+        feedback(player, "製造装置を回収しました");
     }
 
     private void build(Player player, String slotId, String type) {
@@ -2226,6 +2275,7 @@ final class GameSession {
     private boolean canPlaceDefenseAt(MapPoint point, TrapSlot ignored) {
         return GameMap.canPlaceDefense(point.x(), point.y(), unlockedAreas)
                 && distance(point.x(), point.y(), coreX, coreY) >= 40
+                && factories.stream().noneMatch(unit -> unit.placed && distance(point.x(), point.y(), unit.x, unit.y) < 36)
                 && trapSlots.stream().noneMatch(slot -> slot != ignored && slot.defense != null
                         && distance(point.x(), point.y(), slot.x, slot.y) < 36)
                 && players.stream().noneMatch(other -> Math.abs(point.x() - other.x) < 23
@@ -2478,6 +2528,10 @@ final class GameSession {
         trapSlots.addAll(GameMap.createTrapSlots());
         factories.forEach(factory -> {
             factory.purchased = false;
+            factory.placed = false;
+            factory.carriedBy = null;
+            factory.x = 0;
+            factory.y = 0;
             factory.stock = 0;
             factory.elapsed = 0;
         });
@@ -2525,6 +2579,7 @@ final class GameSession {
             player.wood = 0;
             player.ore = 0;
             player.recoveredDefenses.clear();
+            player.quarryItems.clear();
             player.copper=0; player.silver=0; player.medkits=0; player.copperTurretItems=0; player.silverTurretItems=0;
             player.gatherCooldown = 0;
             player.blockItems = 0;

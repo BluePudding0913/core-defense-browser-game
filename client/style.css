@@ -643,6 +643,9 @@ button, input { font: inherit; }
 .weapon-icon.rocket::before { left: .15rem; top: .65rem; width: 4.6rem; height: .95rem; border: .12rem solid #ddd; background: #777; border-radius: .2rem; }
 .weapon-icon.rocket::after { left: 2.7rem; top: 1.6rem; width: .65rem; height: .75rem; background: #aaa; }
 
+.weapon-icon[class*="Factory"]::before { left: 1rem; top: .35rem; width: 2.5rem; height: 2rem; background: #70bfff; }
+.weapon-icon[class*="Factory"]::after { left: 1.6rem; top: .85rem; width: 1.3rem; height: 1rem; background: #111; }
+
 
 .health-heart.full .heart-fill { clip-path: none; }
 .health-heart.full .heart-base { color: var(--accent-red); }

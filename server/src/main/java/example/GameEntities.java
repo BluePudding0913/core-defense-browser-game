@@ -68,6 +68,7 @@ final class Player {
     int mineItems;
     int barricadeItems;
     int credits;
+    final java.util.Map<String, Integer> quarryItems = new java.util.HashMap<>();
     String selectedBuild;
     boolean movingCore;
     String actionTarget;
@@ -113,7 +114,7 @@ final class Player {
             case "wire" -> wireItems;
             case "mine" -> mineItems;
             case "barricade" -> barricadeItems;
-            default -> 0;
+            default -> quarryItems.getOrDefault(type, 0);
         };
     }
 
@@ -126,7 +127,7 @@ final class Player {
             case "wire" -> wireItems += amount;
             case "mine" -> mineItems += amount;
             case "barricade" -> barricadeItems += amount;
-            default -> { }
+            default -> { if (type.endsWith("Factory")) quarryItems.merge(type, amount, Integer::sum); }
         }
     }
 }
