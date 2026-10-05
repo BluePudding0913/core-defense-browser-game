@@ -1213,7 +1213,7 @@ function openQuarryMenu() {
     const me = getMe();
     openNearbyActionMenu("QUARRY", [{
         label: "COLLECT ORE",
-        detail: me.gatherCooldown > 0 ? `再採取まで ${me.gatherCooldown.toFixed(1)}秒` : "ORE +3 / クラフト素材",
+        detail: me.gatherCooldown > 0 ? `再採取まで ${me.gatherCooldown.toFixed(1)}秒` : "ORE +1 / クラフト素材",
         command: "GATHER:ore",
         disabled: me.gatherCooldown > 0,
     }], QUARRY, INTERACTION_RANGE.resource);

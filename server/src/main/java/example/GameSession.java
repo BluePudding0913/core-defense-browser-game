@@ -514,14 +514,16 @@ final class GameSession {
                     .filter(player -> !player.down && distance(player.x, player.y, node.x, node.y) <= 24)
                     .findFirst().orElse(null);
             if (collector == null) continue;
-            int amount = switch (node.type) {
-                case "copper" -> 2;
-                case "ore" -> 3;
-                default -> 1;
-            };
+            int amount = 1;
             addResource(collector, node.type, amount);
             node.available = false;
-            node.respawnTimer = 7 + Math.floorMod(node.id.hashCode(), 5);
+            // Preserve material supply while each pickup awards a single piece.
+            double supplyRate = switch (node.type) {
+                case "ore" -> 3;
+                case "copper" -> 2;
+                default -> 1;
+            };
+            node.respawnTimer = (7 + Math.floorMod(node.id.hashCode(), 5)) / supplyRate;
             events.broadcast("{\"type\":\"effect\",\"effect\":\"pickup\",\"resource\":\""
                     + node.type + "\",\"amount\":" + amount + ",\"playerId\":\"" + collector.id + "\",\"x\":"
                     + roundOne(node.x) + ",\"y\":" + roundOne(node.y) + "}");
@@ -1922,12 +1924,12 @@ final class GameSession {
                 feedback(player, "採石場に近づいてください");
                 return;
             }
-            player.ore += 3;
-            feedback(player, "鉄を3個入手しました");
+            player.ore++;
+            feedback(player, "鉄を1個入手しました");
         } else {
             return;
         }
-        player.gatherCooldown = GATHER_COOLDOWN_SECONDS;
+        player.gatherCooldown = resource.equals("ore") ? GATHER_COOLDOWN_SECONDS / 3 : GATHER_COOLDOWN_SECONDS;
     }
 
     private void dropResource(Player player, String[] parts) {

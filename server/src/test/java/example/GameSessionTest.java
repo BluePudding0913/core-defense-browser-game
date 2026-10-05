@@ -435,7 +435,7 @@ class GameSessionTest {
         assertEquals(0, player.ore, "ore must remain locked when only the wood room is open");
         game.unlockedAreas.add("ore-room");
         game.update(0.05);
-        assertEquals(3, player.ore);
+        assertEquals(1, player.ore);
     }
 
     @Test
@@ -798,6 +798,7 @@ class GameSessionTest {
         game.coreY = 300;
         game.prepTime = 100;
         Player bot = game.players.get(1);
+        bot.botSpendCooldown = 100; // Keep this navigation check independent of harvesting/crafting.
         game.players.get(2).human = true;
         game.players.get(3).human = true;
         bot.x = 1_020;
