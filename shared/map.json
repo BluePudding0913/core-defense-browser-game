@@ -182,28 +182,28 @@
         {"column":29,"row":25},{"column":30,"row":25},{"column":31,"row":25},{"column":32,"row":25}
       ]
     },
-    {"id":"shotgun-room","name":"SHOTGUN ROOM","terminalX":1180,"terminalY":1580,"labelX":1340,"labelY":1700,"color":"#ffffff","detail":"Spread shot / 30 rounds",
+    {"id":"shotgun-room","name":"SHOTGUN ROOM","terminalX":1180,"terminalY":1580,"labelX":1340,"labelY":1700,"color":"#ffffff","detail":"十分な弾薬を補充できます",
       "tiles": [
         {"column":31,"row":39},{"column":32,"row":39},{"column":33,"row":39},{"column":34,"row":39},
         {"column":29,"row":40},{"column":30,"row":40},{"column":31,"row":40},{"column":32,"row":40},{"column":33,"row":40},{"column":34,"row":40},
         {"column":31,"row":41},{"column":32,"row":41},{"column":33,"row":41},{"column":34,"row":41}
       ]
     },
-    {"id":"dualPistol-room","name":"DUAL PISTOL ROOM","terminalX":900,"terminalY":1580,"labelX":740,"labelY":1740,"color":"#ffffff","detail":"Twin shot / 60 rounds",
+    {"id":"dualPistol-room","name":"DUAL PISTOL ROOM","terminalX":900,"terminalY":1580,"labelX":740,"labelY":1740,"color":"#ffffff","detail":"十分な弾薬を補充できます",
       "tiles": [
         {"column":17,"row":40},{"column":18,"row":40},{"column":19,"row":40},{"column":20,"row":40},
         {"column":21,"row":41},{"column":22,"row":41},{"column":17,"row":41},{"column":18,"row":41},{"column":19,"row":41},{"column":20,"row":41},
         {"column":17,"row":42},{"column":18,"row":42},{"column":19,"row":42},{"column":20,"row":42}
       ]
     },
-    {"id":"smg-room","name":"SMG ROOM","terminalX":1820,"terminalY":980,"labelX":1940,"labelY":940,"color":"#ffffff","detail":"Rapid fire / 90 rounds",
+    {"id":"smg-room","name":"SMG ROOM","terminalX":1820,"terminalY":980,"labelX":1940,"labelY":940,"color":"#ffffff","detail":"十分な弾薬を補充できます",
       "tiles": [
         {"column":47,"row":24},{"column":48,"row":24},{"column":49,"row":24},{"column":50,"row":24},
         {"column":45,"row":25},{"column":46,"row":25},{"column":47,"row":25},{"column":48,"row":25},{"column":49,"row":25},{"column":50,"row":25},
         {"column":47,"row":26},{"column":48,"row":26},{"column":49,"row":26},{"column":50,"row":26}
       ]
     },
-    {"id":"lmg-room","name":"LMG ROOM","terminalX":1380,"terminalY":580,"labelX":1220,"labelY":500,"color":"#ffffff","detail":"Sustained fire / 150 rounds",
+    {"id":"lmg-room","name":"LMG ROOM","terminalX":1380,"terminalY":580,"labelX":1220,"labelY":500,"color":"#ffffff","detail":"十分な弾薬を補充できます",
       "tiles": [
         {"column":29,"row":13},{"column":30,"row":13},{"column":31,"row":13},{"column":32,"row":13},
         {"column":29,"row":14},{"column":30,"row":14},{"column":31,"row":14},{"column":32,"row":14},
@@ -211,7 +211,7 @@
         {"column":29,"row":16},{"column":30,"row":16},{"column":31,"row":16},{"column":32,"row":16}
       ]
     },
-    {"id":"rifle-room","name":"RIFLE ROOM","terminalX":820,"terminalY":420,"labelX":820,"labelY":620,"color":"#ffffff","detail":"Long range / 24 rounds",
+    {"id":"rifle-room","name":"RIFLE ROOM","terminalX":820,"terminalY":420,"labelX":820,"labelY":620,"color":"#ffffff","detail":"十分な弾薬を補充できます",
       "tiles": [
         {"column":21,"row":10},
         {"column":21,"row":11},
@@ -220,7 +220,7 @@
         {"column":19,"row":14},{"column":20,"row":14},{"column":21,"row":14},{"column":22,"row":14}
       ]
     },
-    {"id":"sniper-room","name":"SNIPER ROOM","terminalX":180,"terminalY":500,"labelX":340,"labelY":580,"color":"#ffffff","detail":"Precision shot / 16 rounds",
+    {"id":"sniper-room","name":"SNIPER ROOM","terminalX":180,"terminalY":500,"labelX":340,"labelY":580,"color":"#ffffff","detail":"十分な弾薬を補充できます",
       "tiles": [
         {"column":5,"row":12},
         {"column":4,"row":13},{"column":5,"row":13},{"column":6,"row":13},{"column":7,"row":13},
@@ -228,7 +228,7 @@
         {"column":4,"row":15},{"column":5,"row":15},{"column":6,"row":15},{"column":7,"row":15}
       ]
     },
-    {"id":"revolver-room","name":"REVOLVER ROOM","terminalX":500,"terminalY":420,"labelX":540,"labelY":620,"color":"#ffffff","detail":"Elite damage / 36 rounds","tiles":[{"column":12,"row":10},{"column":11,"row":11},{"column":12,"row":11},{"column":13,"row":11},{"column":14,"row":11},{"column":11,"row":12},{"column":12,"row":12},{"column":13,"row":12},{"column":14,"row":12},{"column":11,"row":13},{"column":12,"row":13},{"column":13,"row":13},{"column":14,"row":13},{"column":11,"row":14},{"column":12,"row":14},{"column":13,"row":14},{"column":14,"row":14}]}
+    {"id":"revolver-room","name":"REVOLVER ROOM","terminalX":500,"terminalY":420,"labelX":540,"labelY":620,"color":"#ffffff","detail":"十分な弾薬を補充できます","tiles":[{"column":12,"row":10},{"column":11,"row":11},{"column":12,"row":11},{"column":13,"row":11},{"column":14,"row":11},{"column":11,"row":12},{"column":12,"row":12},{"column":13,"row":12},{"column":14,"row":12},{"column":11,"row":13},{"column":12,"row":13},{"column":13,"row":13},{"column":14,"row":13},{"column":11,"row":14},{"column":12,"row":14},{"column":13,"row":14},{"column":14,"row":14}]}
   ],
   "spawnPoints": [
     {"id":"south-gate","name":"SOUTH GATE","x":1020,"y":2020,"lane":"south","enemyBias":"balanced","speedMultiplier":1.0,"targetPriority":"core","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1300,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1380,"y":340},{"x":1200,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":660,"y":260},{"x":420,"y":260},{"x":220,"y":260}]},
@@ -266,22 +266,22 @@
     {"id":"wood-4","type":"wood","x":1660,"y":620,"requiredArea":"forest"},
     {"id":"ore-1","type":"ore","x":740,"y":140,"requiredArea":"mine"},
     {"id":"ore-2","type":"ore","x":980,"y":140,"requiredArea":"mine"},
-    {"id":"ore-3","type":"ore","x":740,"y":300,"requiredArea":"mine"},
-    {"id":"ore-4","type":"ore","x":900,"y":300,"requiredArea":"mine"},
+    {"id":"ore-3","type":"copper","x":740,"y":300,"requiredArea":"mine"},
+    {"id":"ore-4","type":"silver","x":900,"y":300,"requiredArea":"mine"},
     {"id":"early-wood-1","type":"wood","x":740,"y":1420,"requiredArea":"wood-room"},
     {"id":"early-wood-2","type":"wood","x":820,"y":1500,"requiredArea":"wood-room"},
     {"id":"early-ore-1","type":"ore","x":1340,"y":1260,"requiredArea":"ore-room"},
     {"id":"early-ore-2","type":"ore","x":1460,"y":1340,"requiredArea":"ore-room"}
   ],
   "shopUnits": [
-    {"id":"shop-shotgun","item":"shotgun","label":"SHOTGUN","x":1340,"y":1620,"cost":450,"detail":"Spread shot / 30 rounds"},
-    {"id":"shop-smg","item":"smg","label":"SMG","x":1980,"y":1020,"cost":550,"detail":"Rapid fire / 90 rounds"},
+    {"id":"shop-shotgun","item":"shotgun","label":"SHOTGUN","x":1340,"y":1620,"cost":450,"detail":"十分な弾薬を補充できます"},
+    {"id":"shop-smg","item":"smg","label":"SMG","x":1980,"y":1020,"cost":550,"detail":"十分な弾薬を補充できます"},
     {"id":"shop-ammo","item":"ammo","label":"AMMO","x":1740,"y":660,"cost":120,"detail":"Refill all owned weapons to MAX"},
-    {"id":"shop-rifle","item":"rifle","label":"RIFLE","x":820,"y":540,"cost":650,"detail":"Long range / 24 rounds"},
-    {"id":"shop-sniper","item":"sniper","label":"SNIPER","x":220,"y":580,"cost":900,"detail":"Precision shot / 16 rounds"},
-    {"id":"shop-dualPistol","item":"dualPistol","label":"DUAL PISTOL","x":740,"y":1660,"cost":400,"detail":"Twin shot / 60 rounds"},
-    {"id":"shop-revolver","item":"revolver","label":"REVOLVER","x":500,"y":540,"cost":1200,"detail":"Elite damage / 36 rounds"},
-    {"id":"shop-lmg","item":"lmg","label":"LMG","x":1220,"y":580,"cost":850,"detail":"Sustained fire / 150 rounds"}
+    {"id":"shop-rifle","item":"rifle","label":"RIFLE","x":820,"y":540,"cost":650,"detail":"十分な弾薬を補充できます"},
+    {"id":"shop-sniper","item":"sniper","label":"SNIPER","x":220,"y":580,"cost":900,"detail":"十分な弾薬を補充できます"},
+    {"id":"shop-dualPistol","item":"dualPistol","label":"DUAL PISTOL","x":740,"y":1660,"cost":400,"detail":"十分な弾薬を補充できます"},
+    {"id":"shop-revolver","item":"revolver","label":"REVOLVER","x":500,"y":540,"cost":1200,"detail":"十分な弾薬を補充できます"},
+    {"id":"shop-lmg","item":"lmg","label":"LMG","x":1220,"y":580,"cost":850,"detail":"十分な弾薬を補充できます"}
   ],
   "workbenchUnits": [
     {"id":"workbench-entry","x":980,"y":1460,"requiredArea":"entry-room"},

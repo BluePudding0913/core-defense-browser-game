@@ -50,6 +50,7 @@ final class SnapshotBuilder {
                 .append(",\"maxShield\":").append(roundOne(game.coreMaxShield));
         json.append(",\"defense\":").append(game.coreDefenseLevel)
                 .append(",\"regen\":").append(game.coreRegenLevel).append('}');
+        appendRules(json, game);
         appendAreas(json, game);
         appendPlayers(json, game.players);
         appendEnemies(json, game.enemies);
@@ -58,6 +59,50 @@ final class SnapshotBuilder {
         appendDroppedResources(json, game.droppedResources);
         json.append('}');
         return json.toString();
+    }
+
+    private static void appendRules(StringBuilder json, GameSession game) {
+        json.append(",\"rules\":{\"weapons\":{");
+        boolean first = true;
+        for (var entry : GameConfig.WEAPONS.entrySet()) {
+            if (!first) json.append(',');
+            first = false;
+            String key = entry.getKey();
+            var stats = entry.getValue();
+            ShopUnit shop = GameMap.shopByItem(key);
+            json.append('"').append(key).append("\":{\"capacity\":").append(GameSession.weaponAmmoCapacity(key))
+                .append(",\"price\":").append(shop == null ? 0 : shop.cost()).append(",\"refillCost\":").append(GameSession.ammoRefillCost())
+                .append(",\"damage\":").append(stats.damage()).append(",\"range\":").append(stats.range())
+                .append(",\"cooldown\":").append(stats.cooldown()).append(",\"ammoPerShot\":").append(key.equals("dualPistol") ? 2 : 1)
+                .append(",\"pellets\":").append(key.equals("shotgun") ? GameConfig.SHOTGUN_PELLETS : 1).append(",\"maxTargets\":").append(key.equals("shotgun") ? GameConfig.SHOTGUN_MAX_TARGETS : 1)
+                .append(",\"name\":\"").append(key).append("\"}");
+        }
+        json.append("},\"recipes\":{");
+        first = true;
+        for (var entry : GameConfig.BUILD_RECIPES.entrySet()) {
+            if (!first) json.append(',');
+            first = false;
+            String key = entry.getKey();
+            String name = switch (key) {
+                case "block" -> "防壁";
+                case "turret" -> "タレット";
+                case "copperTurret" -> "銅タレット";
+                case "silverTurret" -> "銀タレット";
+                case "wire" -> "有刺鉄線";
+                case "mine" -> "地雷";
+                default -> "バリケード";
+            };
+            json.append('"').append(key).append("\":{\"name\":\"").append(name).append("\",\"description\":\"")
+                .append(key.equals("copperTurret") ? "威力2倍の強化タレット" : key.equals("silverTurret") ? "高威力・長射程の高速タレット" : "拠点を守る防衛設備").append('"');
+            for(String material : List.of("wood","ore","copper","silver")) json.append(",\"").append(material).append("\":").append(entry.getValue().getOrDefault(material,0));
+            json.append('}');
+        }
+        ShopUnit ammo = GameMap.shopByItem("ammo");
+        json.append("},\"shop\":{\"heal\":").append(GameConfig.HEAL_PRICE).append(",\"medkit\":").append(GameConfig.MEDKIT_PRICE).append(",\"ammo\":").append(ammo.cost())
+            .append("},\"medkitHeal\":").append(GameConfig.MEDKIT_HEAL).append(",\"medkitCapacity\":").append(GameConfig.MEDKIT_CAPACITY).append(",\"unlockCost\":").append(game.unlockCost())
+            .append(",\"coreCosts\":{\"hp\":").append(game.coreUpgradeCost("hp"))
+            .append(",\"shield\":").append(game.coreUpgradeCost("shield")).append(",\"defense\":").append(game.coreUpgradeCost("defense"))
+            .append(",\"regen\":").append(game.coreUpgradeCost("regen")).append("}}");
     }
 
     private static void appendAreas(StringBuilder json, GameSession game) {
@@ -108,6 +153,9 @@ final class SnapshotBuilder {
                     .append(",\"dualPistolAmmo\":").append(player.dualPistolAmmo);
             json.append(",\"wood\":").append(player.wood)
                     .append(",\"ore\":").append(player.ore)
+                    .append(",\"copper\":").append(player.copper)
+                    .append(",\"silver\":").append(player.silver)
+                    .append(",\"medkits\":").append(player.medkits)
                     .append(",\"credits\":").append(player.credits)
                     .append(",\"gatherCooldown\":").append(roundOne(player.gatherCooldown));
             json.append(",\"selectedBuild\":")
@@ -118,7 +166,9 @@ final class SnapshotBuilder {
                     .append(",\"turret\":").append(player.turretItems)
                     .append(",\"wire\":").append(player.wireItems)
                     .append(",\"mine\":").append(player.mineItems)
-                    .append(",\"barricade\":").append(player.barricadeItems).append('}');
+                    .append(",\"barricade\":").append(player.barricadeItems)
+                    .append(",\"copperTurret\":").append(player.copperTurretItems)
+                    .append(",\"silverTurret\":").append(player.silverTurretItems).append('}');
             json.append(",\"kills\":").append(player.kills);
             json.append(",\"action\":")
                     .append(player.actionTarget == null ? "null" : "\"" + player.actionTarget + "\"");

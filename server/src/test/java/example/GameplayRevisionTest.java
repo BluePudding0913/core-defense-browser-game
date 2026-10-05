@@ -51,31 +51,31 @@ class GameplayRevisionTest {
         game.handleMessage(player, "BUY:dualPistol");
         assertEquals(600, player.credits);
         assertTrue(player.ownsDualPistol);
-        assertEquals(60, player.dualPistolAmmo);
+        assertEquals(240, player.dualPistolAmmo);
         player.x = 1020; player.y = 1900;
         Enemy enemy = new Enemy(9300, "grunt", GameMap.SPAWN_POINTS.get(0), 500, 0, 0, 50);
         enemy.x = 1120; enemy.y = 1900;
         game.enemies.add(enemy);
         game.handleMessage(player, "ATTACK:9300");
-        assertEquals(448, enemy.hp);
-        assertEquals(58, player.dualPistolAmmo);
-        assertEquals(.45, player.cooldown);
+        assertEquals(428, enemy.hp);
+        assertEquals(238, player.dualPistolAmmo);
+        assertEquals(.30, player.cooldown);
         player.cooldown = 0; player.dualPistolAmmo = 1;
         game.handleMessage(player, "ATTACK:9300");
-        assertEquals(448, enemy.hp, "a pair requires two rounds");
+        assertEquals(428, enemy.hp, "a pair requires two rounds");
         player.x = shop.x(); player.y = shop.y();
         game.handleMessage(player, "BUY:dualPistol");
-        assertEquals(60, player.dualPistolAmmo);
+        assertEquals(240, player.dualPistolAmmo);
         player.dualPistolAmmo = 0;
         game.unlockedAreas.add("forest");
         ShopUnit ammo = GameMap.shopByItem("ammo");
         player.x = ammo.x(); player.y = ammo.y();
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(60, player.dualPistolAmmo);
+        assertEquals(240, player.dualPistolAmmo);
         var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
         var self = snapshot.path("players").get(player.slot - 1);
         assertTrue(self.path("ownsDualPistol").asBoolean());
-        assertEquals(60, self.path("dualPistolAmmo").asInt());
+        assertEquals(240, self.path("dualPistolAmmo").asInt());
         game.phase = GamePhase.WON;
         game.players.forEach(p -> p.roomReady = true);
         game.handleMessage(player, "START");
@@ -107,11 +107,11 @@ class GameplayRevisionTest {
         player.sniperAmmo = 0; player.revolverAmmo = 35; player.lmgAmmo = 150;
         game.handleMessage(player, "BUY:ammo");
         assertEquals(880, player.credits);
-        assertEquals(List.of(30, 300, 24, 16, 36, 150), List.of(player.shotgunAmmo,
+        assertEquals(List.of(90, 600, 96, 48, 108, 600), List.of(player.shotgunAmmo,
                 player.smgAmmo, player.rifleAmmo, player.sniperAmmo, player.revolverAmmo, player.lmgAmmo));
         for (int i = 0; i < 3; i++) game.handleMessage(player, "BUY:ammo");
         assertEquals(880, player.credits);
-        assertEquals(150, player.lmgAmmo);
+        assertEquals(600, player.lmgAmmo);
         player.shotgunAmmo = 0; player.credits = 119;
         game.handleMessage(player, "BUY:ammo");
         assertEquals(0, player.shotgunAmmo);
@@ -177,7 +177,7 @@ class GameplayRevisionTest {
     @Test void newWeaponsRequireUnlockedShopsAndSupportCombatRefillsAndSnapshots() throws Exception {
         for (String weapon : List.of("revolver", "lmg")) {
             ShopUnit shop = GameMap.shopByItem(weapon);
-            int capacity = weapon.equals("revolver") ? 36 : 150;
+            int capacity = GameSession.weaponAmmoCapacity(weapon);
             int damage = weapon.equals("revolver") ? 180 : 18;
             player.credits = 2000;
             player.x = shop.x(); player.y = shop.y();
@@ -223,8 +223,8 @@ class GameplayRevisionTest {
         ShopUnit ammo = GameMap.shopByItem("ammo");
         player.x = ammo.x(); player.y = ammo.y();
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(36, player.revolverAmmo);
-        assertEquals(150, player.lmgAmmo);
+        assertEquals(108, player.revolverAmmo);
+        assertEquals(600, player.lmgAmmo);
     }
 
     @Test void frontPlacementAtTileEdgeSkipsTheTileOverlappingThePlayer() {
@@ -655,5 +655,95 @@ class GameplayRevisionTest {
         broadcasts.clear();
         damage.invoke(game, player, 0.0);
         assertTrue(broadcasts.isEmpty());
+    }
+
+    @Test void shotgunHitsMultiplePelletsOnOneEnemyAndNeverMoreThanFiveEnemies() {
+        player.x=1020; player.y=1900; player.ownsShotgun=true; player.shotgunAmmo=10;
+        game.handleMessage(player,"WEAPON:shotgun");
+        for(int i=0;i<6;i++) {
+            Enemy enemy=new Enemy(9400+i,"grunt",GameMap.SPAWN_POINTS.get(0),2000,0,0,0);
+            enemy.x=1100+i*5; enemy.y=1900; game.enemies.add(enemy);
+        }
+        game.handleMessage(player,"ATTACK:9400");
+        assertEquals(5,game.enemies.stream().filter(e -> e.hp<e.maxHp).count());
+        assertEquals(2000,game.enemies.get(5).hp);
+        assertTrue(2000-game.enemies.get(0).hp >= GameConfig.WEAPONS.get("shotgun").damage()*2);
+        assertEquals(9,player.shotgunAmmo);
+    }
+
+    @Test void weaponChangesPreserveReviveProgress() {
+        player.x=1020; player.y=1900;
+        Player downed=game.players.get(1); downed.x=1060; downed.y=1900; downed.down=true; downed.hp=0;
+        game.update(2); double progress=player.actionProgress;
+        game.handleMessage(player,"WEAPON:bat"); assertEquals(progress,player.actionProgress);
+        game.handleMessage(player,"WEAPON:pistol"); game.update(2.1);
+        assertFalse(downed.down);
+    }
+
+    @Test void medkitsRequirePurchaseAndAreConsumedOnlyWhenUseful() throws Exception {
+        player.hp=40; game.handleMessage(player,"USE:medkit"); assertEquals(40,player.hp);
+        player.credits=500; player.x=GameMap.MED_X; player.y=GameMap.MED_Y;
+        game.unlockedAreas.addAll(GameMap.AREAS.stream().map(UnlockArea::id).toList());
+        game.handleMessage(player,"BUY:medkit"); assertEquals(1,player.medkits); assertEquals(380,player.credits);
+        player.x=1020; player.y=1900; game.handleMessage(player,"USE:medkit");
+        assertEquals(100,player.hp); assertEquals(0,player.medkits);
+        player.medkits=1; game.handleMessage(player,"USE:medkit"); assertEquals(1,player.medkits);
+        assertTrue(broadcasts.stream().anyMatch(m -> m.contains("item-use") && m.contains(player.id)));
+    }
+
+    @Test void copperAndSilverNodesCraftStrongerTurretsWithValidatedCosts() throws Exception {
+        game.unlockedAreas.addAll(GameMap.AREAS.stream().map(UnlockArea::id).toList());
+        for(String type:List.of("copper","silver")) {
+            ResourceNode node=game.resourceNodes.stream().filter(n -> n.type.equals(type)).findFirst().orElseThrow();
+            player.x=node.x; player.y=node.y; game.update(.05);
+        }
+        assertEquals(1,player.copper); assertEquals(1,player.silver);
+        WorkbenchUnit bench=GameMap.WORKBENCH_UNITS.get(0); player.x=bench.x();player.y=bench.y();
+        player.wood=10;player.ore=20;player.copper=10;player.silver=10;
+        game.handleMessage(player,"CRAFT:silverTurret");
+        assertEquals(1,player.silverTurretItems); assertEquals(6,player.copper); assertEquals(4,player.silver);
+        player.silver=0; game.handleMessage(player,"CRAFT:silverTurret"); assertEquals(1,player.silverTurretItems);
+        var snapshot=new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
+        assertEquals(50,snapshot.path("maxRounds").asInt());
+        assertEquals(GameSession.weaponAmmoCapacity("dualPistol"),snapshot.path("rules").path("weapons").path("dualPistol").path("capacity").asInt());
+        assertEquals(6,snapshot.path("rules").path("recipes").path("silverTurret").path("silver").asInt());
+    }
+
+    @Test void directCarryTargetsNearbyObjectsAndRejectsRemoteObjects() {
+        player.x=game.coreX;player.y=game.coreY;
+        game.handleMessage(player,"CARRY_NEAREST:core"); assertTrue(player.movingCore);
+        game.handleMessage(player,"WEAPON:pistol");
+        TrapSlot slot=new TrapSlot("carry-test","free",player.x+40,player.y,null);slot.defense=new Defense("copperTurret");game.trapSlots.add(slot);
+        player.x-=200; game.handleMessage(player,"CARRY_NEAREST:carry-test"); assertNotNull(slot.defense);assertEquals(0,player.copperTurretItems);
+        player.x+=200;game.handleMessage(player,"CARRY_NEAREST:carry-test");assertEquals(1,player.copperTurretItems);assertEquals("copperTurret",player.selectedBuild);
+    }
+
+    @Test void fundedCpuUnlocksBeforeWeaponsRegardlessOfCoreLocationOrPoorerNearbyCpu() throws Exception {
+        Player bot=game.players.get(1);bot.human=false;bot.credits=1000;bot.botSpendCooldown=0;
+        game.coreX=300;game.coreY=300;
+        UnlockArea entry=GameMap.areaById("entry-room");
+        for(int[] delta:new int[][]{{40,0},{-40,0},{0,40},{0,-40}}) {
+            if(GameMap.canOccupy(entry.terminalX()+delta[0],entry.terminalY()+delta[1],5,game.unlockedAreas)) {
+                bot.x=entry.terminalX()+delta[0];bot.y=entry.terminalY()+delta[1];break;
+            }
+        }
+        Player poor=game.players.get(2);poor.human=false;poor.credits=0;poor.x=bot.x;poor.y=bot.y;
+        game.phase=GamePhase.WAVE;
+        Method tasks=GameSession.class.getDeclaredMethod("updateBotTasks",Player.class);tasks.setAccessible(true);
+        assertTrue((boolean)tasks.invoke(game,bot));assertTrue(game.unlockedAreas.contains("entry-room"));assertEquals(650,bot.credits);
+    }
+
+    @Test void recoveringDamagedDefensePreservesHpAcrossWeaponSwitchAndReinstallation() {
+        player.x=1020; player.y=1900; player.facingX=1; player.facingY=0;
+        TrapSlot slot=new TrapSlot("damaged-carry","free",1060,1900,null);
+        slot.defense=new Defense("silverTurret"); slot.defense.hp=37; game.trapSlots.add(slot);
+        game.handleMessage(player,"CARRY_NEAREST:damaged-carry");
+        assertEquals(1,player.silverTurretItems);
+        game.handleMessage(player,"WEAPON:bat");
+        assertEquals(1,player.silverTurretItems);
+        game.handleMessage(player,"EQUIP_BUILD:silverTurret"); game.handleMessage(player,"PLACE_FRONT");
+        TrapSlot placed=game.trapSlots.stream().filter(u -> u.defense!=null && u.defense.type.equals("silverTurret")).findFirst().orElseThrow();
+        assertEquals(37,placed.defense.hp);
+        assertEquals(0,player.silverTurretItems);
     }
 }

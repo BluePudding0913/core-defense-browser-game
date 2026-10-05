@@ -122,12 +122,12 @@ class GameSessionTest {
 
         assertTrue(player.ownsShotgun);
         assertEquals("shotgun", player.weapon);
-        assertEquals(30, player.shotgunAmmo);
+        assertEquals(GameSession.weaponAmmoCapacity("shotgun"), player.shotgunAmmo);
         assertEquals(250, player.credits);
 
         player.shotgunAmmo = 4;
         game.handleMessage(player, "BUY:shotgun");
-        assertEquals(30, player.shotgunAmmo);
+        assertEquals(GameSession.weaponAmmoCapacity("shotgun"), player.shotgunAmmo);
         assertEquals(130, player.credits,
                 "the weapon unit should refill its own ammunition for 120G");
 
@@ -143,7 +143,7 @@ class GameSessionTest {
         player.x = GameMap.CORE_X;
         player.y = GameMap.CORE_Y;
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(30, player.shotgunAmmo);
+        assertEquals(GameSession.weaponAmmoCapacity("shotgun"), player.shotgunAmmo);
         assertEquals(1_000, player.credits, "a remote purchase must be rejected");
     }
 
@@ -172,7 +172,7 @@ class GameSessionTest {
         game.handleMessage(player, "BUY:smg");
         assertTrue(player.ownsSmg);
         assertEquals("smg", player.weapon);
-        assertEquals(300, player.smgAmmo);
+        assertEquals(GameSession.weaponAmmoCapacity("smg"), player.smgAmmo);
 
         ShopUnit sniperShop = GameMap.shopByItem("sniper");
         player.x = sniperShop.x();
@@ -180,14 +180,14 @@ class GameSessionTest {
         game.handleMessage(player, "BUY:sniper");
         assertTrue(player.ownsSniper);
         assertEquals("sniper", player.weapon);
-        assertEquals(16, player.sniperAmmo);
+        assertEquals(48, player.sniperAmmo);
 
         ShopUnit ammoShop = GameMap.shopByItem("ammo");
         player.x = ammoShop.x();
         player.y = ammoShop.y();
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(300, player.smgAmmo);
-        assertEquals(16, player.sniperAmmo);
+        assertEquals(GameSession.weaponAmmoCapacity("smg"), player.smgAmmo);
+        assertEquals(48, player.sniperAmmo);
     }
 
     @Test
@@ -629,7 +629,7 @@ class GameSessionTest {
         game.handleMessage(player, "START");
 
         assertTrue(events.broadcasts.stream().anyMatch(message -> message.contains("\"type\":\"log\"")));
-        assertTrue(events.broadcasts.stream().anyMatch(message -> message.contains("準備開始")));
+        assertTrue(events.broadcasts.stream().anyMatch(message -> message.contains("次のラウンドの準備を始めます")));
     }
 
     @Test
@@ -756,7 +756,7 @@ class GameSessionTest {
         startPreparing();
         game.unlockedAreas.addAll(Set.of("entry-room", "shotgun-room"));
         Player bot = game.players.get(1);
-        bot.credits = 700;
+        bot.credits = 450;
 
         game.prepTime = 90;
         game.update(.05);
@@ -764,7 +764,7 @@ class GameSessionTest {
         for (int i = 0; i < 900 && !bot.ownsShotgun; i++) game.update(.05);
 
         assertTrue(bot.ownsShotgun);
-        assertEquals(250, bot.credits);
+        assertEquals(0, bot.credits);
         assertEquals("shotgun", bot.weapon);
     }
 
@@ -884,7 +884,10 @@ class GameSessionTest {
         game.queuedBosses = 0;
         game.enemies.clear();
         game.update(0.05);
-        assertEquals(GamePhase.WON, game.phase, "clearing round 20 should win the match");
+        assertEquals(GamePhase.PREPARING, game.phase, "round 20 must no longer finish the match");
+        beginSpecificRound(50);
+        game.queuedEnemies=0; game.queuedBosses=0; game.enemies.clear(); game.update(.05);
+        assertEquals(GamePhase.WON, game.phase, "clearing round 50 should win the match");
     }
 
     @Test
@@ -904,7 +907,7 @@ class GameSessionTest {
 
         assertFalse(game.blackoutActive);
         assertTrue(game.trippedBreakers.isEmpty());
-        assertTrue(game.notice.contains("電力復旧"));
+        assertTrue(game.notice.contains("電力が復旧しました"));
     }
 
     @Test

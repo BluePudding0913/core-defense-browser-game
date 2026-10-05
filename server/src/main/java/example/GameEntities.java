@@ -58,6 +58,7 @@ final class Player {
     int dualPistolAmmo;
     int wood;
     int ore;
+    int copper, silver, medkits, copperTurretItems, silverTurretItems;
     double gatherCooldown;
     int blockItems;
     int turretItems;
@@ -91,10 +92,22 @@ final class Player {
         this.name = "CPU " + slot;
     }
 
+    final java.util.Map<String, java.util.ArrayDeque<Defense>> recoveredDefenses = new java.util.HashMap<>();
+    void recoverDefense(Defense defense) {
+        recoveredDefenses.computeIfAbsent(defense.type, key -> new java.util.ArrayDeque<>()).add(defense);
+        addBuildItem(defense.type, 1);
+    }
+    Defense takeDefense(String type) {
+        var stored = recoveredDefenses.get(type);
+        return stored != null && !stored.isEmpty() ? stored.removeFirst() : new Defense(type);
+    }
+
     int buildItemCount(String type) {
         return switch (type) {
             case "block" -> blockItems;
             case "turret" -> turretItems;
+            case "copperTurret" -> copperTurretItems;
+            case "silverTurret" -> silverTurretItems;
             case "wire" -> wireItems;
             case "mine" -> mineItems;
             case "barricade" -> barricadeItems;
@@ -106,6 +119,8 @@ final class Player {
         switch (type) {
             case "block" -> blockItems += amount;
             case "turret" -> turretItems += amount;
+            case "copperTurret" -> copperTurretItems += amount;
+            case "silverTurret" -> silverTurretItems += amount;
             case "wire" -> wireItems += amount;
             case "mine" -> mineItems += amount;
             case "barricade" -> barricadeItems += amount;
@@ -213,6 +228,8 @@ final class Defense {
         this.maxHp = switch (type) {
             case "block" -> 320;
             case "turret" -> 120;
+            case "copperTurret" -> 220;
+            case "silverTurret" -> 320;
             case "wire" -> 100;
             case "mine" -> 1;
             case "barricade" -> 260;

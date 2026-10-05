@@ -59,7 +59,7 @@ final class MapValidator {
             }
         }
         for (ResourceNodeDefinition node : map.resourceNodes()) {
-            if (!Set.of("wood", "ore").contains(node.type())) {
+            if (!Set.of("wood", "ore", "copper", "silver").contains(node.type())) {
                 throw new IllegalStateException("Unknown resource type for " + node.id());
             }
         }
