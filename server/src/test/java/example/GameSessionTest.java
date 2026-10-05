@@ -110,6 +110,53 @@ class GameSessionTest {
     }
 
     @Test
+    void debugStartGivesOnlyTheHostCreditsAndEveryWeaponWithFullAmmo() {
+        Player guest = game.connectPlayer("test-session-b");
+        game.handleMessage(guest, "ROOM_READY:1");
+        game.handleMessage(guest, "START:DEBUG");
+        assertEquals(GamePhase.LOBBY, game.phase);
+        assertEquals(0, player.credits);
+
+        game.handleMessage(player, "START:DEBUG");
+        assertEquals(GamePhase.PREPARING, game.phase);
+        assertEquals(100_000, player.credits);
+        assertEquals("pistol", player.weapon);
+        for (String weapon : GameConfig.WEAPONS.keySet()) {
+            game.handleMessage(player, "WEAPON:" + weapon);
+            assertEquals(weapon, player.weapon);
+            assertEquals(GameSession.weaponAmmoCapacity(weapon), GameSession.weaponAmmo(player, weapon));
+        }
+        for (Player other : game.players) {
+            if (other == player) continue;
+            assertEquals(0, other.credits);
+            for (String weapon : GameConfig.AMMO_CAPACITIES.keySet()) {
+                game.handleMessage(other, "WEAPON:" + weapon);
+                assertEquals("pistol", other.weapon);
+                assertEquals(0, GameSession.weaponAmmo(other, weapon));
+            }
+        }
+
+        player.credits = 1;
+        player.shotgunAmmo = 0;
+        game.phase = GamePhase.LOST;
+        game.handleMessage(guest, "ROOM_READY:1");
+        game.handleMessage(player, "START:DEBUG");
+        assertEquals(100_000, player.credits);
+        assertEquals(GameSession.weaponAmmoCapacity("shotgun"), player.shotgunAmmo);
+
+        game.phase = GamePhase.LOST;
+        game.handleMessage(guest, "ROOM_READY:1");
+        game.handleMessage(player, "START");
+        assertEquals(GamePhase.PREPARING, game.phase);
+        assertEquals(0, player.credits);
+        for (String weapon : GameConfig.AMMO_CAPACITIES.keySet()) {
+            game.handleMessage(player, "WEAPON:" + weapon);
+            assertEquals("pistol", player.weapon);
+            assertEquals(0, GameSession.weaponAmmo(player, weapon));
+        }
+    }
+
+    @Test
     void purchaseRequiresTheFacilityAndWeaponUnitRefillsItsAmmo() {
         startPreparing();
         player.credits = 700;

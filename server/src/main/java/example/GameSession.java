@@ -179,7 +179,7 @@ final class GameSession {
                     } else if (!roomReadyForStart()) {
                         feedback(player, "全員の準備が完了するまでお待ちください");
                     } else {
-                        startMatch();
+                        startMatch(player, parts.length > 1 && parts[1].equals("DEBUG"));
                     }
                 }
             }
@@ -328,8 +328,13 @@ final class GameSession {
         }
     }
 
-    private void startMatch() {
+    private void startMatch(Player host, boolean debugMode) {
         resetWorld(true);
+        if (debugMode) {
+            host.credits = 100_000;
+            GameConfig.WEAPONS.keySet().forEach(weapon -> giveBotWeapon(host, weapon));
+            host.equipWeapon("pistol");
+        }
         phase = GamePhase.PREPARING;
         prepTime = 12;
         setNotice("次のラウンドの準備を始めます");

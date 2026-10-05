@@ -625,7 +625,7 @@ joinRoomsButton.addEventListener("click", () => {
 });
 document.querySelector("#back-rooms").addEventListener("click", () => setMenuView("home"));
 
-startButton.addEventListener("click", () => send("START"));
+startButton.addEventListener("click", () => send(DEBUG_MODE ? "START:DEBUG" : "START"));
 readyRoomButton.addEventListener("click", () => {
     const me = getMe();
     if (me) send(`ROOM_READY:${me.ready ? 0 : 1}`);
