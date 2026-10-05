@@ -72,6 +72,7 @@ class GameplayRevisionTest {
         game.unlockedAreas.add("forest");
         ShopUnit ammo = GameMap.shopByItem("ammo");
         player.x = ammo.x(); player.y = ammo.y();
+        player.credits = 1000;
         game.handleMessage(player, "BUY:ammo");
         assertEquals(240, player.ricochetAmmo);
         var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
@@ -108,16 +109,16 @@ class GameplayRevisionTest {
         player.shotgunAmmo = 29; player.smgAmmo = 1; player.rifleAmmo = 12;
         player.sniperAmmo = 0; player.revolverAmmo = 25; player.lmgAmmo = 150;
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(880, player.credits);
+        assertEquals(0, player.credits);
         assertEquals(List.of(90, 240, 96, 48, 30, 600), List.of(player.shotgunAmmo,
                 player.smgAmmo, player.rifleAmmo, player.sniperAmmo, player.revolverAmmo, player.lmgAmmo));
         for (int i = 0; i < 3; i++) game.handleMessage(player, "BUY:ammo");
-        assertEquals(880, player.credits);
+        assertEquals(0, player.credits);
         assertEquals(600, player.lmgAmmo);
-        player.shotgunAmmo = 0; player.credits = 119;
+        player.shotgunAmmo = 0; player.credits = 999;
         game.handleMessage(player, "BUY:ammo");
         assertEquals(0, player.shotgunAmmo);
-        assertEquals(119, player.credits);
+        assertEquals(999, player.credits);
     }
 
     @Test void allRoomsCanBeUnlockedFromReachableFloorWithoutRelocatingTerminals() throws Exception {

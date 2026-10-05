@@ -487,6 +487,7 @@ function applyRules(next) {
         for (const [weapon, fields] of Object.entries(WEAPON_FIELDS)) {
             fields.capacity = next.rules.weapons[weapon].capacity;
         }
+            fields.refillCost = next.rules.weapons[weapon].refillCost;
     }
 }
 
@@ -1203,7 +1204,7 @@ function openShopPurchase(shop) {
     const ammoFull = shop.item === "ammo" ? ownedWeapons.length > 0
         && ownedWeapons.every(fields => me[fields.ammo] >= fields.capacity)
         : alreadyOwned && ammo >= weaponFields.capacity;
-    const price = alreadyOwned ? WEAPON_AMMO_REFILL_COST : shop.cost;
+    const price = alreadyOwned ? weaponFields.refillCost ?? WEAPON_AMMO_REFILL_COST : shop.cost;
     const unavailable = shop.item === "ammo" && ownedWeapons.length === 0;
     openNearbyActionMenu(shop.label, [{
         label: ammoFull ? "FULL" : alreadyOwned || shop.item === "ammo" && !unavailable ? "REFILL"

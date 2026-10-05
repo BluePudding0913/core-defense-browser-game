@@ -283,7 +283,7 @@
     {"id":"silver-factory","item":"silverFactory","label":"QUARRY S","x":1540,"y":1460,"cost":10000,"detail":""},
     {"id":"shop-shotgun","item":"shotgun","label":"SHOTGUN","x":1340,"y":1620,"cost":450,"detail":"十分な弾薬を補充できます"},
     {"id":"shop-smg","item":"smg","label":"SMG","x":1980,"y":1020,"cost":550,"detail":"十分な弾薬を補充できます"},
-    {"id":"shop-ammo","item":"ammo","label":"AMMO","x":1740,"y":660,"cost":120,"detail":"Refill all owned weapons to MAX"},
+    {"id":"shop-ammo","item":"ammo","label":"AMMO","x":1740,"y":660,"cost":1000,"detail":"Refill all owned weapons to MAX"},
     {"id":"shop-rifle","item":"rifle","label":"RIFLE","x":820,"y":540,"cost":650,"detail":"十分な弾薬を補充できます"},
     {"id":"shop-sniper","item":"sniper","label":"SNIPER","x":220,"y":580,"cost":900,"detail":"十分な弾薬を補充できます"},
     {"id":"shop-ricochet","item":"ricochet","label":"RICOCHET","x":740,"y":1660,"cost":400,"detail":"壁で最大3回反射する単発弾"},

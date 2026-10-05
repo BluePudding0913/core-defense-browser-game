@@ -41,7 +41,7 @@ interface GameEventSink {
 /** Authoritative state and rules for one four-player match. */
 final class GameSession {
     static int ammoRefillCost() {
-        return GameMap.shopByItem("ammo").cost();
+        return 120;
     }
 
     int unlockCost() {
