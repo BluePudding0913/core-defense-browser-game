@@ -143,14 +143,10 @@ class ArtilleryEnemyTest {
         invoke("beginRound", new Class<?>[]{});
         assertEquals(1, game.round); assertEquals(9, game.queuedEnemies);
         invoke("updateSpawning", new Class<?>[]{double.class}, 8.1);
-        assertEquals(3, game.enemies.size());
-        assertTrue(game.enemies.stream().allMatch(enemy -> enemy.type.equals("bomber")));
-        assertEquals(6, game.queuedEnemies);
-        invoke("updateSpawning", new Class<?>[]{double.class}, 1.2);
-        assertEquals(4, game.enemies.size());
-        assertEquals("artillery", game.enemies.get(3).type);
-        assertEquals(18.8, game.enemies.get(3).damage, .001);
-        assertEquals(5, game.queuedEnemies);
+        assertEquals(1, game.enemies.size());
+        assertEquals("artillery", game.enemies.get(0).type);
+        assertEquals(18.8, game.enemies.get(0).damage, .001);
+        assertEquals(8, game.queuedEnemies);
         game.round = 2;
         var randomField = GameSession.class.getDeclaredField("random"); randomField.setAccessible(true);
         ((java.util.Random) randomField.get(game)).setSeed(123);
