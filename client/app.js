@@ -1766,7 +1766,32 @@ function draw() {
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (state?.blackoutActive) drawBlackout();
+    if (state) drawDamageEdges();
     drawJoystick();
+}
+
+function drawDamageEdges() {
+    const hit = hitEffects.findLast(effect => effect.effect === "player-hit" && effect.playerId === myPlayerId);
+    if (!hit) return;
+    const progress = (performance.now() - hit.started) / 600;
+    if (progress < 0 || progress >= 1) return;
+    const width = canvas.width, height = canvas.height;
+    const depth = Math.min(width, height) * .22;
+    ctx.save();
+    ctx.globalAlpha = .65 * (1 - progress) ** 2;
+    for (const [x0, y0, x1, y1, x, y, w, h] of [
+        [0, 0, depth, 0, 0, 0, depth, height],
+        [width, 0, width - depth, 0, width - depth, 0, depth, height],
+        [0, 0, 0, depth, 0, 0, width, depth],
+        [0, height, 0, height - depth, 0, height - depth, width, depth],
+    ]) {
+        const gradient = ctx.createLinearGradient(x0, y0, x1, y1);
+        gradient.addColorStop(0, "rgba(255, 35, 55, 1)");
+        gradient.addColorStop(1, "rgba(255, 35, 55, 0)");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x, y, w, h);
+    }
+    ctx.restore();
 }
 
 function drawBlackout() {
@@ -2286,7 +2311,7 @@ function drawReviveEffect(x, y, progress) {
 function drawHitEffects() {
     const now = performance.now();
     hitEffects = hitEffects.filter(effect => now - effect.started
-        < (effect.effect === "player-down" ? 1200 : effect.effect === "core-pulse" || effect.effect === "pickup"
+        < (effect.effect === "player-hit" ? 600 : effect.effect === "player-down" ? 1200 : effect.effect === "core-pulse" || effect.effect === "pickup"
             || (effect.credits > 0 || effect.headshot) && effect.playerId === myPlayerId
             ? 900 : 360));
     for (const effect of hitEffects) {
