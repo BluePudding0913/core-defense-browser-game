@@ -163,7 +163,7 @@ class GameplayRevisionTest {
         player.x = 940; player.y = 1660; player.credits = 1000;
         game.handleMessage(player, "UNLOCK:ricochet-room");
         assertTrue(game.unlockedAreas.contains("ricochet-room"));
-        assertEquals(400, player.credits);
+        assertEquals(700, player.credits);
     }
 
     @Test void matchesAndRestartsBeginWithZeroGoldAndNoPurchasedWeapons() {
@@ -606,7 +606,7 @@ class GameplayRevisionTest {
         assertTrue(approach);
         game.update(.05);
         assertTrue(game.unlockedAreas.contains("entry-room"));
-        assertEquals(350, bot.credits);
+        assertEquals(550, bot.credits);
         bot.credits = 0;
         game.round = 2;
         bot.x = game.coreX; bot.y = game.coreY; bot.botSpendCooldown = 0;
@@ -773,7 +773,7 @@ class GameplayRevisionTest {
         Player poor=game.players.get(2);poor.human=false;poor.credits=0;poor.x=bot.x;poor.y=bot.y;
         game.phase=GamePhase.WAVE;
         Method tasks=GameSession.class.getDeclaredMethod("updateBotTasks",Player.class);tasks.setAccessible(true);
-        assertTrue((boolean)tasks.invoke(game,bot));assertTrue(game.unlockedAreas.contains("entry-room"));assertEquals(650,bot.credits);
+        assertTrue((boolean)tasks.invoke(game,bot));assertTrue(game.unlockedAreas.contains("entry-room"));assertEquals(850,bot.credits);
     }
 
     @Test void recoveringDamagedDefensePreservesHpAcrossWeaponSwitchAndReinstallation() {

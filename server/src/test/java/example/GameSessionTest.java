@@ -848,18 +848,18 @@ class GameSessionTest {
     @Test
     void cpuSpendsPersonalGoldOnAvailableWeapons() {
         startPreparing();
-        game.unlockedAreas.addAll(Set.of("entry-room", "shotgun-room", "wood-room"));
+        game.unlockedAreas.addAll(GameMap.AREAS.stream().map(UnlockArea::id).toList());
         Player bot = game.players.get(1);
         bot.credits = 450;
 
         game.prepTime = 90;
         game.update(.05);
-        assertFalse(bot.ownsShotgun, "CPU must travel to the facility before buying");
-        for (int i = 0; i < 900 && !bot.ownsShotgun; i++) game.update(.05);
+        assertFalse(bot.ownsRicochet, "CPU must travel to the facility before buying");
+        for (int i = 0; i < 900 && !bot.ownsRicochet; i++) game.update(.05);
 
-        assertTrue(bot.ownsShotgun);
-        assertEquals(0, bot.credits);
-        assertEquals("shotgun", bot.weapon);
+        assertTrue(bot.ownsRicochet);
+        assertEquals(50, bot.credits);
+        assertEquals("ricochet", bot.weapon);
     }
 
     @Test
