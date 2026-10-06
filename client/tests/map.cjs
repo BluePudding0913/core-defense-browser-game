@@ -69,18 +69,18 @@ for (const mutate of [
 console.log('Map regressions passed: full grid, floor terminals, collision boundaries, placement and validation');
 
 let unlockAction;
-context.state.rules = { unlockCost: 2250, areaUnlockCosts: { 'heavy-arms-area': 15000 } };
+context.state.rules = { unlockCost: 2250, areaUnlockCosts: { 'heavy-arms-area': 30000 } };
 context.state.areas['heavy-arms-area'] = false;
-context.getMe = () => ({ credits: 14999 });
+context.getMe = () => ({ credits: 29999 });
 context.INTERACTION_RANGE = { areaTerminal: 100 };
 context.openNearbyActionMenu = (title, actions) => { unlockAction = actions[0]; };
 const unlockStart = source.indexOf('function openUnlockMenu(');
 const unlockEnd = source.indexOf('\nfunction ', unlockStart + 1);
 vm.runInContext(source.slice(unlockStart, unlockEnd), context);
 run('openUnlockMenu(AREAS.find(a => a.id === "heavy-arms-area"))');
-assert.equal(unlockAction.detail, '15000G');
+assert.equal(unlockAction.detail, '30000G');
 assert.equal(unlockAction.disabled, true);
-context.getMe = () => ({ credits: 15000 });
+context.getMe = () => ({ credits: 30000 });
 run('openUnlockMenu(AREAS.find(a => a.id === "heavy-arms-area"))');
 assert.equal(unlockAction.disabled, false);
 run('openUnlockMenu(AREAS.find(a => a.id === "entry-room"))');

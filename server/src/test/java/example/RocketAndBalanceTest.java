@@ -38,12 +38,12 @@ class RocketAndBalanceTest {
         game.unlockedAreas.remove("heavy-arms-area");
         UnlockArea area = GameMap.areaById("heavy-arms-area");
         player.x = 220; player.y = 620;
-        player.credits = 14_999;
+        player.credits = 29_999;
         game.handleMessage(player, "UNLOCK:heavy-arms-area");
         assertFalse(game.unlockedAreas.contains(area.id()));
-        assertEquals(14_999, player.credits);
+        assertEquals(29_999, player.credits);
         game.unlockedAreas.remove("sniper-room");
-        player.credits = 15_000;
+        player.credits = 30_000;
         game.handleMessage(player, "UNLOCK:heavy-arms-area");
         assertFalse(game.unlockedAreas.contains(area.id()), "Sniper room must open first");
         game.unlockedAreas.add("sniper-room");
@@ -62,10 +62,41 @@ class RocketAndBalanceTest {
         assertEquals(0, player.credits);
         var rules = new com.fasterxml.jackson.databind.ObjectMapper()
                 .readTree(SnapshotBuilder.build(game)).path("rules");
-        assertEquals(15_000, rules.path("areaUnlockCosts").path(area.id()).asInt());
+        assertEquals(30_000, rules.path("areaUnlockCosts").path(area.id()).asInt());
         assertEquals(game.unlockCost(), rules.path("areaUnlockCosts").path("entry-room").asInt());
     }
 
+    @Test void sideRoomUnlockChargesItsOwnPriceAfterAllOtherAreasOpen() {
+        UnlockArea area = GameMap.areaById("wood-room");
+        game.unlockedAreas.remove(area.id());
+        player.x = area.terminalX(); player.y = area.terminalY();
+        player.credits = 399;
+        game.handleMessage(player, "UNLOCK:" + area.id());
+        assertFalse(game.unlockedAreas.contains(area.id()));
+        assertEquals(399, player.credits);
+        player.credits = 400;
+        game.handleMessage(player, "UNLOCK:" + area.id());
+        assertTrue(game.unlockedAreas.contains(area.id()));
+        assertEquals(0, player.credits);
+    }
+
+    @Test void terminalPricesStayFixedRegardlessOfOtherUnlocks() throws Exception {
+        var areaIds = GameMap.AREAS.stream().map(UnlockArea::id).collect(java.util.stream.Collectors.toSet());
+        assertEquals(areaIds, GameConfig.AREA_UNLOCK_COSTS.keySet());
+        game.unlockedAreas.clear();
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var before = mapper.readTree(SnapshotBuilder.build(game)).path("rules").path("areaUnlockCosts");
+        game.unlockedAreas.addAll(areaIds);
+        var after = mapper.readTree(SnapshotBuilder.build(game)).path("rules").path("areaUnlockCosts");
+        assertEquals(before, after);
+        for (String id : areaIds) {
+            assertEquals(GameConfig.AREA_UNLOCK_COSTS.get(id).intValue(), after.path(id).asInt(), id);
+            assertTrue(game.unlockCost(id) > 0, id);
+        }
+        assertTrue(game.unlockCost("forest") >= game.unlockCost("armory-wing") * 2);
+        assertTrue(game.unlockCost("security-hall") >= game.unlockCost("mine") * 2);
+        assertTrue(game.unlockCost("heavy-arms-area") >= game.unlockCost("sniper-room") * 4);
+    }
     @Test void sniperPiercesBeyondItsOldRangeAndRevolverStillHitsHarder() {
         player.x = 1020; player.y = 1140;
         player.ownsSniper = true; player.sniperAmmo = 2;

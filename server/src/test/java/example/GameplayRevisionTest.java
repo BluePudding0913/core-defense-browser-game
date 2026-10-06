@@ -159,7 +159,7 @@ class GameplayRevisionTest {
         player.x = 940; player.y = 1660; player.credits = 1000;
         game.handleMessage(player, "UNLOCK:ricochet-room");
         assertTrue(game.unlockedAreas.contains("ricochet-room"));
-        assertEquals(550, player.credits);
+        assertEquals(400, player.credits);
     }
 
     @Test void matchesAndRestartsBeginWithZeroGoldAndNoPurchasedWeapons() {

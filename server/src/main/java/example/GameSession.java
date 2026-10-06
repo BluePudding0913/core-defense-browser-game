@@ -49,11 +49,13 @@ final class GameSession {
     }
 
     int unlockCost() {
-        return 350 + unlockedAreas.size() * 100;
+        return GameConfig.AREA_UNLOCK_COSTS.get("entry-room");
     }
 
     int unlockCost(String areaId) {
-        return areaId.equals("heavy-arms-area") ? 15_000 : unlockCost();
+        Integer cost = GameConfig.AREA_UNLOCK_COSTS.get(areaId);
+        if (cost == null) throw new IllegalArgumentException("Missing terminal price: " + areaId);
+        return cost;
     }
 
     int coreUpgradeCost(String type) {
@@ -1292,7 +1294,7 @@ final class GameSession {
                     || distance(coreX, coreY, enemy.x, enemy.y) < 240));
             boolean personalDanger = enemies.stream().anyMatch(enemy -> enemy.hp>0 && distance(bot.x,bot.y,enemy.x,enemy.y)<240);
             if (updateBotRecovery(bot, personalDanger, immediateDanger)) continue;
-            if (!personalDanger && bot.credits >= unlockCost() && bot.hp > 55 && tryBotUnlock(bot)) continue;
+            if (!personalDanger && bot.hp > 55 && tryBotUnlock(bot)) continue;
             if (!immediateDanger && updateBotTasks(bot)) continue;
 
             if (phase == GamePhase.WAVE) {
@@ -1655,7 +1657,7 @@ final class GameSession {
     // Utility priorities: rescue > immediate defense > recovery/maintenance > preparation.
     // Every action goes through the same validated methods as human commands.
     private boolean tryBotUnlock(Player bot) {
-        if (bot.botSpendCooldown > 0 || bot.credits < unlockCost()) return false;
+        if (bot.botSpendCooldown > 0) return false;
         UnlockArea area = GameMap.AREAS.stream()
                 .filter(unit -> !unlockedAreas.contains(unit.id()) && terminalAccessible(unit)
                         && bot.credits >= unlockCost(unit.id()))

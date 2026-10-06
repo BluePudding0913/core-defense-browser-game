@@ -35,6 +35,22 @@ JDK 17以上が必要です。Mavenの事前インストールは不要です。
 
 外エリア左のRECOVERY ROOMは4マス幅の通路でつながっています。解放後、MED BAYの近くにいると無料で毎秒4HP回復します。被弾すると5秒間回復が止まり、追加の被弾で待ち時間がリセットされます。回復キットは奥側のINFIRMARY（医務室）のMEDKITショップで120Gで購入できます（HP +60、最大5個）。
 
+エリア解放は端末ごとの固定価格です。解放数による値上がりはありません。価格はサーバーの`GameConfig.AREA_UNLOCK_COSTS`で個別に設定します。
+
+| エリア | 解放費用 |
+| --- | --- |
+| ENTRY ROOM | 350G |
+| TRANSIT HALL / INFIRMARY | 各700G |
+| FOREST LAB / RELAY GALLERY / MINE LAB | 各2,000G |
+| SECURITY HALL / COMMAND ROOM | 各5,000G |
+| WOOD ROOM / ORE ROOM / RECOVERY ROOM | 400G / 600G / 500G |
+| TIME CONTROL | 1,000G |
+| SHOTGUN ROOM / RICOCHET ROOM | 各600G |
+| SMG ROOM / LMG ROOM | 2,000G / 3,000G |
+| RIFLE ROOM / REVOLVER ROOM | 各5,000G |
+| SNIPER ROOM | 7,500G |
+| HEAVY ARMS | 30,000G |
+
 RECOVERY ROOMは外エリアと同程度の広さで、壁に凹凸のある自然な輪郭になっています。敵の湧き口は外エリアと同じ7か所です。解放済みならROUND 8から湧き口が選択候補に入り、ROUND 12以降は全7か所が有効になります。回復中は淡い緑の粒子がプレイヤーの体に集まります。
 
 CPUは準備中にHP85未満、戦闘中にHP55未満で安全なMED BAYへ向かいます。準備中は全回復、戦闘中はHP90まで回復して復帰します。敵や砲撃がいる医療施設は避け、緊急時は携帯キットを使用します。キットは準備中に独立ショップで1個補充します。

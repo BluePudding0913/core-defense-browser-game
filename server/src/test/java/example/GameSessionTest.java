@@ -848,7 +848,7 @@ class GameSessionTest {
     @Test
     void cpuSpendsPersonalGoldOnAvailableWeapons() {
         startPreparing();
-        game.unlockedAreas.addAll(Set.of("entry-room", "shotgun-room"));
+        game.unlockedAreas.addAll(Set.of("entry-room", "shotgun-room", "wood-room"));
         Player bot = game.players.get(1);
         bot.credits = 450;
 

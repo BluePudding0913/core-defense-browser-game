@@ -11,6 +11,28 @@ final class GameConfig {
     static final double PREP_SECONDS = 15;
     static final double RECONNECT_GRACE_SECONDS = 30;
     static final double GATHER_COOLDOWN_SECONDS = 3.5;
+    // Fixed terminal prices: major progression gates create deliberate saving milestones.
+    static final Map<String, Integer> AREA_UNLOCK_COSTS = Map.ofEntries(
+            Map.entry("entry-room", 350),
+            Map.entry("transit-hall", 700),
+            Map.entry("armory-wing", 700),
+            Map.entry("forest", 2_000),
+            Map.entry("relay-gallery", 2_000),
+            Map.entry("mine", 2_000),
+            Map.entry("security-hall", 5_000),
+            Map.entry("command-room", 5_000),
+            Map.entry("wood-room", 400),
+            Map.entry("ore-room", 600),
+            Map.entry("operations-room", 1_000),
+            Map.entry("shotgun-room", 600),
+            Map.entry("ricochet-room", 600),
+            Map.entry("smg-room", 2_000),
+            Map.entry("lmg-room", 3_000),
+            Map.entry("rifle-room", 5_000),
+            Map.entry("sniper-room", 7_500),
+            Map.entry("heavy-arms-area", 30_000),
+            Map.entry("revolver-room", 5_000),
+            Map.entry("recovery-room", 500));
     static final Map<String, Integer> BUILD_COSTS = Map.of(
             "block", 60,
             "turret", 250,
