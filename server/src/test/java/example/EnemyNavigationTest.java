@@ -86,6 +86,55 @@ class EnemyNavigationTest {
         assertEquals(1901, enemy.y, .001);
     }
 
+    @Test void enemiesEnterSideRoomsInsteadOfFollowingTheRouteDeeperIntoTheMap() throws Exception {
+        for (MapPoint core : List.of(new MapPoint(740, 1660), new MapPoint(1300, 1620),
+                new MapPoint(780, 1460), new MapPoint(1940, 1020))) {
+            game.coreX = core.x();
+            game.coreY = core.y();
+            game.coreHp = 1000;
+            assertTrue(GameMap.canOccupy(core.x(), core.y(), 17, game.unlockedAreas));
+            for (SpawnPoint spawn : GameMap.SPAWN_POINTS) {
+                Enemy enemy = new Enemy(9000, "grunt", spawn, 100, 120, 1, 1);
+                game.enemies.clear();
+                game.enemies.add(enemy);
+                game.coreHp = 1000;
+                for (int tick = 0; tick < 1800 && game.coreHp == 1000; tick++) {
+                    update.invoke(game, .05);
+                    assertTrue(GameMap.canOccupy(enemy.x, enemy.y, 17, game.unlockedAreas));
+                }
+                assertTrue(game.coreHp < 1000, "must reach core " + core + " from " + spawn.id());
+                assertTrue(GameMap.hasClearLine(enemy.x, enemy.y, core.x(), core.y()));
+            }
+        }
+    }
+
+    @Test void movingCoreRedirectsAnEnemyAlreadyFollowingAPath() throws Exception {
+        Enemy enemy = enemy(1020, 1340);
+        game.enemies.add(enemy);
+        game.coreX = 740;
+        game.coreY = 1660;
+        update.invoke(game, .05);
+        assertFalse(enemy.path.isEmpty());
+        game.coreX = 1300;
+        game.coreY = 1620;
+        game.coreHp = 1000;
+        for (int tick = 0; tick < 500 && game.coreHp == 1000; tick++) update.invoke(game, .05);
+        assertTrue(game.coreHp < 1000, "must attack the relocated core");
+        assertTrue(GameMap.hasClearLine(enemy.x, enemy.y, game.coreX, game.coreY));
+    }
+
+    @Test void enemyDoesNotAttackCoreThroughASideRoomWall() throws Exception {
+        Enemy enemy = enemy(937, 1400);
+        game.enemies.add(enemy);
+        game.coreX = 900;
+        game.coreY = 1460;
+        game.coreHp = 1000;
+        assertTrue(GameMap.canOccupy(game.coreX, game.coreY, 17, game.unlockedAreas));
+        assertFalse(GameMap.hasClearLine(enemy.x, enemy.y, game.coreX, game.coreY));
+        update.invoke(game, .05);
+        assertEquals(1000, game.coreHp);
+    }
+
     @Test void changingTargetReplacesAnActiveDetourImmediately() throws Exception {
         Enemy enemy = enemy(860, 420);
         move.invoke(game, enemy, 900.0, 500.0, 2.0);

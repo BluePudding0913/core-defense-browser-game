@@ -878,15 +878,13 @@ final class GameSession {
                 continue;
             }
 
-            boolean canSeeCore = distance(enemy.x, enemy.y, coreX, coreY) <= 520
-                    && GameMap.hasClearLine(enemy.x, enemy.y, coreX, coreY);
-            MapPoint routeTarget = !canSeeCore && enemy.routeIndex < enemy.route.size()
-                    ? enemy.route.get(enemy.routeIndex) : null;
-            double targetX = routeTarget == null ? coreX : routeTarget.x();
-            double targetY = routeTarget == null ? coreY : routeTarget.y();
-            double targetDistance = distance(enemy.x, enemy.y, targetX, targetY);
+            // Navigate to the live core position, including when it is hidden in a side room.
+            // moveEnemyToward finds a wall-safe path instead of following the fixed area route.
+            double targetX = coreX;
+            double targetY = coreY;
 
-            if (routeTarget == null && distance(enemy.x, enemy.y, coreX, coreY) <= 72) {
+            if (distance(enemy.x, enemy.y, coreX, coreY) <= 72
+                    && GameMap.hasClearLine(enemy.x, enemy.y, coreX, coreY)) {
                 enemy.faceToward(coreX, coreY);
                 if (enemy.attackCooldown <= 0) {
                     damageCore(enemy.damage);
