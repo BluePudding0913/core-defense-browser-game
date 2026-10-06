@@ -58,8 +58,18 @@ class ArtilleryEnemyTest {
         TrapSlot slot = new TrapSlot("blast-block", "test", player.x + 20, player.y, null);
         slot.defense = new Defense("block"); slot.defense.hp = 10;
         game.trapSlots.add(slot);
+        List<TrapSlot> turrets = new ArrayList<>();
+        for (String type : List.of("turret", "copperTurret", "silverTurret")) {
+            TrapSlot turret = new TrapSlot("blast-" + type, "test", player.x, player.y, null);
+            turret.defense = new Defense(type); turret.defense.hp = 10;
+            turrets.add(turret); game.trapSlots.add(turret);
+        }
         update(.05); artillery.hp = 0; update(1.5);
         assertEquals(16, player.hp); assertNull(slot.defense); assertEquals(916, game.coreHp);
+        for (TrapSlot turret : turrets) {
+            assertNotNull(turret.defense, "Acid must not destroy " + turret.id);
+            assertEquals(10, turret.defense.hp, "Acid must not damage " + turret.id);
+        }
         update(1.5); assertEquals(16, player.hp); assertEquals(916, game.coreHp);
     }
 
@@ -133,14 +143,10 @@ class ArtilleryEnemyTest {
         invoke("beginRound", new Class<?>[]{});
         assertEquals(1, game.round); assertEquals(9, game.queuedEnemies);
         invoke("updateSpawning", new Class<?>[]{double.class}, 8.1);
-        assertEquals(3, game.enemies.size());
-        assertTrue(game.enemies.stream().allMatch(enemy -> enemy.type.equals("bomber")));
-        assertEquals(6, game.queuedEnemies);
-        invoke("updateSpawning", new Class<?>[]{double.class}, 1.2);
-        assertEquals(4, game.enemies.size());
-        assertEquals("artillery", game.enemies.get(3).type);
-        assertEquals(18.8, game.enemies.get(3).damage, .001);
-        assertEquals(5, game.queuedEnemies);
+        assertEquals(1, game.enemies.size());
+        assertEquals("artillery", game.enemies.get(0).type);
+        assertEquals(18.8, game.enemies.get(0).damage, .001);
+        assertEquals(8, game.queuedEnemies);
         game.round = 2;
         var randomField = GameSession.class.getDeclaredField("random"); randomField.setAccessible(true);
         ((java.util.Random) randomField.get(game)).setSeed(123);

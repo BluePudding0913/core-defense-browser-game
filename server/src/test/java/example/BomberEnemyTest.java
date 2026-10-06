@@ -83,17 +83,21 @@ class BomberEnemyTest {
         assertEquals(138, game.enemies.get(0).maxHp);
         assertEquals(67, game.enemies.get(0).damage);
     }
-    @Test void debugRoundOneGuaranteesBomberAndNormalRestartClearsDebugMode() throws Exception {
+    @Test void debugDoesNotSpawnOrUnlockBombersBeforeRoundSix() throws Exception {
         invoke("startMatch", new Class<?>[]{Player.class, boolean.class}, player, true);
         game.round = 1;
         game.queuedEnemies = 9;
         invoke("updateSpawning", new Class<?>[]{double.class}, 20.);
-        assertEquals(3, game.enemies.size());
-        assertTrue(game.enemies.stream().allMatch(e -> e.type.equals("bomber")));
-        assertEquals(1, game.enemies.stream().map(e -> e.spawnId).distinct().count());
-        assertEquals(6, game.queuedEnemies);
+        assertEquals(1, game.enemies.size());
+        assertTrue(game.enemies.stream().noneMatch(e -> e.type.equals("bomber")));
+        assertEquals(8, game.queuedEnemies);
+        for (int round = 1; round < 6; round++) {
+            game.round = round;
+            for (int i = 0; i < 200; i++) assertNotEquals("bomber",
+                    invoke("selectEnemyType", new Class<?>[]{SpawnPoint.class}, GameMap.SPAWN_POINTS.get(0)));
+        }
         invoke("updateSpawning", new Class<?>[]{double.class}, .05);
-        assertEquals(3, game.enemies.size());
+        assertEquals(1, game.enemies.size());
         invoke("startMatch", new Class<?>[]{Player.class, boolean.class}, player, false);
         game.round = 1;
         for (int i = 0; i < 200; i++) assertNotEquals("bomber",

@@ -41,7 +41,6 @@ interface GameEventSink {
 final class GameSession {
     private static final double BOT_REACTION_SECONDS = 1.5;
     private boolean debugMode;
-    private boolean debugBomberPending;
     int roundEnemyTotal;
     private boolean explosionBossSpawned;
 
@@ -355,7 +354,6 @@ final class GameSession {
     private void startMatch(Player host, boolean debugMode) {
         resetWorld();
         this.debugMode = debugMode;
-        debugBomberPending = debugMode;
         if (debugMode) {
             host.credits = 100_000;
             GameConfig.WEAPONS.keySet().forEach(weapon -> giveBotWeapon(host, weapon));
@@ -618,15 +616,6 @@ final class GameSession {
         if (queuedEnemies <= 0 && queuedBosses <= 0) return;
         spawnTimer -= dt;
         if (spawnTimer > 0) return;
-        if (debugBomberPending && queuedEnemies > 0) {
-            SpawnPoint spawn = nextRoundSpawn();
-            int count = Math.min(3, queuedEnemies);
-            for (int i = 0; i < count; i++) spawnEnemy("bomber", spawn);
-            queuedEnemies -= count;
-            debugBomberPending = false;
-            spawnTimer = 1.15;
-            return;
-        }
         while (queuedTinyEnemies > 0 && queuedEnemies > 0) {
             spawnEnemy("tiny", nextRoundSpawn());
             queuedTinyEnemies--;
@@ -656,7 +645,7 @@ final class GameSession {
         if (debugMode && round == 1 && (nextEnemyId == 1 || nextEnemyId == 4)) return "artillery";
         if (debugMode && round == 1 && !explosionBossSpawned) return "explosionBoss";
         // Reserve a growing share for elites, retaining each entrance's original mix.
-        if ((debugMode || round >= 6) && random.nextDouble() < .10) return "bomber";
+        if (round >= 6 && random.nextDouble() < .10) return "bomber";
         double eliteRoll = random.nextDouble();
         double eliteChance = 0;
         if (round >= 34 && eliteRoll < (eliteChance += 0.12)) return "champion";
@@ -1049,7 +1038,9 @@ final class GameSession {
                 if (inArtilleryBlast(shell, player.x, player.y)) damagePlayer(player, shell.damage);
             }
             for (TrapSlot slot : trapSlots) {
-                if (slot.defense != null && inArtilleryBlast(shell, slot.x, slot.y)) {
+                if (slot.defense != null
+                        && !Set.of("turret", "copperTurret", "silverTurret").contains(slot.defense.type)
+                        && inArtilleryBlast(shell, slot.x, slot.y)) {
                     slot.defense.hp -= shell.damage;
                     if (slot.defense.hp <= 0) slot.defense = null;
                 }
@@ -2729,7 +2720,6 @@ final class GameSession {
 
     private void resetWorld() {
         debugMode = false;
-        debugBomberPending = false;
         explosionBossSpawned = false;
         roundEnemyTotal = 0;
         pathfinder.clear();
