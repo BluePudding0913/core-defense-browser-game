@@ -405,7 +405,7 @@ class GameplayRevisionTest {
         assertFalse(game.activeSpawnIds.contains("area-forest"));
         assertEquals(20, game.queuedEnemies);
         game.coreHp = 100000;
-        for (int i = 0; i < 240; i++) game.update(.05);
+        for (int i = 0; i < 400; i++) game.update(.05);
         assertTrue(game.enemies.stream().anyMatch(e -> e.spawnId.equals("area-entry-room")));
         Enemy interior = game.enemies.stream().filter(e -> e.spawnId.equals("area-entry-room")).findFirst().orElseThrow();
         assertTrue(GameMap.canOccupy(interior.x, interior.y, 17, game.unlockedAreas));

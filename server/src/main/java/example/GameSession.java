@@ -414,7 +414,7 @@ final class GameSession {
         failedSpawnId = roundEvent.equals("door_failure")
                 ? activeSpawnIds.get(random.nextInt(activeSpawnIds.size())) : null;
         if (roundEvent.equals("blackout") && !blackoutActive) startBlackout();
-        spawnTimer = round == 1 ? 8 : 0;
+        spawnTimer = 8;
         nextSpawnIndex = 0;
         coreShield = coreMaxShield;
         switch (roundEvent) {
