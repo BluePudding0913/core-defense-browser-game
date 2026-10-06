@@ -49,11 +49,11 @@ final class GameConfig {
     static final Map<String, WeaponStats> WEAPONS = Map.of(
             "pistol", new WeaponStats(4 * GameMap.TILE_SIZE, 26, .38, 0, 2),
             "bat", new WeaponStats(96, 20, 1, 115, 26),
-            "shotgun", new WeaponStats(220, 24, 1.25, 55, 2),
+            "shotgun", new WeaponStats(220, 24, 1.25, 45, 2),
             "smg", new WeaponStats(270, 12, .14, 0, 2),
             "rifle", new WeaponStats(430, 120, 1.15, 0, 2),
             "sniper", new WeaponStats(2400, 280, 1.8, 0, 2),
-            "revolver", new WeaponStats(360, 320, 1.6, 12, 2),
+            "revolver", new WeaponStats(360, 320, 1.6, 10, 2),
             "ricochet", new WeaponStats(1000, 30, .30, 0, 2),
             "rocket", new WeaponStats(1200, 3000, 5, 100, 2),
             "lmg", new WeaponStats(360, 18, .18, 0, 2));
