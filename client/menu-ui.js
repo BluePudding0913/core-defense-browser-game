@@ -46,7 +46,7 @@ function mountMenu() {
                 return `<li class="room-member ${host || p.ready ? "ready" : ""}"><strong>${escape(p.name)}</strong><span>${host ? "host" : p.ready ? "準備完了" : "準備中"}</span></li>`;
             }).join("") + '</ol>';
             content += owner ? `<button data-action="start" ${!snapshot.allReady || !connected ? "disabled" : ""}>${snapshot.phase === "lobby" ? "開始" : "もう一度プレイ"}</button>` : `<button data-action="ready" ${disabled()}>${me?.ready ? "準備を取り消す" : "準備OK"}</button>`;
-            content += button("leave", "退出");
+            content += button("leave", "EXIT");
         }
         root.innerHTML = `<div class="ui-shell"><section class="ui-content">${content}</section></div>`;
         renderedView = view;
