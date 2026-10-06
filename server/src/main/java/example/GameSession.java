@@ -67,6 +67,7 @@ final class GameSession {
 
     final List<Player> players = new ArrayList<>();
     final List<Enemy> enemies = new ArrayList<>();
+    final List<ArtilleryShell> artilleryShells = new ArrayList<>();
     final List<TrapSlot> trapSlots = GameMap.createTrapSlots();
     final List<ResourceNode> resourceNodes = GameMap.createResourceNodes();
     final List<MaterialFactory> factories = new ArrayList<>();
@@ -267,7 +268,7 @@ final class GameSession {
             setNotice("全員がダウンしました");
             return;
         }
-        if (queuedEnemies == 0 && queuedBosses == 0 && enemies.isEmpty()) finishRound();
+        if (queuedEnemies == 0 && queuedBosses == 0 && enemies.isEmpty() && artilleryShells.isEmpty()) finishRound();
     }
 
     private void updateReconnectReservations(double dt) {
@@ -645,6 +646,8 @@ final class GameSession {
     }
 
     private String selectEnemyType(SpawnPoint spawn) {
+        // Guarantee an early preview without adding enemies to the wave budget.
+        if (debugMode && round == 1 && (nextEnemyId == 1 || nextEnemyId == 4)) return "artillery";
         // Reserve a growing share for elites, retaining each entrance's original mix.
         if ((debugMode || round >= 6) && random.nextDouble() < .10) return "bomber";
         double eliteRoll = random.nextDouble();
@@ -653,6 +656,7 @@ final class GameSession {
         if (round >= 26 && eliteRoll < (eliteChance += 0.14)) return "siege";
         if (round >= 18 && eliteRoll < (eliteChance += 0.16)) return "hunter";
         if (round >= 10 && eliteRoll < (eliteChance += 0.18)) return "armored";
+        if ((debugMode || round >= 12) && eliteRoll < (eliteChance += 0.08)) return "artillery";
         if (round >= 7 && eliteRoll < (eliteChance += 0.10)) return "shield";
         double bruteChance = round >= 5 ? 0.18 : 0;
         double runnerChance = round >= 3 ? 0.25 : 0;
@@ -690,6 +694,12 @@ final class GameSession {
                 speed = 90 + round * 2;
                 damage = 55 + round * 2;
                 reward = 25;
+            }
+            case "artillery" -> {
+                hp = 65 + round * 5;
+                speed = 42 + round * .6;
+                damage = 18 + round * .8;
+                reward = 45;
             }
             case "shield" -> {
                 hp = 100 + round * 9;
@@ -833,11 +843,13 @@ final class GameSession {
     }
 
     private void updateEnemies(double dt) {
+        updateArtilleryShells(dt);
         for (Enemy enemy : enemies) {
             if (enemy.hp <= 0) continue;
             enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
             enemy.pathTimer -= dt;
             updateEnemyWander(enemy, dt);
+            if (enemy.type.equals("artillery") && updateArtillery(enemy, dt)) continue;
 
             TrapSlot barricade = trapSlots.stream()
                     .filter(slot -> slot.defense != null
@@ -945,6 +957,63 @@ final class GameSession {
             }
         }
         if (inBomberBlast(bomber, coreX, coreY, radius)) damageCore(bomber.damage);
+    }
+
+    private boolean updateArtillery(Enemy enemy, double dt) {
+        enemy.specialCooldown = Math.max(0, enemy.specialCooldown - dt);
+        Player target = players.stream()
+                .filter(player -> !player.down && canArtilleryAim(enemy, player.x, player.y))
+                .min(Comparator.comparingDouble(player -> distance(enemy.x, enemy.y, player.x, player.y)))
+                .orElse(null);
+        TrapSlot defense = target == null ? trapSlots.stream()
+                .filter(slot -> slot.defense != null && !slot.defense.type.equals("mine")
+                        && canArtilleryAim(enemy, slot.x, slot.y))
+                .min(Comparator.comparingDouble(slot -> distance(enemy.x, enemy.y, slot.x, slot.y)))
+                .orElse(null) : null;
+        double x = target != null ? target.x : defense != null ? defense.x : coreX;
+        double y = target != null ? target.y : defense != null ? defense.y : coreY;
+        if (!canArtilleryAim(enemy, x, y)) return false;
+        // At close range retain ordinary movement/melee, so rushing the shooter is useful.
+        if (distance(enemy.x, enemy.y, x, y) < 110) return false;
+        enemy.faceToward(x, y);
+        if (enemy.specialCooldown <= 0) {
+            artilleryShells.add(new ArtilleryShell(enemy.x, enemy.y, x, y, enemy.damage * 3));
+            enemy.specialCooldown = GameConfig.ARTILLERY_COOLDOWN;
+        }
+        return true;
+    }
+
+    private boolean canArtilleryAim(Enemy enemy, double x, double y) {
+        return distance(enemy.x, enemy.y, x, y) <= GameConfig.ARTILLERY_RANGE
+                && GameMap.hasClearLine(enemy.x, enemy.y, x, y);
+    }
+
+    private void updateArtilleryShells(double dt) {
+        var iterator = artilleryShells.iterator();
+        while (iterator.hasNext()) {
+            ArtilleryShell shell = iterator.next();
+            shell.remaining -= dt;
+            if (shell.remaining > 1e-9) continue;
+            iterator.remove();
+            for (Player player : players) {
+                if (inArtilleryBlast(shell, player.x, player.y)) damagePlayer(player, shell.damage);
+            }
+            for (TrapSlot slot : trapSlots) {
+                if (slot.defense != null && inArtilleryBlast(shell, slot.x, slot.y)) {
+                    slot.defense.hp -= shell.damage;
+                    if (slot.defense.hp <= 0) slot.defense = null;
+                }
+            }
+            if (inArtilleryBlast(shell, coreX, coreY)) damageCore(shell.damage);
+            events.broadcast("{\"type\":\"effect\",\"effect\":\"acid-impact\",\"x\":"
+                    + roundOne(shell.x) + ",\"y\":" + roundOne(shell.y)
+                    + ",\"radius\":" + GameConfig.ARTILLERY_BLAST_RADIUS + "}");
+        }
+    }
+
+    private boolean inArtilleryBlast(ArtilleryShell shell, double x, double y) {
+        return distance(shell.x, shell.y, x, y) <= GameConfig.ARTILLERY_BLAST_RADIUS
+                && GameMap.hasClearLine(shell.x, shell.y, x, y);
     }
 
     private void updateEnemyWander(Enemy enemy, double dt) {
@@ -1062,6 +1131,24 @@ final class GameSession {
         coreHp = Math.max(0, coreHp - damage);
     }
 
+    private boolean dodgeArtillery(Player bot) {
+        boolean threatened = artilleryShells.stream().anyMatch(shell -> shell.remaining <= 1.2
+                && inArtilleryBlast(shell, bot.x, bot.y));
+        if (!threatened) return false;
+        double bestScore = Double.NEGATIVE_INFINITY, bestX = bot.x, bestY = bot.y;
+        for (int direction = 0; direction < 8; direction++) {
+            double angle = direction * Math.PI / 4;
+            double x = bot.x + Math.cos(angle) * 100, y = bot.y + Math.sin(angle) * 100;
+            if (!canOccupy(x, y, 12) || !canEnemyTravel(bot.x, bot.y, x, y)) continue;
+            double score = artilleryShells.stream()
+                    .mapToDouble(shell -> distance(x, y, shell.x, shell.y)).min().orElse(0);
+            if (score > bestScore) { bestScore = score; bestX = x; bestY = y; }
+        }
+        if (!Double.isFinite(bestScore)) return false;
+        moveBotToward(bot, bestX, bestY);
+        return true;
+    }
+
     private void updateBots(double dt) {
         for (Player bot : players) {
             if (bot.human) continue;
@@ -1072,6 +1159,7 @@ final class GameSession {
                 updateDownedBot(bot);
                 continue;
             }
+            if (phase == GamePhase.WAVE && dodgeArtillery(bot)) continue;
 
             Player downed = bestBotRescueTarget(bot);
             if (downed != null && shouldBotRescue(bot, downed)) {
@@ -1196,6 +1284,7 @@ final class GameSession {
             case "boss", "warlord", "titan" -> 460;
             case "champion" -> 260;
             case "siege" -> 240;
+            case "artillery" -> 250;
             case "armored" -> 200;
             case "shield" -> 170;
             case "hunter" -> 190;
@@ -1842,6 +1931,7 @@ final class GameSession {
             case "titan" -> 48;
             case "armored" -> 30;
             case "shield" -> 24;
+            case "artillery" -> 22;
             case "siege" -> 32;
             case "champion" -> 26;
             case "hunter" -> 18;
@@ -2609,6 +2699,7 @@ final class GameSession {
         coreDefenseLevel = 0;
         coreRegenLevel = 0;
         enemies.clear();
+        artilleryShells.clear();
         droppedResources.clear();
         activeLanes.clear();
         activeSpawnIds.clear();

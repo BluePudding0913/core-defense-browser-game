@@ -364,7 +364,7 @@ function connect() {
                 else if (message.effect === "pickup") window.coreAudio?.play("pickup");
             }
         }
-        if (message.type === "effect" && ["hit", "core-pulse", "pickup", "player-hit", "player-down", "explosion"].includes(message.effect)) {
+        if (message.type === "effect" && ["hit", "core-pulse", "pickup", "player-hit", "player-down", "explosion", "acid-impact"].includes(message.effect)) {
             hitEffects.push({ ...message, started: performance.now() });
             if (hitEffects.length > 100) hitEffects.shift();
         }
@@ -531,6 +531,7 @@ function receiveState(next) {
     lastCoreHp = next.core.hp;
     reconcileEnemySmoothing(next);
     state = next;
+    state.artilleryReceivedAt = performance.now();
     if (!getMe() || getMe().down || !["preparing", "wave"].includes(next.phase)) endInteractionHold(true);
     CORE.x = next.core.x;
     CORE.y = next.core.y;
@@ -1740,6 +1741,7 @@ function draw() {
         drawResources();
         drawDroppedResources();
         drawTrapSlots();
+        drawArtilleryShells();
         drawEnemies();
         drawPlayers();
         drawInteractionPrompt();
@@ -2120,13 +2122,34 @@ function smoothEntity(prefix, entity) {
 
 function enemyRadius(enemy) {
     return ({ boss: 42, warlord: 44, titan: 48, brute: 28, armored: 30,
-        siege: 32, champion: 26, runner: 16, hunter: 18, tiny: 3, shield: 24, bomber: 20 })[enemy.type] || 21;
+        siege: 32, champion: 26, runner: 16, hunter: 18, tiny: 3, shield: 24, bomber: 20, artillery: 22 })[enemy.type] || 21;
+}
+
+function drawArtilleryShells() {
+    if (state.phase !== "wave") return;
+    const elapsed = Math.max(0, (performance.now() - (state.artilleryReceivedAt ?? performance.now())) / 1000);
+    for (const shell of state.artilleryShells || []) {
+        const remaining = shell.remaining - elapsed;
+        if (remaining <= 0) continue;
+        const progress = clamp(1 - remaining / shell.duration, 0, 1);
+        ctx.save();
+        ctx.fillStyle = "rgb(185 231 67 / 18%)";
+        ctx.strokeStyle = "rgb(213 240 106 / 30%)"; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(shell.x, shell.y, shell.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = "#d5f06a"; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(shell.x, shell.y, shell.radius, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2); ctx.stroke();
+        const x = shell.sourceX + (shell.x - shell.sourceX) * progress;
+        const y = shell.sourceY + (shell.y - shell.sourceY) * progress - Math.sin(progress * Math.PI) * 65;
+        ctx.fillStyle = "#d5f06a";
+        ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
 }
 
 function drawEnemies() {
     const colors = { grunt: "#707070", runner: "#999", brute: "#505050", boss: "#2f2f2f",
         armored: "#626c78", hunter: "#a66e6e", siege: "#776951", champion: "#786283",
-        warlord: "#4d3030", titan: "#34253f", tiny: "#a9bd75", shield: "#466c80", bomber: "#dd7b32" };
+        warlord: "#4d3030", titan: "#34253f", tiny: "#a9bd75", shield: "#466c80", bomber: "#dd7b32", artillery: "#65803c" };
     for (const enemy of state.enemies) {
         if (enemy.hp <= 0) continue;
         const p = smoothEntity("enemy", enemy), radius = enemyRadius(enemy);
@@ -2151,6 +2174,10 @@ function drawEnemies() {
             const angle = Math.atan2(enemy.facingY ?? 1, enemy.facingX ?? 0);
             ctx.strokeStyle = "#83d5f2"; ctx.lineWidth = 7;
             ctx.beginPath(); ctx.arc(p.x, p.y, radius + 4, angle - Math.PI / 3, angle + Math.PI / 3); ctx.stroke();
+        }
+        if (enemy.type === "artillery") {
+            ctx.fillStyle = "#cce76b";
+            ctx.beginPath(); ctx.arc(p.x, p.y - radius * .7, 9, 0, Math.PI * 2); ctx.fill();
         }
         if (enemy.type !== "grunt" && enemy.type !== "tiny") { ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText(enemy.type.toUpperCase(), p.x, p.y + radius + 15); }
         if (isBoss) {
@@ -2263,10 +2290,12 @@ function drawHitEffects() {
             ctx.restore();
             continue;
         }
-        if (effect.effect === "explosion") {
+        if (effect.effect === "explosion" || effect.effect === "acid-impact") {
             const progress = (now - effect.started) / 360;
             ctx.save(); ctx.globalAlpha = 1 - progress;
-            ctx.fillStyle = "rgb(255 164 64 / 25%)"; ctx.strokeStyle = "#ffa440"; ctx.lineWidth = 4;
+            const acid = effect.effect === "acid-impact";
+            ctx.fillStyle = acid ? "rgb(185 231 67 / 30%)" : "rgb(255 164 64 / 25%)";
+            ctx.strokeStyle = acid ? "#d5f06a" : "#ffa440"; ctx.lineWidth = 4;
             ctx.beginPath(); ctx.arc(effect.x, effect.y, effect.radius * (.25 + .75 * progress), 0, Math.PI * 2);
             ctx.fill(); ctx.stroke(); ctx.restore(); continue;
         }
