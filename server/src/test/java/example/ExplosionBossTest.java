@@ -115,6 +115,60 @@ class ExplosionBossTest {
         assertTrue(player.down); assertEquals(0, player.hp);
     }
 
+    @Test void headAndBodyBothTakeTinyDamageWithoutHeadshotMultiplierOrGold() throws Exception {
+        player.x = 1020; player.y = 1900;
+        boss.x = 1120; boss.y = 1900;
+        double before = boss.hp;
+        for (double y : new double[]{1900, 1879}) {
+            player.y = y;
+            effects.clear();
+            invoke("fireRay", new Class<?>[]{Player.class, GameConfig.WeaponStats.class, double.class, double.class},
+                    player, GameSession.weaponStats("pistol"), 1., 0.);
+            assertEquals(.026, before - boss.hp, .000001);
+            assertTrue(effects.stream().anyMatch(s -> s.contains("\"damage\":0.026") && s.contains("\"headshot\":false")));
+            assertEquals(0, player.credits);
+            var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
+            assertEquals(boss.hp, snapshot.path("enemies").get(0).path("hp").asDouble());
+            before = boss.hp;
+        }
+    }
+
+    @Test void explosionSpawnsFiveRunnersAtItsPositionOnceAndKeepsRoundRunning() throws Exception {
+        game.phase = GamePhase.WAVE;
+        player.hp = 200; player.x = boss.x; player.y = boss.y;
+        boss.fuse = 0;
+        double x = boss.x, y = boss.y;
+        game.update(.05);
+        assertEquals(GamePhase.WAVE, game.phase);
+        assertEquals(5, game.enemies.size());
+        assertEquals(5, game.enemies.stream().map(e -> e.id).distinct().count());
+        for (Enemy runner : game.enemies) {
+            assertEquals("runner", runner.type);
+            assertEquals(x, runner.x); assertEquals(y, runner.y);
+        }
+        game.update(.05);
+        assertEquals(5, game.enemies.size(), "No repeated offspring on later ticks");
+        game.enemies.forEach(e -> e.hp = 0);
+        game.update(.05);
+        assertEquals(GamePhase.PREPARING, game.phase);
+    }
+
+    @Test void normalBossRoundsNeverOverlapExplosionBossRounds() throws Exception {
+        for (int round = 1; round <= 50; round++) {
+            game.enemies.clear(); game.round = round - 1;
+            invoke("beginRound", new Class<?>[]{});
+            boolean explosionRound = round == 25 || round == 35 || round == 45;
+            int expectedBosses = explosionRound ? 1 : round % 4 == 0 ? round / 4 * (round >= 40 ? 2 : 1) : 0;
+            assertEquals(expectedBosses, game.queuedBosses, "R" + round);
+            game.queuedEnemies = 0; game.queuedTinyEnemies = 0;
+            while (game.queuedBosses > 0) invoke("updateSpawning", new Class<?>[]{double.class}, 10.);
+            assertEquals(expectedBosses, game.enemies.size(), "R" + round);
+            assertEquals(explosionRound ? 1 : 0,
+                    game.enemies.stream().filter(e -> e.type.equals("explosionBoss")).count(), "R" + round);
+            if (explosionRound) assertEquals("boss_assault", game.roundEvent);
+        }
+    }
+
     @Test void debugFirstRoundContainsExactlyOneBossAndRestartClearsIt() throws Exception {
         for (int restart = 0; restart < 2; restart++) {
             invoke("startMatch", new Class<?>[]{Player.class, boolean.class}, player, true);
@@ -122,6 +176,7 @@ class ExplosionBossTest {
             for (int i = 0; i < 12; i++) invoke("updateSpawning", new Class<?>[]{double.class}, 10.);
             assertEquals(9, game.enemies.size());
             assertEquals(1, game.enemies.stream().filter(e -> e.type.equals("explosionBoss")).count());
+            assertTrue(game.enemies.stream().noneMatch(e -> e.type.equals("bomber")));
             assertEquals(9, game.roundEnemyTotal);
         }
         invoke("startMatch", new Class<?>[]{Player.class, boolean.class}, player, false);

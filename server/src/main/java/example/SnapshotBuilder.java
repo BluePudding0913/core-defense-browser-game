@@ -249,7 +249,7 @@ final class SnapshotBuilder {
                     .append("\",\"spawnId\":\"").append(enemy.spawnId);
             json.append("\",\"x\":").append(roundOne(enemy.x));
             json.append(",\"y\":").append(roundOne(enemy.y))
-                    .append(",\"hp\":").append(roundOne(enemy.hp));
+                    .append(",\"hp\":").append(enemy.type.equals("explosionBoss") ? enemy.hp : roundOne(enemy.hp));
             json.append(",\"maxHp\":").append(roundOne(enemy.maxHp));
             if (enemy.type.equals("explosionBoss")) json.append(",\"fuse\":").append(enemy.fuse);
             if (enemy.type.equals("shield")) {
