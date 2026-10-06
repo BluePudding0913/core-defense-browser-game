@@ -1747,7 +1747,10 @@ function draw() {
         drawHitEffects();
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    if (state?.blackoutActive) drawBlackout();
+    if (state?.blackoutActive) {
+        drawBlackout();
+        drawBlackoutSignals();
+    }
     if (state) drawDamageEdges();
     drawJoystick();
 }
@@ -1772,6 +1775,29 @@ function drawDamageEdges() {
         gradient.addColorStop(1, "rgba(255, 35, 55, 0)");
         ctx.fillStyle = gradient;
         ctx.fillRect(x, y, w, h);
+    }
+    ctx.restore();
+}
+
+function drawBlackoutSignals() {
+    if (!state?.blackoutActive) return;
+    const tripped = new Set(state.trippedBreakers || []);
+    const progress = (performance.now() % 2400) / 2400;
+    ctx.save();
+    ctx.strokeStyle = "#ff5964";
+    ctx.lineWidth = 2;
+    for (const breaker of BREAKER_TERMINALS) {
+        if (!tripped.has(breaker.id)
+                || (breaker.requiredArea && !state.areas[breaker.requiredArea])) continue;
+        const x = (breaker.x - camera.x) * scale + canvas.width / 2;
+        const y = (breaker.y - camera.y) * scale + canvas.height / 2;
+        for (let ring = 0; ring < 3; ring++) {
+            const expansion = (progress + ring / 3) % 1;
+            ctx.globalAlpha = .75 * (1 - expansion);
+            ctx.beginPath();
+            ctx.arc(x, y, (18 + expansion * 240) * scale, 0, Math.PI * 2);
+            ctx.stroke();
+        }
     }
     ctx.restore();
 }
