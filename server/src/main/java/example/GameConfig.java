@@ -72,7 +72,7 @@ final class GameConfig {
             Map.entry("pistol", new WeaponStats(5 * GameMap.TILE_SIZE, 26, .38, 0, 2)),
             Map.entry("bat", new WeaponStats(96, 20, 1, 115, 26)),
             Map.entry("shotgun", new WeaponStats(220, 24, 1.25, 45, 2)),
-            Map.entry("smg", new WeaponStats(270, 12, .14, 0, 2)),
+            Map.entry("smg", new WeaponStats(270, 18, .14, 0, 2)),
             Map.entry("rifle", new WeaponStats(430, 120, 1.15, 0, 2)),
             Map.entry("sniper", new WeaponStats(2400, 280, 1.8, 0, 2)),
             Map.entry("revolver", new WeaponStats(360, 320, 1.6, 10, 2)),
