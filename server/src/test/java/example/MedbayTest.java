@@ -131,7 +131,7 @@ class MedbayTest {
 
     @Test void movedTerminalRemainsAccessibleAndRoomHasAnIrregularOutline() {
         UnlockArea room = GameMap.areaById("recovery-room");
-        assertEquals(700, room.terminalX());
+        assertEquals(660, room.terminalX());
         assertEquals(1860, room.terminalY());
         assertFalse(room.tiles().contains(new AreaTile(5, 43)));
         assertTrue(room.tiles().contains(new AreaTile(4, 46)));
