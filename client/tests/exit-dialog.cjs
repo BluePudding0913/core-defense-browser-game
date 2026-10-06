@@ -53,5 +53,5 @@ context.state = { phase: 'preparing' };
 keydown(esc);
 assert(dialog.open, 'Escape also works between rounds');
 assert.match(fs.readFileSync('client/index.html', 'utf8'), /id="leave-game"[^>]*>EXIT<\/button>/);
-assert.match(fs.readFileSync('client/menu-ui.js', 'utf8'), /button\("leave", "EXIT"\)/);
+assert.match(fs.readFileSync('client/menu-ui.js', 'utf8'), /button\("leave", "戻る"\)/);
 console.log('Exit confirmation passed: drawing, cancel, exit, reopen, input reset, labels');

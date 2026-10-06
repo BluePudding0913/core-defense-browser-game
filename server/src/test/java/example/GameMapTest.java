@@ -68,7 +68,7 @@ class GameMapTest {
             assertFalse(GameMap.canPlaceDefense(area.terminalX(), area.terminalY(), allAreas));
             assertFalse(GameMap.canPlaceCore(area.terminalX(), area.terminalY(), allAreas));
         }
-        assertEquals(13, floorTerminals);
+        assertEquals(15, floorTerminals);
     }
 
     @Test

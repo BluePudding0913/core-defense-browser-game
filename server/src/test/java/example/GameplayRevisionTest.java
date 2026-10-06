@@ -154,9 +154,9 @@ class GameplayRevisionTest {
     @Test void ricochetUsesTheFormerRevolverRoom() {
         UnlockArea terminal = GameMap.areaById("ricochet-room");
         assertEquals(860 + GameMap.TILE_SIZE, terminal.terminalX());
-        assertEquals(1580, terminal.terminalY());
+        assertEquals(1660, terminal.terminalY());
         game.unlockedAreas.add("entry-room");
-        player.x = 940; player.y = 1580; player.credits = 1000;
+        player.x = 940; player.y = 1660; player.credits = 1000;
         game.handleMessage(player, "UNLOCK:ricochet-room");
         assertTrue(game.unlockedAreas.contains("ricochet-room"));
         assertEquals(550, player.credits);

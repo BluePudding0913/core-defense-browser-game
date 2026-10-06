@@ -93,7 +93,7 @@
         {"column":29,"row":29},{"column":30,"row":29},{"column":31,"row":29},{"column":32,"row":29},{"column":33,"row":29},{"column":34,"row":29},{"column":35,"row":29},{"column":36,"row":29}
       ]
     },
-    {"id":"armory-wing","name":"INFIRMARY","terminalX":1460,"terminalY":1140,"labelX":1860,"labelY":1100,"color":"#ffffff","detail":"Medical supplies / access to SMG ROOM",
+    {"id":"armory-wing","name":"INFIRMARY","terminalX":1500,"terminalY":1140,"labelX":1860,"labelY":1100,"color":"#ffffff","detail":"Medical supplies / access to SMG ROOM",
       "tiles": [
         {"column":37,"row":21},{"column":38,"row":21},{"column":39,"row":21},{"column":40,"row":21},{"column":41,"row":21},{"column":42,"row":21},{"column":43,"row":21},{"column":44,"row":21},
         {"column":37,"row":22},{"column":38,"row":22},{"column":39,"row":22},{"column":40,"row":22},{"column":41,"row":22},{"column":42,"row":22},{"column":43,"row":22},{"column":44,"row":22},
@@ -160,7 +160,7 @@
         {"column":2,"row":11},{"column":3,"row":11},{"column":4,"row":11},{"column":5,"row":11},{"column":6,"row":11},{"column":7,"row":11},{"column":8,"row":11},{"column":9,"row":11}
       ]
     },
-    {"id":"wood-room","name":"WOOD ROOM","terminalX":940,"terminalY":1500,"labelX":820,"labelY":1380,"color":"#ffffff","detail":"木材を回収できる小部屋",
+    {"id":"wood-room","name":"WOOD ROOM","terminalX":900,"terminalY":1500,"labelX":820,"labelY":1380,"color":"#ffffff","detail":"木材を回収できる小部屋",
       "tiles": [
         {"column":18,"row":35},{"column":19,"row":35},{"column":20,"row":35},{"column":21,"row":35},
         {"column":18,"row":36},{"column":19,"row":36},{"column":20,"row":36},{"column":21,"row":36},
@@ -182,14 +182,14 @@
         {"column":29,"row":25},{"column":30,"row":25},{"column":31,"row":25},{"column":32,"row":25}
       ]
     },
-    {"id":"shotgun-room","name":"SHOTGUN ROOM","terminalX":1180,"terminalY":1580,"labelX":1340,"labelY":1700,"color":"#ffffff","detail":"十分な弾薬を補充できます",
+    {"id":"shotgun-room","name":"SHOTGUN ROOM","terminalX":1180,"terminalY":1620,"labelX":1340,"labelY":1700,"color":"#ffffff","detail":"十分な弾薬を補充できます",
       "tiles": [
         {"column":31,"row":39},{"column":32,"row":39},{"column":33,"row":39},{"column":34,"row":39},
         {"column":29,"row":40},{"column":30,"row":40},{"column":31,"row":40},{"column":32,"row":40},{"column":33,"row":40},{"column":34,"row":40},
         {"column":31,"row":41},{"column":32,"row":41},{"column":33,"row":41},{"column":34,"row":41}
       ]
     },
-    {"id":"ricochet-room","name":"RICOCHET ROOM","terminalX":900,"terminalY":1580,"labelX":740,"labelY":1740,"color":"#ffffff","detail":"十分な弾薬を補充できます",
+    {"id":"ricochet-room","name":"RICOCHET ROOM","terminalX":900,"terminalY":1660,"labelX":740,"labelY":1740,"color":"#ffffff","detail":"十分な弾薬を補充できます",
       "tiles": [
         {"column":17,"row":40},{"column":18,"row":40},{"column":19,"row":40},{"column":20,"row":40},
         {"column":21,"row":41},{"column":22,"row":41},{"column":17,"row":41},{"column":18,"row":41},{"column":19,"row":41},{"column":20,"row":41},
@@ -313,7 +313,7 @@
   ],
   "prepConsole": {"id":"prep-console","x":1260,"y":980,"requiredArea":"operations-room","cost":100,"seconds":60},
   "breakerTerminals": [
-    {"id":"breaker-outside","label":"OUTSIDE","x":820,"y":1940,"requiredArea":null},
+    {"id":"breaker-outside","label":"OUTSIDE","x":780,"y":1940,"requiredArea":null},
     {"id":"breaker-entry","label":"ENTRY ROOM","x":1140,"y":1580,"requiredArea":"entry-room"},
     {"id":"breaker-transit","label":"TRANSIT HALL","x":1300,"y":1180,"requiredArea":"transit-hall"},
     {"id":"breaker-armory","label":"INFIRMARY","x":1780,"y":980,"requiredArea":"armory-wing"},
