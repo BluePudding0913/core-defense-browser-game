@@ -122,7 +122,10 @@ public final class WasdServer extends WebSocketServer {
                 assignments.put(connection, new ConnectionAssignment(room, assigned));
                 previous = room.playerConnections.put(assigned, connection);
                 room.emptySinceNanos = 0;
-                if (room.game.roomOwnerId == null || sessionId.equals(room.ownerSession)) {
+                room.reconnectPending = false;
+                if (room.game.roomOwnerId == null || sessionId.equals(room.ownerSession)
+                        || room.playerConnections.keySet().stream()
+                                .noneMatch(p -> p.id.equals(room.game.roomOwnerId))) {
                     room.ownerSession = sessionId;
                     room.game.setRoomOwner(assigned);
                 }
@@ -184,12 +187,13 @@ public final class WasdServer extends WebSocketServer {
             ConnectionAssignment assignment = assignments.remove(connection);
             if (assignment == null) return;
             GameRoom room = assignment.room;
+            boolean wasOwner = assignment.player.sessionId != null
+                    && assignment.player.sessionId.equals(room.ownerSession);
+            boolean leaving = code == 1000 && "leave-room".equals(reason);
             if (room.playerConnections.remove(assignment.player, connection)) {
-                room.game.disconnectPlayer(assignment.player);
+                room.game.disconnectPlayer(assignment.player, !leaving);
             }
-            if (assignment.player.sessionId != null
-                    && assignment.player.sessionId.equals(room.ownerSession)
-                    && !room.playerConnections.isEmpty()) {
+            if (wasOwner && !room.playerConnections.isEmpty()) {
                 Player nextOwner = room.playerConnections.keySet().stream()
                         .min(java.util.Comparator.comparingInt(player -> player.slot)).orElse(null);
                 if (nextOwner != null) {
@@ -198,7 +202,15 @@ public final class WasdServer extends WebSocketServer {
                     room.game.setRoomOwner(nextOwner);
                 }
             }
-            if (room.playerConnections.isEmpty()) rooms.remove(room.id, room);
+            if (room.playerConnections.isEmpty()) {
+                if (room.password == null && room.game.players.stream()
+                        .anyMatch(p -> p.sessionId != null && p.reconnectGrace > 0)) {
+                    room.emptySinceNanos = System.nanoTime();
+                    room.reconnectPending = true;
+                } else {
+                    rooms.remove(room.id, room);
+                }
+            }
         }
         broadcastRoomLists();
     }
@@ -246,7 +258,7 @@ public final class WasdServer extends WebSocketServer {
                         sendSnapshot(room);
                     }
                     if (room.playerConnections.isEmpty() && room.emptySinceNanos > 0
-                            && now - room.emptySinceNanos >= EMPTY_ROOM_RETENTION_NANOS) {
+                            && now - room.emptySinceNanos >= emptyRoomRetentionNanos(room)) {
                         expiredRooms.add(room.id);
                     }
                 }
@@ -346,8 +358,13 @@ public final class WasdServer extends WebSocketServer {
                         matchError(connection, "参加できるルームが見つかりません。合言葉・満員・プレイ中でないか確認してください"); return;
                     }
                 } else if (action.equals("quick")) {
-                    selected = rooms.values().stream().filter(r -> r.password == null && matchAvailable(r, session))
+                    selected = rooms.values().stream().filter(r -> r.password == null
+                            && r.game.players.stream().anyMatch(p -> session.equals(p.sessionId)))
                             .sorted(java.util.Comparator.comparing(r -> r.id)).findFirst().orElse(null);
+                    if (selected == null) {
+                        selected = rooms.values().stream().filter(r -> r.password == null && matchAvailable(r, session))
+                                .sorted(java.util.Comparator.comparing(r -> r.id)).findFirst().orElse(null);
+                    }
                 } else return;
                 if (selected == null) {
                     if (rooms.size() >= maxRooms) { matchError(connection, "作成できる部屋数の上限に達しました"); return; }
@@ -375,6 +392,12 @@ public final class WasdServer extends WebSocketServer {
                 && (p.sessionId == null || p.reconnectGrace <= 0 || session.equals(p.sessionId))).count();
         long reserved = room.reservations.keySet().stream().filter(s -> !s.equals(session)).count();
         return room.game.phase == GamePhase.LOBBY && available > reserved;
+    }
+
+    private static long emptyRoomRetentionNanos(GameRoom room) {
+        return room.reconnectPending
+                ? TimeUnit.SECONDS.toNanos((long) GameConfig.RECONNECT_GRACE_SECONDS)
+                : EMPTY_ROOM_RETENTION_NANOS;
     }
 
     private void matchError(WebSocket connection, String message) {
@@ -528,6 +551,7 @@ public final class WasdServer extends WebSocketServer {
         final Map<String, MatchReservation> reservations = new java.util.HashMap<>();
         double snapshotTimer;
         long emptySinceNanos;
+        boolean reconnectPending;
 
         GameRoom(String id, String ownerSession, String ownerName) {
             this.id = id;

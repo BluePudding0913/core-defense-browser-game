@@ -30,7 +30,7 @@ class Socket {
     addEventListener(type, handler) { this.handlers[type] = handler; }
     send(message) { this.sent.push(message); }
     open() { this.readyState = 1; this.handlers.open(); }
-    close() { this.readyState = 3; this.handlers.close?.(); }
+    close(code, reason) { this.closeCode = code; this.closeReason = reason; this.readyState = 3; this.handlers.close?.(); }
     message(message) { this.handlers.message({ data: JSON.stringify(message) }); }
 }
 const context = {
@@ -124,7 +124,10 @@ run('updateRoomLobby(snapshot)');
 assert(!context.startButton.disabled);
 assert(context.readyRoomButton.classList.contains('hidden'));
 context.roundIntro.classList.add('show');
+const leavingSocket = context.socket;
 run('leaveRoom()');
+assert.equal(leavingSocket.closeCode, 1000);
+assert.equal(leavingSocket.closeReason, 'leave-room', 'explicit exits release the reconnect reservation');
 assert(!context.roundIntro.classList.contains('show'));
 assert.equal(context.previousPhase, undefined);
 assert.equal(context.previousRound, undefined);

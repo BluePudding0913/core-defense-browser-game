@@ -149,10 +149,15 @@ final class GameSession {
     }
 
     void disconnectPlayer(Player player) {
+        disconnectPlayer(player, true);
+    }
+
+    void disconnectPlayer(Player player, boolean allowReconnect) {
         if (!player.human) return;
         String displayName = player.name;
         player.human = false;
         player.roomReady = false;
+        if (!allowReconnect) player.sessionId = null;
         player.reconnectGrace = player.sessionId == null ? 0 : RECONNECT_GRACE_SECONDS;
         refreshCpuNames();
         player.moveX = 0;

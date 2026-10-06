@@ -758,6 +758,17 @@ class GameSessionTest {
     }
 
     @Test
+    void explicitExitImmediatelyReleasesThePlayerSlot() {
+        game.disconnectPlayer(player, false);
+
+        assertFalse(player.human);
+        assertNull(player.sessionId);
+        assertEquals(0, player.reconnectGrace);
+        assertEquals("CPU 1", player.name);
+        assertSame(player, game.connectPlayer("another-session"));
+    }
+
+    @Test
     void enemyFollowsTheEntryCorridorBeforeTurningTowardTheCore() {
         startWave();
         game.players.forEach(candidate -> candidate.human = true);

@@ -408,11 +408,14 @@ function connect() {
 }
 
 function switchConnection(target) {
+    const leavingRoom = connectionTarget.mode === "room" && target.mode === "directory";
     connectionTarget = target;
     clearTimeout(reconnectTimer);
     const previousSocket = socket;
     socket = undefined;
-    if (previousSocket && previousSocket.readyState < WebSocket.CLOSING) previousSocket.close();
+    if (previousSocket && previousSocket.readyState < WebSocket.CLOSING) {
+        previousSocket.close(1000, leavingRoom ? "leave-room" : "");
+    }
     connect();
 }
 
