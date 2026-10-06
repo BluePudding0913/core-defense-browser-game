@@ -6,9 +6,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** Exercises player placement and the real game loop, without calling updateDefenses directly. */
 class TurretCombatTest {
@@ -97,21 +102,36 @@ class TurretCombatTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"turret", "copperTurret", "silverTurret"})
-    void placedTurretHitsAndKillsNaturallySpawnedEnemies(String type) {
+    @MethodSource("naturalSpawnScenarios")
+    void placedTurretHitsAndKillsNaturallySpawnedEnemies(String type, int seed) throws Exception {
+        var randomField = GameSession.class.getDeclaredField("random");
+        randomField.setAccessible(true);
+        ((Random) randomField.get(game)).setSeed(seed);
         craftAndPlace(type);
         startWave();
-        Enemy damaged = null;
+        // Target priority may change as enemies move. Track every damaged spawn,
+        // rather than requiring the first one hit to be the one that dies.
+        List<Enemy> damaged = new ArrayList<>();
+        Enemy killed = null;
         for (int tick = 0; tick < 700; tick++) {
             game.update(.05);
-            if (damaged == null) {
-                damaged = game.enemies.stream().filter(e -> e.hp < e.maxHp).findFirst().orElse(null);
+            for (Enemy enemy : game.enemies) {
+                if (enemy.hp < enemy.maxHp && !damaged.contains(enemy)) damaged.add(enemy);
             }
-            if (damaged != null && damaged.hp <= 0) break;
+            killed = damaged.stream().filter(e -> e.hp <= 0).findFirst().orElse(null);
+            if (killed != null) break;
         }
-        assertNotNull(damaged, "A real round-one spawn must take turret damage");
-        assertEquals(0, damaged.hp, "Turret fire alone must kill a naturally spawned enemy");
-        assertFalse(game.enemies.contains(damaged));
+        assertFalse(damaged.isEmpty(), "A real round-one spawn must take turret damage");
+        assertNotNull(killed, "Turret fire alone must kill a naturally spawned enemy");
+        assertEquals(0, killed.hp);
+        assertFalse(game.enemies.contains(killed));
+        assertTrue(effects.stream().anyMatch(e -> e.contains("\"weapon\":\"turret\"")
+                && e.contains("\"defeated\":true")));
+    }
+
+    private static Stream<Arguments> naturalSpawnScenarios() {
+        return Stream.of("turret", "copperTurret", "silverTurret")
+                .flatMap(type -> IntStream.range(0, 30).mapToObj(seed -> Arguments.of(type, seed)));
     }
 
     @ParameterizedTest
