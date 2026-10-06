@@ -59,18 +59,19 @@ class ArtilleryEnemyTest {
         slot.defense = new Defense("block"); slot.defense.hp = 10;
         game.trapSlots.add(slot);
         update(.05); artillery.hp = 0; update(1.5);
-        assertEquals(72, player.hp); assertNull(slot.defense); assertEquals(972, game.coreHp);
-        update(1.5); assertEquals(72, player.hp); assertEquals(972, game.coreHp);
+        assertEquals(16, player.hp); assertNull(slot.defense); assertEquals(916, game.coreHp);
+        update(1.5); assertEquals(16, player.hp); assertEquals(916, game.coreHp);
     }
 
     @Test void cooldownLimitsFireAndCloseRangeUsesMelee() throws Exception {
-        update(.05); update(1.5); assertEquals(72, player.hp);
+        update(.05); update(1.5); assertEquals(16, player.hp);
         assertTrue(game.artilleryShells.isEmpty());
         update(2.45); assertTrue(game.artilleryShells.isEmpty());
         update(.05); assertEquals(1, game.artilleryShells.size());
         game.artilleryShells.clear(); artillery.specialCooldown = 0;
+        player.hp = 100;
         player.x = artillery.x + 20; update(.05);
-        assertTrue(game.artilleryShells.isEmpty()); assertEquals(44, player.hp);
+        assertTrue(game.artilleryShells.isEmpty()); assertEquals(72, player.hp);
     }
 
     @Test void rangeAndWallsPreventFiringAndWallsContainSplash() throws Exception {
@@ -134,7 +135,7 @@ class ArtilleryEnemyTest {
         invoke("updateSpawning", new Class<?>[]{double.class}, 8.1);
         assertEquals(1, game.enemies.size());
         assertEquals("artillery", game.enemies.get(0).type);
-        assertEquals(56.4, game.enemies.get(0).damage, .001);
+        assertEquals(18.8, game.enemies.get(0).damage, .001);
         assertEquals(8, game.queuedEnemies);
         game.round = 2;
         var randomField = GameSession.class.getDeclaredField("random"); randomField.setAccessible(true);

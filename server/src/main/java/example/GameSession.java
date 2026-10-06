@@ -680,7 +680,7 @@ final class GameSession {
             case "artillery" -> {
                 hp = 65 + round * 5;
                 speed = 42 + round * .6;
-                damage = (18 + round * .8) * 3;
+                damage = 18 + round * .8;
                 reward = 45;
             }
             case "shield" -> {
@@ -935,7 +935,7 @@ final class GameSession {
         if (distance(enemy.x, enemy.y, x, y) < 110) return false;
         enemy.faceToward(x, y);
         if (enemy.specialCooldown <= 0) {
-            artilleryShells.add(new ArtilleryShell(enemy.x, enemy.y, x, y, enemy.damage));
+            artilleryShells.add(new ArtilleryShell(enemy.x, enemy.y, x, y, enemy.damage * 3));
             enemy.specialCooldown = GameConfig.ARTILLERY_COOLDOWN;
         }
         return true;
