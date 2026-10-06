@@ -615,6 +615,15 @@ final class GameSession {
         if (queuedEnemies <= 0 && queuedBosses <= 0) return;
         spawnTimer -= dt;
         if (spawnTimer > 0) return;
+        if (debugBomberPending && queuedEnemies > 0) {
+            SpawnPoint spawn = nextRoundSpawn();
+            int count = Math.min(3, queuedEnemies);
+            for (int i = 0; i < count; i++) spawnEnemy("bomber", spawn);
+            queuedEnemies -= count;
+            debugBomberPending = false;
+            spawnTimer = 1.15;
+            return;
+        }
         while (queuedTinyEnemies > 0 && queuedEnemies > 0) {
             spawnEnemy("tiny", nextRoundSpawn());
             queuedTinyEnemies--;
@@ -638,10 +647,6 @@ final class GameSession {
     }
 
     private String selectEnemyType(SpawnPoint spawn) {
-        if (debugBomberPending) {
-            debugBomberPending = false;
-            return "bomber";
-        }
         // Reserve a growing share for elites, retaining each entrance's original mix.
         if ((debugMode || round >= 6) && random.nextDouble() < .10) return "bomber";
         double eliteRoll = random.nextDouble();
