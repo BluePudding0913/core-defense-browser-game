@@ -68,22 +68,22 @@ class BomberEnemyTest {
         assertEquals(200, slot.defense.hp);
         assertTrue(game.coreHp + game.coreShield < oldCore);
     }
-    @Test void appearsOnlyFromRoundSixWithBomberStats() throws Exception {
+    @Test void appearsOnlyFromRoundFifteenWithBomberStats() throws Exception {
         var randomField = GameSession.class.getDeclaredField("random");
         randomField.setAccessible(true);
         ((java.util.Random) randomField.get(game)).setSeed(12345);
         SpawnPoint spawn = GameMap.SPAWN_POINTS.get(0);
-        game.round = 5;
+        game.round = 14;
         for (int i = 0; i < 200; i++) assertNotEquals("bomber", invoke("selectEnemyType", new Class<?>[]{SpawnPoint.class}, spawn));
-        game.round = 6;
+        game.round = 15;
         boolean found = false;
         for (int i = 0; i < 200; i++) found |= "bomber".equals(invoke("selectEnemyType", new Class<?>[]{SpawnPoint.class}, spawn));
         assertTrue(found);
         invoke("spawnEnemy", new Class<?>[]{String.class, SpawnPoint.class}, "bomber", spawn);
-        assertEquals(138, game.enemies.get(0).maxHp);
-        assertEquals(67, game.enemies.get(0).damage);
+        assertEquals(210, game.enemies.get(0).maxHp);
+        assertEquals(85, game.enemies.get(0).damage);
     }
-    @Test void debugDoesNotSpawnOrUnlockBombersBeforeRoundSix() throws Exception {
+    @Test void debugDoesNotSpawnOrUnlockBombersBeforeRoundFifteen() throws Exception {
         invoke("startMatch", new Class<?>[]{Player.class, boolean.class}, player, true);
         game.round = 1;
         game.queuedEnemies = 9;
@@ -91,7 +91,7 @@ class BomberEnemyTest {
         assertEquals(1, game.enemies.size());
         assertTrue(game.enemies.stream().noneMatch(e -> e.type.equals("bomber")));
         assertEquals(8, game.queuedEnemies);
-        for (int round = 1; round < 6; round++) {
+        for (int round = 1; round < 15; round++) {
             game.round = round;
             for (int i = 0; i < 200; i++) assertNotEquals("bomber",
                     invoke("selectEnemyType", new Class<?>[]{SpawnPoint.class}, GameMap.SPAWN_POINTS.get(0)));

@@ -675,7 +675,7 @@ final class GameSession {
         if (debugMode && round == 1 && (nextEnemyId == 1 || nextEnemyId == 4)) return "artillery";
         if (debugMode && round == 1 && !explosionBossSpawned) return "explosionBoss";
         // Reserve a growing share for elites, retaining each entrance's original mix.
-        if (round >= 6 && random.nextDouble() < .10) return "bomber";
+        if (round >= 15 && random.nextDouble() < .10) return "bomber";
         double eliteRoll = random.nextDouble();
         double eliteChance = 0;
         if (round >= 34 && eliteRoll < (eliteChance += 0.12)) return "champion";
