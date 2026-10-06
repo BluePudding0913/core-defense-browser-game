@@ -14,6 +14,7 @@ const context = vm.createContext({
     send: command => commands.push(command),
 });
 const start = source.indexOf('window.addEventListener("keydown"');
+vm.runInContext(fs.readFileSync('client/key-settings.js', 'utf8'), context);
 const end = source.indexOf('window.addEventListener("keyup"', start);
 vm.runInContext(source.slice(start, end), context);
 function press(overrides = {}) {
@@ -31,4 +32,8 @@ context.state.phase = 'lost'; press();
 assert.equal(commands.length, 0);
 context.state.phase = 'preparing'; press();
 assert.deepEqual(commands, ['USE:medkit']);
+commands.length = 0;
+assert(context.window.coreKeySettings.setMedkit('Q'));
+press(); press({ key: 'q' }); press({ key: 'Q' });
+assert.deepEqual(commands, ['USE:medkit', 'USE:medkit']);
 console.log('Medkit shortcut checks passed');

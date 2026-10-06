@@ -28,6 +28,7 @@ const context = { document: { querySelector: () => root, body, createElement: ()
     FormData: class { constructor(form) { this.data = form.data; } get(key) { return this.data[key]; } },
     window: { coreGame: { match: (...args) => calls.push(args), send: command => calls.push(command), leave: () => calls.push('leave') } } };
 vm.runInNewContext(fs.readFileSync('client/pointer-settings.js', 'utf8'), context);
+vm.runInNewContext(fs.readFileSync('client/key-settings.js', 'utf8'), context);
 vm.runInNewContext(fs.readFileSync('client/menu-ui.js', 'utf8'), context);
 const submit = (form, data = {}) => handlers.submit({ preventDefault() {}, target: { dataset: { form }, data } });
 const click = (action, slot) => handlers.click({ target: { closest: () => ({ dataset: { action, slot } }) } });
@@ -225,6 +226,14 @@ assert.equal(result.textContent, '接続できません', 'reconnection preserve
 click('phrase'); click('search');
 assert.equal(result.textContent, '', 'reopening search clears its previous result');
 click('home'); click('settings');
+assert.match(root.innerHTML, /name="medkit-key"[^>]*value="H"/);
+const medkitInput = { name: 'medkit-key', value: 'H' };
+handlers.keydown({ target: medkitInput, key: 'q', preventDefault() {} });
+assert.equal(medkitInput.value, 'Q');
+assert.equal(saved.get('core-defense-medkit-key'), 'q');
+handlers.keydown({ target: medkitInput, key: 'w', preventDefault() {} });
+assert.equal(medkitInput.value, 'Q');
+assert.equal(field('#medkit-key-status').textContent, 'このキーは使用できません');
 assert.match(root.innerHTML, /type="color" name="pointer-color" value="#0078ff"/);
 assert.match(root.innerHTML, /type="range" name="pointer-size"[^>]*value="6"/);
 handlers.input({ target: { name: 'pointer-color', value: '#ff9900' } });

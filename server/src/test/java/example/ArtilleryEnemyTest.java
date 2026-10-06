@@ -121,8 +121,32 @@ class ArtilleryEnemyTest {
         assertEquals(1220, game.artilleryShells.get(0).x);
         game.artilleryShells.clear(); artillery.specialCooldown = 0;
         TrapSlot slot = new TrapSlot("target-turret", "test", 1180, 1900, null);
-        slot.defense = new Defense("turret"); game.trapSlots.add(slot); update(.05);
+        game.trapSlots.add(slot);
+        for (String type : List.of("turret", "copperTurret", "silverTurret")) {
+            slot.defense = new Defense(type);
+            game.artilleryShells.clear(); artillery.specialCooldown = 0;
+            update(.05);
+            assertEquals(1220, game.artilleryShells.get(0).x, type + " must not be targeted");
+            assertNull(invoke("nearestDefense", new Class<?>[]{Enemy.class, double.class}, artillery, 420.));
+        }
+        slot.defense = new Defense("block");
+        game.artilleryShells.clear(); artillery.specialCooldown = 0; update(.05);
         assertEquals(1180, game.artilleryShells.get(0).x);
+    }
+
+    @Test void artilleryFrequencyIsHalvedThroughRound25() throws Exception {
+        var randomField = GameSession.class.getDeclaredField("random"); randomField.setAccessible(true);
+        var random = (java.util.Random) randomField.get(game);
+        for (int round : List.of(11, 12, 18, 25, 26)) {
+            game.round = round; random.setSeed(321);
+            int count = 0;
+            for (int i = 0; i < 20000; i++) {
+                if (invoke("selectEnemyType", new Class<?>[]{SpawnPoint.class}, GameMap.SPAWN_POINTS.get(0))
+                        .equals("artillery")) count++;
+            }
+            double expected = round < 12 ? 0 : (round <= 25 ? .04 : .08) * (round >= 15 ? .9 : 1);
+            assertEquals(expected, count / 20000.0, .006, "Round " + round);
+        }
     }
 
     @org.junit.jupiter.api.RepeatedTest(8)

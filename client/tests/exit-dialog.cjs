@@ -31,6 +31,7 @@ assert.equal(exits, 1);
 handlers.click(); handlers.close();
 assert.equal(exits, 1, 'reopening resets the previous exit choice');
 let keydown;
+vm.runInContext(fs.readFileSync('client/key-settings.js', 'utf8'), context);
 context.window.addEventListener = (type, fn) => { if (type === 'keydown') keydown = fn; };
 context.isTypingTarget = () => false;
 context.howToMenu = { classList: { contains: () => true } };

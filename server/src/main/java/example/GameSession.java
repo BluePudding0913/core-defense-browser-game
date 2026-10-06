@@ -699,7 +699,7 @@ final class GameSession {
         if (round >= 26 && eliteRoll < (eliteChance += 0.14)) return "siege";
         if (round >= 18 && eliteRoll < (eliteChance += 0.16)) return "hunter";
         if (round >= 10 && eliteRoll < (eliteChance += 0.18)) return "armored";
-        if (round >= 12 && eliteRoll < (eliteChance += 0.08)) return "artillery";
+        if (round >= 12 && eliteRoll < (eliteChance += round <= 25 ? 0.04 : 0.08)) return "artillery";
         if (round >= 7 && eliteRoll < (eliteChance += Math.min(0.10, 0.04 + (round - 7) * 0.03))) return "shield";
         double bruteChance = round >= 5 ? 0.18 : 0;
         double runnerChance = round >= 3 ? 0.25 : 0;
@@ -1088,6 +1088,7 @@ final class GameSession {
                 .orElse(null);
         TrapSlot defense = target == null ? trapSlots.stream()
                 .filter(slot -> slot.defense != null && !slot.defense.type.equals("mine")
+                        && !Set.of("turret", "copperTurret", "silverTurret").contains(slot.defense.type)
                         && canArtilleryAim(enemy, slot.x, slot.y))
                 .min(Comparator.comparingDouble(slot -> distance(enemy.x, enemy.y, slot.x, slot.y)))
                 .orElse(null) : null;
@@ -1169,6 +1170,8 @@ final class GameSession {
     private TrapSlot nearestDefense(Enemy enemy, double range) {
         return trapSlots.stream()
                 .filter(slot -> slot.defense != null && !slot.defense.type.equals("mine")
+                        && !(enemy.type.equals("artillery")
+                            && Set.of("turret", "copperTurret", "silverTurret").contains(slot.defense.type))
                         && distance(enemy.x, enemy.y, slot.x, slot.y) <= range)
                 .min(Comparator.comparingDouble(slot -> distance(enemy.x, enemy.y, slot.x, slot.y)))
                 .orElse(null);
