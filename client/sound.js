@@ -1,47 +1,83 @@
 "use strict";
 
-// Replace the empty MP3 files with actual sound assets; no code changes needed.
+// Synthesized locally: no downloads or sound files are required.
 (() => {
-    const names = ["pistol", "ricochet", "shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "bat", "medkit", "heal", "build", "pickup", "item"];
+    const effects = {
+        pistol: { pitch: 720, end: 90, duration: .12, noise: .45 },
+        ricochet: { pitch: 1600, end: 380, duration: .18, noise: .15 },
+        shotgun: { pitch: 180, end: 35, duration: .25, noise: .85 },
+        smg: { pitch: 520, end: 100, duration: .065, noise: .55 },
+        rifle: { pitch: 400, end: 65, duration: .11, noise: .65 },
+        sniper: { pitch: 240, end: 35, duration: .32, noise: .65 },
+        revolver: { pitch: 320, end: 50, duration: .19, noise: .6 },
+        lmg: { pitch: 220, end: 55, duration: .095, noise: .7 },
+        rocket: { pitch: 140, end: 28, duration: .42, noise: .8 },
+        bat: { pitch: 150, end: 40, duration: .14, noise: .4 },
+        medkit: { notes: [440, 554, 659, 880], duration: .36 },
+        heal: { notes: [523, 659, 784], duration: .24 },
+        build: { notes: [180, 270, 360], duration: .18, noise: .12 },
+        pickup: { notes: [880, 1320], duration: .12 },
+        item: { notes: [660, 880], duration: .16 },
+        railgun: { pitch: 900, end: 45, duration: .45, noise: .35 },
+        "railgun-charge": { pitch: 180, end: 650, duration: 1.2, charge: true }
+    };
     const active = new Set();
-    let unlocked = false;
+    const buffers = new Map();
     let synth;
-    function playRailgun(charge) {
+    let unlocked = false;
+    function context() {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return;
-        synth ||= new AudioContext();
-        synth.resume().catch(() => {});
-        const oscillator = synth.createOscillator(), gain = synth.createGain();
-        const now = synth.currentTime, duration = charge ? 1.2 : .45;
-        oscillator.type = charge ? "sine" : "sawtooth";
-        oscillator.frequency.setValueAtTime(charge ? 180 : 160, now);
-        oscillator.frequency.exponentialRampToValueAtTime(charge ? 650 : 45, now + duration);
-        gain.gain.setValueAtTime(.0001, now);
-        gain.gain.exponentialRampToValueAtTime(charge ? .035 : .07, now + .025);
-        gain.gain.exponentialRampToValueAtTime(.0001, now + duration);
-        oscillator.connect(gain); gain.connect(synth.destination);
-        oscillator.start(now); oscillator.stop(now + duration);
-        oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+        if (!AudioContext) return null;
+        try { synth ||= new AudioContext(); } catch { return null; }
+        return synth;
     }
-    const unlock = () => { unlocked = true; };
-    window.addEventListener("pointerdown", unlock, { once: true });
-    window.addEventListener("keydown", unlock, { once: true });
+    function unlock() {
+        unlocked = true;
+        const audio = context();
+        if (audio?.state === "suspended") audio.resume().catch(() => {});
+    }
+    // Retry on later gestures if the browser suspended audio again.
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
+    function bufferFor(name, audio) {
+        if (buffers.has(name)) return buffers.get(name);
+        const effect = effects[name];
+        const buffer = audio.createBuffer(1, Math.ceil(audio.sampleRate * effect.duration), audio.sampleRate);
+        const samples = buffer.getChannelData(0);
+        let phase = 0, noise = 0, seed = 123456789;
+        for (let i = 0; i < samples.length; i++) {
+            const t = i / audio.sampleRate, progress = i / samples.length;
+            const frequency = effect.notes
+                ? effect.notes[Math.min(effect.notes.length - 1, Math.floor(progress * effect.notes.length))]
+                : effect.pitch * Math.pow(effect.end / effect.pitch, progress);
+            phase += frequency / audio.sampleRate;
+            // Sample-and-hold noise gives impacts a crunchy, low-bit texture.
+            if (i % Math.max(1, Math.round(audio.sampleRate / 8000)) === 0) {
+                seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5;
+                noise = (seed >>> 0) / 2147483648 - 1;
+            }
+            const pulse = phase % 1 < .25 ? 1 : -1;
+            const mix = effect.noise || 0;
+            const attack = Math.min(1, t / .003);
+            const release = Math.min(1, (effect.duration - t) / .012);
+            const envelope = effect.charge ? .25 + progress * .75
+                : effect.notes ? .7 : Math.pow(1 - progress, 2);
+            samples[i] = (pulse * (1 - mix) + noise * mix) * attack * release * envelope * .16;
+        }
+        buffers.set(name, buffer);
+        return buffer;
+    }
     window.coreAudio = {
         play(name) {
-            if (unlocked && (name === "railgun" || name === "railgun-charge")) {
-                playRailgun(name === "railgun-charge");
-                return;
-            }
-            if (name === "rocket") name = "shotgun";
-            if (!unlocked || !names.includes(name) || active.size >= 8) return;
-            const audio = new Audio(`sounds/${name}.mp3`);
-            audio.volume = .35;
-            active.add(audio);
-            const release = () => active.delete(audio);
-            audio.addEventListener("ended", release, { once: true });
-            audio.addEventListener("error", release, { once: true });
-            const playing = audio.play();
-            if (playing?.catch) playing.catch(release); // Empty placeholders are intentionally silent.
+            if (!unlocked || !Object.hasOwn(effects, name) || active.size >= 8) return;
+            const audio = context();
+            if (!audio || audio.state !== "running") return;
+            const source = audio.createBufferSource();
+            source.buffer = bufferFor(name, audio);
+            source.connect(audio.destination);
+            active.add(source);
+            source.onended = () => { active.delete(source); source.disconnect(); };
+            source.start();
         }
     };
 })();
