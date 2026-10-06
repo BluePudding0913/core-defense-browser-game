@@ -524,11 +524,16 @@ final class GameSession {
         for (Player player : players) {
             double healingTime = Math.max(0, dt - player.medbayDamageDelay);
             player.medbayDamageDelay = Math.max(0, player.medbayDamageDelay - dt);
-            if (!player.down && player.hp < 100 && isPointUnlocked(MED_X, MED_Y)
-                    && canInteract(player, MED_X, MED_Y, GameConfig.MEDBAY_RANGE)) {
+            if (healingTime > 0 && isMedbayHealing(player)) {
                 player.hp = Math.min(100, player.hp + GameConfig.MEDBAY_HEAL_PER_SECOND * healingTime);
             }
         }
+    }
+
+    boolean isMedbayHealing(Player player) {
+        return canUseFacilities() && !player.down && player.hp < 100 && player.medbayDamageDelay <= 0
+                && isPointUnlocked(MED_X, MED_Y)
+                && canInteract(player, MED_X, MED_Y, GameConfig.MEDBAY_RANGE);
     }
 
     private void updateRevives(double dt) {

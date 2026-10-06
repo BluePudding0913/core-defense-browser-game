@@ -95,7 +95,7 @@ class MedbayTest {
     }
 
     @Test void recoveryRoomHasOutdoorScaleAndSevenSeparatedWallEntrances() {
-        assertEquals(96, GameMap.areaById("recovery-room").tiles().size());
+        assertEquals(82, GameMap.areaById("recovery-room").tiles().size());
         var entrances = GameMap.SPAWN_POINTS.stream()
                 .filter(s -> "recovery-room".equals(GameMap.spawnArea(s))).toList();
         long outside = GameMap.SPAWN_POINTS.stream().filter(s -> GameMap.spawnArea(s) == null).count();
@@ -127,5 +127,44 @@ class MedbayTest {
         select.setAccessible(true);
         select.invoke(game, 12);
         for (var entrance : entrances) assertTrue(game.activeSpawnIds.contains(entrance.id()));
+    }
+
+    @Test void movedTerminalRemainsAccessibleAndRoomHasAnIrregularOutline() {
+        UnlockArea room = GameMap.areaById("recovery-room");
+        assertEquals(700, room.terminalX());
+        assertEquals(1860, room.terminalY());
+        assertFalse(room.tiles().contains(new AreaTile(5, 43)));
+        assertTrue(room.tiles().contains(new AreaTile(4, 46)));
+        assertTrue(room.tiles().contains(new AreaTile(8, 43)));
+        player.x = 740; player.y = 1860; player.credits = 100_000;
+        game.handleMessage(player, "UNLOCK:recovery-room");
+        assertTrue(game.unlockedAreas.contains("recovery-room"));
+    }
+
+    private boolean healingSnapshot() throws Exception {
+        return new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game))
+                .path("players").get(player.slot - 1).path("medbayHealing").asBoolean();
+    }
+
+    @Test void healingEffectStateStopsOnDamageLeavingFullHealthDownAndRoundEnd() throws Exception {
+        assertFalse(healingSnapshot());
+        game.unlockedAreas.add("recovery-room");
+        game.update(.25);
+        assertTrue(healingSnapshot());
+        Method damage = GameSession.class.getDeclaredMethod("damagePlayer", Player.class, double.class);
+        damage.setAccessible(true);
+        damage.invoke(game, player, 5.0);
+        assertFalse(healingSnapshot());
+        game.update(5.1);
+        assertTrue(healingSnapshot());
+        player.x -= 100;
+        assertFalse(healingSnapshot());
+        player.x = GameMap.MED_X;
+        player.hp = 100;
+        assertFalse(healingSnapshot());
+        player.hp = 40; player.down = true;
+        assertFalse(healingSnapshot());
+        player.down = false; game.phase = GamePhase.WON;
+        assertFalse(healingSnapshot());
     }
 }

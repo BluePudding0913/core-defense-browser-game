@@ -2283,9 +2283,29 @@ function drawPlayers() {
         if (player.id === myPlayerId) drawLocalWeaponCooldown(p.x, p.y, player);
         ctx.textAlign = "center"; ctx.fillStyle = "#454545"; ctx.font = "800 11px system-ui";
         ctx.fillText(player.down ? `${player.name} — DOWN` : player.name, p.x, p.y - 14);
+        drawMedbayHearts(player, p);
 
     }
     ctx.textAlign = "left";
+}
+
+function drawMedbayHearts(player, position) {
+    if (!player.medbayHealing || player.down || player.hp >= 100) return;
+    const time = performance.now() / 900;
+    for (let index = 0; index < 2; index++) {
+        const progress = (time + index * .5) % 1;
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, progress / .15) * (1 - progress);
+        ctx.fillStyle = "#ed7299";
+        ctx.translate(position.x + (index ? 13 : -13) + Math.sin(progress * Math.PI * 2) * 3,
+            position.y - 8 - progress * 28);
+        ctx.beginPath();
+        ctx.moveTo(0, 4);
+        ctx.bezierCurveTo(-10, -2, -6, -9, 0, -4);
+        ctx.bezierCurveTo(6, -9, 10, -2, 0, 4);
+        ctx.fill();
+        ctx.restore();
+    }
 }
 
 function drawInteractionPrompt() {

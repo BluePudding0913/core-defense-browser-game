@@ -53,7 +53,7 @@ final class SnapshotBuilder {
                 .append(",\"regen\":").append(game.coreRegenLevel).append('}');
         appendRules(json, game);
         appendAreas(json, game);
-        appendPlayers(json, game.players);
+        appendPlayers(json, game);
         appendEnemies(json, game.enemies);
         appendArtilleryShells(json, game);
         appendSlots(json, game);
@@ -142,7 +142,8 @@ final class SnapshotBuilder {
         json.append('}');
     }
 
-    private static void appendPlayers(StringBuilder json, List<Player> players) {
+    private static void appendPlayers(StringBuilder json, GameSession game) {
+        List<Player> players = game.players;
         json.append(",\"players\":[");
         for (int i = 0; i < players.size(); i++) {
             Player player = players.get(i);
@@ -155,6 +156,7 @@ final class SnapshotBuilder {
                     .append(",\"x\":").append(roundOne(player.x));
             json.append(",\"y\":").append(roundOne(player.y))
                     .append(",\"hp\":").append(roundOne(player.hp))
+                    .append(",\"medbayHealing\":").append(game.isMedbayHealing(player))
                     .append(",\"facingX\":").append(player.facingX)
                     .append(",\"facingY\":").append(player.facingY);
             json.append(",\"down\":").append(player.down)
