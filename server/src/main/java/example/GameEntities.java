@@ -33,11 +33,23 @@ final class Player {
 
     void equipWeapon(String next) {
         if (weapon.equals(next)) return;
+        stopRailgun();
         weaponCooldowns.put(weapon, cooldown);
         weaponCooldownMaxima.put(weapon, cooldownMax);
         weapon = next;
         cooldown = weaponCooldowns.getOrDefault(next, 0.0);
         cooldownMax = weaponCooldownMaxima.getOrDefault(next, 0.0);
+    }
+
+    double railgunCharge, railgunRemaining, railgunTick;
+    double railgunDx = 1, railgunDy;
+
+    void stopRailgun() {
+        if (railgunRemaining > 0) {
+            cooldown = GameConfig.WEAPONS.get("railgun").cooldown();
+            cooldownMax = cooldown;
+        }
+        railgunCharge = railgunRemaining = railgunTick = 0;
     }
 
     boolean firing;
@@ -49,6 +61,7 @@ final class Player {
     boolean ownsSniper;
     boolean ownsRevolver;
     boolean ownsRocket;
+    boolean ownsRailgun;
     boolean ownsLmg;
     boolean ownsRicochet;
     int shotgunAmmo;
@@ -57,6 +70,7 @@ final class Player {
     int sniperAmmo;
     int revolverAmmo;
     int rocketAmmo;
+    int railgunAmmo;
     int lmgAmmo;
     int ricochetAmmo;
     int wood;

@@ -233,6 +233,9 @@ final class GameSession {
             player.weaponCooldowns.replaceAll((weapon, remaining) -> Math.max(0, remaining - dt));
             player.cooldown = Math.max(0, player.cooldown - dt);
             player.gatherCooldown = Math.max(0, player.gatherCooldown - dt);
+            if (!player.firing || player.down || player.movingCore || player.selectedBuild != null || !canMove()) {
+                player.stopRailgun();
+            }
             if (player.firing && player.cooldown <= 0 && canMove()) {
                 attackAt(player, player.aimX, player.aimY);
             }
@@ -241,6 +244,7 @@ final class GameSession {
 
         updateBots(dt);
         updatePlayers(dt);
+        players.forEach(player -> updateRailgun(player, dt));
         updateMedbay(dt);
         updateRevives(dt);
         updateResources(dt);
@@ -347,6 +351,7 @@ final class GameSession {
         player.aimX = clamp(x, 0, WORLD_W);
         player.aimY = clamp(y, 0, WORLD_H);
         player.firing = active;
+        if (!active) player.stopRailgun();
         if (beginsPress && player.cooldown <= 0) {
             attackAt(player, player.aimX, player.aimY);
         }
@@ -496,7 +501,7 @@ final class GameSession {
         for (Player player : players) {
             double input = Math.hypot(player.moveX, player.moveY);
             if (player.dashExhausted && player.stamina >= 28) player.dashExhausted = false;
-            player.dashing = !player.down && !player.movingCore
+            player.dashing = player.railgunRemaining <= 0 && player.railgunCharge <= 0 && !player.down && !player.movingCore
                     && player.dashHeld && !player.dashExhausted
                     && input > 0.12 && player.stamina > 0;
             if (player.dashing) {
@@ -509,6 +514,8 @@ final class GameSession {
                 player.stamina = Math.min(100, player.stamina + 24 * dt);
             }
             double speed = player.down ? 45 : player.movingCore ? 82 : player.dashing ? 265 : 155;
+            if (player.railgunRemaining > 0) speed = 155 * .3;
+            else if (player.railgunCharge > 0) speed = 155 * .6;
             double nextX = clamp(player.x + player.moveX * speed * dt, 7, WORLD_W - 7);
             double nextY = clamp(player.y + player.moveY * speed * dt, 7, WORLD_H - 7);
             if (canOccupy(nextX, player.y, 5)) player.x = nextX;
@@ -1861,6 +1868,7 @@ final class GameSession {
             case "sniper" -> bot.ownsSniper;
             case "revolver" -> bot.ownsRevolver;
             case "rocket" -> bot.ownsRocket;
+            case "railgun" -> bot.ownsRailgun;
             case "lmg" -> bot.ownsLmg;
             case "ricochet" -> bot.ownsRicochet;
             default -> true;
@@ -1875,6 +1883,7 @@ final class GameSession {
             case "sniper" -> bot.ownsSniper = true;
             case "revolver" -> bot.ownsRevolver = true;
             case "rocket" -> bot.ownsRocket = true;
+            case "railgun" -> bot.ownsRailgun = true;
             case "lmg" -> bot.ownsLmg = true;
             case "ricochet" -> bot.ownsRicochet = true;
             default -> { return; }
@@ -1893,6 +1902,18 @@ final class GameSession {
     private void attackAt(Player player, double aimX, double aimY) {
         if (!canMove() || player.down || player.movingCore || player.cooldown > 0) return;
 
+        if (player.weapon.equals("railgun")) {
+            if (!player.firing || player.selectedBuild != null) return;
+            if (!player.ownsRailgun || player.railgunAmmo <= 0 && player.railgunRemaining <= 0) {
+                player.firing = false;
+                return;
+            }
+            if (player.railgunCharge <= 0 && player.railgunRemaining <= 0) {
+                player.railgunCharge = 1e-9;
+                sendSoundEffect(player, "shot", "railgun-charge");
+            }
+            return;
+        }
         WeaponStats weapon = weaponStats(player.weapon);
         boolean empty = player.weapon.equals("shotgun") && player.shotgunAmmo <= 0
                 || player.weapon.equals("smg") && player.smgAmmo <= 0
@@ -1943,6 +1964,55 @@ final class GameSession {
         for (int pellet = 0; pellet < rays; pellet++) {
             double spreadAngle = shotgun ? (pellet - (rays - 1) / 2.0) * .14 : 0;
             fireRay(player, weapon, Math.cos(angle + spreadAngle), Math.sin(angle + spreadAngle));
+        }
+    }
+
+    private void updateRailgun(Player player, double dt) {
+        if (!player.weapon.equals("railgun") || !player.firing || player.down
+                || player.movingCore || player.selectedBuild != null || !canMove()) {
+            player.stopRailgun();
+            return;
+        }
+        double remainingDt = dt;
+        if (player.railgunCharge > 0) {
+            double step = Math.min(remainingDt, GameConfig.RAILGUN_CHARGE - player.railgunCharge);
+            player.railgunCharge += step;
+            remainingDt -= step;
+            if (player.railgunCharge + 1e-9 < GameConfig.RAILGUN_CHARGE) return;
+            player.railgunCharge = 0;
+            if (player.railgunAmmo <= 0) return;
+            player.railgunAmmo--;
+            double dx = player.aimX - player.x, dy = player.aimY - player.y;
+            double length = Math.hypot(dx, dy);
+            player.railgunDx = length < .001 ? 1 : dx / length;
+            player.railgunDy = length < .001 ? 0 : dy / length;
+            player.railgunRemaining = GameConfig.RAILGUN_DURATION;
+            player.railgunTick = 0;
+            sendSoundEffect(player, "shot", "railgun");
+        }
+        if (player.railgunRemaining <= 0) return;
+        double elapsed = Math.min(remainingDt, player.railgunRemaining);
+        player.railgunRemaining = Math.max(0, player.railgunRemaining - elapsed);
+        player.railgunTick += elapsed;
+        WeaponStats stats = weaponStats("railgun");
+        while (player.railgunTick + 1e-9 >= GameConfig.RAILGUN_TICK) {
+            player.railgunTick -= GameConfig.RAILGUN_TICK;
+            double range = GameMap.distanceToWall(player.x, player.y, player.railgunDx, player.railgunDy, stats.range());
+            // Copy: damage can spawn enemies, so newly spawned enemies enter on the next tick.
+            for (Enemy enemy : List.copyOf(enemies)) {
+                if (enemy.hp <= 0 || !isInsideAttack(enemy, player.x, player.y, player.railgunDx, player.railgunDy, stats, range)
+                        || !GameMap.hasClearLine(player.x, player.y, enemy.x, enemy.y)) continue;
+                int before = player.credits;
+                double dealt = damageEnemy(enemy, stats.damage() * GameConfig.RAILGUN_TICK, player);
+                sendHitEffect(player.id, "railgun", player.x, player.y, enemy.x, enemy.y,
+                        dealt, enemy.hp <= 0, player.credits - before, false);
+            }
+        }
+        if (player.railgunRemaining < 1e-9) {
+            player.railgunRemaining = 0;
+            player.railgunTick = 0;
+            player.cooldown = stats.cooldown();
+            player.cooldownMax = player.cooldown;
         }
     }
 
@@ -2152,6 +2222,7 @@ final class GameSession {
                 || weapon.equals("rifle") && player.ownsRifle
                 || weapon.equals("sniper") && player.ownsSniper
                 || weapon.equals("revolver") && player.ownsRevolver
+                || weapon.equals("railgun") && player.ownsRailgun
                 || weapon.equals("rocket") && player.ownsRocket
                 || weapon.equals("lmg") && player.ownsLmg
                 || weapon.equals("ricochet") && player.ownsRicochet;
@@ -2190,15 +2261,15 @@ final class GameSession {
             return;
         }
         switch (item) {
-            case "shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "ricochet", "rocket" ->
+            case "shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "ricochet", "rocket", "railgun" ->
                     buyOrRefillWeapon(player, shop, item);
             case "ammo" -> {
                 if (!player.ownsShotgun && !player.ownsSmg
-                        && !player.ownsRifle && !player.ownsSniper && !player.ownsRevolver && !player.ownsLmg && !player.ownsRicochet && !player.ownsRocket) {
+                        && !player.ownsRifle && !player.ownsSniper && !player.ownsRevolver && !player.ownsLmg && !player.ownsRicochet && !player.ownsRocket && !player.ownsRailgun) {
                     feedback(player, "弾薬を使う武器を持っていません");
                     return;
                 }
-                List<String> owned = List.of("shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "ricochet", "rocket")
+                List<String> owned = List.of("shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "ricochet", "rocket", "railgun")
                         .stream().filter(weapon -> botOwnsWeapon(player, weapon)).toList();
                 if (owned.stream().allMatch(weapon -> weaponAmmo(player, weapon) >= weaponAmmoCapacity(weapon))) {
                     return;
@@ -2247,6 +2318,7 @@ final class GameSession {
             case "sniper" -> player.sniperAmmo;
             case "revolver" -> player.revolverAmmo;
             case "rocket" -> player.rocketAmmo;
+            case "railgun" -> player.railgunAmmo;
             case "lmg" -> player.lmgAmmo;
             case "ricochet" -> player.ricochetAmmo;
             default -> 0;
@@ -2266,6 +2338,7 @@ final class GameSession {
             case "sniper" -> player.sniperAmmo = ammo;
             case "revolver" -> player.revolverAmmo = ammo;
             case "rocket" -> player.rocketAmmo = ammo;
+            case "railgun" -> player.railgunAmmo = ammo;
             case "lmg" -> player.lmgAmmo = ammo;
             case "ricochet" -> player.ricochetAmmo = ammo;
             default -> { }
@@ -2876,6 +2949,8 @@ final class GameSession {
             player.ownsSniper = false;
             player.ownsRevolver = false;
             player.ownsRocket = false;
+            player.ownsRailgun = false;
+            player.stopRailgun();
             player.ownsLmg = false;
             player.ownsRicochet = false;
             player.shotgunAmmo = 0;
@@ -2884,6 +2959,7 @@ final class GameSession {
             player.sniperAmmo = 0;
             player.revolverAmmo = 0;
             player.rocketAmmo = 0;
+            player.railgunAmmo = 0;
             player.lmgAmmo = 0;
             player.ricochetAmmo = 0;
             player.wood = 0;

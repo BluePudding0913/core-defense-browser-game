@@ -74,6 +74,7 @@ const WEAPON_FIELDS = ({
     rifle: { owned: "ownsRifle", ammo: "rifleAmmo" },
     sniper: { owned: "ownsSniper", ammo: "sniperAmmo" },
     revolver: { owned: "ownsRevolver", ammo: "revolverAmmo" },
+    railgun: { owned: "ownsRailgun", ammo: "railgunAmmo" },
     rocket: { owned: "ownsRocket", ammo: "rocketAmmo" },
     lmg: { owned: "ownsLmg", ammo: "lmgAmmo" },
 });
@@ -749,6 +750,7 @@ function equipmentEntries(me) {
     if (me.ownsSniper) entries.push({ key: "weapon:sniper", kind: "weapon", value: "sniper", label: "SNIPER" });
     if (me.ownsRicochet) entries.push({ key: "weapon:ricochet", kind: "weapon", value: "ricochet", label: "RICOCHET" });
     if (me.ownsRevolver) entries.push({ key: "weapon:revolver", kind: "weapon", value: "revolver", label: "REVOLVER" });
+    if (me.ownsRailgun) entries.push({ key: "weapon:railgun", kind: "weapon", value: "railgun", label: "RAILGUN" });
     if (me.ownsRocket) entries.push({ key: "weapon:rocket", kind: "weapon", value: "rocket", label: "ROCKET" });
     if (me.ownsLmg) entries.push({ key: "weapon:lmg", kind: "weapon", value: "lmg", label: "LMG" });
     if (me.medkits > 0) entries.push({ key: "item:medkit", kind: "item", value: "medkit", label: "回復キット" });
@@ -901,7 +903,7 @@ function updateHud() {
             ? `×${me.buildItems[selectedBuild]}` : ammoForWeapon(me, me.weapon);
         weaponIcon.className = `weapon-icon ${me.movingCore ? "core" : selectedBuild ? `build-${selectedBuild}` : me.weapon}`;
         weaponCooldown.textContent = showingItem ? "R TO PLACE"
-            : me.cooldown > 0 ? `${me.cooldown.toFixed(1)}s` : "READY";
+            : me.railgunCharge > 0 ? "CHARGING" : me.railgunRemaining > 0 ? "FIRING" : me.cooldown > 0 ? `${me.cooldown.toFixed(1)}s` : "READY";
         weaponButton.style.setProperty("--cooldown-progress", `${cooldownProgress * 100}%`);
         weaponButton.classList.toggle("cooling", !showingItem && me.cooldown > 0);
         weaponButton.classList.toggle("locked", me.movingCore);
@@ -1687,7 +1689,7 @@ function updateLocalPrediction(dt) {
     if (!predictedLocal || !serverMe || !["preparing", "wave"].includes(state.phase)) return;
     const input = Math.hypot(localMove.x, localMove.y);
     if (predictedLocal.exhausted && predictedLocal.stamina >= 28) predictedLocal.exhausted = false;
-    predictedLocal.dashing = !serverMe.down && !serverMe.movingCore
+    predictedLocal.dashing = !(serverMe.railgunRemaining > 0 || serverMe.railgunCharge > 0) && !serverMe.down && !serverMe.movingCore
         && dashRequested && !predictedLocal.exhausted && input > .12 && predictedLocal.stamina > 0;
     if (predictedLocal.dashing) {
         predictedLocal.stamina = Math.max(0, predictedLocal.stamina - 38 * dt);
@@ -1699,7 +1701,7 @@ function updateLocalPrediction(dt) {
         predictedLocal.stamina = Math.min(100, predictedLocal.stamina + 24 * dt);
     }
 
-    const speed = serverMe.down ? 45 : serverMe.movingCore ? 82 : predictedLocal.dashing ? 265 : 155;
+    const speed = serverMe.railgunRemaining > 0 ? 155 * .3 : serverMe.railgunCharge > 0 ? 155 * .6 : serverMe.down ? 45 : serverMe.movingCore ? 82 : predictedLocal.dashing ? 265 : 155;
     const nextX = clamp(predictedLocal.x + localMove.x * speed * dt, 25, WORLD.width - 25);
     const nextY = clamp(predictedLocal.y + localMove.y * speed * dt, 25, WORLD.height - 25);
     if (canPredictOccupy(nextX, predictedLocal.y, 5)) predictedLocal.x = nextX;
@@ -1765,6 +1767,7 @@ function draw() {
         drawTrapSlots();
         drawArtilleryShells();
         drawEnemies();
+        drawRailguns();
         drawPlayers();
         drawInteractionPrompt();
         drawHitEffects();
@@ -2259,6 +2262,28 @@ function drawEnemies() {
             ctx.fillStyle = "#fff"; ctx.font = "800 10px ui-monospace, monospace"; ctx.textAlign = "center";
             ctx.fillText(`${Math.ceil(enemy.hp)} / ${Math.ceil(enemy.maxHp)}`, p.x, p.y - radius - 23);
         }
+    }
+}
+
+function drawRailguns() {
+    for (const player of state.players) {
+        if (player.down || player.weapon !== "railgun") continue;
+        const p = player.id === myPlayerId && predictedLocal ? predictedLocal : smoothEntity("player", player);
+        ctx.save();
+        if (player.railgunRemaining > 0) {
+            const endX = p.x + player.railgunDx * player.railgunRange;
+            const endY = p.y + player.railgunDy * player.railgunRange;
+            ctx.strokeStyle = "#87ddff"; ctx.globalAlpha = .4;
+            ctx.lineWidth = TILE_MAP.tileSize; ctx.shadowColor = "#a9eaff"; ctx.shadowBlur = 16;
+            ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(endX, endY); ctx.stroke();
+            ctx.globalAlpha = .9; ctx.strokeStyle = "#f0fcff"; ctx.lineWidth = TILE_MAP.tileSize * .28;
+            ctx.stroke();
+        } else if (player.railgunCharge > 0) {
+            const progress = Math.min(1, player.railgunCharge / 1.2);
+            ctx.strokeStyle = "#a9eaff"; ctx.lineWidth = 2; ctx.shadowColor = "#a9eaff"; ctx.shadowBlur = 10;
+            ctx.beginPath(); ctx.arc(p.x, p.y, 10, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress); ctx.stroke();
+        }
+        ctx.restore();
     }
 }
 

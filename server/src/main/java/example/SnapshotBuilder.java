@@ -93,7 +93,7 @@ final class SnapshotBuilder {
                 .append(",\"price\":").append(shop == null ? 0 : shop.cost()).append(",\"refillCost\":").append(GameSession.ammoRefillCost())
                 .append(",\"damage\":").append(stats.damage()).append(",\"range\":").append(stats.range())
                 .append(",\"cooldown\":").append(stats.cooldown()).append(",\"ammoPerShot\":").append(key.equals("ricochet") ? 2 : 1)
-                .append(",\"pellets\":").append(key.equals("shotgun") ? GameConfig.SHOTGUN_PELLETS : 1).append(",\"maxTargets\":").append(key.equals("sniper") || key.equals("revolver") ? -1 : key.equals("shotgun") ? GameConfig.SHOTGUN_MAX_TARGETS : 1)
+                .append(",\"pellets\":").append(key.equals("shotgun") ? GameConfig.SHOTGUN_PELLETS : 1).append(",\"maxTargets\":").append(key.equals("railgun") || key.equals("sniper") || key.equals("revolver") ? -1 : key.equals("shotgun") ? GameConfig.SHOTGUN_MAX_TARGETS : 1)
                 .append(",\"blastRadius\":").append(key.equals("rocket") ? GameConfig.ROCKET_BLAST_RADIUS : 0)
                 .append(",\"name\":\"").append(key).append("\"}");
         }
@@ -163,6 +163,12 @@ final class SnapshotBuilder {
                     .append(",\"weapon\":\"").append(player.weapon);
             json.append("\",\"cooldown\":").append(roundOne(player.cooldown));
             json.append(",\"cooldownMax\":").append(roundOne(player.cooldownMax));
+            json.append(",\"railgunCharge\":").append(roundOne(player.railgunCharge))
+                    .append(",\"railgunRemaining\":").append(roundOne(player.railgunRemaining))
+                    .append(",\"railgunDx\":").append(player.railgunDx)
+                    .append(",\"railgunDy\":").append(player.railgunDy)
+                    .append(",\"railgunRange\":").append(player.railgunRemaining > 0
+                        ? GameMap.distanceToWall(player.x, player.y, player.railgunDx, player.railgunDy, GameSession.weaponStats("railgun").range()) : 0);
             json.append(",\"stamina\":").append(roundOne(player.stamina))
                     .append(",\"dashing\":").append(player.dashing);
             json.append(",\"ownsShotgun\":").append(player.ownsShotgun)
@@ -171,6 +177,7 @@ final class SnapshotBuilder {
                     .append(",\"ownsSniper\":").append(player.ownsSniper)
                     .append(",\"ownsRevolver\":").append(player.ownsRevolver)
                     .append(",\"ownsRocket\":").append(player.ownsRocket)
+                    .append(",\"ownsRailgun\":").append(player.ownsRailgun)
                     .append(",\"ownsLmg\":").append(player.ownsLmg)
                     .append(",\"ownsRicochet\":").append(player.ownsRicochet);
             json.append(",\"shotgunAmmo\":").append(player.shotgunAmmo)
@@ -179,6 +186,7 @@ final class SnapshotBuilder {
                     .append(",\"sniperAmmo\":").append(player.sniperAmmo)
                     .append(",\"revolverAmmo\":").append(player.revolverAmmo)
                     .append(",\"rocketAmmo\":").append(player.rocketAmmo)
+                    .append(",\"railgunAmmo\":").append(player.railgunAmmo)
                     .append(",\"lmgAmmo\":").append(player.lmgAmmo)
                     .append(",\"ricochetAmmo\":").append(player.ricochetAmmo);
             json.append(",\"wood\":").append(player.wood)

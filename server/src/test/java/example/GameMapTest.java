@@ -313,9 +313,13 @@ class GameMapTest {
                 .findFirst().map(UnlockArea::id).orElse("outside"))
                 .collect(Collectors.toSet());
 
-        assertEquals(10, weaponShops.size());
-        assertEquals(weaponShops.size(), shopAreas.size(),
-                "each shop should occupy a different progression area");
+        assertEquals(11, weaponShops.size());
+        assertEquals(weaponShops.size() - 1, shopAreas.size(),
+                "heavy weapons share HEAVY ARMS; other shops occupy different progression areas");
+        UnlockArea heavy = GameMap.areaById("heavy-arms-area");
+        assertEquals(Set.of("rocket", "railgun"), weaponShops.stream()
+                .filter(shop -> heavy.contains(shop.x(), shop.y()))
+                .map(ShopUnit::item).collect(Collectors.toSet()));
     }
 
     @Test

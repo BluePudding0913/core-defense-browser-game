@@ -303,6 +303,7 @@
     {"id":"shop-ricochet","item":"ricochet","label":"RICOCHET","x":740,"y":1660,"cost":400,"detail":"壁で最大3回反射する単発弾"},
     {"id":"shop-revolver","item":"revolver","label":"REVOLVER","x":500,"y":540,"cost":1200,"detail":"十分な弾薬を補充できます"},
     {"id":"shop-rocket","item":"rocket","label":"ROCKET","x":220,"y":860,"cost":12000,"detail":"着弾地点の周囲に爆風・中心ほど高威力"},
+    {"id":"shop-railgun","item":"railgun","label":"RAILGUN","x":380,"y":860,"cost":20000,"detail":"3秒照射・敵と盾を貫通する重兵器"},
     {"id":"shop-lmg","item":"lmg","label":"LMG","x":1220,"y":580,"cost":850,"detail":"十分な弾薬を補充できます"}
   ],
   "workbenchUnits": [
