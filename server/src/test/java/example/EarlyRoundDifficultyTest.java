@@ -18,17 +18,18 @@ class EarlyRoundDifficultyTest {
     }
 
     @Test void openingPressureRisesGraduallyAndRejoinsTheNormalCurve() throws Exception {
-        int[] populations = {9, 12, 15, 18, 19, 20, 23, 27, 31, 35, 39, 42};
+        int[] populations = {6, 8, 10, 12, 15, 19, 23, 27, 31, 35, 39, 42};
         for (int round = 1; round <= populations.length; round++) {
             game.round = round - 1;
             invoke("beginRound", new Class<?>[]{});
             assertEquals(populations[round - 1], game.queuedEnemies, "Round " + round);
             assertEquals(populations[round - 1] + game.queuedBosses, game.roundEnemyTotal);
-            if (round == 6 || round == 7) {
+            if (round <= 11) {
+                game.roundEvent = "none";
                 invoke("updateSpawning", new Class<?>[]{double.class}, 10.);
                 var timer = GameSession.class.getDeclaredField("spawnTimer");
                 timer.setAccessible(true);
-                assertEquals(round == 6 ? 1.04 : .995, timer.getDouble(game), .00001);
+                assertEquals(1.15 - round * .045 + (6 + round * 3 - populations[round - 1]) * .04, timer.getDouble(game), .00001);
             }
         }
     }

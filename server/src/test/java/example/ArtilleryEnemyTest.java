@@ -144,12 +144,12 @@ class ArtilleryEnemyTest {
     @Test void debugResourcesKeepTheNormalEnemySchedule() throws Exception {
         invoke("startMatch", new Class<?>[]{Player.class, boolean.class}, player, true);
         invoke("beginRound", new Class<?>[]{});
-        assertEquals(1, game.round); assertEquals(9, game.queuedEnemies);
+        assertEquals(1, game.round); assertEquals(6, game.queuedEnemies);
         invoke("updateSpawning", new Class<?>[]{double.class}, 8.1);
         assertEquals(1, game.enemies.size());
         assertEquals("grunt", game.enemies.get(0).type);
         assertEquals(100_000, player.credits);
-        assertEquals(8, game.queuedEnemies);
+        assertEquals(5, game.queuedEnemies);
         game.round = 2;
         var randomField = GameSession.class.getDeclaredField("random"); randomField.setAccessible(true);
         ((java.util.Random) randomField.get(game)).setSeed(123);

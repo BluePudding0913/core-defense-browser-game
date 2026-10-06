@@ -26,7 +26,7 @@ final class GameConfig {
             Map.entry("operations-room", 1_000),
             Map.entry("shotgun-room", 600),
             Map.entry("ricochet-room", 600),
-            Map.entry("smg-room", 2_000),
+            Map.entry("smg-room", 1_000),
             Map.entry("lmg-room", 3_000),
             Map.entry("rifle-room", 5_000),
             Map.entry("sniper-room", 7_500),
