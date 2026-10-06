@@ -31,7 +31,7 @@ class LateRoundPressureTest {
     }
 
     @Test void populationGrowsFromRoundFortyAndSnapshotsIncludeTheWholeBudget() throws Exception {
-        Map<Integer, Integer> populations = Map.of(39, 123, 40, 252, 41, 284, 42, 317, 43, 351, 45, 423, 50, 624);
+        Map<Integer, Integer> populations = Map.of(39, 98, 40, 202, 41, 227, 42, 254, 43, 281, 45, 338, 50, 499);
         for (var entry : populations.entrySet()) {
             beginRound(entry.getKey());
             assertEquals(entry.getValue().intValue(), game.queuedEnemies, "R" + entry.getKey());
@@ -66,7 +66,7 @@ class LateRoundPressureTest {
     }
 
     @Test void tinySwarmsAppearTogetherOnlyOnSelectedLateRounds() throws Exception {
-        Map<Integer, Integer> swarms = Map.of(40, 48, 43, 60, 46, 72, 49, 84);
+        Map<Integer, Integer> swarms = Map.of(40, 38, 43, 48, 46, 58, 49, 67);
         for (int round = 1; round <= 50; round++) {
             beginRound(round);
             int expected = swarms.getOrDefault(round, 0);

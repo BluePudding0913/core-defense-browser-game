@@ -128,7 +128,7 @@ class RocketAndBalanceTest {
         player.x = ammo.x(); player.y = ammo.y(); player.rocketAmmo = 1;
         player.credits = 1000;
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(8, player.rocketAmmo); assertEquals(0, player.credits);
+        assertEquals(8, player.rocketAmmo); assertEquals(500, player.credits);
         var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
         assertTrue(snapshot.path("players").get(0).path("ownsRocket").asBoolean());
         assertEquals(8, snapshot.path("players").get(0).path("rocketAmmo").asInt());

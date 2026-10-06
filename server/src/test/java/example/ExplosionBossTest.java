@@ -195,10 +195,10 @@ class ExplosionBossTest {
             invoke("startMatch", new Class<?>[]{Player.class, boolean.class}, player, true);
             invoke("beginRound", new Class<?>[]{});
             for (int i = 0; i < 12; i++) invoke("updateSpawning", new Class<?>[]{double.class}, 10.);
-            assertEquals(6, game.enemies.size());
+            assertEquals(5, game.enemies.size());
             assertEquals(0, game.enemies.stream().filter(e -> e.type.equals("explosionBoss")).count());
             assertTrue(game.enemies.stream().noneMatch(e -> e.type.equals("bomber")));
-            assertEquals(6, game.roundEnemyTotal);
+            assertEquals(5, game.roundEnemyTotal);
         }
         invoke("startMatch", new Class<?>[]{Player.class, boolean.class}, player, false);
         invoke("beginRound", new Class<?>[]{});

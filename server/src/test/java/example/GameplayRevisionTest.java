@@ -19,10 +19,10 @@ class GameplayRevisionTest {
         assertEquals(1, game.round);
         for (int i = 0; i < 159; i++) game.update(.05);
         assertTrue(game.enemies.isEmpty(), "ROUND1 must allow time before spawning");
-        assertEquals(6, game.queuedEnemies);
+        assertEquals(5, game.queuedEnemies);
         game.update(.1);
         assertFalse(game.enemies.isEmpty());
-        assertEquals(5, game.queuedEnemies);
+        assertEquals(4, game.queuedEnemies);
         game.enemies.clear(); game.queuedEnemies = 0;
         game.update(.05);
         assertEquals(GamePhase.PREPARING, game.phase);
@@ -109,16 +109,20 @@ class GameplayRevisionTest {
         player.shotgunAmmo = 29; player.smgAmmo = 1; player.rifleAmmo = 12;
         player.sniperAmmo = 0; player.revolverAmmo = 25; player.lmgAmmo = 150;
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(0, player.credits);
+        assertEquals(500, player.credits);
         assertEquals(List.of(50, 240, 30, 15, 30, 600), List.of(player.shotgunAmmo,
                 player.smgAmmo, player.rifleAmmo, player.sniperAmmo, player.revolverAmmo, player.lmgAmmo));
         for (int i = 0; i < 3; i++) game.handleMessage(player, "BUY:ammo");
-        assertEquals(0, player.credits);
+        assertEquals(500, player.credits);
         assertEquals(600, player.lmgAmmo);
-        player.shotgunAmmo = 0; player.credits = 999;
+        player.shotgunAmmo = 0; player.credits = 499;
         game.handleMessage(player, "BUY:ammo");
         assertEquals(0, player.shotgunAmmo);
-        assertEquals(999, player.credits);
+        assertEquals(499, player.credits);
+        player.credits = 500;
+        game.handleMessage(player, "BUY:ammo");
+        assertEquals(50, player.shotgunAmmo);
+        assertEquals(0, player.credits);
     }
 
     @Test void allRoomsCanBeUnlockedFromReachableFloorWithoutRelocatingTerminals() throws Exception {
@@ -283,7 +287,7 @@ class GameplayRevisionTest {
             game.round = round - 1;
             game.prepTime = 0;
             game.update(.05);
-            assertEquals(round == 11 ? 33 : 56, game.queuedEnemies);
+            assertEquals(round == 11 ? 26 : 45, game.queuedEnemies);
             assertEquals(round % 4 == 0 ? round / 4 : 0, game.queuedBosses);
         }
     }
@@ -399,7 +403,7 @@ class GameplayRevisionTest {
         game.update(.05);
         assertTrue(game.activeSpawnIds.contains("area-entry-room"));
         assertFalse(game.activeSpawnIds.contains("area-forest"));
-        assertEquals(25, game.queuedEnemies);
+        assertEquals(20, game.queuedEnemies);
         game.coreHp = 100000;
         for (int i = 0; i < 240; i++) game.update(.05);
         assertTrue(game.enemies.stream().anyMatch(e -> e.spawnId.equals("area-entry-room")));

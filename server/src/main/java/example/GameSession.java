@@ -402,11 +402,12 @@ final class GameSession {
             queuedEnemies = (queuedEnemies * (10 + round - 40) + 4) / 5;
             if (!isExplosionBossRound()) queuedBosses *= 2;
         }
+        queuedEnemies = (int) Math.round(queuedEnemies * 0.8);
         roundEnemyTotal = queuedEnemies + queuedBosses;
         explosionBossSpawned = false;
         // Reserve one simultaneous swarm within the regular population on selected late rounds.
         queuedTinyEnemies = round >= 40 && (round - 40) % 3 == 0
-                ? Math.min(queuedEnemies, 48 + (round - 40) * 4) : 0;
+                ? Math.min(queuedEnemies, (int) Math.round((48 + (round - 40) * 4) * 0.8)) : 0;
         roundEvent = isExplosionBossRound() ? "boss_assault" : round % 4 == 3 ? "blackout"
                 : round >= 5 && round % 4 == 1 ? "door_failure"
                 : round % 4 == 0 ? "boss_assault" : "none";
@@ -664,7 +665,10 @@ final class GameSession {
             }
             double eventMultiplier = roundEvent.equals("door_failure")
                     && spawn.id().equals(failedSpawnId) ? 0.58 : 1;
-            spawnTimer = Math.max(0.28, (1.15 - round * 0.045 + earlyRoundRelief() * 0.04) * eventMultiplier);
+            // Give R1-R25 more breathing room, including during door failures.
+            double minimumInterval = 0.28 + 0.42 * earlyRoundReliefScale();
+            spawnTimer = Math.max(minimumInterval,
+                    (1.15 - round * 0.045 + earlyRoundRelief() * 0.04) * eventMultiplier);
         }
     }
 
@@ -678,9 +682,12 @@ final class GameSession {
             case 6 -> 5;
             default -> Math.max(0, Math.min(4, 11 - round));
         };
-        double reliefScale = round <= 25 ? 1 : Math.max(0, (35 - round) / 10.0);
-        int midgameRelief = (int) Math.round((6 + round * 3) * 0.15 * reliefScale);
+        int midgameRelief = (int) Math.round((6 + round * 3) * 0.15 * earlyRoundReliefScale());
         return Math.max(openingRelief, midgameRelief);
+    }
+
+    private double earlyRoundReliefScale() {
+        return round <= 25 ? 1 : Math.max(0, (35 - round) / 10.0);
     }
 
     private String selectEnemyType(SpawnPoint spawn) {

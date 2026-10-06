@@ -19,7 +19,7 @@ vm.runInContext(source.slice(start, source.indexOf('\n});', start) + 4), context
 for (const name of ['applyRules', 'equipmentEntries', 'ammoForWeapon', 'openShopPurchase']) {
     vm.runInContext(extract(name), context);
 }
-context.rules = { recipes: {}, shop: { ammo: 1000 }, weapons: Object.fromEntries(
+context.rules = { recipes: {}, shop: { ammo: 500 }, weapons: Object.fromEntries(
     ['railgun', 'ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket'].map(w => [w, { capacity: me[w + 'Ammo'] || 111, refillCost: 120 }])) };
 vm.runInContext('applyRules({rules})', context);
 for (const [weapon, capacity] of [['railgun', 8], ['ricochet', 60], ['smg', 300], ['revolver', 36], ['lmg', 150], ['rocket', 12]]) {
@@ -41,11 +41,11 @@ for (const [weapon, capacity] of [['railgun', 8], ['ricochet', 60], ['smg', 300]
 context.shop = map.shopUnits.find(shop => shop.item === 'ammo');
 vm.runInContext('openShopPurchase(shop)', context);
 assert.equal(options[0].label, 'REFILL');
-assert.equal(options[0].detail, '1000G');
-me.credits = 999;
+assert.equal(options[0].detail, '500G');
+me.credits = 499;
 vm.runInContext('openShopPurchase(shop)', context);
 assert(options[0].disabled);
-me.credits = 1000;
+me.credits = 500;
 vm.runInContext('openShopPurchase(shop)', context);
 assert(!options[0].disabled);
 me.railgunAmmo = 8; me.ricochetAmmo = 60; me.smgAmmo = 300; me.revolverAmmo = 36; me.lmgAmmo = 150; me.rocketAmmo = 12;
