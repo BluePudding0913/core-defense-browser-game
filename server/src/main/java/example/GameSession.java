@@ -41,7 +41,6 @@ interface GameEventSink {
 /** Authoritative state and rules for one four-player match. */
 final class GameSession {
     private static final double BOT_REACTION_SECONDS = 1.5;
-    private boolean debugMode;
     int roundEnemyTotal;
     private boolean explosionBossSpawned;
 
@@ -360,7 +359,6 @@ final class GameSession {
 
     private void startMatch(Player host, boolean debugMode) {
         resetWorld();
-        this.debugMode = debugMode;
         if (debugMode) {
             host.credits = 100_000;
             GameConfig.WEAPONS.keySet().forEach(weapon -> giveBotWeapon(host, weapon));
@@ -397,7 +395,7 @@ final class GameSession {
         round++;
         selectRoundSpawns(round);
         phase = GamePhase.WAVE;
-        queuedEnemies = 6 + round * 3;
+        queuedEnemies = 6 + round * 3 - earlyRoundRelief();
         queuedBosses = isExplosionBossRound() ? 1 : round % 4 == 0 ? round / 4 : 0;
         if (round >= 40) {
             // Double the R40 population, then add 20 percentage points per round.
@@ -665,14 +663,16 @@ final class GameSession {
             }
             double eventMultiplier = roundEvent.equals("door_failure")
                     && spawn.id().equals(failedSpawnId) ? 0.58 : 1;
-            spawnTimer = Math.max(0.28, (1.15 - round * 0.045) * eventMultiplier);
+            spawnTimer = Math.max(0.28, (1.15 - round * 0.045 + earlyRoundRelief() * 0.04) * eventMultiplier);
         }
     }
 
+    private int earlyRoundRelief() {
+        // Ease the first brute/shield encounters, then return to the usual curve at R11.
+        return round < 5 ? 0 : round == 5 ? 2 : Math.max(0, Math.min(4, 11 - round));
+    }
+
     private String selectEnemyType(SpawnPoint spawn) {
-        // Guarantee an early preview without adding enemies to the wave budget.
-        if (debugMode && round == 1 && (nextEnemyId == 1 || nextEnemyId == 4)) return "artillery";
-        if (debugMode && round == 1 && !explosionBossSpawned) return "explosionBoss";
         // Reserve a growing share for elites, retaining each entrance's original mix.
         if (round >= 15 && random.nextDouble() < .10) return "bomber";
         double eliteRoll = random.nextDouble();
@@ -681,8 +681,8 @@ final class GameSession {
         if (round >= 26 && eliteRoll < (eliteChance += 0.14)) return "siege";
         if (round >= 18 && eliteRoll < (eliteChance += 0.16)) return "hunter";
         if (round >= 10 && eliteRoll < (eliteChance += 0.18)) return "armored";
-        if ((debugMode || round >= 12) && eliteRoll < (eliteChance += 0.08)) return "artillery";
-        if (round >= 7 && eliteRoll < (eliteChance += 0.10)) return "shield";
+        if (round >= 12 && eliteRoll < (eliteChance += 0.08)) return "artillery";
+        if (round >= 7 && eliteRoll < (eliteChance += Math.min(0.10, 0.04 + (round - 7) * 0.03))) return "shield";
         double bruteChance = round >= 5 ? 0.18 : 0;
         double runnerChance = round >= 3 ? 0.25 : 0;
         if (spawn.enemyBias().equals("runner")) {
@@ -2914,7 +2914,6 @@ final class GameSession {
     }
 
     private void resetWorld() {
-        debugMode = false;
         explosionBossSpawned = false;
         roundEnemyTotal = 0;
         phase = GamePhase.LOBBY;
