@@ -125,7 +125,10 @@ class ArtilleryEnemyTest {
         assertEquals(1180, game.artilleryShells.get(0).x);
     }
 
-    @Test void cpuMovesOutOfTelegraphedBlast() throws Exception {
+    @org.junit.jupiter.api.RepeatedTest(8)
+    void cpuMovesOutOfTelegraphedBlast(org.junit.jupiter.api.RepetitionInfo repetition) throws Exception {
+        var random = GameSession.class.getDeclaredField("random"); random.setAccessible(true);
+        ((java.util.Random) random.get(game)).setSeed(repetition.getCurrentRepetition());
         player.human = false;
         game.artilleryShells.add(new ArtilleryShell(1020, 1900, player.x, player.y, 28));
         game.artilleryShells.get(0).remaining = 1.1;

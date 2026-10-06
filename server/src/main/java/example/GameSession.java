@@ -106,7 +106,7 @@ final class GameSession {
     private final GameEventSink events;
     private final List<String> activeLanes = new ArrayList<>();
     private final Random random = new Random();
-    final PerformanceMetrics performance = new PerformanceMetrics();
+    private final EnemyTravel laterFeatureTravel = new EnemyTravel();
     private double spawnTimer;
     private int nextEnemyId = 1;
     private int nextDefenseId = 1;
@@ -1217,9 +1217,17 @@ final class GameSession {
         coreHp = Math.max(0, coreHp - damage);
     }
 
+    // Later boss spawning and artillery dodging still require a body-safe segment.
+    // Ordinary enemy movement uses the original point sight line and axis steps.
+    private boolean canEnemyTravel(double fromX, double fromY, double toX, double toY) {
+        return laterFeatureTravel.canTravel(fromX, fromY, toX, toY, 17, unlockedAreas);
+    }
+
     private boolean dodgeArtillery(Player bot) {
         boolean threatened = artilleryShells.stream().anyMatch(shell -> shell.remaining <= 1.2
-                && inArtilleryBlast(shell, bot.x, bot.y));
+                // Keep avoiding the shell until impact, even just outside its blast.
+                && distance(bot.x, bot.y, shell.x, shell.y) <= GameConfig.ARTILLERY_BLAST_RADIUS + 100
+                && GameMap.hasClearLine(shell.x, shell.y, bot.x, bot.y));
         if (!threatened) return false;
         double bestScore = Double.NEGATIVE_INFINITY, bestX = bot.x, bestY = bot.y;
         for (int direction = 0; direction < 8; direction++) {
@@ -1231,7 +1239,11 @@ final class GameSession {
             if (score > bestScore) { bestScore = score; bestX = x; bestY = y; }
         }
         if (!Double.isFinite(bestScore)) return false;
-        moveBotToward(bot, bestX, bestY);
+        // This segment is already body-safe. Avoid the old tile route's detour
+        // so reverting general pathfinding does not weaken artillery evasion.
+        double length = Math.max(1, distance(bot.x, bot.y, bestX, bestY));
+        bot.dashHeld = false;
+        steerBot(bot, (bestX - bot.x) / length, (bestY - bot.y) / length);
         return true;
     }
 
@@ -1572,16 +1584,6 @@ final class GameSession {
 
     private List<MapPoint> findPath(double fromX, double fromY, double targetX, double targetY,
             double radius, boolean avoidDefenses) {
-        long started = System.nanoTime();
-        try {
-            return findPathUnmeasured(fromX, fromY, targetX, targetY, radius, avoidDefenses);
-        } finally {
-            performance.path.record(System.nanoTime() - started);
-        }
-    }
-
-    private List<MapPoint> findPathUnmeasured(double fromX, double fromY, double targetX, double targetY,
-            double radius, boolean avoidDefenses) {
         int columns = WORLD_W / GameMap.TILE_SIZE;
         int rows = WORLD_H / GameMap.TILE_SIZE;
         int startColumn = (int) clamp(Math.floor(fromX / GameMap.TILE_SIZE), 0, columns - 1);
@@ -1599,7 +1601,6 @@ final class GameSession {
 
         while (!queue.isEmpty()) {
             int current = queue.removeFirst();
-            performance.pathVisits.increment();
             int column = current % columns;
             int row = current / columns;
             for (int[] direction : directions) {

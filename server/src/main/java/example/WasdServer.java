@@ -50,11 +50,6 @@ public final class WasdServer extends WebSocketServer {
     private final String bindHost;
     private boolean tlsEnabled;
     private double directoryBroadcastTimer;
-    private final PerformanceMetrics performance = new PerformanceMetrics();
-    private long expectedTickNanos;
-    private long nextPerformanceLogNanos;
-    private final long performanceLogNanos = TimeUnit.SECONDS.toNanos(
-            nonnegativeIntEnvironment("CORE_PERF_LOG_SECONDS", 0));
 
     public WasdServer(int port) {
         this(null, port);
@@ -239,18 +234,12 @@ public final class WasdServer extends WebSocketServer {
     }
 
     private void tickSafely() {
-        long started = System.nanoTime();
-        if (expectedTickNanos != 0) performance.scheduleDelay.record(started - expectedTickNanos);
-        expectedTickNanos = (expectedTickNanos == 0 ? started : expectedTickNanos) + 50_000_000;
         try {
             synchronized (gameLock) {
-                performance.lockWait.record(System.nanoTime() - started);
                 long now = System.nanoTime();
                 ArrayList<String> expiredRooms = new ArrayList<>();
                 for (GameRoom room : rooms.values()) {
-                    long updateStarted = System.nanoTime();
                     room.game.update(TICK_SECONDS);
-                    room.game.performance.update.record(System.nanoTime() - updateStarted);
                     room.snapshotTimer -= TICK_SECONDS;
                     if (room.snapshotTimer <= 0) {
                         room.snapshotTimer = SNAPSHOT_INTERVAL;
@@ -270,33 +259,16 @@ public final class WasdServer extends WebSocketServer {
             }
         } catch (RuntimeException error) {
             error.printStackTrace();
-        } finally {
-            performance.update.record(System.nanoTime() - started);
-            logPerformanceIfDue();
         }
-    }
-
-    private void logPerformanceIfDue() {
-        long now = System.nanoTime();
-        if (performanceLogNanos == 0 || now < nextPerformanceLogNanos) return;
-        nextPerformanceLogNanos = now + performanceLogNanos;
-        System.out.println("PERF server " + performance.summary());
-        rooms.values().stream().sorted(java.util.Comparator.comparingLong(
-                (GameRoom room) -> room.game.performance.update.max()).reversed()).limit(3)
-                .forEach(room -> System.out.println("PERF room=" + room.id + " "
-                        + room.game.performance.summary()));
     }
 
     private void sendSnapshot(GameRoom room) {
         if (room.playerConnections.isEmpty()) return;
         String snapshot;
         synchronized (gameLock) {
-            long snapshotStarted = System.nanoTime();
             snapshot = SnapshotBuilder.build(room.game, room.id, humanCount(room), PLAYER_COUNT);
             snapshot = snapshot.substring(0, snapshot.length() - 1)
                     + ",\"privateRoom\":" + (room.password != null) + "}";
-            room.game.performance.snapshot.record(System.nanoTime() - snapshotStarted);
-            room.game.performance.snapshotBytes.add(snapshot.getBytes(StandardCharsets.UTF_8).length);
         }
         sendToRoom(room, snapshot);
     }
@@ -518,11 +490,6 @@ public final class WasdServer extends WebSocketServer {
         } catch (NumberFormatException error) {
             throw new IllegalArgumentException(name + " must be a positive integer");
         }
-    }
-
-    private static int nonnegativeIntEnvironment(String name, int fallback) {
-        String value = trimmedEnvironment(name);
-        return value == null ? fallback : Math.max(0, Integer.parseInt(value));
     }
 
     private static String trimmedEnvironment(String name) {
