@@ -59,7 +59,8 @@ class RicochetAndAimTest {
 
     @Test void ricochetStopsAfterTwoReflections() {
         player.weapon = "ricochet"; player.ricochetAmmo = 1;
-        game.handleMessage(player, "FIRE:1200:1900:1");
+        player.y = 1980;
+        game.handleMessage(player, "FIRE:1200:1980:1");
         assertEquals(3, effects.stream().filter(m -> m.contains("\"effect\":\"hit\"")
                 && m.contains("\"damage\":0.0")).count());
     }

@@ -1281,6 +1281,15 @@ function openPrepConsoleMenu() {
 
 function openShopPurchase(shop) {
     const me = getMe();
+    if (shop.item === "medkit") {
+        openNearbyActionMenu(shop.label, [{
+            label: "回復キット",
+            detail: `${shop.cost}G`,
+            command: "BUY:medkit",
+            disabled: me.medkits >= state.rules.medkitCapacity || me.credits < shop.cost,
+        }], shop, INTERACTION_RANGE.shop, "single");
+        return;
+    }
     if (shop.item.endsWith("Factory")) {
         openNearbyActionMenu(shop.label, [{
             label: "BUY",
@@ -1346,13 +1355,6 @@ function updateWorkbenchMaterials() {
         .map(([key, name]) => `${name} ${me[key] || 0}`).join(" / ")}`;
 }
 
-function openMedMenu() {
-    const me = getMe();
-    openNearbyActionMenu("MED BAY", [option("全回復", state.rules.shop.heal, "BUY:heal", me.hp >= 100, me.hp >= 100 ? "HP最大" : `HP ${Math.ceil(me.hp)} → 100`),
-        option("回復キット", state.rules.shop.medkit, "BUY:medkit", me.medkits >= state.rules.medkitCapacity,
-            `${state.rules.shop.medkit}G · 携帯してHPを${state.rules.medkitHeal}回復`)],
-        MED, INTERACTION_RANGE.medBay);
-}
 
 function openUnlockMenu(area) {
     const cost = state.rules.areaUnlockCosts?.[area.id] ?? state.rules.unlockCost;
@@ -1589,7 +1591,6 @@ function findNearestInteraction() {
         .forEach(slot => add("defense", slot, INTERACTION_RANGE.trapSlot, "MANAGE", () => openSlotMenu(slot)));
     SHOP_UNITS.forEach(shop => add("shop", shop, INTERACTION_RANGE.shop,
         shop.label, () => openShopPurchase(shop)));
-    add("med", MED, INTERACTION_RANGE.medBay, "MED BAY", openMedMenu);
     WORKBENCHES
         .filter(workbench => !workbench.requiredArea || state.areas[workbench.requiredArea])
         .forEach(workbench => add("craft", workbench, INTERACTION_RANGE.workbench,
@@ -1875,7 +1876,7 @@ function drawWorld() {
 }
 
 function drawSpawnEntrance(spawn) {
-    if (spawn.id.startsWith("area-") && !state?.areas[spawn.id.slice(5)]) return;
+    if (spawn.id.startsWith("area-") && !state?.areas[spawn.id.slice(5).split(":")[0]]) return;
     const TILE_SIZE = TILE_MAP.tileSize;
     const cell = { column: Math.floor(spawn.x / TILE_SIZE), row: Math.floor(spawn.y / TILE_SIZE) };
     const incoming = state?.phase === "wave" && state.activeSpawns.includes(spawn.id);
@@ -2295,9 +2296,30 @@ function drawPlayers() {
         if (player.id === myPlayerId) drawLocalWeaponCooldown(p.x, p.y, player);
         ctx.textAlign = "center"; ctx.fillStyle = "#454545"; ctx.font = "800 11px system-ui";
         ctx.fillText(player.name, p.x, p.y - 14);
+        drawMedbayParticles(player, p);
 
     }
     ctx.textAlign = "left";
+}
+
+function drawMedbayParticles(player, position) {
+    if (!player.medbayHealing || player.down || player.hp >= 100) return;
+    const time = performance.now() / 1200;
+    for (let index = 0; index < 4; index++) {
+        const progress = (time + index * .25) % 1;
+        const angle = index * Math.PI / 2 + .4 + progress * .35;
+        const distance = 24 * (1 - progress);
+        ctx.save();
+        ctx.globalAlpha = Math.sin(progress * Math.PI) * .95;
+        ctx.fillStyle = "#76cfa2";
+        ctx.shadowColor = "#76cfa2";
+        ctx.shadowBlur = 5;
+        ctx.beginPath();
+        ctx.arc(position.x + Math.cos(angle) * distance,
+            position.y + Math.sin(angle) * distance, 2.5 - progress * .7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
 }
 
 function drawInteractionPrompt() {

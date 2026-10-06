@@ -154,9 +154,9 @@ class GameplayRevisionTest {
     @Test void ricochetUsesTheFormerRevolverRoom() {
         UnlockArea terminal = GameMap.areaById("ricochet-room");
         assertEquals(860 + GameMap.TILE_SIZE, terminal.terminalX());
-        assertEquals(1580, terminal.terminalY());
+        assertEquals(1660, terminal.terminalY());
         game.unlockedAreas.add("entry-room");
-        player.x = 940; player.y = 1580; player.credits = 1000;
+        player.x = 940; player.y = 1660; player.credits = 1000;
         game.handleMessage(player, "UNLOCK:ricochet-room");
         assertTrue(game.unlockedAreas.contains("ricochet-room"));
         assertEquals(550, player.credits);
@@ -415,7 +415,8 @@ class GameplayRevisionTest {
         for (int round = 1; round <= 20; round++) {
             select.invoke(game, round);
             long indoors = game.activeSpawnIds.stream().filter(id -> id.startsWith("area-")).count();
-            assertTrue(indoors <= (round < 8 ? 0 : round < 12 ? 3 : GameMap.AREAS.size()));
+            long interiorEntrances = GameMap.SPAWN_POINTS.stream().filter(s -> GameMap.spawnArea(s) != null).count();
+            assertTrue(indoors <= (round < 8 ? 0 : round < 12 ? 3 : interiorEntrances));
             assertFalse(game.activeSpawnIds.contains("area-operations-room"));
             assertFalse(game.activeSpawnIds.contains("area-wood-room"));
             assertFalse(game.activeSpawnIds.contains("area-ore-room"));
@@ -450,7 +451,7 @@ class GameplayRevisionTest {
     }
 
     @Test void droppingAgainstAWallDoesNotImmediatelyReturnItemsToSender() {
-        player.x = 805; player.y = 1860; player.facingX = -1; player.facingY = 0;
+        player.x = 845; player.y = 1980; player.facingX = -1; player.facingY = 0;
         player.wood = 4;
         game.handleMessage(player, "DROP_RESOURCE:wood:4");
         assertEquals(0, player.wood);
@@ -459,14 +460,14 @@ class GameplayRevisionTest {
         assertEquals(1, game.droppedResources.size());
         player.x = 900;
         game.update(.05);
-        player.x = 805;
+        player.x = 845;
         game.update(.05);
         assertEquals(4, player.wood);
         assertTrue(game.droppedResources.isEmpty());
     }
 
     @Test void teammateCanReceiveDroppedItemsWithoutSenderMovingAndAmountsCannotBeForged() {
-        player.x = 805; player.y = 1860; player.facingX = -1; player.facingY = 0;
+        player.x = 845; player.y = 1980; player.facingX = -1; player.facingY = 0;
         player.ore = 3;
         game.handleMessage(player, "DROP_RESOURCE:ore:-1");
         game.handleMessage(player, "DROP_RESOURCE:ore:NaN");
@@ -476,7 +477,7 @@ class GameplayRevisionTest {
         assertEquals(0, player.ore);
         assertEquals(3, game.droppedResources.get(0).amount);
         Player receiver = game.players.get(1);
-        receiver.x = 825; receiver.y = 1860;
+        receiver.x = 865; receiver.y = 1980;
         game.update(3);
         assertEquals(3, receiver.ore);
         assertEquals(0, player.ore);
@@ -720,7 +721,7 @@ class GameplayRevisionTest {
 
     @Test void medkitsRequirePurchaseAndAreConsumedOnlyWhenUseful() throws Exception {
         player.hp=40; game.handleMessage(player,"USE:medkit"); assertEquals(40,player.hp);
-        player.credits=500; player.x=GameMap.MED_X; player.y=GameMap.MED_Y;
+        player.credits=500; player.x=GameMap.shopByItem("medkit").x(); player.y=GameMap.shopByItem("medkit").y();
         game.unlockedAreas.addAll(GameMap.AREAS.stream().map(UnlockArea::id).toList());
         game.handleMessage(player,"BUY:medkit"); assertEquals(1,player.medkits); assertEquals(380,player.credits);
         player.x=1020; player.y=1900; game.handleMessage(player,"USE:medkit");

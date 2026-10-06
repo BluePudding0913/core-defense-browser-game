@@ -19,6 +19,7 @@ final class Player {
     int facingX;
     int facingY = -1;
     double hp;
+    double medbayDamageDelay;
     boolean down;
     boolean dashHeld;
     boolean dashing;
@@ -81,6 +82,7 @@ final class Player {
     double botWanderY;
     double botWanderTimer;
     double botSpendCooldown;
+    boolean botSeekingMedbay;
     int botExtendedRound = -1;
     int botSharedRound = -1;
     List<MapPoint> botPath = List.of();

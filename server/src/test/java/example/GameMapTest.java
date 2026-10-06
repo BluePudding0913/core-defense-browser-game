@@ -68,7 +68,7 @@ class GameMapTest {
             assertFalse(GameMap.canPlaceDefense(area.terminalX(), area.terminalY(), allAreas));
             assertFalse(GameMap.canPlaceCore(area.terminalX(), area.terminalY(), allAreas));
         }
-        assertEquals(14, floorTerminals);
+        assertEquals(15, floorTerminals);
     }
 
     @Test
@@ -231,7 +231,7 @@ class GameMapTest {
                 "terrain beside the route must block movement");
         assertFalse(GameMap.canOccupy(3, GameMap.CORE_Y, 5, Set.of()),
                 "the world boundary must block movement");
-        assertEquals(19, GameMap.AREAS.size());
+        assertEquals(20, GameMap.AREAS.size());
     }
 
     @Test
@@ -313,7 +313,7 @@ class GameMapTest {
                 .findFirst().map(UnlockArea::id).orElse("outside"))
                 .collect(Collectors.toSet());
 
-        assertEquals(9, weaponShops.size());
+        assertEquals(10, weaponShops.size());
         assertEquals(weaponShops.size(), shopAreas.size(),
                 "each shop should occupy a different progression area");
     }
