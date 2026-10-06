@@ -1859,9 +1859,10 @@ function drawWorld() {
             const symbol = TILE_MAP.rows[row][column];
             const tile = TILE_MAP.legend[symbol];
             const x = column * size, y = row * size;
-            ctx.fillStyle = !tile.solid && !reachable.has(row + ":" + column) ? "#242424" : tile.color;
+            const hiddenFloor = !tile.solid && !reachable.has(row + ":" + column);
+            ctx.fillStyle = hiddenFloor ? TILE_MAP.legend["#"].color : tile.color;
             ctx.fillRect(x, y, size, size);
-            if (!tile.solid) {
+            if (!tile.solid && !hiddenFloor) {
                 ctx.strokeStyle = "rgb(0 0 0 / 5%)";
                 ctx.lineWidth = 1;
                 ctx.strokeRect(x + .5, y + .5, size - 1, size - 1);
@@ -1914,23 +1915,31 @@ function drawDebugSpawn(spawn) {
 }
 
 function drawAreas() {
+    const reachable = reachableFloorTiles();
+    const size = TILE_MAP.tileSize;
     for (const area of AREAS) {
         const unlocked = state.areas[area.id];
+        const column = Math.floor(area.terminalX / size);
+        const row = Math.floor(area.terminalY / size);
+        const terminalVisible = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]
+            .some(([dx, dy]) => reachable.has((row + dy) + ":" + (column + dx)));
         ctx.save();
 
-        ctx.fillStyle = unlocked ? "rgb(255 255 255 / 72%)" : "#ffffff";
-        ctx.shadowColor = "#000";
-        ctx.shadowBlur = 5;
-        ctx.font = "900 13px ui-monospace, monospace"; ctx.textAlign = "center";
-        ctx.fillText(area.name, area.labelX, area.labelY);
-        ctx.shadowBlur = 0;
+        if (unlocked) {
+            ctx.fillStyle = "rgb(255 255 255 / 72%)";
+            ctx.shadowColor = "#000";
+            ctx.shadowBlur = 5;
+            ctx.font = "900 13px ui-monospace, monospace"; ctx.textAlign = "center";
+            ctx.fillText(area.name, area.labelX, area.labelY);
+            ctx.shadowBlur = 0;
+        }
 
-        if (!unlocked) {
+        if (!unlocked && terminalVisible) {
             ctx.fillStyle = "#d8d8d8";
             ctx.fillRect(area.terminalX - 15, area.terminalY - 15, 30, 30);
             ctx.strokeStyle = "#79d8ff"; ctx.lineWidth = 2;
             ctx.strokeRect(area.terminalX - 18, area.terminalY - 18, 36, 36);
-            ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace";
+            ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace"; ctx.textAlign = "center";
             ctx.fillText("UNLOCK", area.terminalX, area.terminalY - 24);
         }
         ctx.restore();
