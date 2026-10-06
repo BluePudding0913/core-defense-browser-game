@@ -1915,8 +1915,14 @@ function drawDebugSpawn(spawn) {
 }
 
 function drawAreas() {
+    const reachable = reachableFloorTiles();
+    const size = TILE_MAP.tileSize;
     for (const area of AREAS) {
         const unlocked = state.areas[area.id];
+        const column = Math.floor(area.terminalX / size);
+        const row = Math.floor(area.terminalY / size);
+        const terminalVisible = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]
+            .some(([dx, dy]) => reachable.has((row + dy) + ":" + (column + dx)));
         ctx.save();
 
         if (unlocked) {
@@ -1928,7 +1934,7 @@ function drawAreas() {
             ctx.shadowBlur = 0;
         }
 
-        if (!unlocked) {
+        if (!unlocked && terminalVisible) {
             ctx.fillStyle = "#d8d8d8";
             ctx.fillRect(area.terminalX - 15, area.terminalY - 15, 30, 30);
             ctx.strokeStyle = "#79d8ff"; ctx.lineWidth = 2;
