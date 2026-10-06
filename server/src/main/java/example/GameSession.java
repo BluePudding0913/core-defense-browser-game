@@ -680,7 +680,7 @@ final class GameSession {
             case "artillery" -> {
                 hp = 65 + round * 5;
                 speed = 42 + round * .6;
-                damage = 18 + round * .8;
+                damage = (18 + round * .8) * 3;
                 reward = 45;
             }
             case "shield" -> {
