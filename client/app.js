@@ -695,11 +695,20 @@ refreshRoomsButton.addEventListener("click", () => {
     }
 });
 leaveRoomButton.addEventListener("click", leaveRoom);
+const exitDialog = document.querySelector("#exit-dialog");
 document.querySelector("#leave-game").addEventListener("click", () => {
-    if (window.confirm("ゲームから退出しますか？")) {
-        window.coreMenu.phrase = "";
-        leaveRoom();
-    }
+    endInteractionHold(true);
+    keys.clear(); joystick = null;
+    dashKey = false; setDash(false);
+    if (pendingMove) clearTimeout(pendingMove.timer);
+    pendingMove = null;
+    if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
+    sendMovement();
+    exitDialog.returnValue = "cancel";
+    exitDialog.showModal();
+});
+exitDialog.addEventListener("close", () => {
+    if (exitDialog.returnValue === "exit") leaveRoom();
 });
 
 let equipmentOrder = loadEquipmentOrder();
@@ -1494,6 +1503,7 @@ function isTypingTarget(target) {
 }
 
 window.addEventListener("keydown", event => {
+    if (exitDialog.open) return;
     if (isTypingTarget(event.target)) return;
     const key = event.key.toLowerCase();
     if (!howToMenu.classList.contains("hidden")) {
