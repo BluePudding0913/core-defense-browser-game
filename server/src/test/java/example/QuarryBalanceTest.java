@@ -6,6 +6,33 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class QuarryBalanceTest {
+    @Test void openingRoomsProduceEqualCountsAtEqualIntervals() throws Exception {
+        GameSession game = new GameSession(new GameEventSink() {
+            public void broadcast(String message) { }
+            public void send(Player player, String message) { }
+        });
+        Player player = game.connectPlayer("opening-resources");
+        var update = GameSession.class.getDeclaredMethod("updateResources", double.class);
+        update.setAccessible(true);
+        game.unlockedAreas.addAll(List.of("wood-room", "ore-room"));
+        var nodes = game.resourceNodes.stream().filter(n ->
+                "wood-room".equals(n.requiredArea) || "ore-room".equals(n.requiredArea)).toList();
+        assertEquals(2, nodes.stream().filter(n -> n.type.equals("wood")).count());
+        assertEquals(2, nodes.stream().filter(n -> n.type.equals("ore")).count());
+        for (ResourceNode node : nodes) {
+            player.x = node.x; player.y = node.y;
+            update.invoke(game, .05);
+            assertFalse(node.available);
+            assertEquals(3, node.respawnTimer);
+            player.x = 0; player.y = 0;
+            update.invoke(game, 2.9);
+            assertFalse(node.available);
+            update.invoke(game, .11);
+            assertTrue(node.available);
+        }
+        assertEquals(player.wood, player.ore);
+    }
+
     @Test void quarryGatherActionAlsoAwardsOneIronAndPreservesSupplyRate() {
         GameSession game = new GameSession(new GameEventSink() {
             public void broadcast(String message) { }
