@@ -2134,10 +2134,10 @@ function drawArtilleryShells() {
         const progress = clamp(1 - remaining / shell.duration, 0, 1);
         ctx.save();
         ctx.fillStyle = "rgb(185 231 67 / 18%)";
-        ctx.strokeStyle = "#d5f06a"; ctx.lineWidth = 3;
+        ctx.strokeStyle = "rgb(213 240 106 / 30%)"; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.arc(shell.x, shell.y, shell.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.lineWidth = 4;
-        ctx.beginPath(); ctx.arc(shell.x, shell.y, shell.radius + 5, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = "#d5f06a"; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(shell.x, shell.y, shell.radius, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2); ctx.stroke();
         const x = shell.sourceX + (shell.x - shell.sourceX) * progress;
         const y = shell.sourceY + (shell.y - shell.sourceY) * progress - Math.sin(progress * Math.PI) * 65;
         ctx.fillStyle = "#d5f06a";
