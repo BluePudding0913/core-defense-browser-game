@@ -69,7 +69,7 @@ final class GameConfig {
             "shotgun", 50, "smg", 240, "rifle", 30, "sniper", 15,
             "revolver", 30, "lmg", 600, "ricochet", 240, "rocket", 8, "railgun", 8);
     static final Map<String, WeaponStats> WEAPONS = Map.ofEntries(
-            Map.entry("pistol", new WeaponStats(4 * GameMap.TILE_SIZE, 26, .38, 0, 2)),
+            Map.entry("pistol", new WeaponStats(5 * GameMap.TILE_SIZE, 26, .38, 0, 2)),
             Map.entry("bat", new WeaponStats(96, 20, 1, 115, 26)),
             Map.entry("shotgun", new WeaponStats(220, 24, 1.25, 45, 2)),
             Map.entry("smg", new WeaponStats(270, 12, .14, 0, 2)),
