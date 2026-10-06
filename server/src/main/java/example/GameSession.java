@@ -1257,6 +1257,7 @@ final class GameSession {
             bot.dashHeld = false;
             bot.botSpendCooldown = Math.max(0, bot.botSpendCooldown - dt);
             if (bot.down) {
+                bot.botSeekingMedbay = false;
                 updateDownedBot(bot);
                 continue;
             }
@@ -1283,6 +1284,7 @@ final class GameSession {
                     && (distance(bot.x, bot.y, enemy.x, enemy.y) < 240
                     || distance(coreX, coreY, enemy.x, enemy.y) < 240));
             boolean personalDanger = enemies.stream().anyMatch(enemy -> enemy.hp>0 && distance(bot.x,bot.y,enemy.x,enemy.y)<240);
+            if (updateBotRecovery(bot, personalDanger, immediateDanger)) continue;
             if (!personalDanger && bot.credits >= unlockCost() && bot.hp > 55 && tryBotUnlock(bot)) continue;
             if (!immediateDanger && updateBotTasks(bot)) continue;
 
@@ -1656,6 +1658,44 @@ final class GameSession {
                 () -> unlockArea(bot, area.id()));
     }
 
+    private boolean updateBotRecovery(Player bot, boolean personalDanger, boolean immediateDanger) {
+        if (bot.medkits > 0 && (bot.hp <= 40 || personalDanger && bot.hp <= 60)) {
+            useItem(bot, "medkit");
+        }
+        double targetHp = phase == GamePhase.PREPARING ? 100 : 90;
+        if (bot.hp >= targetHp) {
+            bot.botSeekingMedbay = false;
+            return false;
+        }
+        if (!isPointUnlocked(MED_X, MED_Y)) {
+            bot.botSeekingMedbay = false;
+            UnlockArea room = GameMap.areaById("recovery-room");
+            if (bot.hp < 85 && !immediateDanger && !blackoutActive && bot.botSpendCooldown <= 0
+                    && bot.credits >= unlockCost(room.id()) && terminalAccessible(room)) {
+                return botUse(bot, room.terminalX(), room.terminalY(), 65, () -> unlockArea(bot, room.id()));
+            }
+            return false;
+        }
+        if (!bot.botSeekingMedbay) {
+            double startHp = phase == GamePhase.PREPARING ? 85 : 55;
+            if (bot.hp >= startHp) return false;
+            bot.botSeekingMedbay = true;
+        }
+        // Recovery is free, but never park at a station that cannot safely heal us.
+        boolean stationDanger = enemies.stream().anyMatch(enemy -> enemy.hp > 0
+                && distance(MED_X, MED_Y, enemy.x, enemy.y) < 240
+                && GameMap.hasClearLine(MED_X, MED_Y, enemy.x, enemy.y))
+                || artilleryShells.stream().anyMatch(shell -> inArtilleryBlast(shell, MED_X, MED_Y));
+        if (personalDanger || immediateDanger || stationDanger || blackoutActive) return false;
+        if (canInteract(bot, MED_X, MED_Y, GameConfig.MEDBAY_RANGE - 10)) {
+            bot.moveX = 0;
+            bot.moveY = 0;
+        } else {
+            moveBotToward(bot, MED_X, MED_Y);
+        }
+        return true;
+    }
+
     private boolean updateBotTasks(Player bot) {
         if (bot.botSpendCooldown > 0) return false;
         if (blackoutActive) {
@@ -1665,9 +1705,6 @@ final class GameSession {
                     .findFirst().orElse(null);
             if (breaker != null) return botUse(bot, breaker.x(), breaker.y(), 70,
                     () -> resetBreaker(bot, breaker.id()));
-        }
-        if (bot.hp < 85 && isPointUnlocked(MED_X, MED_Y)) {
-            return botUse(bot, MED_X, MED_Y, 65, () -> { });
         }
         if (tryBotUnlock(bot)) return true;
         TrapSlot damaged = trapSlots.stream().filter(slot -> slot.defense != null
@@ -1691,6 +1728,10 @@ final class GameSession {
             return botUse(bot, shop.x(), shop.y(), 55, () -> buy(bot, item));
         }
         if (phase != GamePhase.PREPARING) return false;
+        ShopUnit kitShop = GameMap.shopByItem("medkit");
+        if (bot.medkits == 0 && bot.credits >= kitShop.cost() && isPointUnlocked(kitShop.x(), kitShop.y())) {
+            return botUse(bot, kitShop.x(), kitShop.y(), 55, () -> buy(bot, "medkit"));
+        }
         // One nearest CPU handles shared objectives; personal equipment stays independent.
         if (isAssignedBot(bot, coreX, coreY)) {
             String upgrade = coreHp < coreMaxHp * .65 ? "hp"
@@ -2867,6 +2908,7 @@ final class GameSession {
             player.botWanderY = 0;
             player.botWanderTimer = 0;
             player.botSpendCooldown = 1.25 + player.slot * 0.35;
+            player.botSeekingMedbay = false;
             player.botExtendedRound = -1;
             player.botSharedRound = -1;
             player.botPath = List.of();
