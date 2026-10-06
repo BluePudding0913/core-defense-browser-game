@@ -35,7 +35,7 @@ class RicochetAndAimTest {
         player.weapon = "ricochet"; player.ricochetAmmo = 1;
         Enemy behind = enemy(940, 1900);
         game.handleMessage(player, "FIRE:1200:1900:1");
-        assertEquals(1928, behind.hp);
+        assertEquals(1970, behind.hp);
         assertEquals(0, player.ricochetAmmo);
         assertEquals(2, effects.stream().filter(m -> m.contains("\"effect\":\"hit\"") && m.contains("\"damage\":0.0")).count());
     }

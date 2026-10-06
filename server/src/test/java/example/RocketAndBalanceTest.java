@@ -83,20 +83,20 @@ class RocketAndBalanceTest {
         assertEquals("pistol", player.weapon);
         game.handleMessage(player, "BUY:rocket");
         assertTrue(player.ownsRocket); assertEquals("rocket", player.weapon);
-        assertEquals(12, player.rocketAmmo); assertEquals(600, player.credits);
+        assertEquals(8, player.rocketAmmo); assertEquals(600, player.credits);
         game.handleMessage(player, "BUY:rocket");
         assertEquals(600, player.credits);
         player.rocketAmmo = 0;
         game.handleMessage(player, "BUY:rocket");
-        assertEquals(12, player.rocketAmmo); assertEquals(480, player.credits);
+        assertEquals(8, player.rocketAmmo); assertEquals(480, player.credits);
         ShopUnit ammo = GameMap.shopByItem("ammo");
         player.x = ammo.x(); player.y = ammo.y(); player.rocketAmmo = 1;
         player.credits = 1000;
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(12, player.rocketAmmo); assertEquals(0, player.credits);
+        assertEquals(8, player.rocketAmmo); assertEquals(0, player.credits);
         var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
         assertTrue(snapshot.path("players").get(0).path("ownsRocket").asBoolean());
-        assertEquals(12, snapshot.path("players").get(0).path("rocketAmmo").asInt());
+        assertEquals(8, snapshot.path("players").get(0).path("rocketAmmo").asInt());
         assertEquals(200, snapshot.path("rules").path("weapons").path("rocket").path("blastRadius").asInt());
         game.phase = GamePhase.LOST;
         game.players.forEach(p -> p.roomReady = true);
@@ -112,6 +112,7 @@ class RocketAndBalanceTest {
         assertTrue(direct.hp < splash.hp); assertTrue(splash.hp < 2000);
         assertEquals(2000, outside.hp); assertEquals(1, player.rocketAmmo);
         assertEquals(100, player.hp); // Explosions only damage enemies.
+        assertEquals(5, player.cooldown);
         assertTrue(effects.stream().anyMatch(m -> m.contains("\"effect\":\"explosion\"") && m.contains("1097.0")));
         assertTrue(effects.stream().noneMatch(m -> m.contains("\"headshot\":true")));
         game.handleMessage(player, "FIRE:1300:1900:1");
@@ -126,7 +127,7 @@ class RocketAndBalanceTest {
         Enemy splash = enemy(1, 1120, 1970);
         game.handleMessage(player, "WEAPON:rocket");
         game.handleMessage(player, "FIRE:1120:1900:1");
-        assertEquals(1340, splash.hp, 1e-6);
+        assertEquals(350, splash.hp, 1e-6);
         assertTrue(effects.stream().anyMatch(m -> m.contains("\"effect\":\"explosion\"") && m.contains("1120.0")));
         game.enemies.clear(); effects.clear(); player.cooldown = 0; player.firing = false;
         player.x = 1020; player.y = 1580;

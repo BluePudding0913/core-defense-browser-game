@@ -58,13 +58,13 @@ class GameplayRevisionTest {
         game.enemies.add(enemy);
         game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":1");
         game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":0");
-        assertEquals(428, enemy.hp);
+        assertEquals(470, enemy.hp);
         assertEquals(239, player.ricochetAmmo);
         assertEquals(.30, player.cooldown);
         player.cooldown = 0; player.ricochetAmmo = 0;
         game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":1");
         game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":0");
-        assertEquals(428, enemy.hp, "an empty weapon cannot fire");
+        assertEquals(470, enemy.hp, "an empty weapon cannot fire");
         player.x = shop.x(); player.y = shop.y();
         game.handleMessage(player, "BUY:ricochet");
         assertEquals(240, player.ricochetAmmo);
