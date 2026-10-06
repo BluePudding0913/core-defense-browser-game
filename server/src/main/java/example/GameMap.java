@@ -257,20 +257,31 @@ final class GameMap {
         Set<String> allAreas = AREAS.stream().map(UnlockArea::id)
                 .collect(java.util.stream.Collectors.toSet());
         for (UnlockArea area : AREAS) {
-            MapPoint best = null;
-            double farthest = -1;
-            for (AreaTile tile : area.tiles()) {
-                MapPoint center = TILE_MAP.center(tile);
-                double x = center.x(), y = center.y();
-                if (!isWallEntrance(tile) || !canOccupy(x, y, 17, allAreas)) continue;
-                double distance = GameSupport.distance(x, y, area.terminalX(), area.terminalY());
-                if (distance > farthest) {
-                    farthest = distance;
-                    best = center;
+            List<MapPoint> entrances = new ArrayList<>();
+            int entranceCount = area.id().equals("recovery-room") ? DEFINITION.spawnPoints().size() : 1;
+            for (int index = 0; index < entranceCount; index++) {
+                MapPoint best = null;
+                double farthest = -1;
+                for (AreaTile tile : area.tiles()) {
+                    MapPoint center = TILE_MAP.center(tile);
+                    double x = center.x(), y = center.y();
+                    if (!isWallEntrance(tile) || !canOccupy(x, y, 17, allAreas)) continue;
+                    double distance = entrances.isEmpty()
+                            ? GameSupport.distance(x, y, area.terminalX(), area.terminalY())
+                            : entrances.stream().mapToDouble(point -> GameSupport.distance(x, y, point.x(), point.y()))
+                                    .min().orElse(0);
+                    if (!entrances.isEmpty() && distance < TILE_SIZE * 2) continue;
+                    if (distance > farthest) {
+                        farthest = distance;
+                        best = center;
+                    }
                 }
+                if (best == null) break;
+                entrances.add(best);
+                String suffix = index == 0 ? "" : ":" + (index + 1);
+                spawns.add(new SpawnPoint("area-" + area.id() + suffix, area.name(), best.x(), best.y(),
+                        "interior", "balanced", 1, "core", List.of(best)));
             }
-            if (best != null) spawns.add(new SpawnPoint("area-" + area.id(), area.name(), best.x(), best.y(),
-                    "interior", "balanced", 1, "core", List.of(best)));
         }
         return List.copyOf(spawns);
     }
@@ -286,7 +297,7 @@ final class GameMap {
     }
 
     static String spawnArea(SpawnPoint spawn) {
-        return spawn.id().startsWith("area-") ? spawn.id().substring(5) : null;
+        return spawn.id().startsWith("area-") ? spawn.id().substring(5).split(":", 2)[0] : null;
     }
 
 }

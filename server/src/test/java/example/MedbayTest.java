@@ -93,4 +93,39 @@ class MedbayTest {
         assertFalse(GameMap.canOccupy(780, 1780, 5, unlocked));
         assertFalse(GameMap.canOccupy(780, 1980, 5, unlocked));
     }
+
+    @Test void recoveryRoomHasOutdoorScaleAndSevenSeparatedWallEntrances() {
+        assertEquals(96, GameMap.areaById("recovery-room").tiles().size());
+        var entrances = GameMap.SPAWN_POINTS.stream()
+                .filter(s -> "recovery-room".equals(GameMap.spawnArea(s))).toList();
+        long outside = GameMap.SPAWN_POINTS.stream().filter(s -> GameMap.spawnArea(s) == null).count();
+        assertEquals(outside, entrances.size());
+        assertEquals(7, entrances.size());
+        for (var entrance : entrances) {
+            assertTrue(GameMap.areaById("recovery-room").contains(entrance.x(), entrance.y()));
+            assertTrue(GameMap.isWallEntrance(GameMap.TILE_MAP.cellAt(entrance.x(), entrance.y())));
+            assertTrue(GameMap.canOccupy(entrance.x(), entrance.y(), 17, Set.of("recovery-room")));
+            for (var other : entrances) {
+                if (entrance == other) continue;
+                assertTrue(GameSupport.distance(entrance.x(), entrance.y(), other.x(), other.y()) >= 80);
+            }
+        }
+    }
+
+    @Test void recoverySpawnsRequireUnlockAndBecomeEligibleInRoundEight() throws Exception {
+        Method eligible = GameSession.class.getDeclaredMethod("interiorSpawnEligible", SpawnPoint.class, int.class);
+        eligible.setAccessible(true);
+        var entrances = GameMap.SPAWN_POINTS.stream()
+                .filter(s -> "recovery-room".equals(GameMap.spawnArea(s))).toList();
+        for (var entrance : entrances) assertEquals(false, eligible.invoke(game, entrance, 12));
+        game.unlockedAreas.add("recovery-room");
+        for (var entrance : entrances) {
+            assertEquals(false, eligible.invoke(game, entrance, 7));
+            assertEquals(true, eligible.invoke(game, entrance, 8));
+        }
+        Method select = GameSession.class.getDeclaredMethod("selectRoundSpawns", int.class);
+        select.setAccessible(true);
+        select.invoke(game, 12);
+        for (var entrance : entrances) assertTrue(game.activeSpawnIds.contains(entrance.id()));
+    }
 }

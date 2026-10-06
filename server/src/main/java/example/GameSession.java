@@ -474,7 +474,7 @@ final class GameSession {
         String area = GameMap.spawnArea(spawn);
         if (area == null || !unlockedAreas.contains(area)) return false;
         int firstRound = switch (area) {
-            case "entry-room" -> 8;
+            case "entry-room", "recovery-room" -> 8;
             case "transit-hall" -> 10;
             case "armory-wing", "shotgun-room", "smg-room", "ricochet-room" -> 10;
             case "rifle-room", "sniper-room", "revolver-room", "lmg-room" -> 12;

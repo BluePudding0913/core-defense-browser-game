@@ -415,7 +415,8 @@ class GameplayRevisionTest {
         for (int round = 1; round <= 20; round++) {
             select.invoke(game, round);
             long indoors = game.activeSpawnIds.stream().filter(id -> id.startsWith("area-")).count();
-            assertTrue(indoors <= (round < 8 ? 0 : round < 12 ? 3 : GameMap.AREAS.size()));
+            long interiorEntrances = GameMap.SPAWN_POINTS.stream().filter(s -> GameMap.spawnArea(s) != null).count();
+            assertTrue(indoors <= (round < 8 ? 0 : round < 12 ? 3 : interiorEntrances));
             assertFalse(game.activeSpawnIds.contains("area-operations-room"));
             assertFalse(game.activeSpawnIds.contains("area-wood-room"));
             assertFalse(game.activeSpawnIds.contains("area-ore-room"));

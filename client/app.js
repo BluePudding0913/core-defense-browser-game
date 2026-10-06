@@ -1871,7 +1871,7 @@ function drawWorld() {
 }
 
 function drawSpawnEntrance(spawn) {
-    if (spawn.id.startsWith("area-") && !state?.areas[spawn.id.slice(5)]) return;
+    if (spawn.id.startsWith("area-") && !state?.areas[spawn.id.slice(5).split(":")[0]]) return;
     const TILE_SIZE = TILE_MAP.tileSize;
     const cell = { column: Math.floor(spawn.x / TILE_SIZE), row: Math.floor(spawn.y / TILE_SIZE) };
     const incoming = state?.phase === "wave" && state.activeSpawns.includes(spawn.id);

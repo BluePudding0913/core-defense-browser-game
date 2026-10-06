@@ -25,3 +25,18 @@ open(); assert(entries[0].disabled);
 assert(!source.includes('BUY:heal'));
 assert(!source.includes('openMedMenu'));
 console.log('Medbay UI passed: independent kit shop, funds/capacity and passive recovery');
+
+let drawn = 0;
+context.state.areas = { 'recovery-room': false };
+context.state.phase = 'prep';
+context.TILE_MAP = map.tileMap;
+context.ctx = { save() { drawn++; }, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() {} };
+context.spawn = { id: 'area-recovery-room:2', x: 220, y: 1740 };
+const entranceStart = source.indexOf('function drawSpawnEntrance(');
+const entranceEnd = source.indexOf('\nfunction ', entranceStart + 1);
+vm.runInContext(source.slice(entranceStart, entranceEnd), context);
+vm.runInContext('drawSpawnEntrance(spawn)', context);
+assert.equal(drawn, 0);
+context.state.areas['recovery-room'] = true;
+vm.runInContext('drawSpawnEntrance(spawn)', context);
+assert.equal(drawn, 1, 'numbered entrances use the room unlock state');
