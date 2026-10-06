@@ -536,7 +536,7 @@ function receiveState(next) {
     CORE.x = next.core.x;
     CORE.y = next.core.y;
     if (beginsRound) showRoundIntro(next.round);
-    else if (endsDefense) showScreenIntro(next.phase === "won" ? "防衛成功" : "防衛失敗");
+    else if (endsDefense) showScreenIntro(next.phase === "won" ? "防衛成功" : "防衛失敗", 2000);
     else if (!["wave", "won", "lost"].includes(next.phase)) hideScreenIntro();
     previousRound = next.round;
     previousPhase = next.phase;
@@ -651,12 +651,16 @@ function hideScreenIntro() {
     roundIntro.classList.remove("show");
 }
 
-function showScreenIntro(text) {
+function showScreenIntro(text, delay = 0) {
     hideScreenIntro();
-    roundIntro.textContent = text;
-    void roundIntro.offsetWidth;
-    roundIntro.classList.add("show");
-    roundIntroTimer = setTimeout(() => roundIntro.classList.remove("show"), 2400);
+    const show = () => {
+        roundIntro.textContent = text;
+        void roundIntro.offsetWidth;
+        roundIntro.classList.add("show");
+        roundIntroTimer = setTimeout(() => roundIntro.classList.remove("show"), 2400);
+    };
+    if (delay > 0) roundIntroTimer = setTimeout(show, delay);
+    else show();
 }
 
 function setMenuView(view) {
