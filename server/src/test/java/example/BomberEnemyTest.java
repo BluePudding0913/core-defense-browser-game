@@ -35,24 +35,24 @@ class BomberEnemyTest {
     Object invoke(String name, Class<?>[] types, Object... args) throws Exception {
         Method m = GameSession.class.getDeclaredMethod(name, types); m.setAccessible(true); return m.invoke(game, args);
     }
-    @Test void deathHitsFourTileBoundaryButNotBeyondAndPaysChainRewards() throws Exception {
+    @Test void deathHitsPlayersAtFourTileBoundaryButNotBeyond() throws Exception {
         Enemy bomber = enemy("bomber", 0, 100);
-        Enemy edge = enemy("grunt", GameConfig.BOMBER_BLAST_RADIUS, 100);
-        Enemy outside = enemy("grunt", GameConfig.BOMBER_BLAST_RADIUS + 1, 100);
+        Player edge = player; edge.x = x + GameConfig.BOMBER_BLAST_RADIUS; edge.y = y;
+        Player outside = game.players.get(1); outside.x = x + GameConfig.BOMBER_BLAST_RADIUS + 1; outside.y = y;
         invoke("damageEnemy", new Class<?>[]{Enemy.class, double.class, Player.class}, bomber, 100., player);
-        assertEquals(0, edge.hp); assertEquals(100, outside.hp);
-        assertEquals(200, player.credits); assertEquals(2, player.kills);
+        assertEquals(40, edge.hp); assertEquals(100, outside.hp);
+        assertEquals(100, player.credits); assertEquals(1, player.kills);
         assertEquals(1, effects.stream().filter(e -> e.contains("\"effect\":\"explosion\"")).count());
         assertEquals(4 * GameMap.TILE_SIZE, GameConfig.BOMBER_BLAST_RADIUS);
     }
-    @Test void chainExplodesEachBomberOnce() throws Exception {
+    @Test void blastDoesNotDamageEnemiesOrChainToOtherBombers() throws Exception {
         Enemy first = enemy("bomber", 0, 100);
         Enemy second = enemy("bomber", 30, 100);
         Enemy target = enemy("grunt", 60, 400);
         invoke("damageEnemy", new Class<?>[]{Enemy.class, double.class, Player.class}, first, 100., player);
-        assertTrue(first.exploded); assertTrue(second.exploded); assertEquals(0, target.hp);
-        assertEquals(300, player.credits); assertEquals(3, player.kills);
-        assertEquals(2, effects.stream().filter(e -> e.contains("\"effect\":\"explosion\"")).count());
+        assertTrue(first.exploded); assertFalse(second.exploded); assertEquals(100, second.hp); assertEquals(400, target.hp);
+        assertEquals(100, player.credits); assertEquals(1, player.kills);
+        assertEquals(1, effects.stream().filter(e -> e.contains("\"effect\":\"explosion\"")).count());
     }
     @Test void blastDamagesPlayersDefensesAndCoreAndSnapshotShowsWarning() throws Exception {
         Enemy bomber = enemy("bomber", 0, 100);
@@ -113,7 +113,7 @@ class BomberEnemyTest {
     }
     @Test void wallsBlockBlastAndTrigger() throws Exception {
         Enemy bomber = enemy("bomber", 0, 100);
-        Enemy target = enemy("grunt", 0, 100);
+        Player target = player;
         boolean found = false;
         for (int dx = -200; dx <= 200 && !found; dx += 20) for (int dy = -200; dy <= 200 && !found; dy += 20) {
             if (Math.hypot(dx, dy) <= GameConfig.BOMBER_BLAST_RADIUS && !GameMap.hasClearLine(x, y, x + dx, y + dy)) {

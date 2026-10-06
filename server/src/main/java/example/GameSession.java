@@ -40,8 +40,6 @@ interface GameEventSink {
 /** Authoritative state and rules for one four-player match. */
 final class GameSession {
     private static final double BOT_REACTION_SECONDS = 1.5;
-    private final java.util.ArrayDeque<Enemy> pendingExplosions = new java.util.ArrayDeque<>();
-    private boolean resolvingExplosions;
     private boolean debugMode;
     private boolean debugBomberPending;
 
@@ -840,7 +838,7 @@ final class GameSession {
             if (enemy.type.equals("bomber")) {
                 if (enemy.bomberFuse >= 0) {
                     enemy.bomberFuse = Math.max(0, enemy.bomberFuse - dt);
-                    if (enemy.bomberFuse <= 1e-9) explodeBomber(enemy, null);
+                    if (enemy.bomberFuse <= 1e-9) explodeBomber(enemy);
                     continue;
                 }
                 boolean nearTarget = players.stream().anyMatch(p -> !p.down && inBomberBlast(enemy, p.x, p.y, 72))
@@ -944,37 +942,23 @@ final class GameSession {
                 && GameMap.hasClearLine(enemy.x, enemy.y, x, y);
     }
 
-    private void explodeBomber(Enemy bomber, Player source) {
+    private void explodeBomber(Enemy bomber) {
         if (bomber.exploded) return;
         bomber.exploded = true;
         bomber.hp = 0;
-        pendingExplosions.add(bomber);
-        if (resolvingExplosions) return;
-        resolvingExplosions = true;
-        try {
-            while (!pendingExplosions.isEmpty()) {
-                Enemy blast = pendingExplosions.removeFirst();
-                double radius = GameConfig.BOMBER_BLAST_RADIUS;
-                events.broadcast("{\"type\":\"effect\",\"effect\":\"explosion\",\"x\":" + roundOne(blast.x)
-                        + ",\"y\":" + roundOne(blast.y) + ",\"radius\":" + radius + "}");
-                for (Enemy target : enemies) {
-                    if (target.hp > 0 && inBomberBlast(blast, target.x, target.y, radius))
-                        damageEnemy(target, blast.damage * 4, source);
-                }
-                for (Player target : players) {
-                    if (!target.down && inBomberBlast(blast, target.x, target.y, radius)) damagePlayer(target, blast.damage);
-                }
-                for (TrapSlot slot : trapSlots) {
-                    if (slot.defense != null && inBomberBlast(blast, slot.x, slot.y, radius)) {
-                        slot.defense.hp -= blast.damage * 2;
-                        if (slot.defense.hp <= 0) slot.defense = null;
-                    }
-                }
-                if (inBomberBlast(blast, coreX, coreY, radius)) damageCore(blast.damage);
-            }
-        } finally {
-            resolvingExplosions = false;
+        double radius = GameConfig.BOMBER_BLAST_RADIUS;
+        events.broadcast("{\"type\":\"effect\",\"effect\":\"explosion\",\"x\":" + roundOne(bomber.x)
+                + ",\"y\":" + roundOne(bomber.y) + ",\"radius\":" + radius + "}");
+        for (Player target : players) {
+            if (!target.down && inBomberBlast(bomber, target.x, target.y, radius)) damagePlayer(target, bomber.damage);
         }
+        for (TrapSlot slot : trapSlots) {
+            if (slot.defense != null && inBomberBlast(bomber, slot.x, slot.y, radius)) {
+                slot.defense.hp -= bomber.damage * 2;
+                if (slot.defense.hp <= 0) slot.defense = null;
+            }
+        }
+        if (inBomberBlast(bomber, coreX, coreY, radius)) damageCore(bomber.damage);
     }
 
     private void updateEnemyWander(Enemy enemy, double dt) {
@@ -1900,7 +1884,7 @@ final class GameSession {
             }
             if (enemy.hp <= 0) player.kills++;
         }
-        if (enemy.hp <= 0 && enemy.type.equals("bomber")) explodeBomber(enemy, player);
+        if (enemy.hp <= 0 && enemy.type.equals("bomber")) explodeBomber(enemy);
     }
 
     private void knockbackEnemy(double fromX, double fromY, Enemy enemy, double amount) {
