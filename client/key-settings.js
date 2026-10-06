@@ -11,6 +11,15 @@ window.coreKeySettings = (() => {
         if (valid(saved)) medkit = saved;
     } catch { /* Optional storage. */ }
     return {
+        gameKey(event) {
+            // Gameplay follows physical keys even while Windows IME is active.
+            if (/^Key[A-Z]$/.test(event.code || "")) return event.code.slice(3).toLowerCase();
+            if (/^Digit[1-9]$/.test(event.code || "")) return event.code.slice(5);
+            if (/^Arrow(Up|Down|Left|Right)$/.test(event.code || "")) return event.code.toLowerCase();
+            if (event.code === "ShiftLeft" || event.code === "ShiftRight") return "shift";
+            if (event.code === "Escape") return "escape";
+            return event.key.toLowerCase();
+        },
         getMedkit: () => medkit,
         setMedkit(key) {
             key = key.toLowerCase();

@@ -1370,6 +1370,7 @@ function worldFromScreen(clientX, clientY) {
 canvas.addEventListener("pointerdown", event => {
     if (!state || !getMe()) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    canvas.focus({ preventScroll: true });
     canvas.setPointerCapture(event.pointerId);
     const inMovementArea = event.pointerType !== "mouse"
         && event.clientX < innerWidth * .42 && event.clientY > innerHeight * .42;
@@ -1490,7 +1491,7 @@ function isTypingTarget(target) {
 window.addEventListener("keydown", event => {
     if (exitDialog.open) return;
     if (isTypingTarget(event.target)) return;
-    const key = event.key.toLowerCase();
+    const key = window.coreKeySettings.gameKey(event);
     if (!howToMenu.classList.contains("hidden")) {
         if (["escape", "e"].includes(key)) closeHowTo();
         event.preventDefault();
@@ -1534,8 +1535,7 @@ window.addEventListener("keydown", event => {
     event.preventDefault(); keys.add(key); sendMovement();
 });
 window.addEventListener("keyup", event => {
-    if (isTypingTarget(event.target)) return;
-    const key = event.key.toLowerCase();
+    const key = window.coreKeySettings.gameKey(event);
     if (key === "r") { endInteractionHold(); return; }
     if (key === "shift") { dashKey = false; setDash(false); return; }
     keys.delete(key); sendMovement();
