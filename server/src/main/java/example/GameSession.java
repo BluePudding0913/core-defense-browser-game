@@ -683,7 +683,34 @@ final class GameSession {
         return GameMap.spawnById(id);
     }
 
+    private SpawnPoint explosionBossSpawn(SpawnPoint fallback) {
+        SpawnPoint deepest = fallback;
+        double greatestDepth = -1;
+        for (SpawnPoint candidate : GameMap.SPAWN_POINTS) {
+            // Keep supply pockets safe, while letting debug previews use unlocked combat areas.
+            if (!interiorSpawnEligible(candidate, Math.max(round, 25))) continue;
+            List<MapPoint> path = findPath(candidate.x(), candidate.y(), CORE_X, CORE_Y, 17, false);
+            if (path.isEmpty()) continue;
+            MapPoint end = path.get(path.size() - 1);
+            // The pathfinder may return a partial route for an unreachable destination.
+            if (distance(end.x(), end.y(), CORE_X, CORE_Y) > GameMap.TILE_SIZE
+                    || !canEnemyTravel(end.x(), end.y(), CORE_X, CORE_Y)) continue;
+            double depth = 0, x = candidate.x(), y = candidate.y();
+            for (MapPoint point : path) {
+                depth += distance(x, y, point.x(), point.y());
+                x = point.x(); y = point.y();
+            }
+            depth += distance(x, y, CORE_X, CORE_Y);
+            if (depth > greatestDepth) {
+                greatestDepth = depth;
+                deepest = candidate;
+            }
+        }
+        return deepest;
+    }
+
     private void spawnEnemy(String type, SpawnPoint spawn) {
+        if (type.equals("explosionBoss")) spawn = explosionBossSpawn(spawn);
         double hp;
         double speed;
         double damage;

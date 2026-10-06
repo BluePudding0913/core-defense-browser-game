@@ -45,10 +45,10 @@ class ExplosionBossTest {
         Enemy dead = new Enemy(999, "grunt", GameMap.SPAWN_POINTS.get(0), 10, 0, 0, 0);
         dead.hp = 0; game.enemies.add(dead);
         update(.05);
-        assertEquals(59.95, boss.fuse, .0001);
+        assertEquals(29.95, boss.fuse, .0001);
         game.queuedEnemies = 100;
         update(1);
-        assertEquals(58.95, boss.fuse, .0001, "Started countdown must keep running");
+        assertEquals(28.95, boss.fuse, .0001, "Started countdown must keep running");
         var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
         assertEquals(boss.fuse, snapshot.path("enemies").get(0).path("fuse").asDouble());
     }
@@ -57,11 +57,11 @@ class ExplosionBossTest {
         game.roundEnemyTotal = 9;
         Enemy other = new Enemy(999, "grunt", GameMap.SPAWN_POINTS.get(0), 10, 0, 0, 0);
         game.enemies.add(other);
-        update(60);
+        update(30);
         assertEquals(-1, boss.fuse);
         other.hp = 0;
         update(.05);
-        assertEquals(59.95, boss.fuse, .0001);
+        assertEquals(29.95, boss.fuse, .0001);
     }
 
     @Test void survivesHeavyDamageAndNeverMeleesNearbyPlayer() throws Exception {
@@ -77,7 +77,7 @@ class ExplosionBossTest {
         assertFalse(boss.exploded);
     }
 
-    @Test void sixtySecondBlastIsUniformIncludesBoundaryIgnoresWallsAndSparesAllTurrets() throws Exception {
+    @Test void thirtySecondBlastIsUniformIncludesBoundaryIgnoresWallsAndSparesAllTurrets() throws Exception {
         double x = boss.x, y = boss.y, radius = GameConfig.EXPLOSION_BOSS_BLAST_RADIUS;
         for (Player p : game.players) p.hp = 200;
         player.x = x; player.y = y;
@@ -97,7 +97,7 @@ class ExplosionBossTest {
             TrapSlot slot = new TrapSlot(type, "free", x, y, null);
             slot.defense = new Defense(type); game.trapSlots.add(slot);
         }
-        update(59.9);
+        update(29.9);
         assertFalse(boss.exploded); assertEquals(200, player.hp);
         boss.x = x; boss.y = y;
         update(.1);
@@ -111,7 +111,7 @@ class ExplosionBossTest {
 
     @Test void blastDownsDefaultPlayer() throws Exception {
         player.x = boss.x; player.y = boss.y;
-        update(60);
+        update(30);
         assertTrue(player.down); assertEquals(0, player.hp);
     }
 
@@ -167,6 +167,27 @@ class ExplosionBossTest {
                     game.enemies.stream().filter(e -> e.type.equals("explosionBoss")).count(), "R" + round);
             if (explosionRound) assertEquals("boss_assault", game.roundEvent);
         }
+    }
+
+    @Test void prefersDeepestReachableUnlockedCombatAreaEvenInDebugRoundOne() throws Exception {
+        for (int round : new int[]{1, 25}) {
+            game.round = round;
+            game.unlockedAreas.addAll(List.of("entry-room", "transit-hall", "armory-wing", "forest"));
+            game.enemies.clear();
+            // Moving the core should not reverse the map's progression order.
+            game.coreX = 1580; game.coreY = 540;
+            invoke("spawnEnemy", new Class<?>[]{String.class, SpawnPoint.class},
+                    "explosionBoss", GameMap.SPAWN_POINTS.get(0));
+            assertEquals("forest", GameMap.spawnArea(GameMap.spawnById(game.enemies.get(0).spawnId)));
+        }
+    }
+
+    @Test void fallsBackToWaveEntranceWhenNoUnlockedCombatAreaIsReachable() throws Exception {
+        game.unlockedAreas.add("command-room"); // Earlier connecting areas are still locked.
+        game.round = 25; game.enemies.clear();
+        SpawnPoint fallback = GameMap.SPAWN_POINTS.get(0);
+        invoke("spawnEnemy", new Class<?>[]{String.class, SpawnPoint.class}, "explosionBoss", fallback);
+        assertEquals(fallback.id(), game.enemies.get(0).spawnId);
     }
 
     @Test void debugFirstRoundContainsExactlyOneBossAndRestartClearsIt() throws Exception {

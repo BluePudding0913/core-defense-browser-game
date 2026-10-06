@@ -2186,9 +2186,9 @@ function drawEnemies() {
         let flashing = false;
         if (explosionBoss && enemy.fuse >= 0) {
             const sinceSnapshot = Math.max(0, (performance.now() - (state.artilleryReceivedAt ?? performance.now())) / 1000);
-            const elapsed = clamp(60 - enemy.fuse + sinceSnapshot, 0, 60);
+            const elapsed = clamp(30 - enemy.fuse + sinceSnapshot, 0, 30);
             // Integrate a frequency rising from 0.5 Hz to 5 Hz for a continuous blink phase.
-            flashing = Math.sin(2 * Math.PI * (.5 * elapsed + .0375 * elapsed * elapsed)) > 0;
+            flashing = Math.sin(2 * Math.PI * (.5 * elapsed + .075 * elapsed * elapsed)) > 0;
         }
         ctx.fillStyle = explosionBoss ? (flashing ? "#b52b32" : "#080808") : colors[enemy.type] || colors.grunt;
         ctx.beginPath();

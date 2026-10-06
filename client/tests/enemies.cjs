@@ -70,7 +70,7 @@ assert(bodies.every(eye => eye.color === '#ff1527'));
 function transitions(start, end) {
     let previous, count = 0;
     for (let elapsed = start; elapsed < end; elapsed += .01) {
-        context.state.enemies[0].fuse = 60 - elapsed;
+        context.state.enemies[0].fuse = 30 - elapsed;
         fills.length = 0;
         vm.runInContext('drawEnemies()', context);
         if (previous !== undefined && previous !== fills[0]) count++;
@@ -78,5 +78,5 @@ function transitions(start, end) {
     }
     return count;
 }
-assert(transitions(55, 60) > transitions(0, 5) * 3);
+assert(transitions(25, 30) > transitions(0, 5) * 3);
 console.log('Explosion boss display passed: black hexagon, red eyes, accelerating countdown flashes');
