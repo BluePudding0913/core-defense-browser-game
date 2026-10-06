@@ -64,7 +64,7 @@
       "####################............####################",
       "####################............####################",
       "####################............####################",
-      "####################............####################",
+      "###################.............####################",
       "#####################..........#####################",
       "#######################......#######################",
       "####################################################"
@@ -311,7 +311,7 @@
   ],
   "prepConsole": {"id":"prep-console","x":1260,"y":980,"requiredArea":"operations-room","cost":100,"seconds":60},
   "breakerTerminals": [
-    {"id":"breaker-outside","label":"OUTSIDE","x":820,"y":1940,"requiredArea":null},
+    {"id":"breaker-outside","label":"OUTSIDE","x":780,"y":1940,"requiredArea":null},
     {"id":"breaker-entry","label":"ENTRY ROOM","x":1140,"y":1580,"requiredArea":"entry-room"},
     {"id":"breaker-transit","label":"TRANSIT HALL","x":1300,"y":1180,"requiredArea":"transit-hall"},
     {"id":"breaker-armory","label":"ARMORY WING","x":1780,"y":980,"requiredArea":"armory-wing"},
