@@ -2294,7 +2294,7 @@ function drawPlayers() {
         ctx.restore();
         if (player.id === myPlayerId) drawLocalWeaponCooldown(p.x, p.y, player);
         ctx.textAlign = "center"; ctx.fillStyle = "#454545"; ctx.font = "800 11px system-ui";
-        ctx.fillText(player.down ? `${player.name} — DOWN` : player.name, p.x, p.y - 14);
+        ctx.fillText(player.name, p.x, p.y - 14);
 
     }
     ctx.textAlign = "left";
