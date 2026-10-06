@@ -257,6 +257,20 @@ final class Enemy {
     }
 }
 
+/** A fired acid shell survives its shooter and retains the original aim point. */
+final class ArtilleryShell {
+    final double sourceX, sourceY, x, y, damage;
+    double remaining = GameConfig.ARTILLERY_FLIGHT_SECONDS;
+
+    ArtilleryShell(double sourceX, double sourceY, double x, double y, double damage) {
+        this.sourceX = sourceX;
+        this.sourceY = sourceY;
+        this.x = x;
+        this.y = y;
+        this.damage = damage;
+    }
+}
+
 final class Defense {
     final String type;
     final double maxHp;

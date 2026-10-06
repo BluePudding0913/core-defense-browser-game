@@ -55,12 +55,29 @@ final class SnapshotBuilder {
         appendAreas(json, game);
         appendPlayers(json, game.players);
         appendEnemies(json, game.enemies);
+        appendArtilleryShells(json, game);
         appendSlots(json, game);
         appendResources(json, game);
         appendFactories(json, game);
         appendDroppedResources(json, game.droppedResources);
         json.append('}');
         return json.toString();
+    }
+
+    private static void appendArtilleryShells(StringBuilder json, GameSession game) {
+        json.append(",\"artilleryShells\":[");
+        for (int i = 0; i < game.artilleryShells.size(); i++) {
+            if (i > 0) json.append(',');
+            ArtilleryShell shell = game.artilleryShells.get(i);
+            json.append("{\"x\":").append(roundOne(shell.x))
+                    .append(",\"y\":").append(roundOne(shell.y))
+                    .append(",\"sourceX\":").append(roundOne(shell.sourceX))
+                    .append(",\"sourceY\":").append(roundOne(shell.sourceY))
+                    .append(",\"remaining\":").append(shell.remaining)
+                    .append(",\"duration\":").append(GameConfig.ARTILLERY_FLIGHT_SECONDS)
+                    .append(",\"radius\":").append(GameConfig.ARTILLERY_BLAST_RADIUS).append('}');
+        }
+        json.append(']');
     }
 
     private static void appendRules(StringBuilder json, GameSession game) {

@@ -20,7 +20,7 @@ const context = vm.createContext({ ctx, Math, hitEffects: [],
 });
 vm.runInContext(extract('enemyRadius'), context);
 vm.runInContext(extract('drawEnemies'), context);
-for (const type of ['grunt', 'runner', 'brute', 'boss', 'armored', 'hunter', 'siege', 'champion', 'warlord', 'titan', 'tiny', 'shield']) {
+for (const type of ['grunt', 'runner', 'brute', 'boss', 'armored', 'hunter', 'siege', 'champion', 'warlord', 'titan', 'tiny', 'shield', 'artillery']) {
     labels.length = bars.length = bodies.length = 0;
     context.state.enemies = [{ type, x: 100, y: 100, hp: 500, maxHp: 1000 }];
     vm.runInContext('drawEnemies()', context);
@@ -35,6 +35,10 @@ for (const type of ['grunt', 'runner', 'brute', 'boss', 'armored', 'hunter', 'si
         assert.equal(bodies[0].radius, 24);
         assert(bodies.some(part => part.radius === 28));
         assert.notEqual(bodies[0].color, '#707070');
+    }
+    if (type === 'artillery') {
+        assert.equal(bodies[0].radius, 22);
+        assert(bodies.some(part => part.radius === 9 && part.color === '#cce76b'));
     }
     const isBoss = ['boss', 'warlord', 'titan'].includes(type);
     assert.equal(bars.length, isBoss ? 1 : 0);
@@ -54,4 +58,4 @@ for (const [facingX, facingY] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
     assert(Math.abs((shield.start + shield.end) / 2 - Math.atan2(facingY, facingX)) < 1e-9);
     assert(Math.abs(shield.end - shield.start - 2 * Math.PI / 3) < 1e-9);
 }
-console.log('Enemy display passed: twelve enemy types, frontal shield, tiny body and eyes, distinct elite visuals and boss health bars');
+console.log('Enemy display passed: thirteen enemy types, artillery sac, frontal shield, tiny body and eyes, distinct elite visuals and boss health bars');
