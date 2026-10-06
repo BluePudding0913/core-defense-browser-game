@@ -146,7 +146,7 @@
         {"column":10,"row":9},{"column":11,"row":9},{"column":12,"row":9},{"column":13,"row":9},{"column":14,"row":9},{"column":15,"row":9},{"column":16,"row":9}
       ]
     },
-    {"id":"command-room","name":"COMMAND ROOM","terminalX":420,"terminalY":260,"labelX":240,"labelY":60,"color":"#ffffff","detail":"Deep defense sector / access to SNIPER ROOM",
+    {"id":"command-room","name":"COMMAND ROOM","terminalX":380,"terminalY":260,"labelX":240,"labelY":60,"color":"#ffffff","detail":"Deep defense sector / access to SNIPER ROOM",
       "tiles": [
         {"column":2,"row":2},{"column":3,"row":2},{"column":4,"row":2},{"column":5,"row":2},{"column":6,"row":2},{"column":7,"row":2},{"column":8,"row":2},{"column":9,"row":2},
         {"column":2,"row":3},{"column":3,"row":3},{"column":4,"row":3},{"column":5,"row":3},{"column":6,"row":3},{"column":7,"row":3},{"column":8,"row":3},{"column":9,"row":3},
@@ -220,7 +220,7 @@
         {"column":19,"row":14},{"column":20,"row":14},{"column":21,"row":14},{"column":22,"row":14}
       ]
     },
-    {"id":"sniper-room","name":"SNIPER ROOM","terminalX":180,"terminalY":500,"labelX":340,"labelY":580,"color":"#ffffff","detail":"十分な弾薬を補充できます",
+    {"id":"sniper-room","name":"SNIPER ROOM","terminalX":220,"terminalY":500,"labelX":340,"labelY":580,"color":"#ffffff","detail":"十分な弾薬を補充できます",
       "tiles": [
         {"column":5,"row":12},
         {"column":4,"row":13},{"column":5,"row":13},{"column":6,"row":13},{"column":7,"row":13},
