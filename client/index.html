@@ -20,7 +20,7 @@
                 <span id="phase-detail">next round in 0:20</span>
             </div>
         </div>
-        <button id="leave-game" class="leave-game" type="button">退出</button>
+        <button id="leave-game" class="leave-game" type="button">EXIT</button>
         <div id="team" class="team"></div>
         <div id="self-vitals" class="self-vitals hidden">
             <div id="health-heart" class="health-heart" role="img" aria-label="体力 100%">
@@ -52,6 +52,16 @@
             </div>
         </section>
     </section>
+
+    <dialog id="exit-dialog" aria-labelledby="exit-dialog-title">
+        <form method="dialog">
+            <p id="exit-dialog-title">ゲームから退出しますか？</p>
+            <div class="exit-dialog-actions">
+                <button value="cancel" autofocus>いいえ</button>
+                <button value="exit">はい</button>
+            </div>
+        </form>
+    </dialog>
 
     <div id="round-intro" class="round-intro" aria-live="assertive"></div>
 

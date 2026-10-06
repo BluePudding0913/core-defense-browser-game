@@ -696,11 +696,22 @@ refreshRoomsButton.addEventListener("click", () => {
     }
 });
 leaveRoomButton.addEventListener("click", leaveRoom);
-document.querySelector("#leave-game").addEventListener("click", () => {
-    if (window.confirm("ゲームから退出しますか？")) {
-        window.coreMenu.phrase = "";
-        leaveRoom();
-    }
+const exitDialog = document.querySelector("#exit-dialog");
+document.querySelector("#leave-game").addEventListener("click", openExitDialog);
+function openExitDialog() {
+    if (exitDialog.open) return;
+    endInteractionHold(true);
+    keys.clear(); joystick = null;
+    dashKey = false; setDash(false);
+    if (pendingMove) clearTimeout(pendingMove.timer);
+    pendingMove = null;
+    if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
+    sendMovement();
+    exitDialog.returnValue = "cancel";
+    exitDialog.showModal();
+}
+exitDialog.addEventListener("close", () => {
+    if (exitDialog.returnValue === "exit") leaveRoom();
 });
 
 let equipmentOrder = loadEquipmentOrder();
@@ -1495,11 +1506,17 @@ function isTypingTarget(target) {
 }
 
 window.addEventListener("keydown", event => {
+    if (exitDialog.open) return;
     if (isTypingTarget(event.target)) return;
     const key = event.key.toLowerCase();
     if (!howToMenu.classList.contains("hidden")) {
         if (["escape", "e"].includes(key)) closeHowTo();
         event.preventDefault();
+        return;
+    }
+    if (key === "escape" && state && ["preparing", "wave"].includes(state.phase)) {
+        event.preventDefault();
+        if (!event.repeat) openExitDialog();
         return;
     }
     if (/^[1-9]$/.test(key) && state && ["preparing", "wave"].includes(state.phase)) {
