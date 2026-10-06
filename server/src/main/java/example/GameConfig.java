@@ -31,6 +31,9 @@ final class GameConfig {
     static final int MEDKIT_CAPACITY = 5;
     static final int HEAL_PRICE = 80;
     static final double BOMBER_BLAST_RADIUS = 4 * GameMap.TILE_SIZE;
+    static final double EXPLOSION_BOSS_BLAST_RADIUS = 12 * GameMap.TILE_SIZE;
+    static final double EXPLOSION_BOSS_FUSE_SECONDS = 30;
+    static final double EXPLOSION_BOSS_DAMAGE = 100 * 1.10;
     static final double ROCKET_BLAST_RADIUS = 200;
     static final double ARTILLERY_RANGE = 420;
     static final double ARTILLERY_BLAST_RADIUS = 64;

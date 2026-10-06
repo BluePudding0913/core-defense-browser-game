@@ -35,7 +35,7 @@ class LateRoundPressureTest {
         for (var entry : populations.entrySet()) {
             beginRound(entry.getKey());
             assertEquals(entry.getValue().intValue(), game.queuedEnemies, "R" + entry.getKey());
-            int bosses = entry.getKey() == 40 ? 20 : 0;
+            int bosses = entry.getKey() == 40 ? 20 : entry.getKey() == 45 ? 1 : 0;
             assertEquals(bosses, game.queuedBosses);
             var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
             assertEquals(entry.getValue() + bosses, snapshot.path("queued").asInt());

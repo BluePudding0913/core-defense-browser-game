@@ -2164,7 +2164,7 @@ function smoothEntity(prefix, entity) {
 
 function enemyRadius(enemy) {
     return ({ boss: 42, warlord: 44, titan: 48, brute: 28, armored: 30,
-        siege: 32, champion: 26, runner: 16, hunter: 18, tiny: 3, shield: 24, bomber: 20, artillery: 22 })[enemy.type] || 21;
+        siege: 32, champion: 26, runner: 16, hunter: 18, tiny: 3, shield: 24, bomber: 20, artillery: 22, explosionBoss: 42 })[enemy.type] || 21;
 }
 
 function drawArtilleryShells() {
@@ -2207,11 +2207,29 @@ function drawEnemies() {
             ctx.beginPath(); ctx.arc(p.x, p.y, radius + 7, 0, Math.PI * 2); ctx.fill();
             ctx.restore();
         }
-        ctx.fillStyle = colors[enemy.type] || colors.grunt; ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.fill();
+        const explosionBoss = enemy.type === "explosionBoss";
+        let flashing = false;
+        if (explosionBoss && enemy.fuse >= 0) {
+            const sinceSnapshot = Math.max(0, (performance.now() - (state.artilleryReceivedAt ?? performance.now())) / 1000);
+            const elapsed = clamp(30 - enemy.fuse + sinceSnapshot, 0, 30);
+            // Integrate a frequency rising from 0.5 Hz to 5 Hz for a continuous blink phase.
+            flashing = Math.sin(2 * Math.PI * (.5 * elapsed + .075 * elapsed * elapsed)) > 0;
+        }
+        ctx.fillStyle = explosionBoss ? (flashing ? "#b52b32" : "#080808") : colors[enemy.type] || colors.grunt;
+        ctx.beginPath();
+        if (explosionBoss) {
+            for (let i = 0; i < 6; i++) {
+                const angle = Math.PI / 3 * i - Math.PI / 6;
+                const x = p.x + Math.cos(angle) * radius, y = p.y + Math.sin(angle) * radius;
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+        } else ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+        ctx.fill();
         const isBoss = ["boss", "warlord", "titan"].includes(enemy.type);
         ctx.strokeStyle = isBoss ? "#fff" : "#c8c8c8"; ctx.lineWidth = isBoss ? 5 : Math.min(2, radius / 3); ctx.stroke();
         const eyeRadius = Math.min(3, radius * .2), eyeOffset = Math.min(3, radius * .5);
-        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(p.x - radius * .3, p.y - eyeOffset, eyeRadius, 0, Math.PI * 2); ctx.arc(p.x + radius * .3, p.y - eyeOffset, eyeRadius, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = explosionBoss ? "#ff1527" : "#fff"; ctx.beginPath(); ctx.arc(p.x - radius * .3, p.y - eyeOffset, eyeRadius, 0, Math.PI * 2); ctx.arc(p.x + radius * .3, p.y - eyeOffset, eyeRadius, 0, Math.PI * 2); ctx.fill();
         if (enemy.type === "shield") {
             const angle = Math.atan2(enemy.facingY ?? 1, enemy.facingX ?? 0);
             ctx.strokeStyle = "#83d5f2"; ctx.lineWidth = 7;
