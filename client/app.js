@@ -1859,9 +1859,10 @@ function drawWorld() {
             const symbol = TILE_MAP.rows[row][column];
             const tile = TILE_MAP.legend[symbol];
             const x = column * size, y = row * size;
-            ctx.fillStyle = !tile.solid && !reachable.has(row + ":" + column) ? "#242424" : tile.color;
+            const hiddenFloor = !tile.solid && !reachable.has(row + ":" + column);
+            ctx.fillStyle = hiddenFloor ? TILE_MAP.legend["#"].color : tile.color;
             ctx.fillRect(x, y, size, size);
-            if (!tile.solid) {
+            if (!tile.solid && !hiddenFloor) {
                 ctx.strokeStyle = "rgb(0 0 0 / 5%)";
                 ctx.lineWidth = 1;
                 ctx.strokeRect(x + .5, y + .5, size - 1, size - 1);
