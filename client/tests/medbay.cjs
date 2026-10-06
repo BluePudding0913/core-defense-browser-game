@@ -41,28 +41,31 @@ context.state.areas['recovery-room'] = true;
 vm.runInContext('drawSpawnEntrance(spawn)', context);
 assert.equal(drawn, 1, 'numbered entrances use the room unlock state');
 
-const hearts = [];
+const particles = [];
 let clock = 300;
 context.performance = { now: () => clock };
-context.ctx = { save() {}, restore() {}, beginPath() {}, moveTo() {}, bezierCurveTo() {},
-    fill() { hearts.push(true); }, translate(x, y) { hearts.push({x,y}); } };
+context.ctx = { save() {}, restore() {}, beginPath() {}, fill() {},
+    arc(x, y, radius) { particles.push({x,y,radius}); } };
 context.player = { hp: 40, down: false, medbayHealing: true };
 context.position = { x: 440, y: 1860 };
-const heartStart = source.indexOf('function drawMedbayHearts(');
-const heartEnd = source.indexOf('\nfunction ', heartStart + 1);
-vm.runInContext(source.slice(heartStart, heartEnd), context);
-const drawHearts = () => vm.runInContext('drawMedbayHearts(player, position)', context);
-drawHearts();
-assert.equal(hearts.filter(h => h === true).length, 2);
-const firstY = hearts[0].y;
-hearts.length = 0; clock = 450;
-drawHearts(); assert(hearts[0].y < firstY, 'hearts rise while healing');
+const particleStart = source.indexOf('function drawMedbayParticles(');
+const particleEnd = source.indexOf('\nfunction ', particleStart + 1);
+vm.runInContext(source.slice(particleStart, particleEnd), context);
+const drawParticles = () => vm.runInContext('drawMedbayParticles(player, position)', context);
+const distanceToBody = particle => Math.hypot(particle.x - context.position.x, particle.y - context.position.y);
+drawParticles();
+assert.equal(particles.length, 4);
+const firstDistance = distanceToBody(particles[0]);
+particles.length = 0; clock = 450;
+drawParticles();
+assert(distanceToBody(particles[0]) < firstDistance, 'particles converge on the body while healing');
+assert.equal(context.ctx.fillStyle, '#a3dbc0');
 for (const player of [
     { hp: 40, down: false, medbayHealing: false },
     { hp: 40, down: true, medbayHealing: true },
     { hp: 100, down: false, medbayHealing: true },
 ]) {
-    context.player = player; hearts.length = 0;
-    drawHearts(); assert.equal(hearts.length, 0);
+    context.player = player; particles.length = 0;
+    drawParticles(); assert.equal(particles.length, 0);
 }
-console.log('Healing hearts passed: rising animation and authoritative healing state');
+console.log('Healing particles passed: convergence, pale green and authoritative healing state');

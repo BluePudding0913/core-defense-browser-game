@@ -46,7 +46,7 @@ context.hitEffects=[];
 context.smoothEntity=(_,p)=>p;
 context.drawLocalWeaponCooldown=()=>{};
 context.drawReviveEffect=(...args)=>bars.push(args);
-vm.runInContext(extract('drawMedbayHearts')+extract('drawPlayers'),context);
+vm.runInContext(extract('drawMedbayParticles')+extract('drawPlayers'),context);
 for(const [rescuer,target,expected] of [['ally','other',0],['me','other',1],['ally','me',1]]) {
  bars=[]; context.state.players=[{id:rescuer,action:target,actionProgress:2,x:0,y:0},{id:target,down:true,x:10,y:10}];
  vm.runInContext('drawPlayers()',context); assert.equal(bars.length,expected);

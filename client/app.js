@@ -2283,26 +2283,27 @@ function drawPlayers() {
         if (player.id === myPlayerId) drawLocalWeaponCooldown(p.x, p.y, player);
         ctx.textAlign = "center"; ctx.fillStyle = "#454545"; ctx.font = "800 11px system-ui";
         ctx.fillText(player.down ? `${player.name} — DOWN` : player.name, p.x, p.y - 14);
-        drawMedbayHearts(player, p);
+        drawMedbayParticles(player, p);
 
     }
     ctx.textAlign = "left";
 }
 
-function drawMedbayHearts(player, position) {
+function drawMedbayParticles(player, position) {
     if (!player.medbayHealing || player.down || player.hp >= 100) return;
-    const time = performance.now() / 900;
-    for (let index = 0; index < 2; index++) {
-        const progress = (time + index * .5) % 1;
+    const time = performance.now() / 1200;
+    for (let index = 0; index < 4; index++) {
+        const progress = (time + index * .25) % 1;
+        const angle = index * Math.PI / 2 + .4 + progress * .35;
+        const distance = 24 * (1 - progress);
         ctx.save();
-        ctx.globalAlpha = Math.min(1, progress / .15) * (1 - progress);
-        ctx.fillStyle = "#ed7299";
-        ctx.translate(position.x + (index ? 13 : -13) + Math.sin(progress * Math.PI * 2) * 3,
-            position.y - 8 - progress * 28);
+        ctx.globalAlpha = Math.sin(progress * Math.PI) * .7;
+        ctx.fillStyle = "#a3dbc0";
+        ctx.shadowColor = "#a3dbc0";
+        ctx.shadowBlur = 3;
         ctx.beginPath();
-        ctx.moveTo(0, 4);
-        ctx.bezierCurveTo(-10, -2, -6, -9, 0, -4);
-        ctx.bezierCurveTo(6, -9, 10, -2, 0, 4);
+        ctx.arc(position.x + Math.cos(angle) * distance,
+            position.y + Math.sin(angle) * distance, 1.5 - progress * .5, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
     }
