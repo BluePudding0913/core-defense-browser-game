@@ -41,6 +41,8 @@ interface GameEventSink {
 final class GameSession {
     private static final double BOT_REACTION_SECONDS = 1.5;
     private boolean debugMode;
+    int roundEnemyTotal;
+    private boolean explosionBossSpawned;
 
     static int ammoRefillCost() {
         return 120;
@@ -380,21 +382,27 @@ final class GameSession {
         player.roomReady = ready;
     }
 
+    private boolean isExplosionBossRound() {
+        return round >= 25 && (round - 25) % 10 == 0;
+    }
+
     private void beginRound() {
         round++;
         selectRoundSpawns(round);
         phase = GamePhase.WAVE;
         queuedEnemies = 6 + round * 3;
-        queuedBosses = round % 4 == 0 ? round / 4 : 0;
+        queuedBosses = isExplosionBossRound() ? 1 : round % 4 == 0 ? round / 4 : 0;
         if (round >= 40) {
             // Double the R40 population, then add 20 percentage points per round.
             queuedEnemies = (queuedEnemies * (10 + round - 40) + 4) / 5;
-            queuedBosses *= 2;
+            if (!isExplosionBossRound()) queuedBosses *= 2;
         }
+        roundEnemyTotal = queuedEnemies + queuedBosses;
+        explosionBossSpawned = false;
         // Reserve one simultaneous swarm within the regular population on selected late rounds.
         queuedTinyEnemies = round >= 40 && (round - 40) % 3 == 0
                 ? Math.min(queuedEnemies, 48 + (round - 40) * 4) : 0;
-        roundEvent = round % 4 == 3 ? "blackout"
+        roundEvent = isExplosionBossRound() ? "boss_assault" : round % 4 == 3 ? "blackout"
                 : round >= 5 && round % 4 == 1 ? "door_failure"
                 : round % 4 == 0 ? "boss_assault" : "none";
         failedSpawnId = roundEvent.equals("door_failure")
@@ -622,7 +630,9 @@ final class GameSession {
             // Each member uses the next entrance so a burst pressures multiple sides.
             SpawnPoint spawn = nextRoundSpawn();
             if (queuedBosses > 0 && queuedEnemies <= queuedBosses * 2) {
-                spawnEnemy(round >= 40 ? "titan" : round >= 24 ? "warlord" : "boss", spawn);
+                String bossType = isExplosionBossRound() && !explosionBossSpawned ? "explosionBoss"
+                        : round >= 40 ? "titan" : round >= 24 ? "warlord" : "boss";
+                spawnEnemy(bossType, spawn);
                 queuedBosses--;
             } else if (queuedEnemies > 0) {
                 spawnEnemy(selectEnemyType(spawn), spawn);
@@ -637,6 +647,7 @@ final class GameSession {
     private String selectEnemyType(SpawnPoint spawn) {
         // Guarantee an early preview without adding enemies to the wave budget.
         if (debugMode && round == 1 && (nextEnemyId == 1 || nextEnemyId == 4)) return "artillery";
+        if (debugMode && round == 1 && !explosionBossSpawned) return "explosionBoss";
         // Reserve a growing share for elites, retaining each entrance's original mix.
         if (round >= 6 && random.nextDouble() < .10) return "bomber";
         double eliteRoll = random.nextDouble();
@@ -672,12 +683,46 @@ final class GameSession {
         return GameMap.spawnById(id);
     }
 
+    private SpawnPoint explosionBossSpawn(SpawnPoint fallback) {
+        SpawnPoint deepest = fallback;
+        double greatestDepth = -1;
+        for (SpawnPoint candidate : GameMap.SPAWN_POINTS) {
+            // Keep supply pockets safe, while letting debug previews use unlocked combat areas.
+            if (!interiorSpawnEligible(candidate, Math.max(round, 25))) continue;
+            List<MapPoint> path = findPath(candidate.x(), candidate.y(), CORE_X, CORE_Y, 17, false);
+            if (path.isEmpty()) continue;
+            MapPoint end = path.get(path.size() - 1);
+            // The pathfinder may return a partial route for an unreachable destination.
+            if (distance(end.x(), end.y(), CORE_X, CORE_Y) > GameMap.TILE_SIZE
+                    || !canEnemyTravel(end.x(), end.y(), CORE_X, CORE_Y)) continue;
+            double depth = 0, x = candidate.x(), y = candidate.y();
+            for (MapPoint point : path) {
+                depth += distance(x, y, point.x(), point.y());
+                x = point.x(); y = point.y();
+            }
+            depth += distance(x, y, CORE_X, CORE_Y);
+            if (depth > greatestDepth) {
+                greatestDepth = depth;
+                deepest = candidate;
+            }
+        }
+        return deepest;
+    }
+
     private void spawnEnemy(String type, SpawnPoint spawn) {
+        if (type.equals("explosionBoss")) spawn = explosionBossSpawn(spawn);
         double hp;
         double speed;
         double damage;
         int reward;
         switch (type) {
+            case "explosionBoss" -> {
+                hp = 500_000_000;
+                speed = 24;
+                damage = 0;
+                reward = 0;
+                explosionBossSpawned = true;
+            }
             case "bomber" -> {
                 hp = 45 + round * 4;
                 speed = 90 + round * 2;
@@ -799,12 +844,12 @@ final class GameSession {
                     boolean hit = !target.type.equals("tiny") || random.nextDouble() < tinyHitChance;
                     double turretDamage = (17+round*.5)*(defense.type.equals("silverTurret") ? 3.5 : defense.type.equals("copperTurret") ? 2 : 1);
                     turretDamage = target.shieldedDamage(turretDamage, slot.x, slot.y);
-                    if (hit) damageEnemy(target,turretDamage,null);
+                    double dealt = hit ? damageEnemy(target, turretDamage, null) : 0;
                     double missAngle = Math.atan2(target.y - slot.y, target.x - slot.x) + Math.PI / 2;
                     sendHitEffect("trap", "turret", slot.x, slot.y,
                             target.x + (hit ? 0 : Math.cos(missAngle) * 16),
                             target.y + (hit ? 0 : Math.sin(missAngle) * 16),
-                            hit ? turretDamage : 0, target.hp <= 0, 0, false);
+                            dealt, target.hp <= 0, 0, false);
                     defense.cooldown = defense.type.equals("silverTurret") ? .45 : .7;
                 }
             } else if (defense.type.equals("mine")) {
@@ -814,9 +859,9 @@ final class GameSession {
                 if (trigger != null) {
                     for (Enemy enemy : enemies) {
                         if (enemy.hp > 0 && distance(slot.x, slot.y, enemy.x, enemy.y) < 120) {
-                            damageEnemy(enemy, 450, null);
+                            double dealt = damageEnemy(enemy, 450, null);
                             sendHitEffect("trap", "mine", slot.x, slot.y, enemy.x, enemy.y,
-                                    450, enemy.hp <= 0, 0, false);
+                                    dealt, enemy.hp <= 0, 0, false);
                         }
                     }
                     slot.defense = null;
@@ -833,8 +878,16 @@ final class GameSession {
 
     private void updateEnemies(double dt) {
         updateArtilleryShells(dt);
+        long remaining = queuedEnemies + queuedBosses + enemies.stream()
+                .filter(e -> e.hp > 0 && !e.type.equals("explosionBoss")).count();
+        List<Enemy> explodedBosses = new ArrayList<>();
         for (Enemy enemy : enemies) {
             if (enemy.hp <= 0) continue;
+            if (enemy.type.equals("explosionBoss")) {
+                updateExplosionBoss(enemy, dt, remaining);
+                if (enemy.exploded) explodedBosses.add(enemy);
+                continue;
+            }
             enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
             enemy.pathTimer -= dt;
             updateEnemyWander(enemy, dt);
@@ -921,6 +974,46 @@ final class GameSession {
                 moveEnemyToward(enemy, targetX, targetY,
                         enemy.speed * enemy.slow * dt);
             }
+        }
+        // Add offspring after iteration so each explosion spawns exactly one batch safely.
+        for (Enemy boss : explodedBosses) spawnExplosionBossRunners(boss);
+    }
+
+    private void spawnExplosionBossRunners(Enemy boss) {
+        SpawnPoint entrance = GameMap.spawnById(boss.spawnId);
+        SpawnPoint remains = new SpawnPoint(entrance.id(), entrance.name(), boss.x, boss.y,
+                entrance.lane(), entrance.enemyBias(), entrance.speedMultiplier(), entrance.targetPriority(),
+                List.of(new MapPoint(coreX, coreY)));
+        for (int i = 0; i < 5; i++) spawnEnemy("runner", remains);
+    }
+
+    private void updateExplosionBoss(Enemy enemy, double dt, long remaining) {
+        enemy.pathTimer -= dt;
+        if (enemy.fuse < 0 && roundEnemyTotal > 0 && remaining * 20 < roundEnemyTotal) {
+            enemy.fuse = GameConfig.EXPLOSION_BOSS_FUSE_SECONDS;
+        }
+        if (enemy.fuse >= 0) {
+            enemy.fuse = Math.max(0, enemy.fuse - dt);
+            if (enemy.fuse <= 1e-9) {
+                enemy.fuse = 0;
+                enemy.exploded = true;
+                enemy.hp = 0;
+                double radius = GameConfig.EXPLOSION_BOSS_BLAST_RADIUS;
+                events.broadcast("{\"type\":\"effect\",\"effect\":\"explosion\",\"x\":" + roundOne(enemy.x)
+                        + ",\"y\":" + roundOne(enemy.y) + ",\"radius\":" + radius + "}");
+                for (Player target : players) {
+                    if (!target.down && distance(enemy.x, enemy.y, target.x, target.y) <= radius) {
+                        damagePlayer(target, GameConfig.EXPLOSION_BOSS_DAMAGE);
+                    }
+                }
+                return;
+            }
+        }
+        Player target = nearestPlayer(enemy, WORLD_W + WORLD_H);
+        if (target != null) {
+            enemy.faceToward(target.x, target.y);
+            if (distance(enemy.x, enemy.y, target.x, target.y) > 36)
+                moveEnemyToward(enemy, target.x, target.y, enemy.speed * enemy.slow * dt);
         }
     }
 
@@ -1819,9 +1912,9 @@ final class GameSession {
             // Full damage at the center, half damage at the edge; no headshot multiplier.
             double damage = weapon.damage() * (1 - .5 * blastDistance / GameConfig.ROCKET_BLAST_RADIUS);
             int creditsBefore = player.credits;
-            damageEnemy(enemy, damage, player);
+            double dealt = damageEnemy(enemy, damage, player);
             knockbackEnemy(x, y, enemy, weapon.knockback());
-            sendHitEffect(player.id, "rocket", x, y, enemy.x, enemy.y, damage,
+            sendHitEffect(player.id, "rocket", x, y, enemy.x, enemy.y, dealt,
                     enemy.hp <= 0, player.credits - creditsBefore, false);
         }
     }
@@ -1874,11 +1967,11 @@ final class GameSession {
             boolean headshot = isHeadshot(hit, player, originX, originY, directionX, directionY, weapon, shotDistance);
             double damage = weapon.damage() * (headshot ? 2 : 1);
             if (!player.weapon.equals("bat")) damage = hit.shieldedDamage(damage, originX, originY);
-            damageEnemy(hit, damage, player);
+            double dealt = damageEnemy(hit, damage, player);
             if (headshot) player.credits += 3;
             knockbackEnemy(originX, originY, hit, weapon.knockback());
             sendHitEffect(player.id, player.weapon, player.x, player.y, hit.x, hit.y,
-                    damage, hit.hp <= 0, player.credits - creditsBeforeHit, headshot);
+                    dealt, hit.hp <= 0, player.credits - creditsBeforeHit, headshot);
         }
         return !targets.isEmpty();
     }
@@ -1897,7 +1990,7 @@ final class GameSession {
 
     private boolean isHeadshot(Enemy enemy, Player player, double originX, double originY, double directionX,
             double directionY, WeaponStats weapon, double shotDistance) {
-        if (player.weapon.equals("bat")) return false;
+        if (player.weapon.equals("bat") || enemy.type.equals("explosionBoss")) return false;
         double radius = enemyRadius(enemy);
         double headX = enemy.x;
         double headY = enemy.y - radius * 0.5;
@@ -1915,6 +2008,7 @@ final class GameSession {
 
     private static double enemyRadius(Enemy enemy) {
         return switch (enemy.type) {
+            case "explosionBoss" -> 42;
             case "bomber" -> 20;
             case "tiny" -> 3;
             case "boss" -> 42;
@@ -1936,8 +2030,9 @@ final class GameSession {
         return GameConfig.WEAPONS.getOrDefault(weapon, GameConfig.WEAPONS.get("pistol"));
     }
 
-    private void damageEnemy(Enemy enemy, double damage, Player player) {
-        if (enemy.hp <= 0) return;
+    private double damageEnemy(Enemy enemy, double damage, Player player) {
+        if (enemy.hp <= 0) return 0;
+        if (enemy.type.equals("explosionBoss")) damage *= .001;
         double dealt = Math.min(enemy.hp, damage);
         enemy.hp -= dealt;
         if (player != null && dealt > 0) {
@@ -1952,6 +2047,8 @@ final class GameSession {
             if (enemy.hp <= 0) player.kills++;
         }
         if (enemy.hp <= 0 && enemy.type.equals("bomber")) explodeBomber(enemy);
+        // Report the mitigated hit strength, retaining ordinary overkill feedback.
+        return damage;
     }
 
     private void knockbackEnemy(double fromX, double fromY, Enemy enemy, double amount) {
@@ -1971,7 +2068,7 @@ final class GameSession {
         events.broadcast("{\"type\":\"effect\",\"effect\":\"hit\",\"playerId\":\"" + playerId
                 + "\",\"weapon\":\"" + weapon + "\",\"fromX\":" + roundOne(fromX)
                 + ",\"fromY\":" + roundOne(fromY) + ",\"x\":" + roundOne(x)
-                + ",\"y\":" + roundOne(y) + ",\"damage\":" + roundOne(damage)
+                + ",\"y\":" + roundOne(y) + ",\"damage\":" + (Math.round(damage * 1000) / 1000.0)
                 + ",\"defeated\":" + defeated + ",\"credits\":" + credits
                 + ",\"headshot\":" + headshot + "}");
     }
@@ -2668,6 +2765,8 @@ final class GameSession {
 
     private void resetWorld() {
         debugMode = false;
+        explosionBossSpawned = false;
+        roundEnemyTotal = 0;
         pathfinder.clear();
         phase = GamePhase.LOBBY;
         round = 0;
