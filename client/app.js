@@ -55,6 +55,7 @@ let WORLD = { width: 1, height: 1 };
 let CORE = { x: 0, y: 0 };
 let ARMORY = { id: "armory", x: 0, y: 0 };
 let MED = { id: "med", x: 0, y: 0 };
+let MEDBAYS = [];
 let WOODCUTTER = { id: "woodcutter", x: 0, y: 0 };
 let QUARRY = { id: "quarry", x: 0, y: 0 };
 let WORKBENCH = { id: "workbench", x: 0, y: 0 };
@@ -152,6 +153,7 @@ function applyMap(map) {
     floorOrigin = { ...map.core };
     ARMORY = { ...map.stations.armory };
     MED = { ...map.stations.medBay };
+    MEDBAYS = [MED, ...(map.medBayUnits || []).map(station => ({ ...station }))];
     WOODCUTTER = { ...map.stations.woodcutter };
     QUARRY = { ...map.stations.quarry };
     WORKBENCH = { ...map.stations.workbench };
@@ -212,6 +214,10 @@ function validateMap(map) {
     requireUniqueIds(map.shopUnits, "shopUnits");
     requireUniqueIds(map.workbenchUnits, "workbenchUnits");
     requireUniqueIds(map.breakerTerminals, "breakerTerminals");
+    if (map.medBayUnits !== undefined && !Array.isArray(map.medBayUnits)) {
+        throw new Error("medBayUnitsの配列が不正です");
+    }
+    requireUniqueIds([map.stations.medBay, ...(map.medBayUnits || [])], "medBayUnits");
     validateMapPositions(map);
     for (const spawn of map.spawnPoints) {
         if (!Array.isArray(spawn.route) || spawn.route.length === 0 || !spawn.route.every(isPoint)) {
@@ -244,7 +250,7 @@ function validateMapPositions(map) {
         check({ id: area.id, x: area.labelX, y: area.labelY }, false);
     }
     for (const point of [...map.trapSlots, ...map.resourceNodes, ...map.shopUnits,
-        ...map.workbenchUnits, ...map.breakerTerminals, map.prepConsole, ...map.spawnPoints]) {
+        ...map.workbenchUnits, ...map.breakerTerminals, ...(map.medBayUnits || []), map.prepConsole, ...map.spawnPoints]) {
         check(point);
         if (point.requiredArea != null) {
             const area = map.areas.find(area => area.id === point.requiredArea);
@@ -1214,7 +1220,7 @@ function canBuildAt(point, forCore = false) {
     const symbol = TILE_MAP.rows[row]?.[column];
     if (!symbol || !TILE_MAP.legend[symbol]?.buildable) return false;
     if (!forCore && distance(point, state.core) < 40) return false;
-    if (distance(point, ARMORY) < 36 || distance(point, MED) < 36
+    if (distance(point, ARMORY) < 36 || MEDBAYS.some(station => distance(point, station) < 36)
             || distance(point, WOODCUTTER) < 36 || distance(point, QUARRY) < 36) return false;
     if (AREAS.some(area => distance(point, { x: area.terminalX, y: area.terminalY }) < 36)) return false;
     if (WORKBENCHES.some(workbench => distance(point, workbench) < 36)) return false;
@@ -2067,7 +2073,9 @@ function drawShops() {
         const shop = SHOP_UNITS.find(shop => shop.item === unit.item);
         drawStation(unit, shop.label, "#70bfff", "#111");
     });
-    if (isUnlockedPoint(MED)) drawStation(MED, "MED BAY", "#d8d8d8", "#111");
+    for (const station of MEDBAYS) {
+        if (isUnlockedPoint(station)) drawStation(station, "MED BAY", "#d8d8d8", "#111");
+    }
     if (isUnlockedPoint(WOODCUTTER)) drawStation(WOODCUTTER, "WOODCUTTER", "#a8a8a8");
     if (isUnlockedPoint(QUARRY)) drawStation(QUARRY, "QUARRY", "#808080");
     WORKBENCHES

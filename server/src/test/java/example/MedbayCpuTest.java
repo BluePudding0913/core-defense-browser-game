@@ -31,6 +31,21 @@ class MedbayCpuTest {
 
     void decide() throws Exception { bots.invoke(game, .05); }
 
+    @Test void cpuUsesNearbyNewMedbaysWithoutOpeningRecoveryRoom() throws Exception {
+        game.unlockedAreas.remove("recovery-room");
+        for (String room : new String[]{"armory-wing", "security-hall"}) {
+            game.unlockedAreas.add(room);
+            Station station = GameMap.MEDBAYS.stream()
+                    .filter(s -> GameMap.areaById(room).contains(s.x(), s.y())).findFirst().orElseThrow();
+            bot.x = station.x() + 40; bot.y = station.y(); bot.hp = 40;
+            bot.botSeekingMedbay = false;
+            for (int tick = 0; tick < 40 && bot.hp < 100; tick++) game.update(.05);
+            assertEquals(100, bot.hp);
+            assertEquals(0, bot.credits);
+            assertFalse(game.unlockedAreas.contains("recovery-room"));
+        }
+    }
+
     @Test void pennilessCpuNavigatesToMedbayAndCompletesGradualRecovery() {
         double startX = bot.x;
         for (int tick = 0; tick < 600 && bot.hp < 100; tick++) {

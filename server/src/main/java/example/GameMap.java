@@ -22,6 +22,7 @@ final class GameMap {
     static final double ARMORY_Y = DEFINITION.stations().armory().y();
     static final double MED_X = DEFINITION.stations().medBay().x();
     static final double MED_Y = DEFINITION.stations().medBay().y();
+    static final List<Station> MEDBAYS = buildMedbays();
     static final double WOODCUTTER_X = DEFINITION.stations().woodcutter().x();
     static final double WOODCUTTER_Y = DEFINITION.stations().woodcutter().y();
     static final double QUARRY_X = DEFINITION.stations().quarry().x();
@@ -44,6 +45,13 @@ final class GameMap {
     private static final String CLIENT_MAP_MESSAGE = buildClientMapMessage();
 
     private GameMap() { }
+
+    private static List<Station> buildMedbays() {
+        List<Station> stations = new ArrayList<>();
+        stations.add(DEFINITION.stations().medBay());
+        if (DEFINITION.medBayUnits() != null) stations.addAll(DEFINITION.medBayUnits());
+        return List.copyOf(stations);
+    }
 
     static List<TrapSlot> createTrapSlots() {
         return new ArrayList<>(DEFINITION.trapSlots().stream()
@@ -136,10 +144,11 @@ final class GameMap {
 
     private static List<MapPoint> buildFacilityPositions() {
         List<MapPoint> positions = new ArrayList<>(List.of(
-                new MapPoint(ARMORY_X, ARMORY_Y), new MapPoint(MED_X, MED_Y),
+                new MapPoint(ARMORY_X, ARMORY_Y),
                 new MapPoint(WOODCUTTER_X, WOODCUTTER_Y), new MapPoint(QUARRY_X, QUARRY_Y),
                 new MapPoint(PREP_CONSOLE.x(), PREP_CONSOLE.y())));
         AREAS.forEach(area -> positions.add(new MapPoint(area.terminalX(), area.terminalY())));
+        MEDBAYS.forEach(station -> positions.add(new MapPoint(station.x(), station.y())));
         WORKBENCH_UNITS.forEach(unit -> positions.add(new MapPoint(unit.x(), unit.y())));
         SHOP_UNITS.forEach(unit -> positions.add(new MapPoint(unit.x(), unit.y())));
         BREAKER_TERMINALS.forEach(unit -> positions.add(new MapPoint(unit.x(), unit.y())));

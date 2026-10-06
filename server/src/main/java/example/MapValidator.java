@@ -72,6 +72,12 @@ final class MapValidator {
     }
 
     static void validatePositions(MapDefinition map, Set<String> areaIds) {
+        if (map.medBayUnits() != null) {
+            uniqueIds(map.medBayUnits().stream().map(Station::id).toList(), "medbay");
+            for (Station station : map.medBayUnits()) {
+                validatePoint(map, station.id(), station.x(), station.y(), true);
+            }
+        }
         validatePoint(map, "core", map.core().x(), map.core().y(), true);
         for (Station station : List.of(map.stations().armory(), map.stations().medBay(),
                 map.stations().woodcutter(), map.stations().quarry(), map.stations().workbench())) {

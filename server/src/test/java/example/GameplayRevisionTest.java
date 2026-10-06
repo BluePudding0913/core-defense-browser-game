@@ -13,7 +13,7 @@ class GameplayRevisionTest {
     Player player;
     final java.util.List<String> broadcasts = new java.util.ArrayList<>();
 
-    @Test void openingWaveWaitsEightSecondsAndClearGrantsFifteenSeconds() {
+    @Test void openingWaveWaitsEightSecondsAndClearGrantsTenSeconds() {
         game.prepTime = 0;
         game.update(.05);
         assertEquals(1, game.round);
@@ -26,7 +26,7 @@ class GameplayRevisionTest {
         game.enemies.clear(); game.queuedEnemies = 0;
         game.update(.05);
         assertEquals(GamePhase.PREPARING, game.phase);
-        assertEquals(15, game.prepTime);
+        assertEquals(10, game.prepTime);
     }
 
     @Test void revolverCannotBeUnlockedFromEntryButCanFromSecurity() {

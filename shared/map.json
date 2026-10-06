@@ -9,6 +9,10 @@
     "quarry": { "id": "quarry", "x": 860, "y": 220 },
     "workbench": { "id": "workbench", "x": 980, "y": 1460 }
   },
+  "medBayUnits": [
+    { "id": "med-infirmary", "x": 1700, "y": 1100 },
+    { "id": "med-security", "x": 620, "y": 300 }
+  ],
   "tileMap": {
     "tileSize": 40,
     "legend": {

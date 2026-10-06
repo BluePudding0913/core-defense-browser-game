@@ -73,5 +73,6 @@ record MapDefinition(int version, WorldSize world, MapPoint core, Stations stati
         TileMapDefinition tileMap, List<UnlockArea> areas, List<SpawnPoint> spawnPoints,
         List<TrapSlotDefinition> trapSlots, List<ResourceNodeDefinition> resourceNodes,
         List<ShopUnit> shopUnits, List<WorkbenchUnit> workbenchUnits,
-        PrepConsole prepConsole, List<BreakerTerminal> breakerTerminals) { }
+        PrepConsole prepConsole, List<BreakerTerminal> breakerTerminals,
+        List<Station> medBayUnits) { }
 

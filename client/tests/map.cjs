@@ -6,6 +6,7 @@ const map = JSON.parse(fs.readFileSync('shared/map.json', 'utf8'));
 const context = vm.createContext({
     map, TILE_MAP: map.tileMap, WORLD: map.world, AREAS: map.areas,
     ARMORY: map.stations.armory, MED: map.stations.medBay,
+    MEDBAYS: [map.stations.medBay, ...map.medBayUnits],
     WOODCUTTER: map.stations.woodcutter, QUARRY: map.stations.quarry,
     WORKBENCHES: map.workbenchUnits, SHOP_UNITS: map.shopUnits,
     BREAKER_TERMINALS: map.breakerTerminals, PREP_CONSOLE: map.prepConsole,
@@ -48,6 +49,11 @@ for (const area of map.areas) {
     assert(!run('canBuildAt(point, true)'), area.id);
 }
 context.state.areas['entry-room'] = false;
+for (const station of map.medBayUnits) {
+    context.point = station;
+    assert(!run('canBuildAt(point)'), station.id);
+    assert(!run('canBuildAt(point, true)'), station.id);
+}
 const cell = map.areas[0].tiles[0];
 assert(!run(`canPredictOccupy(${cell.column * 40}, ${cell.row * 40}, 0)`));
 assert(run('hasInteractionPath({x:1020,y:1740},{x:1020,y:1700})'), 'floor terminal is operable');
@@ -58,6 +64,8 @@ for (const mutate of [
     m => { m.breakerTerminals[0].requiredArea = 'missing'; },
     m => { m.trapSlots[0].y = 2080; },
     m => { m.areas.push(null); },
+    m => { m.medBayUnits[0].x = -1; },
+    m => { m.medBayUnits[1].id = m.medBayUnits[0].id; },
     m => { m.tileMap.legend['.'] = null; },
     m => { m.spawnPoints[0].speedMultiplier = NaN; },
     m => { m.spawnPoints[0].speedMultiplier = Infinity; },

@@ -5,12 +5,9 @@ import example.GameConfig.WeaponStats;
 import static example.GameConfig.GATHER_COOLDOWN_SECONDS;
 import static example.GameConfig.MAX_ROUNDS;
 import static example.GameConfig.PLAYER_COUNT;
-import static example.GameConfig.PREP_SECONDS;
 import static example.GameConfig.RECONNECT_GRACE_SECONDS;
 import static example.GameMap.CORE_X;
 import static example.GameMap.CORE_Y;
-import static example.GameMap.MED_X;
-import static example.GameMap.MED_Y;
 import static example.GameMap.QUARRY_X;
 import static example.GameMap.QUARRY_Y;
 import static example.GameMap.WOODCUTTER_X;
@@ -365,7 +362,7 @@ final class GameSession {
             host.equipWeapon("pistol");
         }
         phase = GamePhase.PREPARING;
-        prepTime = 12;
+        prepTime = GameConfig.prepSeconds(1);
         setNotice("次のラウンドの準備を始めます");
     }
 
@@ -439,10 +436,10 @@ final class GameSession {
             setNotice("すべての敵を倒しました。防衛成功です");
             return;
         }
-        int reward = 18 + round * 3;
+        int reward = (int) Math.round((18 + round * 3) * GameConfig.goldMultiplier(round));
         players.forEach(player -> player.credits += reward);
         phase = GamePhase.PREPARING;
-        prepTime = PREP_SECONDS + nextPrepBonusSeconds;
+        prepTime = GameConfig.prepSeconds(round + 1) + nextPrepBonusSeconds;
         nextPrepBonusSeconds = 0;
         activeLanes.clear();
         activeSpawnIds.clear();
@@ -543,8 +540,8 @@ final class GameSession {
     boolean isMedbayHealing(Player player) {
         return canUseFacilities() && !player.down && player.hp < 100
                 && (phase == GamePhase.PREPARING || player.medbayDamageDelay <= 0)
-                && isPointUnlocked(MED_X, MED_Y)
-                && canInteract(player, MED_X, MED_Y, GameConfig.MEDBAY_RANGE);
+                && GameMap.MEDBAYS.stream().anyMatch(station -> isPointUnlocked(station.x(), station.y())
+                        && canInteract(player, station.x(), station.y(), GameConfig.MEDBAY_RANGE));
     }
 
     private void updateRevives(double dt) {
@@ -860,8 +857,8 @@ final class GameSession {
             spawn = new SpawnPoint(spawn.id(), spawn.name(), spawn.x(), spawn.y(), spawn.lane(),
                     spawn.enemyBias(), spawn.speedMultiplier(), spawn.targetPriority(), route);
         }
-        // Damage-based gold is 2.5 times the previous reward (rounded to whole gold).
-        enemies.add(new Enemy(nextEnemyId++, type, spawn, hp * 2, speed * 0.5, damage, (int) Math.round(reward * 2.5)));
+        enemies.add(new Enemy(nextEnemyId++, type, spawn, hp * 2, speed * 0.5, damage,
+                (int) Math.round(reward * 2.5 * GameConfig.goldMultiplier(round))));
     }
 
     private void updateDefenses(double dt) {
@@ -1733,7 +1730,10 @@ final class GameSession {
             bot.botSeekingMedbay = false;
             return false;
         }
-        if (!isPointUnlocked(MED_X, MED_Y)) {
+        Station med = GameMap.MEDBAYS.stream().filter(station -> isPointUnlocked(station.x(), station.y()))
+                .min(Comparator.comparingDouble(station -> distance(bot.x, bot.y, station.x(), station.y())))
+                .orElse(null);
+        if (med == null) {
             bot.botSeekingMedbay = false;
             UnlockArea room = GameMap.areaById("recovery-room");
             if (bot.hp < 85 && !immediateDanger && !blackoutActive && bot.botSpendCooldown <= 0
@@ -1749,15 +1749,15 @@ final class GameSession {
         }
         // Recovery is free, but never park at a station that cannot safely heal us.
         boolean stationDanger = enemies.stream().anyMatch(enemy -> enemy.hp > 0
-                && distance(MED_X, MED_Y, enemy.x, enemy.y) < 240
-                && GameMap.hasClearLine(MED_X, MED_Y, enemy.x, enemy.y))
-                || artilleryShells.stream().anyMatch(shell -> inArtilleryBlast(shell, MED_X, MED_Y));
+                && distance(med.x(), med.y(), enemy.x, enemy.y) < 240
+                && GameMap.hasClearLine(med.x(), med.y(), enemy.x, enemy.y))
+                || artilleryShells.stream().anyMatch(shell -> inArtilleryBlast(shell, med.x(), med.y()));
         if (personalDanger || immediateDanger || stationDanger || blackoutActive) return false;
-        if (canInteract(bot, MED_X, MED_Y, GameConfig.MEDBAY_RANGE - 10)) {
+        if (canInteract(bot, med.x(), med.y(), GameConfig.MEDBAY_RANGE - 10)) {
             bot.moveX = 0;
             bot.moveY = 0;
         } else {
-            moveBotToward(bot, MED_X, MED_Y);
+            moveBotToward(bot, med.x(), med.y());
         }
         return true;
     }

@@ -8,10 +8,23 @@ final class GameConfig {
     static final int MAX_ROUNDS = 50;
     static final double TICK_SECONDS = 0.05;
     static final double SNAPSHOT_INTERVAL = 0.1;
-    static final double PREP_SECONDS = 15;
+    static final double PREP_SECONDS = 10;
+
+    static double prepSeconds(int upcomingRound) {
+        if (upcomingRound >= 40) return 240;
+        if (upcomingRound >= 30) return 180;
+        if (upcomingRound >= 20) return 120;
+        if (upcomingRound >= 10) return 60;
+        if (upcomingRound >= 5) return 30;
+        return PREP_SECONDS;
+    }
+
+    static double goldMultiplier(int currentRound) {
+        return 1 + Math.max(0, currentRound - 10) * .1;
+    }
     static final double RECONNECT_GRACE_SECONDS = 30;
     static final double GATHER_COOLDOWN_SECONDS = 3.5;
-    // Fixed terminal prices: major progression gates create deliberate saving milestones.
+    // Fixed terminal prices keep later weapons accessible without long saving periods.
     static final Map<String, Integer> AREA_UNLOCK_COSTS = Map.ofEntries(
             Map.entry("entry-room", 150),
             Map.entry("transit-hall", 350),
@@ -19,19 +32,19 @@ final class GameConfig {
             Map.entry("forest", 1_000),
             Map.entry("relay-gallery", 1_000),
             Map.entry("mine", 1_000),
-            Map.entry("security-hall", 5_000),
-            Map.entry("command-room", 5_000),
+            Map.entry("security-hall", 2_000),
+            Map.entry("command-room", 2_000),
             Map.entry("wood-room", 200),
             Map.entry("ore-room", 300),
             Map.entry("operations-room", 500),
             Map.entry("shotgun-room", 300),
             Map.entry("ricochet-room", 300),
             Map.entry("smg-room", 500),
-            Map.entry("lmg-room", 3_000),
-            Map.entry("rifle-room", 5_000),
-            Map.entry("sniper-room", 7_500),
-            Map.entry("heavy-arms-area", 30_000),
-            Map.entry("revolver-room", 5_000),
+            Map.entry("lmg-room", 1_500),
+            Map.entry("rifle-room", 2_000),
+            Map.entry("sniper-room", 3_000),
+            Map.entry("heavy-arms-area", 12_000),
+            Map.entry("revolver-room", 2_000),
             Map.entry("recovery-room", 250));
     static final Map<String, Integer> BUILD_COSTS = Map.of(
             "block", 60,

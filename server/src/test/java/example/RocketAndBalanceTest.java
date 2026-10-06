@@ -38,12 +38,12 @@ class RocketAndBalanceTest {
         game.unlockedAreas.remove("heavy-arms-area");
         UnlockArea area = GameMap.areaById("heavy-arms-area");
         player.x = 220; player.y = 620;
-        player.credits = 29_999;
+        player.credits = 11_999;
         game.handleMessage(player, "UNLOCK:heavy-arms-area");
         assertFalse(game.unlockedAreas.contains(area.id()));
-        assertEquals(29_999, player.credits);
+        assertEquals(11_999, player.credits);
         game.unlockedAreas.remove("sniper-room");
-        player.credits = 30_000;
+        player.credits = 12_000;
         game.handleMessage(player, "UNLOCK:heavy-arms-area");
         assertFalse(game.unlockedAreas.contains(area.id()), "Sniper room must open first");
         game.unlockedAreas.add("sniper-room");
@@ -62,7 +62,7 @@ class RocketAndBalanceTest {
         assertEquals(0, player.credits);
         var rules = new com.fasterxml.jackson.databind.ObjectMapper()
                 .readTree(SnapshotBuilder.build(game)).path("rules");
-        assertEquals(30_000, rules.path("areaUnlockCosts").path(area.id()).asInt());
+        assertEquals(12_000, rules.path("areaUnlockCosts").path(area.id()).asInt());
         assertEquals(game.unlockCost(), rules.path("areaUnlockCosts").path("entry-room").asInt());
     }
 

@@ -734,7 +734,7 @@ class GameSessionTest {
         assertEquals(2, player.lastProcessedInput);
 
         game.handleMessage(player, "INPUT:1:READY");
-        assertEquals(12, game.prepTime, "an older input must not change the game");
+        assertEquals(10, game.prepTime, "an older input must not change the game");
 
         game.handleMessage(player, "INPUT:3:READY");
         assertEquals(0, game.prepTime);
