@@ -93,7 +93,7 @@
         {"column":29,"row":29},{"column":30,"row":29},{"column":31,"row":29},{"column":32,"row":29},{"column":33,"row":29},{"column":34,"row":29},{"column":35,"row":29},{"column":36,"row":29}
       ]
     },
-    {"id":"armory-wing","name":"ARMORY WING","terminalX":1460,"terminalY":1140,"labelX":1860,"labelY":1100,"color":"#ffffff","detail":"Main route / access to SMG ROOM",
+    {"id":"armory-wing","name":"INFIRMARY","terminalX":1460,"terminalY":1140,"labelX":1860,"labelY":1100,"color":"#ffffff","detail":"Medical supplies / access to SMG ROOM",
       "tiles": [
         {"column":37,"row":21},{"column":38,"row":21},{"column":39,"row":21},{"column":40,"row":21},{"column":41,"row":21},{"column":42,"row":21},{"column":43,"row":21},{"column":44,"row":21},
         {"column":37,"row":22},{"column":38,"row":22},{"column":39,"row":22},{"column":40,"row":22},{"column":41,"row":22},{"column":42,"row":22},{"column":43,"row":22},{"column":44,"row":22},
@@ -290,7 +290,7 @@
     {"id":"early-ore-2","type":"ore","x":1460,"y":1340,"requiredArea":"ore-room"}
   ],
   "shopUnits": [
-    {"id":"shop-medkit","item":"medkit","label":"MEDKIT","x":1340,"y":1180,"cost":120,"detail":"携帯回復キット / HP +60"},
+    {"id":"shop-medkit","item":"medkit","label":"MEDKIT","x":1740,"y":1020,"cost":120,"detail":"携帯回復キット / HP +60"},
     {"id":"wood-factory","item":"woodFactory","label":"QUARRY W","x":1700,"y":460,"cost":4000,"detail":""},
     {"id":"ore-factory","item":"oreFactory","label":"QUARRY I","x":940,"y":140,"cost":5000,"detail":""},
     {"id":"copper-factory","item":"copperFactory","label":"QUARRY C","x":580,"y":340,"cost":7000,"detail":""},
@@ -316,7 +316,7 @@
     {"id":"breaker-outside","label":"OUTSIDE","x":820,"y":1940,"requiredArea":null},
     {"id":"breaker-entry","label":"ENTRY ROOM","x":1140,"y":1580,"requiredArea":"entry-room"},
     {"id":"breaker-transit","label":"TRANSIT HALL","x":1300,"y":1180,"requiredArea":"transit-hall"},
-    {"id":"breaker-armory","label":"ARMORY WING","x":1780,"y":980,"requiredArea":"armory-wing"},
+    {"id":"breaker-armory","label":"INFIRMARY","x":1780,"y":980,"requiredArea":"armory-wing"},
     {"id":"breaker-forest","label":"FOREST LAB","x":1660,"y":420,"requiredArea":"forest"},
     {"id":"breaker-relay","label":"RELAY GALLERY","x":1220,"y":300,"requiredArea":"relay-gallery"},
     {"id":"breaker-mine","label":"MINE LAB","x":820,"y":100,"requiredArea":"mine"},

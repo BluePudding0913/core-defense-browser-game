@@ -85,7 +85,7 @@ class MedbayCpuTest {
         assertEquals(0, bot.medkits);
         bot.hp = 100; bot.botSpendCooldown = 0;
         ShopUnit shop = GameMap.shopByItem("medkit");
-        game.unlockedAreas.add("transit-hall");
+        game.unlockedAreas.add("armory-wing");
         bot.x = shop.x(); bot.y = shop.y(); bot.credits = shop.cost();
         decide();
         assertEquals(1, bot.medkits);

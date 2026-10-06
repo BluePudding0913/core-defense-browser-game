@@ -71,10 +71,13 @@ class MedbayTest {
         assertEquals(40, player.hp);
         assertEquals(1000, player.credits);
         ShopUnit shop = GameMap.shopByItem("medkit");
+        assertEquals("INFIRMARY", GameMap.areaById("armory-wing").name());
+        assertTrue(GameMap.areaById("armory-wing").contains(shop.x(), shop.y()));
         player.x = shop.x(); player.y = shop.y();
+        game.unlockedAreas.add("transit-hall");
         game.handleMessage(player, "BUY:medkit");
         assertEquals(0, player.medkits);
-        game.unlockedAreas.add("transit-hall");
+        game.unlockedAreas.add("armory-wing");
         game.handleMessage(player, "BUY:medkit");
         assertEquals(1, player.medkits);
         assertEquals(880, player.credits);
