@@ -125,7 +125,7 @@
         {"column":26,"row":10},{"column":27,"row":10},{"column":28,"row":10},{"column":29,"row":10},{"column":30,"row":10},{"column":31,"row":10},{"column":32,"row":10},{"column":33,"row":10},{"column":34,"row":10}
       ]
     },
-    {"id":"mine","name":"MINE LAB","terminalX":1060,"terminalY":340,"labelX":940,"labelY":420,"color":"#ffffff","detail":"近づくだけで鉱石を回収できる採掘区画",
+    {"id":"mine","name":"MINE LAB","terminalX":1020,"terminalY":340,"labelX":940,"labelY":420,"color":"#ffffff","detail":"近づくだけで鉱石を回収できる採掘区画",
       "tiles": [
         {"column":17,"row":2},{"column":18,"row":2},{"column":19,"row":2},{"column":20,"row":2},{"column":21,"row":2},{"column":22,"row":2},{"column":23,"row":2},{"column":24,"row":2},{"column":25,"row":2},
         {"column":17,"row":3},{"column":18,"row":3},{"column":19,"row":3},{"column":20,"row":3},{"column":21,"row":3},{"column":22,"row":3},{"column":23,"row":3},{"column":24,"row":3},{"column":25,"row":3},
@@ -160,7 +160,7 @@
         {"column":2,"row":11},{"column":3,"row":11},{"column":4,"row":11},{"column":5,"row":11},{"column":6,"row":11},{"column":7,"row":11},{"column":8,"row":11},{"column":9,"row":11}
       ]
     },
-    {"id":"wood-room","name":"WOOD ROOM","terminalX":900,"terminalY":1500,"labelX":820,"labelY":1380,"color":"#ffffff","detail":"木材を回収できる小部屋",
+    {"id":"wood-room","name":"WOOD ROOM","terminalX":860,"terminalY":1500,"labelX":820,"labelY":1380,"color":"#ffffff","detail":"木材を回収できる小部屋",
       "tiles": [
         {"column":18,"row":35},{"column":19,"row":35},{"column":20,"row":35},{"column":21,"row":35},
         {"column":18,"row":36},{"column":19,"row":36},{"column":20,"row":36},{"column":21,"row":36},
@@ -168,14 +168,14 @@
         {"column":18,"row":38},{"column":19,"row":38},{"column":20,"row":38},{"column":21,"row":38}
       ]
     },
-    {"id":"ore-room","name":"ORE ROOM","terminalX":1420,"terminalY":1180,"labelX":1400,"labelY":1380,"color":"#ffffff","detail":"鉱石を回収できる小部屋",
+    {"id":"ore-room","name":"ORE ROOM","terminalX":1420,"terminalY":1260,"labelX":1400,"labelY":1380,"color":"#ffffff","detail":"鉱石を回収できる小部屋",
       "tiles": [
         {"column":33,"row":31},{"column":34,"row":31},{"column":35,"row":31},{"column":36,"row":31},
         {"column":33,"row":32},{"column":34,"row":32},{"column":35,"row":32},{"column":36,"row":32},
         {"column":33,"row":33},{"column":34,"row":33},{"column":35,"row":33},{"column":36,"row":33}
       ]
     },
-    {"id":"operations-room","name":"TIME CONTROL","terminalX":1180,"terminalY":1100,"labelX":1140,"labelY":980,"color":"#ffffff","detail":"次の準備時間を延長できる小部屋",
+    {"id":"operations-room","name":"TIME CONTROL","terminalX":1220,"terminalY":1020,"labelX":1140,"labelY":980,"color":"#ffffff","detail":"次の準備時間を延長できる小部屋",
       "tiles": [
         {"column":29,"row":23},{"column":30,"row":23},{"column":31,"row":23},{"column":32,"row":23},
         {"column":29,"row":24},{"column":30,"row":24},{"column":31,"row":24},{"column":32,"row":24},
@@ -196,14 +196,14 @@
         {"column":17,"row":42},{"column":18,"row":42},{"column":19,"row":42},{"column":20,"row":42}
       ]
     },
-    {"id":"smg-room","name":"SMG ROOM","terminalX":1820,"terminalY":980,"labelX":1940,"labelY":940,"color":"#ffffff","detail":"十分な弾薬を補充できます",
+    {"id":"smg-room","name":"SMG ROOM","terminalX":1820,"terminalY":1020,"labelX":1940,"labelY":940,"color":"#ffffff","detail":"十分な弾薬を補充できます",
       "tiles": [
         {"column":47,"row":24},{"column":48,"row":24},{"column":49,"row":24},{"column":50,"row":24},
         {"column":45,"row":25},{"column":46,"row":25},{"column":47,"row":25},{"column":48,"row":25},{"column":49,"row":25},{"column":50,"row":25},
         {"column":47,"row":26},{"column":48,"row":26},{"column":49,"row":26},{"column":50,"row":26}
       ]
     },
-    {"id":"lmg-room","name":"LMG ROOM","terminalX":1380,"terminalY":580,"labelX":1220,"labelY":500,"color":"#ffffff","detail":"十分な弾薬を補充できます",
+    {"id":"lmg-room","name":"LMG ROOM","terminalX":1380,"terminalY":620,"labelX":1220,"labelY":500,"color":"#ffffff","detail":"十分な弾薬を補充できます",
       "tiles": [
         {"column":29,"row":13},{"column":30,"row":13},{"column":31,"row":13},{"column":32,"row":13},
         {"column":29,"row":14},{"column":30,"row":14},{"column":31,"row":14},{"column":32,"row":14},
@@ -211,7 +211,7 @@
         {"column":29,"row":16},{"column":30,"row":16},{"column":31,"row":16},{"column":32,"row":16}
       ]
     },
-    {"id":"rifle-room","name":"RIFLE ROOM","terminalX":820,"terminalY":420,"labelX":820,"labelY":620,"color":"#ffffff","detail":"十分な弾薬を補充できます",
+    {"id":"rifle-room","name":"RIFLE ROOM","terminalX":860,"terminalY":420,"labelX":820,"labelY":620,"color":"#ffffff","detail":"十分な弾薬を補充できます",
       "tiles": [
         {"column":21,"row":10},
         {"column":21,"row":11},
@@ -316,7 +316,7 @@
     {"id":"breaker-outside","label":"OUTSIDE","x":780,"y":1940,"requiredArea":null},
     {"id":"breaker-entry","label":"ENTRY ROOM","x":1140,"y":1580,"requiredArea":"entry-room"},
     {"id":"breaker-transit","label":"TRANSIT HALL","x":1300,"y":1180,"requiredArea":"transit-hall"},
-    {"id":"breaker-armory","label":"INFIRMARY","x":1780,"y":980,"requiredArea":"armory-wing"},
+    {"id":"breaker-armory","label":"INFIRMARY","x":1780,"y":1140,"requiredArea":"armory-wing"},
     {"id":"breaker-forest","label":"FOREST LAB","x":1660,"y":420,"requiredArea":"forest"},
     {"id":"breaker-relay","label":"RELAY GALLERY","x":1220,"y":300,"requiredArea":"relay-gallery"},
     {"id":"breaker-mine","label":"MINE LAB","x":820,"y":100,"requiredArea":"mine"},
