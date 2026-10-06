@@ -186,7 +186,6 @@ final class Enemy {
     double hp;
     double attackCooldown;
     double specialCooldown;
-    double bomberFuse = -1;
     boolean exploded;
     double slow = 1;
     double facingX;

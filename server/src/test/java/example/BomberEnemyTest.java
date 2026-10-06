@@ -54,18 +54,16 @@ class BomberEnemyTest {
         assertEquals(100, player.credits); assertEquals(1, player.kills);
         assertEquals(1, effects.stream().filter(e -> e.contains("\"effect\":\"explosion\"")).count());
     }
-    @Test void blastDamagesPlayersDefensesAndCoreAndSnapshotShowsWarning() throws Exception {
+    @Test void deathBlastDamagesPlayersDefensesAndCoreWithoutCountdown() throws Exception {
         Enemy bomber = enemy("bomber", 0, 100);
-        bomber.bomberFuse = .5;
         player.x = x + 30; player.y = y;
         game.coreX = x + 40; game.coreY = y;
         double oldCore = game.coreHp + game.coreShield;
         TrapSlot slot = new TrapSlot("blast-test", "free", x + 50, y, null);
         slot.defense = new Defense("block"); game.trapSlots.add(slot);
         var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
-        assertEquals(.5, snapshot.path("enemies").get(0).path("fuse").asDouble());
-        assertEquals(GameConfig.BOMBER_BLAST_RADIUS, snapshot.path("enemies").get(0).path("blastRadius").asDouble());
-        invoke("updateEnemies", new Class<?>[]{double.class}, .5);
+        assertFalse(snapshot.path("enemies").get(0).has("fuse"));
+        invoke("damageEnemy", new Class<?>[]{Enemy.class, double.class, Player.class}, bomber, 100., null);
         assertEquals(40, player.hp);
         assertEquals(200, slot.defense.hp);
         assertTrue(game.coreHp + game.coreShield < oldCore);
@@ -101,15 +99,18 @@ class BomberEnemyTest {
         for (int i = 0; i < 200; i++) assertNotEquals("bomber",
                 invoke("selectEnemyType", new Class<?>[]{SpawnPoint.class}, GameMap.SPAWN_POINTS.get(0)));
     }
-    @Test void fuseStopsMovementAndExplodesEvenAfterTargetLeaves() throws Exception {
+    @Test void proximityAndTimeNeverDetonateLivingBomber() throws Exception {
         Enemy bomber = enemy("bomber", 0, 100); player.x = x + 30; player.y = y;
-        invoke("updateEnemies", new Class<?>[]{double.class}, .05);
-        assertEquals(1.2, bomber.bomberFuse);
-        player.x = 0; player.y = 0;
-        invoke("updateEnemies", new Class<?>[]{double.class}, .6);
-        assertEquals(100, bomber.hp); assertEquals(x, bomber.x);
-        invoke("updateEnemies", new Class<?>[]{double.class}, .6);
+        for (int i = 0; i < 40; i++) invoke("updateEnemies", new Class<?>[]{double.class}, .1);
+        assertEquals(100, bomber.hp);
+        assertFalse(bomber.exploded);
+        assertTrue(effects.stream().noneMatch(e -> e.contains("\"effect\":\"explosion\"")));
+        invoke("damageEnemy", new Class<?>[]{Enemy.class, double.class, Player.class}, bomber, 50., null);
+        assertFalse(bomber.exploded);
+        invoke("damageEnemy", new Class<?>[]{Enemy.class, double.class, Player.class}, bomber, 50., null);
         assertTrue(bomber.exploded);
+        invoke("damageEnemy", new Class<?>[]{Enemy.class, double.class, Player.class}, bomber, 100., null);
+        assertEquals(1, effects.stream().filter(e -> e.contains("\"effect\":\"explosion\"")).count());
     }
     @Test void wallsBlockBlastAndTrigger() throws Exception {
         Enemy bomber = enemy("bomber", 0, 100);

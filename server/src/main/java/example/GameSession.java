@@ -835,20 +835,6 @@ final class GameSession {
     private void updateEnemies(double dt) {
         for (Enemy enemy : enemies) {
             if (enemy.hp <= 0) continue;
-            if (enemy.type.equals("bomber")) {
-                if (enemy.bomberFuse >= 0) {
-                    enemy.bomberFuse = Math.max(0, enemy.bomberFuse - dt);
-                    if (enemy.bomberFuse <= 1e-9) explodeBomber(enemy);
-                    continue;
-                }
-                boolean nearTarget = players.stream().anyMatch(p -> !p.down && inBomberBlast(enemy, p.x, p.y, 72))
-                        || trapSlots.stream().anyMatch(s -> s.defense != null && inBomberBlast(enemy, s.x, s.y, 72))
-                        || inBomberBlast(enemy, coreX, coreY, 72);
-                if (nearTarget) {
-                    enemy.bomberFuse = GameConfig.BOMBER_FUSE_SECONDS;
-                    continue;
-                }
-            }
             enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
             enemy.pathTimer -= dt;
             updateEnemyWander(enemy, dt);
