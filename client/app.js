@@ -357,13 +357,7 @@ function connect() {
         if (message.type === "state") receiveState(message);
         if (message.type === "log") receiveLog(message.version, message.message);
         if (message.type === "effect") {
-            const me = getMe();
-            const actor = state?.players.find(player => player.id === message.playerId);
-            if (me && (message.playerId === myPlayerId || actor && distance(me, actor) < 600)) {
-                if (message.effect === "shot") window.coreAudio?.play(message.weapon);
-                else if (message.effect === "item-use") window.coreAudio?.play(BUILD_INFO[message.item] ? "build" : message.item || "item");
-                else if (message.effect === "pickup") window.coreAudio?.play("pickup");
-            }
+            playSoundEffect(message);
         }
         if (message.type === "effect" && ["hit", "core-pulse", "pickup", "player-hit", "player-down", "explosion", "acid-impact"].includes(message.effect)) {
             hitEffects.push({ ...message, started: performance.now() });
@@ -1097,6 +1091,22 @@ function showFeedback(text) {
     feedbackElement.classList.add("show");
     clearTimeout(feedbackTimer);
     feedbackTimer = setTimeout(() => feedbackElement.classList.remove("show"), 1000);
+}
+
+function playSoundEffect(message) {
+    const me = getMe();
+    if (!me) return;
+    const own = message.playerId === myPlayerId;
+    if (message.effect === "pickup" && !own) return;
+    let name;
+    if (message.effect === "shot") name = message.item === "railgun-charge" ? message.item : message.weapon;
+    else if (message.effect === "item-use") name = BUILD_INFO[message.item] ? "build" : message.item || "item";
+    else if (message.effect === "pickup") name = "pickup";
+    else return;
+    const actor = state?.players.find(player => player.id === message.playerId);
+    const origin = Number.isFinite(message.x) && Number.isFinite(message.y) ? message : actor;
+    if (!own && !origin) return;
+    window.coreAudio?.play(name, own ? 0 : distance(predictedLocal || me, origin));
 }
 
 function getMe() { return state?.players.find(player => player.id === myPlayerId); }

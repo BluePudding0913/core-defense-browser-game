@@ -68,15 +68,21 @@
         return buffer;
     }
     window.coreAudio = {
-        play(name) {
+        play(name, distance = 0) {
             if (!unlocked || !Object.hasOwn(effects, name) || active.size >= 8) return;
+            if (!Number.isFinite(distance)) return;
+            const volume = Math.pow(Math.max(0, 1 - Math.max(0, distance) / 600), 2);
+            if (volume === 0) return;
             const audio = context();
             if (!audio || audio.state !== "running") return;
             const source = audio.createBufferSource();
+            const gain = audio.createGain();
+            gain.gain.value = volume;
             source.buffer = bufferFor(name, audio);
-            source.connect(audio.destination);
+            source.connect(gain);
+            gain.connect(audio.destination);
             active.add(source);
-            source.onended = () => { active.delete(source); source.disconnect(); };
+            source.onended = () => { active.delete(source); source.disconnect(); gain.disconnect(); };
             source.start();
         }
     };

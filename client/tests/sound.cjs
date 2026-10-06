@@ -6,13 +6,14 @@ let contexts = 0;
 class AudioContext {
     constructor() { contexts++; this.sampleRate = 48000; this.state = 'suspended'; }
     resume() { this.state = 'running'; return Promise.resolve(); }
+    createGain() { return { gain: { value: 1 }, connect() {}, disconnect() { this.disconnected = true; } }; }
     createBuffer(channels, length) {
         const data = new Float32Array(length);
         const buffer = { getChannelData: () => data };
         buffers.push(buffer); return buffer;
     }
     createBufferSource() {
-        const source = { connect() {}, disconnect() { this.disconnected = true; }, start() { this.started = true; } };
+        const source = { connect(node) { this.output = node; }, disconnect() { this.disconnected = true; }, start() { this.started = true; } };
         sources.push(source); return source;
     }
 }
@@ -39,6 +40,47 @@ assert.equal(sources.length, names.length + 9, 'limits overlapping voices to eig
 const before = sources.length;
 window.coreAudio.play('unknown'); window.coreAudio.play('constructor');
 assert.equal(sources.length, before);
+for (const source of sources) source.onended();
+for (const name of names) {
+    window.coreAudio.play(name, 0);
+    assert.equal(sources.at(-1).output.gain.value, 1);
+    sources.at(-1).onended();
+    window.coreAudio.play(name, 300);
+    assert.equal(sources.at(-1).output.gain.value, .25, `${name} attenuates with distance`);
+    const gain = sources.at(-1).output;
+    sources.at(-1).onended(); assert(gain.disconnected);
+    const count = sources.length;
+    for (const distance of [600, 1000, NaN, Infinity]) window.coreAudio.play(name, distance);
+    assert.equal(sources.length, count, `${name} is silent beyond hearing range`);
+}
+
+const app = fs.readFileSync('client/app.js', 'utf8');
+const start = app.indexOf('function playSoundEffect(');
+const played = [];
+const me = { id: 'me', x: 0, y: 0 }, other = { id: 'other', x: 300, y: 0 };
+const game = vm.createContext({
+    getMe: () => me, myPlayerId: 'me', state: { players: [me, other] },
+    predictedLocal: null, BUILD_INFO: { wall: {} },
+    distance: (a, b) => Math.hypot(a.x - b.x, a.y - b.y),
+    window: { coreAudio: { play: (...args) => played.push(args) } }
+});
+vm.runInContext(app.slice(start, app.indexOf('\nfunction ', start + 1)), game);
+function effect(message) { game.message = message; vm.runInContext('playSoundEffect(message)', game); }
+effect({ effect: 'pickup', playerId: 'other', x: 10, y: 0 });
+assert.equal(played.length, 0, 'other players cannot trigger pickup SE');
+effect({ effect: 'pickup', playerId: 'me', x: 10, y: 0 });
+assert.deepEqual(played.pop(), ['pickup', 0]);
+effect({ effect: 'shot', playerId: 'other', weapon: 'rifle' });
+assert.deepEqual(played.pop(), ['rifle', 300]);
+game.predictedLocal = { x: 100, y: 0 };
+effect({ effect: 'item-use', playerId: 'other', item: 'wall', x: 400, y: 0 });
+assert.deepEqual(played.pop(), ['build', 300]);
+effect({ effect: 'item-use', playerId: 'other', item: 'medkit' });
+assert.deepEqual(played.pop(), ['medkit', 200]);
+effect({ effect: 'shot', playerId: 'me', weapon: 'railgun', item: 'railgun-charge' });
+assert.deepEqual(played.pop(), ['railgun-charge', 0]);
+effect({ effect: 'shot', playerId: 'missing', weapon: 'pistol' });
+assert.equal(played.length, 0, 'unknown source cannot trigger full-volume audio');
 vm.runInNewContext(fs.readFileSync('client/sound.js', 'utf8'), { window: { addEventListener() {} } });
 if (process.argv[2]) {
     const length = demo.reduce((sum, data) => sum + data.length, 0);
