@@ -85,6 +85,17 @@ class BomberEnemyTest {
         assertEquals(138, game.enemies.get(0).maxHp);
         assertEquals(67, game.enemies.get(0).damage);
     }
+    @Test void debugRoundOneGuaranteesBomberAndNormalRestartClearsDebugMode() throws Exception {
+        invoke("startMatch", new Class<?>[]{Player.class, boolean.class}, player, true);
+        game.round = 1;
+        game.queuedEnemies = 9;
+        invoke("updateSpawning", new Class<?>[]{double.class}, 20.);
+        assertTrue(game.enemies.stream().anyMatch(e -> e.type.equals("bomber")));
+        invoke("startMatch", new Class<?>[]{Player.class, boolean.class}, player, false);
+        game.round = 1;
+        for (int i = 0; i < 200; i++) assertNotEquals("bomber",
+                invoke("selectEnemyType", new Class<?>[]{SpawnPoint.class}, GameMap.SPAWN_POINTS.get(0)));
+    }
     @Test void fuseStopsMovementAndExplodesEvenAfterTargetLeaves() throws Exception {
         Enemy bomber = enemy("bomber", 0, 100); player.x = x + 30; player.y = y;
         invoke("updateEnemies", new Class<?>[]{double.class}, .05);

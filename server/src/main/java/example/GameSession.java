@@ -42,6 +42,8 @@ final class GameSession {
     private static final double BOT_REACTION_SECONDS = 1.5;
     private final java.util.ArrayDeque<Enemy> pendingExplosions = new java.util.ArrayDeque<>();
     private boolean resolvingExplosions;
+    private boolean debugMode;
+    private boolean debugBomberPending;
 
     static int ammoRefillCost() {
         return 120;
@@ -351,6 +353,8 @@ final class GameSession {
 
     private void startMatch(Player host, boolean debugMode) {
         resetWorld();
+        this.debugMode = debugMode;
+        debugBomberPending = debugMode;
         if (debugMode) {
             host.credits = 100_000;
             GameConfig.WEAPONS.keySet().forEach(weapon -> giveBotWeapon(host, weapon));
@@ -634,8 +638,12 @@ final class GameSession {
     }
 
     private String selectEnemyType(SpawnPoint spawn) {
+        if (debugBomberPending) {
+            debugBomberPending = false;
+            return "bomber";
+        }
         // Reserve a growing share for elites, retaining each entrance's original mix.
-        if (round >= 6 && random.nextDouble() < .10) return "bomber";
+        if ((debugMode || round >= 6) && random.nextDouble() < .10) return "bomber";
         double eliteRoll = random.nextDouble();
         double eliteChance = 0;
         if (round >= 34 && eliteRoll < (eliteChance += 0.12)) return "champion";
@@ -2603,6 +2611,8 @@ final class GameSession {
     }
 
     private void resetWorld() {
+        debugMode = false;
+        debugBomberPending = false;
         pathfinder.clear();
         phase = GamePhase.LOBBY;
         round = 0;
