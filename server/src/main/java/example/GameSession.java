@@ -42,6 +42,8 @@ final class GameSession {
     private static final double BOT_REACTION_SECONDS = 1.5;
     private boolean debugMode;
     private boolean debugBomberPending;
+    int roundEnemyTotal;
+    private boolean explosionBossSpawned;
 
     static int ammoRefillCost() {
         return 120;
@@ -393,6 +395,8 @@ final class GameSession {
             queuedEnemies = (queuedEnemies * (10 + round - 40) + 4) / 5;
             queuedBosses *= 2;
         }
+        roundEnemyTotal = queuedEnemies + queuedBosses;
+        explosionBossSpawned = false;
         // Reserve one simultaneous swarm within the regular population on selected late rounds.
         queuedTinyEnemies = round >= 40 && (round - 40) % 3 == 0
                 ? Math.min(queuedEnemies, 48 + (round - 40) * 4) : 0;
@@ -633,7 +637,9 @@ final class GameSession {
             // Each member uses the next entrance so a burst pressures multiple sides.
             SpawnPoint spawn = nextRoundSpawn();
             if (queuedBosses > 0 && queuedEnemies <= queuedBosses * 2) {
-                spawnEnemy(round >= 40 ? "titan" : round >= 24 ? "warlord" : "boss", spawn);
+                String bossType = round % 12 == 0 && !explosionBossSpawned ? "explosionBoss"
+                        : round >= 40 ? "titan" : round >= 24 ? "warlord" : "boss";
+                spawnEnemy(bossType, spawn);
                 queuedBosses--;
             } else if (queuedEnemies > 0) {
                 spawnEnemy(selectEnemyType(spawn), spawn);
@@ -648,6 +654,7 @@ final class GameSession {
     private String selectEnemyType(SpawnPoint spawn) {
         // Guarantee an early preview without adding enemies to the wave budget.
         if (debugMode && round == 1 && (nextEnemyId == 1 || nextEnemyId == 4)) return "artillery";
+        if (debugMode && round == 1 && !explosionBossSpawned) return "explosionBoss";
         // Reserve a growing share for elites, retaining each entrance's original mix.
         if ((debugMode || round >= 6) && random.nextDouble() < .10) return "bomber";
         double eliteRoll = random.nextDouble();
@@ -689,6 +696,13 @@ final class GameSession {
         double damage;
         int reward;
         switch (type) {
+            case "explosionBoss" -> {
+                hp = 500_000_000;
+                speed = 24;
+                damage = 0;
+                reward = 0;
+                explosionBossSpawned = true;
+            }
             case "bomber" -> {
                 hp = 45 + round * 4;
                 speed = 90 + round * 2;
@@ -844,8 +858,14 @@ final class GameSession {
 
     private void updateEnemies(double dt) {
         updateArtilleryShells(dt);
+        long remaining = queuedEnemies + queuedBosses + enemies.stream()
+                .filter(e -> e.hp > 0 && !e.type.equals("explosionBoss")).count();
         for (Enemy enemy : enemies) {
             if (enemy.hp <= 0) continue;
+            if (enemy.type.equals("explosionBoss")) {
+                updateExplosionBoss(enemy, dt, remaining);
+                continue;
+            }
             enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
             enemy.pathTimer -= dt;
             updateEnemyWander(enemy, dt);
@@ -932,6 +952,36 @@ final class GameSession {
                 moveEnemyToward(enemy, targetX, targetY,
                         enemy.speed * enemy.slow * dt);
             }
+        }
+    }
+
+    private void updateExplosionBoss(Enemy enemy, double dt, long remaining) {
+        enemy.pathTimer -= dt;
+        if (enemy.fuse < 0 && roundEnemyTotal > 0 && remaining * 20 < roundEnemyTotal) {
+            enemy.fuse = GameConfig.EXPLOSION_BOSS_FUSE_SECONDS;
+        }
+        if (enemy.fuse >= 0) {
+            enemy.fuse = Math.max(0, enemy.fuse - dt);
+            if (enemy.fuse <= 1e-9) {
+                enemy.fuse = 0;
+                enemy.exploded = true;
+                enemy.hp = 0;
+                double radius = GameConfig.EXPLOSION_BOSS_BLAST_RADIUS;
+                events.broadcast("{\"type\":\"effect\",\"effect\":\"explosion\",\"x\":" + roundOne(enemy.x)
+                        + ",\"y\":" + roundOne(enemy.y) + ",\"radius\":" + radius + "}");
+                for (Player target : players) {
+                    if (!target.down && distance(enemy.x, enemy.y, target.x, target.y) <= radius) {
+                        damagePlayer(target, GameConfig.EXPLOSION_BOSS_DAMAGE);
+                    }
+                }
+                return;
+            }
+        }
+        Player target = nearestPlayer(enemy, WORLD_W + WORLD_H);
+        if (target != null) {
+            enemy.faceToward(target.x, target.y);
+            if (distance(enemy.x, enemy.y, target.x, target.y) > 36)
+                moveEnemyToward(enemy, target.x, target.y, enemy.speed * enemy.slow * dt);
         }
     }
 
@@ -1924,6 +1974,7 @@ final class GameSession {
 
     private static double enemyRadius(Enemy enemy) {
         return switch (enemy.type) {
+            case "explosionBoss" -> 42;
             case "bomber" -> 20;
             case "tiny" -> 3;
             case "boss" -> 42;
@@ -1947,6 +1998,7 @@ final class GameSession {
 
     private void damageEnemy(Enemy enemy, double damage, Player player) {
         if (enemy.hp <= 0) return;
+        if (enemy.type.equals("explosionBoss")) damage *= .001;
         double dealt = Math.min(enemy.hp, damage);
         enemy.hp -= dealt;
         if (player != null && dealt > 0) {
@@ -2678,6 +2730,8 @@ final class GameSession {
     private void resetWorld() {
         debugMode = false;
         debugBomberPending = false;
+        explosionBossSpawned = false;
+        roundEnemyTotal = 0;
         pathfinder.clear();
         phase = GamePhase.LOBBY;
         round = 0;

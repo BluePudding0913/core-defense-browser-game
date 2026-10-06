@@ -187,6 +187,7 @@ final class Enemy {
     double attackCooldown;
     double specialCooldown;
     boolean exploded;
+    double fuse = -1;
     double slow = 1;
     double facingX;
     double facingY = 1;
@@ -236,7 +237,7 @@ final class Enemy {
     }
 
     boolean isBoss() {
-        return type.equals("boss") || type.equals("warlord") || type.equals("titan");
+        return type.equals("boss") || type.equals("warlord") || type.equals("titan") || type.equals("explosionBoss");
     }
 
     void faceToward(double targetX, double targetY) {

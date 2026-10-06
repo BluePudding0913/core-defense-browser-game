@@ -7,9 +7,10 @@ function extract(name) {
     const end = source.indexOf('\nfunction ', begin + 1);
     return source.slice(begin, end < 0 ? undefined : end);
 }
-const labels = [], bars = [], bodies = [];
+const labels = [], bars = [], bodies = [], vertices = [], fills = [];
 const ctx = {
-    beginPath() {}, fill() {}, stroke() {}, save() {}, restore() {},
+    beginPath() {}, fill() { fills.push(this.fillStyle); }, stroke() {}, save() {}, restore() {},
+    moveTo(x, y) { vertices.push([x, y]); }, lineTo(x, y) { vertices.push([x, y]); }, closePath() {},
     arc(x, y, radius, start, end) { bodies.push({ radius, color: this.fillStyle, start, end }); },
     fillText(text) { labels.push(text); },
 };
@@ -59,3 +60,23 @@ for (const [facingX, facingY] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
     assert(Math.abs(shield.end - shield.start - 2 * Math.PI / 3) < 1e-9);
 }
 console.log('Enemy display passed: fourteen enemy types, artillery sac, frontal shield, tiny body and eyes, distinct elite visuals and boss health bars');
+context.state.enemies = [{ type: 'explosionBoss', x: 100, y: 100, hp: 1e9, maxHp: 1e9, fuse: -1 }];
+vertices.length = fills.length = bodies.length = 0;
+vm.runInContext('drawEnemies()', context);
+assert.equal(vertices.length, 6);
+for (const [x, y] of vertices) assert(Math.abs(Math.hypot(x - 100, y - 100) - 42) < 1e-9);
+assert.equal(fills[0], '#080808');
+assert(bodies.every(eye => eye.color === '#ff1527'));
+function transitions(start, end) {
+    let previous, count = 0;
+    for (let elapsed = start; elapsed < end; elapsed += .01) {
+        context.state.enemies[0].fuse = 60 - elapsed;
+        fills.length = 0;
+        vm.runInContext('drawEnemies()', context);
+        if (previous !== undefined && previous !== fills[0]) count++;
+        previous = fills[0];
+    }
+    return count;
+}
+assert(transitions(55, 60) > transitions(0, 5) * 3);
+console.log('Explosion boss display passed: black hexagon, red eyes, accelerating countdown flashes');
