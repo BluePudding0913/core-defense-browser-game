@@ -1280,7 +1280,7 @@ function openShopPurchase(shop) {
     if (shop.item === "medkit") {
         openNearbyActionMenu(shop.label, [{
             label: "回復キット",
-            detail: `${shop.cost}G / HP +${state.rules.medkitHeal}`,
+            detail: `${shop.cost}G`,
             command: "BUY:medkit",
             disabled: me.medkits >= state.rules.medkitCapacity || me.credits < shop.cost,
         }], shop, INTERACTION_RANGE.shop, "single");
