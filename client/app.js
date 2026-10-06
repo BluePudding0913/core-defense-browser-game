@@ -2051,16 +2051,7 @@ function drawShops() {
         const shop = SHOP_UNITS.find(shop => shop.item === unit.item);
         drawStation(unit, shop.label, "#70bfff", "#111");
     });
-    if (isUnlockedPoint(MED)) {
-        ctx.save();
-        ctx.strokeStyle = "#80bb99";
-        ctx.setLineDash([5, 5]);
-        ctx.beginPath();
-        ctx.arc(MED.x, MED.y, INTERACTION_RANGE.medBay, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-        drawStation(MED, "MED BAY · +4HP/s", "#d8d8d8", "#111");
-    }
+    if (isUnlockedPoint(MED)) drawStation(MED, "MED BAY", "#d8d8d8", "#111");
     if (isUnlockedPoint(WOODCUTTER)) drawStation(WOODCUTTER, "WOODCUTTER", "#a8a8a8");
     if (isUnlockedPoint(QUARRY)) drawStation(QUARRY, "QUARRY", "#808080");
     WORKBENCHES
