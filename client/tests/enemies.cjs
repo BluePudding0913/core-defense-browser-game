@@ -9,7 +9,7 @@ function extract(name) {
 }
 const labels = [], bars = [], bodies = [];
 const ctx = {
-    beginPath() {}, fill() {}, stroke() {},
+    beginPath() {}, fill() {}, stroke() {}, save() {}, restore() {},
     arc(x, y, radius, start, end) { bodies.push({ radius, color: this.fillStyle, start, end }); },
     fillText(text) { labels.push(text); },
 };
@@ -20,7 +20,7 @@ const context = vm.createContext({ ctx, Math, hitEffects: [],
 });
 vm.runInContext(extract('enemyRadius'), context);
 vm.runInContext(extract('drawEnemies'), context);
-for (const type of ['grunt', 'runner', 'brute', 'boss', 'armored', 'hunter', 'siege', 'champion', 'warlord', 'titan', 'tiny', 'shield']) {
+for (const type of ['grunt', 'runner', 'brute', 'boss', 'armored', 'hunter', 'siege', 'champion', 'warlord', 'titan', 'tiny', 'shield', 'bomber']) {
     labels.length = bars.length = bodies.length = 0;
     context.state.enemies = [{ type, x: 100, y: 100, hp: 500, maxHp: 1000 }];
     vm.runInContext('drawEnemies()', context);
@@ -54,4 +54,9 @@ for (const [facingX, facingY] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
     assert(Math.abs((shield.start + shield.end) / 2 - Math.atan2(facingY, facingX)) < 1e-9);
     assert(Math.abs(shield.end - shield.start - 2 * Math.PI / 3) < 1e-9);
 }
-console.log('Enemy display passed: twelve enemy types, frontal shield, tiny body and eyes, distinct elite visuals and boss health bars');
+bodies.length = 0;
+context.state.enemies = [{ type: 'bomber', x: 100, y: 100, hp: 100, maxHp: 100, fuse: .6, blastRadius: 160 }];
+vm.runInContext('drawEnemies()', context);
+assert.equal(bodies[0].radius, 160);
+assert(bodies[1].radius > 20);
+console.log('Enemy display passed: thirteen enemy types, bomber warning and swelling, frontal shield and boss health bars');

@@ -234,6 +234,10 @@ final class SnapshotBuilder {
             json.append(",\"y\":").append(roundOne(enemy.y))
                     .append(",\"hp\":").append(roundOne(enemy.hp));
             json.append(",\"maxHp\":").append(roundOne(enemy.maxHp));
+            if (enemy.type.equals("bomber")) {
+                json.append(",\"fuse\":").append(enemy.bomberFuse)
+                        .append(",\"blastRadius\":").append(GameConfig.BOMBER_BLAST_RADIUS);
+            }
             if (enemy.type.equals("shield")) {
                 json.append(",\"facingX\":").append(enemy.facingX)
                         .append(",\"facingY\":").append(enemy.facingY);

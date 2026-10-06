@@ -2120,16 +2120,22 @@ function smoothEntity(prefix, entity) {
 
 function enemyRadius(enemy) {
     return ({ boss: 42, warlord: 44, titan: 48, brute: 28, armored: 30,
-        siege: 32, champion: 26, runner: 16, hunter: 18, tiny: 3, shield: 24 })[enemy.type] || 21;
+        siege: 32, champion: 26, runner: 16, hunter: 18, tiny: 3, shield: 24, bomber: 20 })[enemy.type] || 21;
 }
 
 function drawEnemies() {
     const colors = { grunt: "#707070", runner: "#999", brute: "#505050", boss: "#2f2f2f",
         armored: "#626c78", hunter: "#a66e6e", siege: "#776951", champion: "#786283",
-        warlord: "#4d3030", titan: "#34253f", tiny: "#a9bd75", shield: "#466c80" };
+        warlord: "#4d3030", titan: "#34253f", tiny: "#a9bd75", shield: "#466c80", bomber: "#dd7b32" };
     for (const enemy of state.enemies) {
         if (enemy.hp <= 0) continue;
         const p = smoothEntity("enemy", enemy), radius = enemyRadius(enemy);
+        if (enemy.type === "bomber" && enemy.fuse >= 0) {
+            ctx.save();
+            ctx.fillStyle = "rgb(255 90 48 / 12%)"; ctx.strokeStyle = "#ff5a30"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(p.x, p.y, enemy.blastRadius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            ctx.restore();
+        }
         const recentHit = hitEffects.find(effect => effect.effect === "hit" && effect.damage > 0
             && performance.now() - effect.started < 260
             && Math.hypot(effect.x - p.x, effect.y - p.y) < radius + 18);
@@ -2142,7 +2148,9 @@ function drawEnemies() {
             ctx.beginPath(); ctx.arc(p.x, p.y, radius + 7, 0, Math.PI * 2); ctx.fill();
             ctx.restore();
         }
-        ctx.fillStyle = colors[enemy.type] || colors.grunt; ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.fill();
+        const bodyRadius = enemy.type === "bomber" && enemy.fuse >= 0
+            ? radius * (1 + .15 * (1 + Math.sin(performance.now() / 70))) : radius;
+        ctx.fillStyle = colors[enemy.type] || colors.grunt; ctx.beginPath(); ctx.arc(p.x, p.y, bodyRadius, 0, Math.PI * 2); ctx.fill();
         const isBoss = ["boss", "warlord", "titan"].includes(enemy.type);
         ctx.strokeStyle = isBoss ? "#fff" : "#c8c8c8"; ctx.lineWidth = isBoss ? 5 : Math.min(2, radius / 3); ctx.stroke();
         const eyeRadius = Math.min(3, radius * .2), eyeOffset = Math.min(3, radius * .5);

@@ -30,6 +30,8 @@ final class GameConfig {
     static final int MEDKIT_HEAL = 60;
     static final int MEDKIT_CAPACITY = 5;
     static final int HEAL_PRICE = 80;
+    static final double BOMBER_BLAST_RADIUS = 4 * GameMap.TILE_SIZE;
+    static final double BOMBER_FUSE_SECONDS = 1.2;
     static final double ROCKET_BLAST_RADIUS = 200;
     static final int SHOTGUN_PELLETS = 4;
     static final int SHOTGUN_MAX_TARGETS = 4;

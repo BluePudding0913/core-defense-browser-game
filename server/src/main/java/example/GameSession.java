@@ -40,6 +40,8 @@ interface GameEventSink {
 /** Authoritative state and rules for one four-player match. */
 final class GameSession {
     private static final double BOT_REACTION_SECONDS = 1.5;
+    private final java.util.ArrayDeque<Enemy> pendingExplosions = new java.util.ArrayDeque<>();
+    private boolean resolvingExplosions;
 
     static int ammoRefillCost() {
         return 120;
@@ -633,6 +635,7 @@ final class GameSession {
 
     private String selectEnemyType(SpawnPoint spawn) {
         // Reserve a growing share for elites, retaining each entrance's original mix.
+        if (round >= 6 && random.nextDouble() < .10) return "bomber";
         double eliteRoll = random.nextDouble();
         double eliteChance = 0;
         if (round >= 34 && eliteRoll < (eliteChance += 0.12)) return "champion";
@@ -671,6 +674,12 @@ final class GameSession {
         double damage;
         int reward;
         switch (type) {
+            case "bomber" -> {
+                hp = 45 + round * 4;
+                speed = 90 + round * 2;
+                damage = 55 + round * 2;
+                reward = 25;
+            }
             case "shield" -> {
                 hp = 100 + round * 9;
                 speed = 32 + round * .6;
@@ -815,6 +824,20 @@ final class GameSession {
     private void updateEnemies(double dt) {
         for (Enemy enemy : enemies) {
             if (enemy.hp <= 0) continue;
+            if (enemy.type.equals("bomber")) {
+                if (enemy.bomberFuse >= 0) {
+                    enemy.bomberFuse = Math.max(0, enemy.bomberFuse - dt);
+                    if (enemy.bomberFuse <= 1e-9) explodeBomber(enemy, null);
+                    continue;
+                }
+                boolean nearTarget = players.stream().anyMatch(p -> !p.down && inBomberBlast(enemy, p.x, p.y, 72))
+                        || trapSlots.stream().anyMatch(s -> s.defense != null && inBomberBlast(enemy, s.x, s.y, 72))
+                        || inBomberBlast(enemy, coreX, coreY, 72);
+                if (nearTarget) {
+                    enemy.bomberFuse = GameConfig.BOMBER_FUSE_SECONDS;
+                    continue;
+                }
+            }
             enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
             enemy.pathTimer -= dt;
             updateEnemyWander(enemy, dt);
@@ -900,6 +923,44 @@ final class GameSession {
                 moveEnemyToward(enemy, targetX, targetY,
                         enemy.speed * enemy.slow * dt);
             }
+        }
+    }
+
+    private boolean inBomberBlast(Enemy enemy, double x, double y, double radius) {
+        return distance(enemy.x, enemy.y, x, y) <= radius
+                && GameMap.hasClearLine(enemy.x, enemy.y, x, y);
+    }
+
+    private void explodeBomber(Enemy bomber, Player source) {
+        if (bomber.exploded) return;
+        bomber.exploded = true;
+        bomber.hp = 0;
+        pendingExplosions.add(bomber);
+        if (resolvingExplosions) return;
+        resolvingExplosions = true;
+        try {
+            while (!pendingExplosions.isEmpty()) {
+                Enemy blast = pendingExplosions.removeFirst();
+                double radius = GameConfig.BOMBER_BLAST_RADIUS;
+                events.broadcast("{\"type\":\"effect\",\"effect\":\"explosion\",\"x\":" + roundOne(blast.x)
+                        + ",\"y\":" + roundOne(blast.y) + ",\"radius\":" + radius + "}");
+                for (Enemy target : enemies) {
+                    if (target.hp > 0 && inBomberBlast(blast, target.x, target.y, radius))
+                        damageEnemy(target, blast.damage * 4, source);
+                }
+                for (Player target : players) {
+                    if (!target.down && inBomberBlast(blast, target.x, target.y, radius)) damagePlayer(target, blast.damage);
+                }
+                for (TrapSlot slot : trapSlots) {
+                    if (slot.defense != null && inBomberBlast(blast, slot.x, slot.y, radius)) {
+                        slot.defense.hp -= blast.damage * 2;
+                        if (slot.defense.hp <= 0) slot.defense = null;
+                    }
+                }
+                if (inBomberBlast(blast, coreX, coreY, radius)) damageCore(blast.damage);
+            }
+        } finally {
+            resolvingExplosions = false;
         }
     }
 
@@ -1791,6 +1852,7 @@ final class GameSession {
 
     private static double enemyRadius(Enemy enemy) {
         return switch (enemy.type) {
+            case "bomber" -> 20;
             case "tiny" -> 3;
             case "boss" -> 42;
             case "warlord" -> 44;
@@ -1825,6 +1887,7 @@ final class GameSession {
             }
             if (enemy.hp <= 0) player.kills++;
         }
+        if (enemy.hp <= 0 && enemy.type.equals("bomber")) explodeBomber(enemy, player);
     }
 
     private void knockbackEnemy(double fromX, double fromY, Enemy enemy, double amount) {
