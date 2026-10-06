@@ -58,8 +58,18 @@ class ArtilleryEnemyTest {
         TrapSlot slot = new TrapSlot("blast-block", "test", player.x + 20, player.y, null);
         slot.defense = new Defense("block"); slot.defense.hp = 10;
         game.trapSlots.add(slot);
+        List<TrapSlot> turrets = new ArrayList<>();
+        for (String type : List.of("turret", "copperTurret", "silverTurret")) {
+            TrapSlot turret = new TrapSlot("blast-" + type, "test", player.x, player.y, null);
+            turret.defense = new Defense(type); turret.defense.hp = 10;
+            turrets.add(turret); game.trapSlots.add(turret);
+        }
         update(.05); artillery.hp = 0; update(1.5);
         assertEquals(16, player.hp); assertNull(slot.defense); assertEquals(916, game.coreHp);
+        for (TrapSlot turret : turrets) {
+            assertNotNull(turret.defense, "Acid must not destroy " + turret.id);
+            assertEquals(10, turret.defense.hp, "Acid must not damage " + turret.id);
+        }
         update(1.5); assertEquals(16, player.hp); assertEquals(916, game.coreHp);
     }
 

@@ -999,7 +999,9 @@ final class GameSession {
                 if (inArtilleryBlast(shell, player.x, player.y)) damagePlayer(player, shell.damage);
             }
             for (TrapSlot slot : trapSlots) {
-                if (slot.defense != null && inArtilleryBlast(shell, slot.x, slot.y)) {
+                if (slot.defense != null
+                        && !Set.of("turret", "copperTurret", "silverTurret").contains(slot.defense.type)
+                        && inArtilleryBlast(shell, slot.x, slot.y)) {
                     slot.defense.hp -= shell.damage;
                     if (slot.defense.hp <= 0) slot.defense = null;
                 }
