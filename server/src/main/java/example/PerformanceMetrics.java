@@ -2,7 +2,6 @@ package example;
 
 import java.util.Arrays;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.concurrent.atomic.AtomicLong;
 
 /** Fixed-size, cumulative counters with a bounded recent latency sample. */
 final class PerformanceMetrics {
@@ -19,10 +18,6 @@ final class PerformanceMetrics {
     final LongAdder skippedTicks = new LongAdder();
     final LongAdder coalescedStates = new LongAdder();
     final LongAdder slowDisconnects = new LongAdder();
-    final AtomicLong appBacklogMax = new AtomicLong();
-    final AtomicLong libraryBacklogMax = new AtomicLong();
-    final AtomicLong stallNanosMax = new AtomicLong();
-    final LongAdder updateFailures = new LongAdder();
 
     String summary() {
         return "update=" + update.summary() + " snapshot=" + snapshot.summary()
@@ -31,9 +26,7 @@ final class PerformanceMetrics {
                 + " send=" + send.summary() + " visits=" + pathVisits.sum()
                 + " pathHits=" + pathHits.sum() + " snapshotBytes=" + snapshotBytes.sum()
                 + " skippedTicks=" + skippedTicks.sum() + " coalesced=" + coalescedStates.sum()
-                + " slowDisconnects=" + slowDisconnects.sum() + " failures=" + updateFailures.sum()
-                + " appBacklogMax=" + appBacklogMax.get() + " libraryBacklogMax=" + libraryBacklogMax.get()
-                + " stallMsMax=" + stallNanosMax.get() / 1_000_000;
+                + " slowDisconnects=" + slowDisconnects.sum();
     }
 
     static final class Latency {
