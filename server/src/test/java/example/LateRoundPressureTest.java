@@ -51,7 +51,9 @@ class LateRoundPressureTest {
             beginRound(entry.getKey());
             int initialPopulation = game.queuedEnemies;
             int swarm = game.queuedTinyEnemies;
-            spawnTick(.05);
+            spawnTick(7.9);
+            assertTrue(game.enemies.isEmpty(), "Must wait at round start");
+            spawnTick(.1);
             assertEquals(swarm + entry.getValue(), game.enemies.size(), "R" + entry.getKey());
             assertEquals(initialPopulation - swarm - entry.getValue(), game.queuedEnemies);
             if (!game.roundEvent.equals("door_failure")) {

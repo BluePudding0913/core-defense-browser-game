@@ -17,6 +17,23 @@ class EarlyRoundDifficultyTest {
         return method.invoke(game, args);
     }
 
+    @Test void everyRoundWaitsEightSecondsBeforeSpawning() throws Exception {
+        for (int round = 1; round <= 50; round++) {
+            game.enemies.clear();
+            game.round = round - 1;
+            invoke("beginRound", new Class<?>[]{});
+            int queued = game.queuedEnemies + game.queuedBosses;
+            invoke("updateSpawning", new Class<?>[]{double.class}, .05);
+            assertTrue(game.enemies.isEmpty(), "No immediate spawn at R" + round);
+            invoke("updateSpawning", new Class<?>[]{double.class}, 7.9);
+            assertTrue(game.enemies.isEmpty(), "No spawn before eight seconds at R" + round);
+            assertEquals(queued, game.queuedEnemies + game.queuedBosses);
+            invoke("updateSpawning", new Class<?>[]{double.class}, .1);
+            assertFalse(game.enemies.isEmpty(), "Spawning starts after eight seconds at R" + round);
+            assertEquals(queued, game.enemies.size() + game.queuedEnemies + game.queuedBosses);
+        }
+    }
+
     @Test void openingPressureRisesGraduallyWithTwentyPercentFewerEnemies() throws Exception {
         int[] populations = {5, 6, 8, 10, 12, 15, 18, 20, 22, 25, 26, 29};
         for (int round = 1; round <= populations.length; round++) {
