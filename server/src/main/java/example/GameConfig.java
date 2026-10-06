@@ -52,6 +52,7 @@ final class GameConfig {
     static final int MEDKIT_HEAL = 60;
     static final int MEDKIT_CAPACITY = 5;
     static final double MEDBAY_HEAL_PER_SECOND = 4;
+    static final double MEDBAY_PREP_HEAL_PER_SECOND = 100;
     static final double MEDBAY_DAMAGE_DELAY = 5;
     static final double MEDBAY_RANGE = 95;
     static final double BOMBER_BLAST_RADIUS = 4 * GameMap.TILE_SIZE;

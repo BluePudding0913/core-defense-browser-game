@@ -25,7 +25,15 @@ class MedbayTest {
         player.hp = 40;
     }
 
+    private void startCombat() {
+        game.phase = GamePhase.WAVE;
+        Enemy enemy = new Enemy(9900, "grunt", GameMap.SPAWN_POINTS.get(0), 500, 0, 0, 0);
+        enemy.x = 100; enemy.y = 100;
+        game.enemies.add(enemy);
+    }
+
     @Test void gradualRecoveryRequiresUnlockedRoomAndProximityAndCapsAtFullHp() {
+        startCombat();
         game.update(1);
         assertEquals(40, player.hp);
         game.unlockedAreas.add("recovery-room");
@@ -46,6 +54,7 @@ class MedbayTest {
     }
 
     @Test void repeatedDamageStopsRecoveryAndCooldownPersistsAfterLeaving() throws Exception {
+        startCombat();
         game.unlockedAreas.add("recovery-room");
         Method damage = GameSession.class.getDeclaredMethod("damagePlayer", Player.class, double.class);
         damage.setAccessible(true);
@@ -150,6 +159,7 @@ class MedbayTest {
     }
 
     @Test void healingEffectStateStopsOnDamageLeavingFullHealthDownAndRoundEnd() throws Exception {
+        startCombat();
         assertFalse(healingSnapshot());
         game.unlockedAreas.add("recovery-room");
         game.update(.25);
@@ -169,5 +179,44 @@ class MedbayTest {
         assertFalse(healingSnapshot());
         player.down = false; game.phase = GamePhase.WON;
         assertFalse(healingSnapshot());
+    }
+
+    @Test void preparationHealsImmediatelyAfterDamageAndFillsHpWithinOneSecond() throws Exception {
+        game.unlockedAreas.add("recovery-room");
+        player.hp = 11;
+        Method damage = GameSession.class.getDeclaredMethod("damagePlayer", Player.class, double.class);
+        damage.setAccessible(true);
+        damage.invoke(game, player, 10.0);
+        assertTrue(healingSnapshot());
+        game.update(.25);
+        assertEquals(26, player.hp);
+        game.update(.75);
+        assertEquals(100, player.hp);
+        assertFalse(healingSnapshot());
+    }
+
+    @Test void preparationRecoveryStillRequiresUnlockedRoomProximityAndStanding() {
+        game.update(.25);
+        assertEquals(40, player.hp);
+        game.unlockedAreas.add("recovery-room");
+        player.x -= 100;
+        game.update(.25);
+        assertEquals(40, player.hp);
+        player.x = GameMap.MED_X;
+        player.down = true; player.hp = 0;
+        game.update(.25);
+        assertEquals(0, player.hp);
+    }
+
+    @Test void switchingBackToCombatRestoresNormalRateAndDamageDelay() {
+        game.unlockedAreas.add("recovery-room");
+        player.medbayDamageDelay = 5;
+        game.update(.25);
+        assertEquals(65, player.hp);
+        startCombat();
+        game.update(4.75);
+        assertEquals(65, player.hp);
+        game.update(.5);
+        assertEquals(67, player.hp);
     }
 }

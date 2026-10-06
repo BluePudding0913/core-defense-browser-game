@@ -528,17 +528,21 @@ final class GameSession {
     }
 
     private void updateMedbay(double dt) {
+        boolean preparing = phase == GamePhase.PREPARING;
+        double healPerSecond = preparing ? GameConfig.MEDBAY_PREP_HEAL_PER_SECOND
+                : GameConfig.MEDBAY_HEAL_PER_SECOND;
         for (Player player : players) {
-            double healingTime = Math.max(0, dt - player.medbayDamageDelay);
+            double healingTime = preparing ? dt : Math.max(0, dt - player.medbayDamageDelay);
             player.medbayDamageDelay = Math.max(0, player.medbayDamageDelay - dt);
             if (healingTime > 0 && isMedbayHealing(player)) {
-                player.hp = Math.min(100, player.hp + GameConfig.MEDBAY_HEAL_PER_SECOND * healingTime);
+                player.hp = Math.min(100, player.hp + healPerSecond * healingTime);
             }
         }
     }
 
     boolean isMedbayHealing(Player player) {
-        return canUseFacilities() && !player.down && player.hp < 100 && player.medbayDamageDelay <= 0
+        return canUseFacilities() && !player.down && player.hp < 100
+                && (phase == GamePhase.PREPARING || player.medbayDamageDelay <= 0)
                 && isPointUnlocked(MED_X, MED_Y)
                 && canInteract(player, MED_X, MED_Y, GameConfig.MEDBAY_RANGE);
     }
