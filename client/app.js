@@ -1919,19 +1919,21 @@ function drawAreas() {
         const unlocked = state.areas[area.id];
         ctx.save();
 
-        ctx.fillStyle = unlocked ? "rgb(255 255 255 / 72%)" : "#ffffff";
-        ctx.shadowColor = "#000";
-        ctx.shadowBlur = 5;
-        ctx.font = "900 13px ui-monospace, monospace"; ctx.textAlign = "center";
-        ctx.fillText(area.name, area.labelX, area.labelY);
-        ctx.shadowBlur = 0;
+        if (unlocked) {
+            ctx.fillStyle = "rgb(255 255 255 / 72%)";
+            ctx.shadowColor = "#000";
+            ctx.shadowBlur = 5;
+            ctx.font = "900 13px ui-monospace, monospace"; ctx.textAlign = "center";
+            ctx.fillText(area.name, area.labelX, area.labelY);
+            ctx.shadowBlur = 0;
+        }
 
         if (!unlocked) {
             ctx.fillStyle = "#d8d8d8";
             ctx.fillRect(area.terminalX - 15, area.terminalY - 15, 30, 30);
             ctx.strokeStyle = "#79d8ff"; ctx.lineWidth = 2;
             ctx.strokeRect(area.terminalX - 18, area.terminalY - 18, 36, 36);
-            ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace";
+            ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace"; ctx.textAlign = "center";
             ctx.fillText("UNLOCK", area.terminalX, area.terminalY - 24);
         }
         ctx.restore();
