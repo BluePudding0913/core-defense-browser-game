@@ -2297,13 +2297,13 @@ function drawMedbayParticles(player, position) {
         const angle = index * Math.PI / 2 + .4 + progress * .35;
         const distance = 24 * (1 - progress);
         ctx.save();
-        ctx.globalAlpha = Math.sin(progress * Math.PI) * .7;
-        ctx.fillStyle = "#a3dbc0";
-        ctx.shadowColor = "#a3dbc0";
-        ctx.shadowBlur = 3;
+        ctx.globalAlpha = Math.sin(progress * Math.PI) * .95;
+        ctx.fillStyle = "#76cfa2";
+        ctx.shadowColor = "#76cfa2";
+        ctx.shadowBlur = 5;
         ctx.beginPath();
         ctx.arc(position.x + Math.cos(angle) * distance,
-            position.y + Math.sin(angle) * distance, 1.5 - progress * .5, 0, Math.PI * 2);
+            position.y + Math.sin(angle) * distance, 2.5 - progress * .7, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
     }

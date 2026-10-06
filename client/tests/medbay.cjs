@@ -59,7 +59,7 @@ const firstDistance = distanceToBody(particles[0]);
 particles.length = 0; clock = 450;
 drawParticles();
 assert(distanceToBody(particles[0]) < firstDistance, 'particles converge on the body while healing');
-assert.equal(context.ctx.fillStyle, '#a3dbc0');
+assert.equal(context.ctx.fillStyle, '#76cfa2');
 for (const player of [
     { hp: 40, down: false, medbayHealing: false },
     { hp: 40, down: true, medbayHealing: true },
