@@ -12,7 +12,7 @@
 #menu-ui .ui-connection-error { position: absolute; bottom: 100%; left: 0; right: 0; }
 #menu-ui .ui-match-result { position: absolute; bottom: 100%; left: 0; right: 0; height: 2.8em; line-height: 1.4; overflow-y: auto; overflow-wrap: anywhere; }
 #menu-ui nav, #menu-ui form { display: grid; gap: .55rem; }
-#menu-ui form input { position: absolute; bottom: calc(100% + 24px); left: 0; }
+#menu-ui form > input { position: absolute; bottom: calc(100% + 24px); left: 0; }
 #menu-ui .ui-content:has(form) .ui-match-result { bottom: calc(100% + 68px); }
 #menu-ui button, #menu-ui input { width: 100%; min-height: 44px; padding: .72rem .9rem; border: 1px solid rgb(255 255 255 / 58%); border-radius: .3rem; background: rgb(255 255 255 / 8%); color: #fff; font: inherit; }
 #menu-ui button { font-weight: 900; cursor: pointer; }
