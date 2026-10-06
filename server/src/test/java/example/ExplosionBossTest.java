@@ -190,13 +190,13 @@ class ExplosionBossTest {
         assertEquals(fallback.id(), game.enemies.get(0).spawnId);
     }
 
-    @Test void debugFirstRoundContainsExactlyOneBossAndRestartClearsIt() throws Exception {
+    @Test void debugFirstRoundKeepsNormalEnemiesAfterRestart() throws Exception {
         for (int restart = 0; restart < 2; restart++) {
             invoke("startMatch", new Class<?>[]{Player.class, boolean.class}, player, true);
             invoke("beginRound", new Class<?>[]{});
             for (int i = 0; i < 12; i++) invoke("updateSpawning", new Class<?>[]{double.class}, 10.);
             assertEquals(9, game.enemies.size());
-            assertEquals(1, game.enemies.stream().filter(e -> e.type.equals("explosionBoss")).count());
+            assertEquals(0, game.enemies.stream().filter(e -> e.type.equals("explosionBoss")).count());
             assertTrue(game.enemies.stream().noneMatch(e -> e.type.equals("bomber")));
             assertEquals(9, game.roundEnemyTotal);
         }

@@ -138,14 +138,14 @@ class ArtilleryEnemyTest {
         assertEquals(100, player.hp, "CPU should escape before the acid lands");
     }
 
-    @Test void debugOpeningGuaranteesArtilleryWithinTheNormalWaveBudget() throws Exception {
+    @Test void debugResourcesKeepTheNormalEnemySchedule() throws Exception {
         invoke("startMatch", new Class<?>[]{Player.class, boolean.class}, player, true);
         invoke("beginRound", new Class<?>[]{});
         assertEquals(1, game.round); assertEquals(9, game.queuedEnemies);
         invoke("updateSpawning", new Class<?>[]{double.class}, 8.1);
         assertEquals(1, game.enemies.size());
-        assertEquals("artillery", game.enemies.get(0).type);
-        assertEquals(18.8, game.enemies.get(0).damage, .001);
+        assertEquals("grunt", game.enemies.get(0).type);
+        assertEquals(100_000, player.credits);
         assertEquals(8, game.queuedEnemies);
         game.round = 2;
         var randomField = GameSession.class.getDeclaredField("random"); randomField.setAccessible(true);
@@ -155,7 +155,7 @@ class ArtilleryEnemyTest {
             if (invoke("selectEnemyType", new Class<?>[]{SpawnPoint.class}, GameMap.SPAWN_POINTS.get(0))
                     .equals("artillery")) seen = true;
         }
-        assertTrue(seen, "Debug matches keep artillery eligible in subsequent early rounds");
+        assertFalse(seen, "Debug resources must not unlock artillery early");
     }
 
     @Test void normalRestartClearsDebugEnemyUnlock() throws Exception {
