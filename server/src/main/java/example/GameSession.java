@@ -107,7 +107,6 @@ final class GameSession {
     private final Random random = new Random();
     final PerformanceMetrics performance = new PerformanceMetrics();
     private final RoomPathfinder pathfinder = new RoomPathfinder(performance);
-    private final EnemyTravel enemyTravel = new EnemyTravel();
     private double spawnTimer;
     private int nextEnemyId = 1;
     private int nextDefenseId = 1;
@@ -978,26 +977,22 @@ final class GameSession {
                 continue;
             }
 
-            // Navigate to the live core position, including when it is hidden in a side room.
-            // moveEnemyToward finds a wall-safe path instead of following the fixed area route.
-            double targetX = coreX;
-            double targetY = coreY;
+            boolean canSeeCore = distance(enemy.x, enemy.y, coreX, coreY) <= 520
+                    && GameMap.hasClearLine(enemy.x, enemy.y, coreX, coreY);
+            MapPoint routeTarget = !canSeeCore && enemy.routeIndex < enemy.route.size()
+                    ? enemy.route.get(enemy.routeIndex) : null;
+            double targetX = routeTarget == null ? coreX : routeTarget.x();
+            double targetY = routeTarget == null ? coreY : routeTarget.y();
+            double targetDistance = distance(enemy.x, enemy.y, targetX, targetY);
 
-            if (distance(enemy.x, enemy.y, coreX, coreY) <= 72
-                    && GameMap.hasClearLine(enemy.x, enemy.y, coreX, coreY)) {
+            if (routeTarget == null && distance(enemy.x, enemy.y, coreX, coreY) <= 72) {
                 enemy.faceToward(coreX, coreY);
                 if (enemy.attackCooldown <= 0) {
                     damageCore(enemy.damage);
                     enemy.attackCooldown = 0.9;
                 }
             } else {
-                // Keep narrow routes centered; wandering is only safe in open space.
-                if (GameMap.canOccupy(targetX, targetY, 37, unlockedAreas)
-                        && canEnemyTravel(enemy.x, enemy.y, targetX + enemy.wanderX, targetY + enemy.wanderY)) {
-                    targetX += enemy.wanderX;
-                    targetY += enemy.wanderY;
-                }
-                moveEnemyToward(enemy, targetX, targetY,
+                moveEnemyToward(enemy, targetX + enemy.wanderX, targetY + enemy.wanderY,
                         enemy.speed * enemy.slow * dt);
             }
         }
@@ -1189,46 +1184,27 @@ final class GameSession {
     }
 
     private void moveEnemyToward(Enemy enemy, double targetX, double targetY, double amount) {
-        if (amount <= 0) return;
-        if (!canEnemyTravel(enemy.x, enemy.y, targetX, targetY)) {
-            boolean targetChanged = !Double.isFinite(enemy.pathTargetX)
-                    || distance(enemy.pathTargetX, enemy.pathTargetY, targetX, targetY) > GameMap.TILE_SIZE / 2.0;
-            if (targetChanged || enemy.pathTimer <= 0) {
-                List<MapPoint> path = new ArrayList<>(findPath(enemy.x, enemy.y, targetX, targetY, 17, false));
-                // An off-center start can clip the inside of a corner on its first step.
-                if (!path.isEmpty() && !canEnemyTravel(enemy.x, enemy.y, path.get(0).x(), path.get(0).y())) {
-                    path.add(0, GameMap.snapToTile(enemy.x, enemy.y));
-                }
-                enemy.path = List.copyOf(path);
+        if (!GameMap.hasClearLine(enemy.x, enemy.y, targetX, targetY)) {
+            if (enemy.pathTimer <= 0) {
+                enemy.path = findPath(enemy.x, enemy.y, targetX, targetY, 17, false);
                 enemy.pathIndex = 0;
                 enemy.pathTimer = 1;
-                enemy.pathTargetX = targetX;
-                enemy.pathTargetY = targetY;
             }
             while (enemy.pathIndex < enemy.path.size()
-                    && distance(enemy.x, enemy.y, enemy.path.get(enemy.pathIndex).x(), enemy.path.get(enemy.pathIndex).y()) < .001) enemy.pathIndex++;
-            if (enemy.pathIndex >= enemy.path.size()) return;
-            targetX = enemy.path.get(enemy.pathIndex).x();
-            targetY = enemy.path.get(enemy.pathIndex).y();
+                    && distance(enemy.x, enemy.y, enemy.path.get(enemy.pathIndex).x(), enemy.path.get(enemy.pathIndex).y()) < 8) enemy.pathIndex++;
+            if (enemy.pathIndex < enemy.path.size()) {
+                targetX = enemy.path.get(enemy.pathIndex).x();
+                targetY = enemy.path.get(enemy.pathIndex).y();
+            }
         }
         double dx = targetX - enemy.x;
         double dy = targetY - enemy.y;
         enemy.faceToward(targetX, targetY);
-        double length = Math.hypot(dx, dy);
-        if (length < .001) return;
-        double step = Math.min(amount, length);
-        double nextX = enemy.x + dx / length * step;
-        double nextY = enemy.y + dy / length * step;
-        if (canEnemyTravel(enemy.x, enemy.y, nextX, nextY) && canOccupy(nextX, nextY, 17)) {
-            enemy.x = nextX;
-            enemy.y = nextY;
-        } else {
-            enemy.pathTimer = 0;
-        }
-    }
-
-    private boolean canEnemyTravel(double fromX, double fromY, double toX, double toY) {
-        return enemyTravel.canTravel(fromX, fromY, toX, toY, 17, unlockedAreas);
+        double length = Math.max(1, Math.hypot(dx, dy));
+        double nextX = clamp(enemy.x + dx / length * amount, 18, WORLD_W - 18);
+        double nextY = clamp(enemy.y + dy / length * amount, 18, WORLD_H - 18);
+        if (canOccupy(nextX, enemy.y, 17)) enemy.x = nextX;
+        if (canOccupy(enemy.x, nextY, 17)) enemy.y = nextY;
     }
 
     private void damageCore(double rawDamage) {

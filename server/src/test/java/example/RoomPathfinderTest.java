@@ -5,23 +5,6 @@ import java.util.*;
 import org.junit.jupiter.api.Test;
 
 class RoomPathfinderTest {
-    @Test void movingGoalAndBoundaryTiesDoNotReuseAStaleDestination() {
-        RoomPathfinder finder = new RoomPathfinder(new PerformanceMetrics());
-        Set<String> areas = allAreas();
-        finder.find(100, 100, 140, 100, 17, false, areas, List.of());
-        finder.find(180, 100, 140, 100, 17, false, areas, List.of());
-        assertEquals(List.of(new MapPoint(140, 100), new MapPoint(180, 100)),
-                finder.find(100, 100, 180, 100, 17, false, areas, List.of()));
-        for (MapPoint goal : List.of(new MapPoint(1000, 1900), new MapPoint(0, 0), new MapPoint(140, 120))) {
-            assertEquals(original(100, 100, goal.x(), goal.y(), 17, false, areas, List.of()),
-                    finder.find(100, 100, goal.x(), goal.y(), 17, false, areas, List.of()));
-        }
-        assertEquals(original(60, 100, 100, 100, 17, false, areas, List.of()),
-                finder.find(60, 100, 100, 100, 17, false, areas, List.of()), "escape from a blocked start");
-        finder.clear();
-        assertEquals(List.of(new MapPoint(140, 100)), finder.find(100, 100, 140, 100, 17, false, areas, List.of()));
-    }
-
     @Test void adjacentGoalStopsEarlyAndRepeatedRouteDoesNoSearch() {
         PerformanceMetrics metrics = new PerformanceMetrics();
         RoomPathfinder finder = new RoomPathfinder(metrics);

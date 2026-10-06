@@ -218,8 +218,6 @@ final class Enemy {
     List<MapPoint> path = List.of();
     int pathIndex;
     double pathTimer;
-    double pathTargetX = Double.NaN;
-    double pathTargetY = Double.NaN;
 
     Enemy(int id, String type, SpawnPoint spawn, double hp, double speed, double damage, int reward) {
         this.id = id;
