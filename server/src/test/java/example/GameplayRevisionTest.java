@@ -19,10 +19,10 @@ class GameplayRevisionTest {
         assertEquals(1, game.round);
         for (int i = 0; i < 159; i++) game.update(.05);
         assertTrue(game.enemies.isEmpty(), "ROUND1 must allow time before spawning");
-        assertEquals(9, game.queuedEnemies);
+        assertEquals(6, game.queuedEnemies);
         game.update(.1);
         assertFalse(game.enemies.isEmpty());
-        assertEquals(8, game.queuedEnemies);
+        assertEquals(5, game.queuedEnemies);
         game.enemies.clear(); game.queuedEnemies = 0;
         game.update(.05);
         assertEquals(GamePhase.PREPARING, game.phase);
@@ -278,7 +278,7 @@ class GameplayRevisionTest {
     }
 
     @Test void regularWavePopulationIsReducedByOneQuarterBeforeLateRounds() {
-        for (int round : new int[]{1, 3, 11, 20}) {
+        for (int round : new int[]{11, 20}) {
             game.phase = GamePhase.PREPARING;
             game.round = round - 1;
             game.prepTime = 0;

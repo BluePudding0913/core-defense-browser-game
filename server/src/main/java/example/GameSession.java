@@ -668,8 +668,15 @@ final class GameSession {
     }
 
     private int earlyRoundRelief() {
-        // Ease the first brute/shield encounters, then return to the usual curve at R11.
-        return round < 5 ? 0 : round == 5 ? 2 : Math.max(0, Math.min(4, 11 - round));
+        // Reduce opening crowds and space out spawns, returning to the usual curve at R11.
+        return switch (round) {
+            case 1 -> 3;
+            case 2 -> 4;
+            case 3 -> 5;
+            case 4, 5 -> 6;
+            case 6 -> 5;
+            default -> Math.max(0, Math.min(4, 11 - round));
+        };
     }
 
     private String selectEnemyType(SpawnPoint spawn) {
