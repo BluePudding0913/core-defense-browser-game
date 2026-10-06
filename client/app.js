@@ -696,7 +696,9 @@ refreshRoomsButton.addEventListener("click", () => {
 });
 leaveRoomButton.addEventListener("click", leaveRoom);
 const exitDialog = document.querySelector("#exit-dialog");
-document.querySelector("#leave-game").addEventListener("click", () => {
+document.querySelector("#leave-game").addEventListener("click", openExitDialog);
+function openExitDialog() {
+    if (exitDialog.open) return;
     endInteractionHold(true);
     keys.clear(); joystick = null;
     dashKey = false; setDash(false);
@@ -706,7 +708,7 @@ document.querySelector("#leave-game").addEventListener("click", () => {
     sendMovement();
     exitDialog.returnValue = "cancel";
     exitDialog.showModal();
-});
+}
 exitDialog.addEventListener("close", () => {
     if (exitDialog.returnValue === "exit") leaveRoom();
 });
@@ -1509,6 +1511,11 @@ window.addEventListener("keydown", event => {
     if (!howToMenu.classList.contains("hidden")) {
         if (["escape", "e"].includes(key)) closeHowTo();
         event.preventDefault();
+        return;
+    }
+    if (key === "escape" && state && ["preparing", "wave"].includes(state.phase)) {
+        event.preventDefault();
+        if (!event.repeat) openExitDialog();
         return;
     }
     if (/^[1-9]$/.test(key) && state && ["preparing", "wave"].includes(state.phase)) {
