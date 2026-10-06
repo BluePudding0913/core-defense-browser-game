@@ -75,6 +75,7 @@ final class GameSession {
     final Set<String> trippedBreakers = new HashSet<>();
 
     GamePhase phase = GamePhase.LOBBY;
+    private boolean debugMode;
     int round;
     double prepTime;
     int queuedEnemies;
@@ -350,6 +351,7 @@ final class GameSession {
 
     private void startMatch(Player host, boolean debugMode) {
         resetWorld();
+        this.debugMode = debugMode;
         if (debugMode) {
             host.credits = 100_000;
             GameConfig.WEAPONS.keySet().forEach(weapon -> giveBotWeapon(host, weapon));
@@ -633,6 +635,8 @@ final class GameSession {
     }
 
     private String selectEnemyType(SpawnPoint spawn) {
+        // Guarantee an early preview without adding enemies to the wave budget.
+        if (debugMode && round == 1 && nextEnemyId == 1) return "artillery";
         // Reserve a growing share for elites, retaining each entrance's original mix.
         double eliteRoll = random.nextDouble();
         double eliteChance = 0;
@@ -640,7 +644,7 @@ final class GameSession {
         if (round >= 26 && eliteRoll < (eliteChance += 0.14)) return "siege";
         if (round >= 18 && eliteRoll < (eliteChance += 0.16)) return "hunter";
         if (round >= 10 && eliteRoll < (eliteChance += 0.18)) return "armored";
-        if (round >= 12 && eliteRoll < (eliteChance += 0.08)) return "artillery";
+        if ((debugMode || round >= 12) && eliteRoll < (eliteChance += 0.08)) return "artillery";
         if (round >= 7 && eliteRoll < (eliteChance += 0.10)) return "shield";
         double bruteChance = round >= 5 ? 0.18 : 0;
         double runnerChance = round >= 3 ? 0.25 : 0;
@@ -2628,6 +2632,7 @@ final class GameSession {
     }
 
     private void resetWorld() {
+        debugMode = false;
         pathfinder.clear();
         phase = GamePhase.LOBBY;
         round = 0;

@@ -126,4 +126,33 @@ class ArtilleryEnemyTest {
         for (int i = 0; i < 23; i++) game.update(.05);
         assertEquals(100, player.hp, "CPU should escape before the acid lands");
     }
+
+    @Test void debugOpeningGuaranteesArtilleryWithinTheNormalWaveBudget() throws Exception {
+        invoke("startMatch", new Class<?>[]{Player.class, boolean.class}, player, true);
+        invoke("beginRound", new Class<?>[]{});
+        assertEquals(1, game.round); assertEquals(9, game.queuedEnemies);
+        invoke("updateSpawning", new Class<?>[]{double.class}, 8.1);
+        assertEquals(1, game.enemies.size());
+        assertEquals("artillery", game.enemies.get(0).type);
+        assertEquals(8, game.queuedEnemies);
+        game.round = 2;
+        var randomField = GameSession.class.getDeclaredField("random"); randomField.setAccessible(true);
+        ((java.util.Random) randomField.get(game)).setSeed(123);
+        boolean seen = false;
+        for (int i = 0; i < 600; i++) {
+            if (invoke("selectEnemyType", new Class<?>[]{SpawnPoint.class}, GameMap.SPAWN_POINTS.get(0))
+                    .equals("artillery")) seen = true;
+        }
+        assertTrue(seen, "Debug matches keep artillery eligible in subsequent early rounds");
+    }
+
+    @Test void normalRestartClearsDebugEnemyUnlock() throws Exception {
+        invoke("startMatch", new Class<?>[]{Player.class, boolean.class}, player, true);
+        invoke("startMatch", new Class<?>[]{Player.class, boolean.class}, player, false);
+        game.round = 1;
+        for (int i = 0; i < 100; i++) {
+            assertEquals("grunt", invoke("selectEnemyType", new Class<?>[]{SpawnPoint.class},
+                    GameMap.SPAWN_POINTS.get(0)));
+        }
+    }
 }
