@@ -25,7 +25,11 @@ class RocketAndBalanceTest {
     }
 
     Enemy enemy(int id, double x, double y) {
-        Enemy enemy = new Enemy(id, "grunt", GameMap.SPAWN_POINTS.get(0), 2000, 0, 0, 100);
+        return enemy(id, x, y, 2000);
+    }
+
+    Enemy enemy(int id, double x, double y, double hp) {
+        Enemy enemy = new Enemy(id, "grunt", GameMap.SPAWN_POINTS.get(0), hp, 0, 0, 100);
         enemy.x = x; enemy.y = y; game.enemies.add(enemy);
         return enemy;
     }
@@ -48,11 +52,11 @@ class RocketAndBalanceTest {
         assertEquals(0, player.credits);
 
         ShopUnit shop = GameMap.shopByItem("rocket");
-        player.x = shop.x(); player.y = shop.y(); player.credits = 7_999;
+        player.x = shop.x(); player.y = shop.y(); player.credits = 11_999;
         game.handleMessage(player, "BUY:rocket");
         assertFalse(player.ownsRocket);
-        assertEquals(7_999, player.credits);
-        player.credits = 8_000;
+        assertEquals(11_999, player.credits);
+        player.credits = 12_000;
         game.handleMessage(player, "BUY:rocket");
         assertTrue(player.ownsRocket);
         assertEquals(0, player.credits);
@@ -78,7 +82,7 @@ class RocketAndBalanceTest {
 
     @Test void rocketPurchaseRefillSnapshotAndRestartWork() throws Exception {
         ShopUnit shop = GameMap.shopByItem("rocket");
-        player.x = shop.x(); player.y = shop.y(); player.credits = 8600;
+        player.x = shop.x(); player.y = shop.y(); player.credits = 12600;
         game.handleMessage(player, "WEAPON:rocket");
         assertEquals("pistol", player.weapon);
         game.handleMessage(player, "BUY:rocket");
@@ -106,10 +110,10 @@ class RocketAndBalanceTest {
 
     @Test void rocketDetonatesOnFirstEnemyWithRadialFalloffAndConsumesOneRound() {
         player.x = 1020; player.y = 1900; player.ownsRocket = true; player.rocketAmmo = 2;
-        Enemy direct = enemy(1, 1120, 1900), splash = enemy(2, 1120, 1960), outside = enemy(3, 1340, 1900);
+        Enemy direct = enemy(1, 1120, 1900, 4000), splash = enemy(2, 1120, 1960, 4000), outside = enemy(3, 1340, 1900);
         game.handleMessage(player, "WEAPON:rocket");
         game.handleMessage(player, "FIRE:1300:1900:1");
-        assertTrue(direct.hp < splash.hp); assertTrue(splash.hp < 2000);
+        assertTrue(direct.hp < splash.hp); assertTrue(splash.hp < 4000);
         assertEquals(2000, outside.hp); assertEquals(1, player.rocketAmmo);
         assertEquals(100, player.hp); // Explosions only damage enemies.
         assertEquals(5, player.cooldown);
@@ -124,10 +128,10 @@ class RocketAndBalanceTest {
 
     @Test void rocketExplodesAtAimPointAndWallsBlockBlast() {
         player.x = 1020; player.y = 1900; player.ownsRocket = true; player.rocketAmmo = 2;
-        Enemy splash = enemy(1, 1120, 1970);
+        Enemy splash = enemy(1, 1120, 1970, 4000);
         game.handleMessage(player, "WEAPON:rocket");
         game.handleMessage(player, "FIRE:1120:1900:1");
-        assertEquals(350, splash.hp, 1e-6);
+        assertEquals(1525, splash.hp, 1e-6);
         assertTrue(effects.stream().anyMatch(m -> m.contains("\"effect\":\"explosion\"") && m.contains("1120.0")));
         game.enemies.clear(); effects.clear(); player.cooldown = 0; player.firing = false;
         player.x = 1020; player.y = 1580;

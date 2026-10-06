@@ -44,18 +44,18 @@ final class GameConfig {
     static final int SHOTGUN_PELLETS = 4;
     static final int SHOTGUN_MAX_TARGETS = 4;
     static final Map<String, Integer> AMMO_CAPACITIES = Map.of(
-            "shotgun", 90, "smg", 240, "rifle", 96, "sniper", 48,
+            "shotgun", 50, "smg", 240, "rifle", 30, "sniper", 15,
             "revolver", 30, "lmg", 600, "ricochet", 240, "rocket", 8);
     static final Map<String, WeaponStats> WEAPONS = Map.of(
             "pistol", new WeaponStats(4 * GameMap.TILE_SIZE, 26, .38, 0, 2),
             "bat", new WeaponStats(96, 20, 1, 115, 26),
             "shotgun", new WeaponStats(220, 24, 1.25, 55, 2),
             "smg", new WeaponStats(270, 12, .14, 0, 2),
-            "rifle", new WeaponStats(430, 98, 1.15, 0, 2),
+            "rifle", new WeaponStats(430, 120, 1.15, 0, 2),
             "sniper", new WeaponStats(2400, 280, 1.8, 0, 2),
             "revolver", new WeaponStats(360, 320, 1.6, 12, 2),
             "ricochet", new WeaponStats(1000, 30, .30, 0, 2),
-            "rocket", new WeaponStats(1200, 2000, 5, 100, 2),
+            "rocket", new WeaponStats(1200, 3000, 5, 100, 2),
             "lmg", new WeaponStats(360, 18, .18, 0, 2));
 
     record WeaponStats(double range, double damage, double cooldown, double knockback, double width) { }

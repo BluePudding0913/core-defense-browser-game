@@ -111,7 +111,7 @@ class RicochetAndAimTest {
 
     @Test void rocketShopIsSealedUntilItsLateRoomIsUnlocked() {
         game.unlockedAreas.remove("heavy-arms-area");
-        ShopUnit shop = GameMap.shopByItem("rocket"); player.x = shop.x(); player.y = shop.y(); player.credits = 8600;
+        ShopUnit shop = GameMap.shopByItem("rocket"); player.x = shop.x(); player.y = shop.y(); player.credits = 12600;
         game.handleMessage(player, "BUY:rocket"); assertFalse(player.ownsRocket);
         game.unlockedAreas.add("heavy-arms-area");
         game.handleMessage(player, "BUY:rocket"); assertTrue(player.ownsRocket);
