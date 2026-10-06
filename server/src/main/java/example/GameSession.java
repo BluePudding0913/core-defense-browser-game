@@ -669,8 +669,8 @@ final class GameSession {
     }
 
     private int earlyRoundRelief() {
-        // Reduce opening crowds and space out spawns, returning to the usual curve at R11.
-        return switch (round) {
+        // Keep the gentle opening, then ease crowds through R25 and taper off by R35.
+        int openingRelief = switch (round) {
             case 1 -> 3;
             case 2 -> 4;
             case 3 -> 5;
@@ -678,6 +678,9 @@ final class GameSession {
             case 6 -> 5;
             default -> Math.max(0, Math.min(4, 11 - round));
         };
+        double reliefScale = round <= 25 ? 1 : Math.max(0, (35 - round) / 10.0);
+        int midgameRelief = (int) Math.round((6 + round * 3) * 0.15 * reliefScale);
+        return Math.max(openingRelief, midgameRelief);
     }
 
     private String selectEnemyType(SpawnPoint spawn) {

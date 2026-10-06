@@ -18,7 +18,7 @@ class EarlyRoundDifficultyTest {
     }
 
     @Test void openingPressureRisesGraduallyAndRejoinsTheNormalCurve() throws Exception {
-        int[] populations = {6, 8, 10, 12, 15, 19, 23, 27, 31, 35, 39, 42};
+        int[] populations = {6, 8, 10, 12, 15, 19, 23, 25, 28, 31, 33, 36};
         for (int round = 1; round <= populations.length; round++) {
             game.round = round - 1;
             invoke("beginRound", new Class<?>[]{});
@@ -31,6 +31,27 @@ class EarlyRoundDifficultyTest {
                 timer.setAccessible(true);
                 assertEquals(1.15 - round * .045 + (6 + round * 3 - populations[round - 1]) * .04, timer.getDouble(game), .00001);
             }
+        }
+    }
+
+    @Test void reliefLastsThroughRoundTwentyFiveAndTapersWithoutAPopulationSpike() throws Exception {
+        int previous = 36;
+        for (int round = 13; round <= 39; round++) {
+            game.round = round - 1;
+            invoke("beginRound", new Class<?>[]{});
+            int population = game.queuedEnemies;
+            assertTrue(population >= previous && population - previous <= 5, "R" + round);
+            if (round == 20) assertEquals(56, population);
+            if (round == 25) assertEquals(69, population);
+            if (round == 30) assertEquals(89, population);
+            if (round >= 35) assertEquals(6 + round * 3, population);
+            game.roundEvent = "none";
+            invoke("updateSpawning", new Class<?>[]{double.class}, 10.);
+            var timer = GameSession.class.getDeclaredField("spawnTimer");
+            timer.setAccessible(true);
+            if (round <= 25) assertTrue(timer.getDouble(game) >= .5, "Breathing room at R" + round);
+            if (round >= 35) assertEquals(.28, timer.getDouble(game), .00001);
+            previous = population;
         }
     }
 

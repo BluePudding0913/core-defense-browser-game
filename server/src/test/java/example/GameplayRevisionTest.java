@@ -277,13 +277,13 @@ class GameplayRevisionTest {
         }
     }
 
-    @Test void regularWavePopulationIsReducedByOneQuarterBeforeLateRounds() {
+    @Test void regularWavePopulationIncludesMidgameRelief() {
         for (int round : new int[]{11, 20}) {
             game.phase = GamePhase.PREPARING;
             game.round = round - 1;
             game.prepTime = 0;
             game.update(.05);
-            assertEquals((8 + round * 4) * .75, game.queuedEnemies);
+            assertEquals(round == 11 ? 33 : 56, game.queuedEnemies);
             assertEquals(round % 4 == 0 ? round / 4 : 0, game.queuedBosses);
         }
     }
@@ -399,7 +399,7 @@ class GameplayRevisionTest {
         game.update(.05);
         assertTrue(game.activeSpawnIds.contains("area-entry-room"));
         assertFalse(game.activeSpawnIds.contains("area-forest"));
-        assertEquals(27, game.queuedEnemies);
+        assertEquals(25, game.queuedEnemies);
         game.coreHp = 100000;
         for (int i = 0; i < 240; i++) game.update(.05);
         assertTrue(game.enemies.stream().anyMatch(e -> e.spawnId.equals("area-entry-room")));
