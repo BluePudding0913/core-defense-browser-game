@@ -629,14 +629,14 @@ class GameSessionTest {
     @Test
     void movementStopsAtAMapWall() {
         startPreparing();
-        player.x = 805;
-        player.y = 1_860;
+        player.x = 845;
+        player.y = 1_980;
 
         game.handleMessage(player, "MOVE:-1:0");
         game.update(0.1);
 
-        assertEquals(805, player.x, "the player collision must not cross the map wall");
-        assertEquals(1_860, player.y);
+        assertEquals(845, player.x, "the player collision must not cross the map wall");
+        assertEquals(1_980, player.y);
     }
 
     @Test

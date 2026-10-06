@@ -241,6 +241,7 @@ final class GameSession {
 
         updateBots(dt);
         updatePlayers(dt);
+        updateMedbay(dt);
         updateRevives(dt);
         updateResources(dt);
         updateFactories(dt);
@@ -515,6 +516,17 @@ final class GameSession {
             if (player.movingCore) {
                 coreX = player.x;
                 coreY = player.y;
+            }
+        }
+    }
+
+    private void updateMedbay(double dt) {
+        for (Player player : players) {
+            double healingTime = Math.max(0, dt - player.medbayDamageDelay);
+            player.medbayDamageDelay = Math.max(0, player.medbayDamageDelay - dt);
+            if (!player.down && player.hp < 100 && isPointUnlocked(MED_X, MED_Y)
+                    && canInteract(player, MED_X, MED_Y, GameConfig.MEDBAY_RANGE)) {
+                player.hp = Math.min(100, player.hp + GameConfig.MEDBAY_HEAL_PER_SECOND * healingTime);
             }
         }
     }
@@ -1649,8 +1661,8 @@ final class GameSession {
             if (breaker != null) return botUse(bot, breaker.x(), breaker.y(), 70,
                     () -> resetBreaker(bot, breaker.id()));
         }
-        if (bot.hp <= 55 && bot.credits >= GameConfig.HEAL_PRICE && isPointUnlocked(MED_X, MED_Y)) {
-            return botUse(bot, MED_X, MED_Y, 65, () -> buy(bot, "heal"));
+        if (bot.hp < 85 && isPointUnlocked(MED_X, MED_Y)) {
+            return botUse(bot, MED_X, MED_Y, 65, () -> { });
         }
         if (tryBotUnlock(bot)) return true;
         TrapSlot damaged = trapSlots.stream().filter(slot -> slot.defense != null
@@ -2109,28 +2121,12 @@ final class GameSession {
     private void buy(Player player, String item) {
         if (!canUseFacilities() || player.down) return;
         if(item.equals("medkit")) {
-            if(!isPointUnlocked(MED_X,MED_Y)||!canInteract(player,MED_X,MED_Y,95)) return;
+            ShopUnit kitShop = GameMap.shopByItem("medkit");
+            if (!isPointUnlocked(kitShop.x(), kitShop.y())
+                    || !canInteract(player, kitShop.x(), kitShop.y(), 70)) return;
             if(player.medkits >= GameConfig.MEDKIT_CAPACITY) { feedback(player,"回復キットは5個まで持てます"); return; }
             if(spend(player,GameConfig.MEDKIT_PRICE)) { player.medkits++; feedback(player,"回復キットを購入しました"); }
             else feedback(player,"お金が足りません");
-            return;
-        }
-        if (item.equals("heal")) {
-            if (!isPointUnlocked(MED_X, MED_Y) || !canInteract(player, MED_X, MED_Y, 95)) {
-                feedback(player, "医療施設に近づいてください");
-                return;
-            }
-            if (player.hp >= 100) {
-                feedback(player, "HPは満タンです");
-                return;
-            }
-            if (spend(player, GameConfig.HEAL_PRICE)) {
-                player.hp = 100;
-                sendSoundEffect(player,"item-use","heal");
-                feedback(player, "HPを回復しました");
-            } else {
-                feedback(player, "お金が足りません");
-            }
             return;
         }
         ShopUnit shop = GameMap.shopByItem(item);
@@ -2740,6 +2736,7 @@ final class GameSession {
         if (player.down || damage <= 0) return;
         events.broadcast("{\"type\":\"effect\",\"effect\":\"player-hit\",\"playerId\":\"" + player.id + "\"}");
         if (player.movingCore) damageCore(damage);
+        player.medbayDamageDelay = GameConfig.MEDBAY_DAMAGE_DELAY;
         player.hp = Math.max(0, player.hp - damage);
         if (player.hp <= 0) {
             player.down = true;
@@ -2812,6 +2809,7 @@ final class GameSession {
             player.facingX = 0;
             player.facingY = -1;
             player.hp = 100;
+            player.medbayDamageDelay = 0;
             player.roomReady = false;
             player.down = false;
             player.dashHeld = false;

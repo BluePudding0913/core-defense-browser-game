@@ -4,7 +4,7 @@
   "core": { "x": 1020, "y": 1900 },
   "stations": {
     "armory": { "id": "armory", "x": 1660, "y": 980 },
-    "medBay": { "id": "med", "x": 1100, "y": 1460 },
+    "medBay": { "id": "med", "x": 620, "y": 1860 },
     "woodcutter": { "id": "woodcutter", "x": 1580, "y": 540 },
     "quarry": { "id": "quarry", "x": 860, "y": 220 },
     "workbench": { "id": "workbench", "x": 980, "y": 1460 }
@@ -60,18 +60,18 @@
       "#################............##....#################",
       "#################....##......#######################",
       "######################.........#####################",
-      "#####################...........####################",
-      "####################............####################",
-      "####################............####################",
-      "####################............####################",
-      "####################............####################",
+      "#############......##...........####################",
+      "#############...................####################",
+      "#############...................####################",
+      "#############...................####################",
+      "#############...................####################",
       "#####################..........#####################",
       "#######################......#######################",
       "####################################################"
     ]
   },
   "areas": [
-    {"id":"entry-room","name":"ENTRY ROOM","terminalX":1060,"terminalY":1660,"labelX":900,"labelY":1340,"color":"#ffffff","detail":"Entry sector / MED BAY / WORKBENCH",
+    {"id":"entry-room","name":"ENTRY ROOM","terminalX":1060,"terminalY":1660,"labelX":900,"labelY":1340,"color":"#ffffff","detail":"Entry sector / WORKBENCH",
       "tiles": [
         {"column":23,"row":32},{"column":24,"row":32},{"column":25,"row":32},{"column":26,"row":32},{"column":27,"row":32},{"column":28,"row":32},
         {"column":23,"row":33},{"column":24,"row":33},{"column":25,"row":33},{"column":26,"row":33},{"column":27,"row":33},{"column":28,"row":33},
@@ -242,11 +242,12 @@
         {"column":2,"row":25},{"column":3,"row":25},{"column":4,"row":25},{"column":5,"row":25},{"column":6,"row":25},{"column":7,"row":25},{"column":8,"row":25},{"column":9,"row":25}
       ]
     },
-    {"id":"revolver-room","name":"REVOLVER ROOM","terminalX":500,"terminalY":420,"labelX":540,"labelY":620,"color":"#ffffff","detail":"十分な弾薬を補充できます","tiles":[{"column":12,"row":10},{"column":11,"row":11},{"column":12,"row":11},{"column":13,"row":11},{"column":14,"row":11},{"column":11,"row":12},{"column":12,"row":12},{"column":13,"row":12},{"column":14,"row":12},{"column":11,"row":13},{"column":12,"row":13},{"column":13,"row":13},{"column":14,"row":13},{"column":11,"row":14},{"column":12,"row":14},{"column":13,"row":14},{"column":14,"row":14}]}
+    {"id":"revolver-room","name":"REVOLVER ROOM","terminalX":500,"terminalY":420,"labelX":540,"labelY":620,"color":"#ffffff","detail":"十分な弾薬を補充できます","tiles":[{"column":12,"row":10},{"column":11,"row":11},{"column":12,"row":11},{"column":13,"row":11},{"column":14,"row":11},{"column":11,"row":12},{"column":12,"row":12},{"column":13,"row":12},{"column":14,"row":12},{"column":11,"row":13},{"column":12,"row":13},{"column":13,"row":13},{"column":14,"row":13},{"column":11,"row":14},{"column":12,"row":14},{"column":13,"row":14},{"column":14,"row":14}]},
+    {"id":"recovery-room","name":"RECOVERY ROOM","terminalX":780,"terminalY":1860,"labelX":620,"labelY":1740,"color":"#ffffff","detail":"近くで毎秒4HP回復 / 被弾後5秒停止","tiles":[{"column":13,"row":44},{"column":14,"row":44},{"column":15,"row":44},{"column":16,"row":44},{"column":17,"row":44},{"column":18,"row":44},{"column":13,"row":45},{"column":14,"row":45},{"column":15,"row":45},{"column":16,"row":45},{"column":17,"row":45},{"column":18,"row":45},{"column":13,"row":46},{"column":14,"row":46},{"column":15,"row":46},{"column":16,"row":46},{"column":17,"row":46},{"column":18,"row":46},{"column":13,"row":47},{"column":14,"row":47},{"column":15,"row":47},{"column":16,"row":47},{"column":17,"row":47},{"column":18,"row":47},{"column":13,"row":48},{"column":14,"row":48},{"column":15,"row":48},{"column":16,"row":48},{"column":17,"row":48},{"column":18,"row":48}]}
   ],
   "spawnPoints": [
     {"id":"south-gate","name":"SOUTH GATE","x":1020,"y":2020,"lane":"south","enemyBias":"balanced","speedMultiplier":1.0,"targetPriority":"core","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1300,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1380,"y":340},{"x":1200,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":660,"y":260},{"x":420,"y":260},{"x":220,"y":260}]},
-    {"id":"west-field","name":"WEST FIELD","x":820,"y":1860,"lane":"west","enemyBias":"brute","speedMultiplier":0.94,"targetPriority":"defenses","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1300,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1380,"y":340},{"x":1200,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":660,"y":260},{"x":420,"y":260},{"x":220,"y":260}]},
+    {"id":"west-field","name":"WEST FIELD","x":820,"y":1940,"lane":"west","enemyBias":"brute","speedMultiplier":0.94,"targetPriority":"defenses","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1300,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1380,"y":340},{"x":1200,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":660,"y":260},{"x":420,"y":260},{"x":220,"y":260}]},
     {"id":"east-field","name":"EAST FIELD","x":1260,"y":1860,"lane":"east","enemyBias":"runner","speedMultiplier":1.08,"targetPriority":"players","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1300,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1380,"y":340},{"x":1200,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":660,"y":260},{"x":420,"y":260},{"x":220,"y":260}]},
     {"id":"south-west","name":"SOUTHWEST","x":900,"y":1980,"lane":"south","enemyBias":"balanced","speedMultiplier":1.02,"targetPriority":"core","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1300,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1380,"y":340},{"x":1200,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":660,"y":260},{"x":420,"y":260},{"x":220,"y":260}]},
     {"id":"south-east","name":"SOUTHEAST","x":1220,"y":1980,"lane":"south","enemyBias":"runner","speedMultiplier":1.06,"targetPriority":"players","route":[{"x":1020,"y":1820},{"x":1020,"y":1660},{"x":1020,"y":1340},{"x":1020,"y":1140},{"x":1300,"y":1140},{"x":1460,"y":1140},{"x":1620,"y":1060},{"x":1620,"y":740},{"x":1620,"y":580},{"x":1620,"y":340},{"x":1380,"y":340},{"x":1200,"y":340},{"x":1060,"y":340},{"x":900,"y":260},{"x":660,"y":260},{"x":420,"y":260},{"x":220,"y":260}]},
@@ -289,6 +290,7 @@
     {"id":"early-ore-2","type":"ore","x":1460,"y":1340,"requiredArea":"ore-room"}
   ],
   "shopUnits": [
+    {"id":"shop-medkit","item":"medkit","label":"MEDKIT","x":1340,"y":1180,"cost":120,"detail":"携帯回復キット / HP +60"},
     {"id":"wood-factory","item":"woodFactory","label":"QUARRY W","x":1700,"y":460,"cost":4000,"detail":""},
     {"id":"ore-factory","item":"oreFactory","label":"QUARRY I","x":940,"y":140,"cost":5000,"detail":""},
     {"id":"copper-factory","item":"copperFactory","label":"QUARRY C","x":580,"y":340,"cost":7000,"detail":""},

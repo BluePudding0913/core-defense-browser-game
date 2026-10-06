@@ -19,6 +19,7 @@ final class Player {
     int facingX;
     int facingY = -1;
     double hp;
+    double medbayDamageDelay;
     boolean down;
     boolean dashHeld;
     boolean dashing;

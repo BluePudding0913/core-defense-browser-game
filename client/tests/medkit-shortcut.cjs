@@ -6,6 +6,7 @@ const commands = [];
 let handler;
 const me = { hp: 40, medkits: 2, down: false };
 const context = vm.createContext({
+    exitDialog: { open: false },
     window: { addEventListener: (name, fn) => { handler = fn; } },
     isTypingTarget: target => target?.typing,
     howToMenu: { classList: { contains: () => true } },

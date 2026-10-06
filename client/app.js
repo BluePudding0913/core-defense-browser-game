@@ -1277,6 +1277,15 @@ function openPrepConsoleMenu() {
 
 function openShopPurchase(shop) {
     const me = getMe();
+    if (shop.item === "medkit") {
+        openNearbyActionMenu(shop.label, [{
+            label: "回復キット",
+            detail: `${shop.cost}G / HP +${state.rules.medkitHeal}`,
+            command: "BUY:medkit",
+            disabled: me.medkits >= state.rules.medkitCapacity || me.credits < shop.cost,
+        }], shop, INTERACTION_RANGE.shop, "single");
+        return;
+    }
     if (shop.item.endsWith("Factory")) {
         openNearbyActionMenu(shop.label, [{
             label: "BUY",
@@ -1342,13 +1351,6 @@ function updateWorkbenchMaterials() {
         .map(([key, name]) => `${name} ${me[key] || 0}`).join(" / ")}`;
 }
 
-function openMedMenu() {
-    const me = getMe();
-    openNearbyActionMenu("MED BAY", [option("全回復", state.rules.shop.heal, "BUY:heal", me.hp >= 100, me.hp >= 100 ? "HP最大" : `HP ${Math.ceil(me.hp)} → 100`),
-        option("回復キット", state.rules.shop.medkit, "BUY:medkit", me.medkits >= state.rules.medkitCapacity,
-            `${state.rules.shop.medkit}G · 携帯してHPを${state.rules.medkitHeal}回復`)],
-        MED, INTERACTION_RANGE.medBay);
-}
 
 function openUnlockMenu(area) {
     const cost = state.rules.areaUnlockCosts?.[area.id] ?? state.rules.unlockCost;
@@ -1585,7 +1587,6 @@ function findNearestInteraction() {
         .forEach(slot => add("defense", slot, INTERACTION_RANGE.trapSlot, "MANAGE", () => openSlotMenu(slot)));
     SHOP_UNITS.forEach(shop => add("shop", shop, INTERACTION_RANGE.shop,
         shop.label, () => openShopPurchase(shop)));
-    add("med", MED, INTERACTION_RANGE.medBay, "MED BAY", openMedMenu);
     WORKBENCHES
         .filter(workbench => !workbench.requiredArea || state.areas[workbench.requiredArea])
         .forEach(workbench => add("craft", workbench, INTERACTION_RANGE.workbench,
@@ -2050,7 +2051,16 @@ function drawShops() {
         const shop = SHOP_UNITS.find(shop => shop.item === unit.item);
         drawStation(unit, shop.label, "#70bfff", "#111");
     });
-    if (isUnlockedPoint(MED)) drawStation(MED, "MED BAY", "#d8d8d8", "#111");
+    if (isUnlockedPoint(MED)) {
+        ctx.save();
+        ctx.strokeStyle = "#80bb99";
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.arc(MED.x, MED.y, INTERACTION_RANGE.medBay, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+        drawStation(MED, "MED BAY · +4HP/s", "#d8d8d8", "#111");
+    }
     if (isUnlockedPoint(WOODCUTTER)) drawStation(WOODCUTTER, "WOODCUTTER", "#a8a8a8");
     if (isUnlockedPoint(QUARRY)) drawStation(QUARRY, "QUARRY", "#808080");
     WORKBENCHES
