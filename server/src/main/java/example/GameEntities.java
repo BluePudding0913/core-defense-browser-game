@@ -253,7 +253,7 @@ final class Enemy {
         double length = Math.hypot(dx, dy);
         // A 120-degree frontal arc; melee and explosions bypass this method.
         return length > .001 && (dx * facingX + dy * facingY) / length >= .5 - 1e-9
-                ? damage * .2 : damage;
+                ? damage * .05 : damage;
     }
 }
 

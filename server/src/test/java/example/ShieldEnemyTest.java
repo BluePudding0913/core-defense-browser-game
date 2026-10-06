@@ -44,7 +44,7 @@ class ShieldEnemyTest {
     @Test void frontalArcHasClearBoundariesAndRotatesWithFacing() {
         for (double degrees : new double[]{0, 59, 60, -60}) {
             double radians = Math.toRadians(degrees);
-            assertEquals(20, shield.shieldedDamage(100, shield.x + 100 * Math.cos(radians),
+            assertEquals(5, shield.shieldedDamage(100, shield.x + 100 * Math.cos(radians),
                     shield.y + 100 * Math.sin(radians)), .001);
         }
         for (double degrees : new double[]{61, 90, 180, -90}) {
@@ -53,7 +53,7 @@ class ShieldEnemyTest {
                     shield.y + 100 * Math.sin(radians)), .001);
         }
         shield.faceToward(shield.x, shield.y - 100);
-        assertEquals(20, shield.shieldedDamage(100, shield.x, shield.y - 100));
+        assertEquals(5, shield.shieldedDamage(100, shield.x, shield.y - 100));
         assertEquals(100, shield.shieldedDamage(100, shield.x + 100, shield.y));
         shield.faceToward(shield.x, shield.y);
         assertEquals(-1, shield.facingY);
@@ -64,7 +64,7 @@ class ShieldEnemyTest {
             shield.hp = 2000; shield.creditProgress = 0; shield.paidCredits = 0;
             player.credits = 0; effects.clear();
             shoot(weapon, 1120, 1900);
-            double damage = GameSession.weaponStats(weapon).damage() * .2;
+            double damage = GameSession.weaponStats(weapon).damage() * .05;
             assertEquals(2000 - damage, shield.hp, .001, weapon);
             assertEquals((int) Math.floor(100 * damage / 2000), player.credits, weapon);
             assertTrue(effects.stream().anyMatch(e -> e.contains("\"damage\":" + damage)), weapon);
@@ -98,7 +98,7 @@ class ShieldEnemyTest {
         TrapSlot turret = new TrapSlot("test-turret", shield.lane, 1120, 1900, null);
         turret.defense = new Defense("turret"); game.trapSlots.add(turret);
         invoke("updateDefenses", new Class<?>[]{double.class}, .05);
-        assertEquals(2000 - (17 + 7 * .5) * .2, shield.hp, .001);
+        assertEquals(2000 - (17 + 7 * .5) * .05, shield.hp, .001);
         shield.hp = 2000; turret.defense.cooldown = 0;
         shield.faceToward(920, 1900);
         invoke("updateDefenses", new Class<?>[]{double.class}, .05);
