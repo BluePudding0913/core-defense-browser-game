@@ -27,6 +27,7 @@ final class Player {
     double stamina;
     String job = JobRules.DEFAULT;
     double spyRemaining;
+    double scoutDashRemaining, scoutDashDx, scoutDashDy;
     double jobCooldown;
     Drone drone;
     double teleportCooldown;

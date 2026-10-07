@@ -34,6 +34,8 @@ record TileMapDefinition(int tileSize, Map<String, TileType> legend, List<String
 
 record AreaTile(int column, int row) { }
 
+record StartingArea(String name, List<AreaTile> tiles, double labelX, double labelY) { }
+
 record UnlockArea(String id, String name, List<AreaTile> tiles,
         double terminalX, double terminalY, double labelX, double labelY,
         String color, String detail) {
@@ -74,5 +76,5 @@ record MapDefinition(int version, WorldSize world, MapPoint core, Stations stati
         List<TrapSlotDefinition> trapSlots, List<ResourceNodeDefinition> resourceNodes,
         List<ShopUnit> shopUnits, List<WorkbenchUnit> workbenchUnits,
         PrepConsole prepConsole, List<BreakerTerminal> breakerTerminals,
-        List<Station> medBayUnits) { }
+        List<Station> medBayUnits, StartingArea startingArea) { }
 

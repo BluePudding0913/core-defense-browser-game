@@ -171,11 +171,18 @@ final class SnapshotBuilder {
                     .append(",\"railgunDx\":").append(player.railgunDx)
                     .append(",\"railgunDy\":").append(player.railgunDy)
                     .append(",\"railgunRange\":").append(player.railgunRemaining > 0
-                        ? GameMap.distanceToWall(player.x, player.y, player.railgunDx, player.railgunDy, GameSession.weaponStats("railgun").range()) : 0);
+                        ? GameMap.distanceToWall(player.x, player.y, player.railgunDx, player.railgunDy,
+                            GameSession.weaponStats("railgun").range(), game.unlockedAreas) : 0);
             json.append(",\"stamina\":").append(roundOne(player.stamina))
                     .append(",\"dashing\":").append(player.dashing);
             json.append(",\"job\":\"").append(player.job).append('"')
                     .append(",\"spyRemaining\":").append(roundOne(player.spyRemaining))
+                    .append(",\"scoutDashRemaining\":").append(player.scoutDashRemaining)
+                    .append(",\"scoutDashDx\":").append(player.scoutDashDx)
+                    .append(",\"scoutDashDy\":").append(player.scoutDashDy)
+                    .append(",\"scoutDashSpeed\":").append(JobRules.SCOUT_DASH_SPEED)
+                    .append(",\"scoutDashStep\":").append(JobRules.SCOUT_DASH_STEP)
+                    .append(",\"scoutDashStamina\":").append(JobRules.SCOUT_DASH_STAMINA)
                     .append(",\"jobCooldown\":").append(roundOne(player.jobCooldown))
                     .append(",\"teleportCooldown\":").append(roundOne(player.teleportCooldown))
                     .append(",\"dashSpeed\":").append(JobRules.dashSpeed(player.job))
