@@ -22,10 +22,11 @@ window.JobUI = (() => {
         </div>`;
     }
 
-    function renderAllyIntel(player, areas, contains) {
+    function renderAllyIntel(player, areas, contains, startingArea) {
         const job = catalog[player.job]?.name || player.job || "—";
         const area = areas.find(area => contains(area, player.x, player.y));
-        const location = area?.name || `(${Math.round(player.x)}, ${Math.round(player.y)})`;
+        const location = area?.name || (startingArea && contains(startingArea, player.x, player.y)
+            ? startingArea.name : "PASSAGE");
         return `<div class="teammate-intel"><span>${escape(job)}</span><span>${escape(location)}</span></div>`;
     }
 

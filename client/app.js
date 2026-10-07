@@ -82,6 +82,7 @@ let WORKBENCH = { id: "workbench", x: 0, y: 0 };
 let WORKBENCHES = [];
 let TILE_MAP = { tileSize: 40, legend: {}, rows: [] };
 let AREAS = [];
+let STARTING_AREA = null;
 let SPAWN_POINTS = [];
 let SHOP_UNITS = [];
 let BREAKER_TERMINALS = [];
@@ -173,6 +174,7 @@ function applyMap(map) {
         rows: [...map.tileMap.rows],
     };
     AREAS = map.areas.map(area => ({ ...area }));
+    STARTING_AREA = map.startingArea;
     SPAWN_POINTS = map.spawnPoints.map(spawn => ({ ...spawn }));
     SHOP_UNITS = map.shopUnits.map(shop => ({ ...shop }));
     BREAKER_TERMINALS = map.breakerTerminals.map(breaker => ({ ...breaker }));
@@ -862,7 +864,7 @@ function updateHud() {
                 <span class="player-stats">${player.down ? "DOWN" : ""}<b>${player.credits}G</b></span>
             </div>
             <div class="hp-line"><span style="width:${player.hp}%"></span></div>
-            ${me?.job === "spy" ? window.JobUI.renderAllyIntel(player, AREAS, areaContains) : ""}
+            ${me?.job === "spy" ? window.JobUI.renderAllyIntel(player, AREAS, areaContains, STARTING_AREA) : ""}
         </div>`).join("");
     selfVitals.classList.toggle("hidden", !me);
     if (me) {
@@ -1988,6 +1990,16 @@ function drawDebugSpawn(spawn) {
 function drawAreas() {
     const reachable = reachableFloorTiles();
     const size = TILE_MAP.tileSize;
+    if (STARTING_AREA) {
+        ctx.save();
+        ctx.fillStyle = "rgb(255 255 255 / 72%)";
+        ctx.shadowColor = "#000";
+        ctx.shadowBlur = 5;
+        ctx.font = "900 13px ui-monospace, monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(STARTING_AREA.name, STARTING_AREA.labelX, STARTING_AREA.labelY);
+        ctx.restore();
+    }
     for (const area of AREAS) {
         const unlocked = state.areas[area.id];
         const column = Math.floor(area.terminalX / size);
