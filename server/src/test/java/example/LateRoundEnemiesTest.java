@@ -80,13 +80,11 @@ class LateRoundEnemiesTest {
         assertTrue(tiny.reward > 0);
         tiny.x = grunt.x = 100;
         tiny.y = grunt.y = 10;
-        Class<?>[] signature = {Enemy.class, double.class, double.class, double.class,
-                double.class, GameConfig.WeaponStats.class, double.class};
         for (String weapon : new String[]{"pistol", "smg", "rifle", "sniper", "revolver", "lmg", "ricochet"}) {
             var stats = GameSession.weaponStats(weapon);
-            assertEquals(true, invoke("isInsideAttack", signature, grunt, 0., 0., 1., 0., stats, 200.), weapon);
-            assertEquals(false, invoke("isInsideAttack", signature, tiny, 0., 0., 1., 0., stats, 200.), weapon);
-            assertEquals(true, invoke("isInsideAttack", signature, tiny, 0., 10., 1., 0., stats, 200.), weapon);
+            assertEquals(true, CombatSystem.isInsideAttack(grunt, 0., 0., 1., 0., stats, 200.), weapon);
+            assertEquals(false, CombatSystem.isInsideAttack(tiny, 0., 0., 1., 0., stats, 200.), weapon);
+            assertEquals(true, CombatSystem.isInsideAttack(tiny, 0., 10., 1., 0., stats, 200.), weapon);
         }
         var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
         assertEquals("tiny", snapshot.path("enemies").get(0).path("type").asText());

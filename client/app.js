@@ -68,17 +68,7 @@ let BREAKER_TERMINALS = [];
 let PREP_CONSOLE = null;
 let BUILD_INFO = {};
 const RESOURCE_NAMES = { wood: "木材", ore: "鉄鉱石", copper: "銅", silver: "銀" };
-const WEAPON_FIELDS = ({
-    ricochet: { owned: "ownsRicochet", ammo: "ricochetAmmo" },
-    shotgun: { owned: "ownsShotgun", ammo: "shotgunAmmo" },
-    smg: { owned: "ownsSmg", ammo: "smgAmmo" },
-    rifle: { owned: "ownsRifle", ammo: "rifleAmmo" },
-    sniper: { owned: "ownsSniper", ammo: "sniperAmmo" },
-    revolver: { owned: "ownsRevolver", ammo: "revolverAmmo" },
-    railgun: { owned: "ownsRailgun", ammo: "railgunAmmo" },
-    rocket: { owned: "ownsRocket", ammo: "rocketAmmo" },
-    lmg: { owned: "ownsLmg", ammo: "lmgAmmo" },
-});
+const WEAPON_FIELDS = {};
 let WEAPON_AMMO_REFILL_COST;
 const INTERACTION_RANGE = Object.freeze({
     shop: 70,
@@ -493,10 +483,8 @@ function applyRules(next) {
             BUILD_INFO[shop.item] = { name: shop.label, description: "持ち運べる製造装置", shopOnly: true };
         });
         WEAPON_AMMO_REFILL_COST = next.rules.shop.ammo;
-        for (const [weapon, fields] of Object.entries(WEAPON_FIELDS)) {
-            fields.capacity = next.rules.weapons[weapon].capacity;
-            fields.refillCost = next.rules.weapons[weapon].refillCost;
-        }
+        for (const key of Object.keys(WEAPON_FIELDS)) delete WEAPON_FIELDS[key];
+        Object.assign(WEAPON_FIELDS, next.rules.weapons);
     }
 }
 
@@ -704,19 +692,7 @@ function reorderEquipment(sourceKey, targetKey) {
 }
 
 function equipmentEntries(me) {
-    const entries = [
-        { key: "weapon:bat", kind: "weapon", value: "bat", label: "BAT" },
-        { key: "weapon:pistol", kind: "weapon", value: "pistol", label: "PISTOL" },
-    ];
-    if (me.ownsShotgun) entries.push({ key: "weapon:shotgun", kind: "weapon", value: "shotgun", label: "SHOTGUN" });
-    if (me.ownsSmg) entries.push({ key: "weapon:smg", kind: "weapon", value: "smg", label: "SMG" });
-    if (me.ownsRifle) entries.push({ key: "weapon:rifle", kind: "weapon", value: "rifle", label: "RIFLE" });
-    if (me.ownsSniper) entries.push({ key: "weapon:sniper", kind: "weapon", value: "sniper", label: "SNIPER" });
-    if (me.ownsRicochet) entries.push({ key: "weapon:ricochet", kind: "weapon", value: "ricochet", label: "RICOCHET" });
-    if (me.ownsRevolver) entries.push({ key: "weapon:revolver", kind: "weapon", value: "revolver", label: "REVOLVER" });
-    if (me.ownsRailgun) entries.push({ key: "weapon:railgun", kind: "weapon", value: "railgun", label: "RAILGUN" });
-    if (me.ownsRocket) entries.push({ key: "weapon:rocket", kind: "weapon", value: "rocket", label: "ROCKET" });
-    if (me.ownsLmg) entries.push({ key: "weapon:lmg", kind: "weapon", value: "lmg", label: "LMG" });
+    const entries = WeaponUI.entries(me, WEAPON_FIELDS);
     if (me.medkits > 0) entries.push({ key: "item:medkit", kind: "item", value: "medkit", label: "回復キット" });
     for (const [type, info] of Object.entries(BUILD_INFO)) {
         if ((me.buildItems?.[type] || 0) > 0) entries.push({ key: `build:${type}`, kind: "build", value: type, label: info.name });
@@ -919,7 +895,7 @@ function updateInventory(me) {
         button.querySelector("span").textContent = entry.kind === "build" ? `×${me.buildItems[entry.value]}`
             : entry.kind === "item" ? `×${me.medkits} · 使用する`
             : entry.kind === "core" ? ""
-                : WEAPON_FIELDS[entry.value] ? `${ammoForWeapon(me, entry.value)} / ${WEAPON_FIELDS[entry.value].capacity}`
+                : WEAPON_FIELDS[entry.value]?.capacity > 0 ? `${ammoForWeapon(me, entry.value)} / ${WEAPON_FIELDS[entry.value].capacity}`
                     : entry.value === "pistol" ? "∞" : "";
     });
     for (const type of Object.keys(RESOURCE_NAMES)) {
@@ -1082,8 +1058,7 @@ function playSoundEffect(message) {
 function getMe() { return state?.players.find(player => player.id === myPlayerId); }
 
 function ammoForWeapon(player, weapon) {
-    const field = WEAPON_FIELDS[weapon]?.ammo;
-    return field ? String(player[field] ?? 0) : "∞";
+    return WeaponUI.ammo(player, weapon, WEAPON_FIELDS);
 }
 
 function reconcileLocalPrediction(snapshot) {
@@ -1282,9 +1257,9 @@ function openShopPurchase(shop) {
         return;
     }
     const weaponFields = WEAPON_FIELDS[shop.item];
-    const alreadyOwned = Boolean(weaponFields && me[weaponFields.owned]);
+    const alreadyOwned = Boolean(weaponFields && WeaponUI.owns(me, weaponFields));
     const ammo = alreadyOwned ? me[weaponFields.ammo] : 0;
-    const ownedWeapons = Object.values(WEAPON_FIELDS).filter(fields => me[fields.owned]);
+    const ownedWeapons = WeaponUI.ownedAmmoWeapons(me, WEAPON_FIELDS);
     const ammoFull = shop.item === "ammo" ? ownedWeapons.length > 0
         && ownedWeapons.every(fields => me[fields.ammo] >= fields.capacity)
         : alreadyOwned && ammo >= weaponFields.capacity;

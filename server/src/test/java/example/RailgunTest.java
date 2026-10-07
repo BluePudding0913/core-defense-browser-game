@@ -20,7 +20,7 @@ class RailgunTest {
         game.players.forEach(p -> p.human = true);
         game.unlockedAreas.addAll(GameMap.AREAS.stream().map(UnlockArea::id).toList());
         player.x = 1020; player.y = 1140;
-        player.ownsRailgun = true; player.railgunAmmo = 8;
+        player.weapons.setOwned("railgun", true); player.weapons.setAmmo("railgun", 8);
         game.handleMessage(player, "WEAPON:railgun");
     }
 
@@ -41,10 +41,10 @@ class RailgunTest {
         Enemy far = enemy(2, "shield", 1020, 1780);
         far.facingX = 0; far.facingY = -1;
         fire(); advance(1.15);
-        assertEquals(8, player.railgunAmmo);
+        assertEquals(8, player.weapons.ammo("railgun"));
         assertEquals(20000, near.hp);
         advance(.05);
-        assertEquals(7, player.railgunAmmo);
+        assertEquals(7, player.weapons.ammo("railgun"));
         assertEquals(3, player.railgunRemaining, .00001);
         advance(3);
         assertEquals(11000, near.hp, .001);
@@ -52,18 +52,18 @@ class RailgunTest {
         assertEquals(0, player.railgunRemaining);
         assertEquals(2, player.cooldown, .001);
         advance(2);
-        assertEquals(7, player.railgunAmmo);
+        assertEquals(7, player.weapons.ammo("railgun"));
         advance(1.2);
-        assertEquals(6, player.railgunAmmo);
+        assertEquals(6, player.weapons.ammo("railgun"));
     }
 
     @Test void releaseCancelsChargeForFreeAndBeamWithCooldown() {
         fire(); advance(.5);
         game.handleMessage(player, "FIRE:1020:1980:0");
-        assertEquals(0, player.railgunCharge); assertEquals(8, player.railgunAmmo);
+        assertEquals(0, player.railgunCharge); assertEquals(8, player.weapons.ammo("railgun"));
         fire(); advance(1.2); advance(.5);
         game.handleMessage(player, "FIRE:1020:1980:0");
-        assertEquals(0, player.railgunRemaining); assertEquals(7, player.railgunAmmo);
+        assertEquals(0, player.railgunRemaining); assertEquals(7, player.weapons.ammo("railgun"));
         assertEquals(2, player.cooldown);
     }
 
@@ -95,26 +95,26 @@ class RailgunTest {
     }
 
     @Test void purchaseRefillSnapshotAndReset() throws Exception {
-        player.ownsRailgun = false; player.equipWeapon("pistol");
+        player.weapons.setOwned("railgun", false); player.equipWeapon("pistol");
         ShopUnit shop = GameMap.shopByItem("railgun");
         player.x = shop.x(); player.y = shop.y(); player.credits = 19999;
-        game.handleMessage(player, "BUY:railgun"); assertFalse(player.ownsRailgun);
+        game.handleMessage(player, "BUY:railgun"); assertFalse(player.weapons.owns("railgun"));
         player.credits = 20000; game.handleMessage(player, "BUY:railgun");
-        assertTrue(player.ownsRailgun); assertEquals(0, player.credits);
-        assertEquals("railgun", player.weapon); assertEquals(8, player.railgunAmmo);
-        player.railgunAmmo = 0; player.credits = 120;
+        assertTrue(player.weapons.owns("railgun")); assertEquals(0, player.credits);
+        assertEquals("railgun", player.weapon); assertEquals(8, player.weapons.ammo("railgun"));
+        player.weapons.setAmmo("railgun", 0); player.credits = 120;
         game.handleMessage(player, "BUY:railgun");
-        assertEquals(8, player.railgunAmmo); assertEquals(0, player.credits);
+        assertEquals(8, player.weapons.ammo("railgun")); assertEquals(0, player.credits);
         ShopUnit ammo = GameMap.shopByItem("ammo");
-        player.x = ammo.x(); player.y = ammo.y(); player.credits = 1000; player.railgunAmmo = 0;
-        game.handleMessage(player, "BUY:ammo"); assertEquals(8, player.railgunAmmo);
+        player.x = ammo.x(); player.y = ammo.y(); player.credits = 1000; player.weapons.setAmmo("railgun", 0);
+        game.handleMessage(player, "BUY:ammo"); assertEquals(8, player.weapons.ammo("railgun"));
         var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
         assertEquals(20000, snapshot.path("rules").path("weapons").path("railgun").path("price").asInt());
         assertTrue(snapshot.path("players").get(0).path("ownsRailgun").asBoolean());
         game.phase = GamePhase.LOST;
         game.players.forEach(p -> p.roomReady = true);
         game.handleMessage(player, "START");
-        assertFalse(player.ownsRailgun); assertEquals(0, player.railgunAmmo);
+        assertFalse(player.weapons.owns("railgun")); assertEquals(0, player.weapons.ammo("railgun"));
         assertEquals(0, player.railgunRemaining); assertEquals(0, player.cooldown);
     }
 }

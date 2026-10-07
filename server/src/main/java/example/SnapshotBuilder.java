@@ -83,19 +83,21 @@ final class SnapshotBuilder {
     private static void appendRules(StringBuilder json, GameSession game) {
         json.append(",\"rules\":{\"weapons\":{");
         boolean first = true;
-        for (var entry : GameConfig.WEAPONS.entrySet()) {
+        for (var definition : WeaponCatalog.ALL) {
             if (!first) json.append(',');
             first = false;
-            String key = entry.getKey();
-            var stats = entry.getValue();
+            String key = definition.id();
+            var stats = definition.stats();
             ShopUnit shop = GameMap.shopByItem(key);
             json.append('"').append(key).append("\":{\"capacity\":").append(GameSession.weaponAmmoCapacity(key))
                 .append(",\"price\":").append(shop == null ? 0 : shop.cost()).append(",\"refillCost\":").append(GameSession.ammoRefillCost())
                 .append(",\"damage\":").append(stats.damage()).append(",\"range\":").append(stats.range())
-                .append(",\"cooldown\":").append(stats.cooldown()).append(",\"ammoPerShot\":").append(key.equals("ricochet") ? 2 : 1)
-                .append(",\"pellets\":").append(key.equals("shotgun") ? GameConfig.SHOTGUN_PELLETS : 1).append(",\"maxTargets\":").append(key.equals("railgun") || key.equals("sniper") || key.equals("revolver") ? -1 : key.equals("shotgun") ? GameConfig.SHOTGUN_MAX_TARGETS : 1)
-                .append(",\"blastRadius\":").append(key.equals("rocket") ? GameConfig.ROCKET_BLAST_RADIUS : 0)
-                .append(",\"name\":\"").append(key).append("\"}");
+                .append(",\"cooldown\":").append(stats.cooldown()).append(",\"ammoPerShot\":").append(1)
+                .append(",\"pellets\":").append(definition.pellets()).append(",\"maxTargets\":").append(definition.maxTargets())
+                .append(",\"blastRadius\":").append(definition.blastRadius())
+                .append(",\"owned\":\"").append(definition.ownedField())
+                .append("\",\"ammo\":\"").append(definition.ammoField())
+                .append("\",\"name\":\"").append(key).append("\"}");
         }
         json.append("},\"recipes\":{");
         first = true;
@@ -171,24 +173,12 @@ final class SnapshotBuilder {
                         ? GameMap.distanceToWall(player.x, player.y, player.railgunDx, player.railgunDy, GameSession.weaponStats("railgun").range()) : 0);
             json.append(",\"stamina\":").append(roundOne(player.stamina))
                     .append(",\"dashing\":").append(player.dashing);
-            json.append(",\"ownsShotgun\":").append(player.ownsShotgun)
-                    .append(",\"ownsSmg\":").append(player.ownsSmg)
-                    .append(",\"ownsRifle\":").append(player.ownsRifle)
-                    .append(",\"ownsSniper\":").append(player.ownsSniper)
-                    .append(",\"ownsRevolver\":").append(player.ownsRevolver)
-                    .append(",\"ownsRocket\":").append(player.ownsRocket)
-                    .append(",\"ownsRailgun\":").append(player.ownsRailgun)
-                    .append(",\"ownsLmg\":").append(player.ownsLmg)
-                    .append(",\"ownsRicochet\":").append(player.ownsRicochet);
-            json.append(",\"shotgunAmmo\":").append(player.shotgunAmmo)
-                    .append(",\"smgAmmo\":").append(player.smgAmmo)
-                    .append(",\"rifleAmmo\":").append(player.rifleAmmo)
-                    .append(",\"sniperAmmo\":").append(player.sniperAmmo)
-                    .append(",\"revolverAmmo\":").append(player.revolverAmmo)
-                    .append(",\"rocketAmmo\":").append(player.rocketAmmo)
-                    .append(",\"railgunAmmo\":").append(player.railgunAmmo)
-                    .append(",\"lmgAmmo\":").append(player.lmgAmmo)
-                    .append(",\"ricochetAmmo\":").append(player.ricochetAmmo);
+            // Keep the existing wire fields for browser/reconnect compatibility.
+            for (var definition : WeaponCatalog.ALL) {
+                if (!definition.usesAmmo()) continue;
+                json.append(",\"").append(definition.ownedField()).append("\":").append(player.weapons.owns(definition.id()));
+                json.append(",\"").append(definition.ammoField()).append("\":").append(player.weapons.ammo(definition.id()));
+            }
             json.append(",\"wood\":").append(player.wood)
                     .append(",\"ore\":").append(player.ore)
                     .append(",\"copper\":").append(player.copper)

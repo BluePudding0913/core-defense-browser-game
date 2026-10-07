@@ -68,7 +68,7 @@ class ExplosionBossTest {
         player.x = boss.x; player.y = boss.y;
         game.queuedEnemies = 100;
         double hp = boss.hp;
-        invoke("damageEnemy", new Class<?>[]{Enemy.class, double.class, Player.class}, boss, 1_000_000., player);
+        game.combat.damageEnemy(boss, 1_000_000., player);
         assertEquals(hp - 1000, boss.hp);
         assertEquals(1_000_000_000, boss.maxHp);
         assertTrue(boss.speed <= 24);
@@ -122,8 +122,7 @@ class ExplosionBossTest {
         for (double y : new double[]{1900, 1879}) {
             player.y = y;
             effects.clear();
-            invoke("fireRay", new Class<?>[]{Player.class, GameConfig.WeaponStats.class, double.class, double.class},
-                    player, GameSession.weaponStats("pistol"), 1., 0.);
+            game.combat.fireRay(player, GameSession.weaponStats("pistol"), 1., 0.);
             assertEquals(.026, before - boss.hp, .000001);
             assertTrue(effects.stream().anyMatch(s -> s.contains("\"damage\":0.026") && s.contains("\"headshot\":false")));
             assertEquals(0, player.credits);

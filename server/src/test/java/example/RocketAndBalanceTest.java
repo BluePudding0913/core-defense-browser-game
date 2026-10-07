@@ -54,11 +54,11 @@ class RocketAndBalanceTest {
         ShopUnit shop = GameMap.shopByItem("rocket");
         player.x = shop.x(); player.y = shop.y(); player.credits = 11_999;
         game.handleMessage(player, "BUY:rocket");
-        assertFalse(player.ownsRocket);
+        assertFalse(player.weapons.owns("rocket"));
         assertEquals(11_999, player.credits);
         player.credits = 12_000;
         game.handleMessage(player, "BUY:rocket");
-        assertTrue(player.ownsRocket);
+        assertTrue(player.weapons.owns("rocket"));
         assertEquals(0, player.credits);
         var rules = new com.fasterxml.jackson.databind.ObjectMapper()
                 .readTree(SnapshotBuilder.build(game)).path("rules");
@@ -99,12 +99,12 @@ class RocketAndBalanceTest {
     }
     @Test void sniperPiercesBeyondItsOldRangeAndRevolverStillHitsHarder() {
         player.x = 1020; player.y = 1140;
-        player.ownsSniper = true; player.sniperAmmo = 2;
+        player.weapons.setOwned("sniper", true); player.weapons.setAmmo("sniper", 2);
         Enemy near = enemy(1, 1020, 1820), far = enemy(2, 1020, 1940);
         game.handleMessage(player, "WEAPON:sniper");
         game.handleMessage(player, "FIRE:1020:1980:1");
         assertTrue(near.hp < 2000); assertTrue(far.hp < 2000);
-        assertEquals(1, player.sniperAmmo);
+        assertEquals(1, player.weapons.ammo("sniper"));
         assertEquals(280, GameSession.weaponStats("sniper").damage());
         assertTrue(GameSession.weaponStats("revolver").damage() > GameSession.weaponStats("sniper").damage());
         assertEquals(240, GameSession.weaponAmmoCapacity("smg"));
@@ -117,18 +117,18 @@ class RocketAndBalanceTest {
         game.handleMessage(player, "WEAPON:rocket");
         assertEquals("pistol", player.weapon);
         game.handleMessage(player, "BUY:rocket");
-        assertTrue(player.ownsRocket); assertEquals("rocket", player.weapon);
-        assertEquals(8, player.rocketAmmo); assertEquals(600, player.credits);
+        assertTrue(player.weapons.owns("rocket")); assertEquals("rocket", player.weapon);
+        assertEquals(8, player.weapons.ammo("rocket")); assertEquals(600, player.credits);
         game.handleMessage(player, "BUY:rocket");
         assertEquals(600, player.credits);
-        player.rocketAmmo = 0;
+        player.weapons.setAmmo("rocket", 0);
         game.handleMessage(player, "BUY:rocket");
-        assertEquals(8, player.rocketAmmo); assertEquals(480, player.credits);
+        assertEquals(8, player.weapons.ammo("rocket")); assertEquals(480, player.credits);
         ShopUnit ammo = GameMap.shopByItem("ammo");
-        player.x = ammo.x(); player.y = ammo.y(); player.rocketAmmo = 1;
+        player.x = ammo.x(); player.y = ammo.y(); player.weapons.setAmmo("rocket", 1);
         player.credits = 1000;
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(8, player.rocketAmmo); assertEquals(500, player.credits);
+        assertEquals(8, player.weapons.ammo("rocket")); assertEquals(500, player.credits);
         var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
         assertTrue(snapshot.path("players").get(0).path("ownsRocket").asBoolean());
         assertEquals(8, snapshot.path("players").get(0).path("rocketAmmo").asInt());
@@ -136,29 +136,29 @@ class RocketAndBalanceTest {
         game.phase = GamePhase.LOST;
         game.players.forEach(p -> p.roomReady = true);
         game.handleMessage(player, "START");
-        assertFalse(player.ownsRocket); assertEquals(0, player.rocketAmmo);
+        assertFalse(player.weapons.owns("rocket")); assertEquals(0, player.weapons.ammo("rocket"));
     }
 
     @Test void rocketDetonatesOnFirstEnemyWithRadialFalloffAndConsumesOneRound() {
-        player.x = 1020; player.y = 1900; player.ownsRocket = true; player.rocketAmmo = 2;
+        player.x = 1020; player.y = 1900; player.weapons.setOwned("rocket", true); player.weapons.setAmmo("rocket", 2);
         Enemy direct = enemy(1, 1120, 1900, 4000), splash = enemy(2, 1120, 1960, 4000), outside = enemy(3, 1340, 1900);
         game.handleMessage(player, "WEAPON:rocket");
         game.handleMessage(player, "FIRE:1300:1900:1");
         assertTrue(direct.hp < splash.hp); assertTrue(splash.hp < 4000);
-        assertEquals(2000, outside.hp); assertEquals(1, player.rocketAmmo);
+        assertEquals(2000, outside.hp); assertEquals(1, player.weapons.ammo("rocket"));
         assertEquals(100, player.hp); // Explosions only damage enemies.
         assertEquals(5, player.cooldown);
         assertTrue(effects.stream().anyMatch(m -> m.contains("\"effect\":\"explosion\"") && m.contains("1097.0")));
         assertTrue(effects.stream().noneMatch(m -> m.contains("\"headshot\":true")));
         game.handleMessage(player, "FIRE:1300:1900:1");
-        assertEquals(1, player.rocketAmmo);
-        player.cooldown = 0; player.rocketAmmo = 0; effects.clear();
+        assertEquals(1, player.weapons.ammo("rocket"));
+        player.cooldown = 0; player.weapons.setAmmo("rocket", 0); effects.clear();
         game.handleMessage(player, "FIRE:1300:1900:1");
         assertTrue(effects.isEmpty());
     }
 
     @Test void rocketExplodesAtAimPointAndWallsBlockBlast() {
-        player.x = 1020; player.y = 1900; player.ownsRocket = true; player.rocketAmmo = 2;
+        player.x = 1020; player.y = 1900; player.weapons.setOwned("rocket", true); player.weapons.setAmmo("rocket", 2);
         Enemy splash = enemy(1, 1120, 1970, 4000);
         game.handleMessage(player, "WEAPON:rocket");
         game.handleMessage(player, "FIRE:1120:1900:1");
