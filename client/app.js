@@ -111,7 +111,6 @@ const noticeEntries = [];
 let joystick = null;
 let pendingMove = null;
 let firingPointer = null;
-let weaponPointer = null;
 let activeMenuAccess = null;
 let dashKey = false;
 let hitEffects = [];
@@ -441,7 +440,7 @@ function leaveRoom() {
     endInteractionHold(true);
     keys.clear(); joystick = null; dashKey = false;
     if (pendingMove) clearTimeout(pendingMove.timer);
-    pendingMove = null; firingPointer = null; weaponPointer = null;
+    pendingMove = null; firingPointer = null;
     closeActionMenu(); inventoryMenu.classList.add("hidden"); closeHowTo();
     window.coreMenu?.exited();
     setMenuView("home");
@@ -1391,7 +1390,6 @@ canvas.addEventListener("pointerdown", event => {
 });
 
 canvas.addEventListener("pointermove", event => {
-    if (event.pointerType === "mouse") weaponPointer = { clientX: event.clientX, clientY: event.clientY };
     if (pendingMove?.id === event.pointerId) { pendingMove.x = event.clientX; pendingMove.y = event.clientY; }
     if (joystick?.id === event.pointerId) updateJoystick(event.clientX, event.clientY);
     if (firingPointer?.id === event.pointerId) updateFiringAim(event.clientX, event.clientY);
@@ -1414,10 +1412,8 @@ canvas.addEventListener("pointercancel", event => {
     if (firingPointer?.id === event.pointerId) stopFiring(event.clientX, event.clientY);
 });
 canvas.addEventListener("contextmenu", event => event.preventDefault());
-canvas.addEventListener("pointerleave", () => { weaponPointer = null; });
 
 function startFiring(pointerId, clientX, clientY) {
-    weaponPointer = { clientX, clientY };
     if (getMe()?.movingCore) {
         showFeedback("CORE運搬中は武器を使用できません");
         return;
@@ -1442,14 +1438,12 @@ function updateFiringAim(clientX, clientY) {
 }
 
 function stopFiring(clientX, clientY) {
-    weaponPointer = { clientX, clientY };
     const point = worldFromScreen(clientX, clientY);
     send(`FIRE:${point.x.toFixed(1)}:${point.y.toFixed(1)}:0`);
     firingPointer = null;
 }
 
 function fireOnce(clientX, clientY) {
-    weaponPointer = { clientX, clientY };
     if (getMe()?.movingCore) {
         showFeedback("CORE運搬中は武器を使用できません");
         return;
@@ -1753,7 +1747,6 @@ function draw() {
         drawTrapSlots();
         drawArtilleryShells();
         drawEnemies();
-        drawBatReach();
         drawRailguns();
         drawPlayers();
         drawInteractionPrompt();
@@ -2279,65 +2272,6 @@ function drawEnemies() {
     }
 }
 
-// Match the server's wall sampling; locked areas and defenses do not block attacks.
-function attackDistanceToWall(origin, direction, range) {
-    const solidAt = traveled => {
-        const x = origin.x + direction.x * traveled, y = origin.y + direction.y * traveled;
-        const symbol = TILE_MAP.rows[Math.floor(y / TILE_MAP.tileSize)]?.[Math.floor(x / TILE_MAP.tileSize)];
-        return x < 0 || y < 0 || x >= WORLD.width || y >= WORLD.height
-            || !TILE_MAP.legend[symbol] || TILE_MAP.legend[symbol].solid;
-    };
-    const step = Math.max(4, TILE_MAP.tileSize / 8);
-    let lastClear = 0;
-    for (let traveled = step; traveled <= range; traveled += step) {
-        if (solidAt(traveled)) return lastClear;
-        lastClear = traveled;
-    }
-    return lastClear < range && solidAt(range) ? lastClear : range;
-}
-
-function batReachTarget(origin, direction, range, width, enemies) {
-    let target = null, nearest = Infinity;
-    for (const enemy of enemies) {
-        if (enemy.hp <= 0) continue;
-        const x = enemy.x - origin.x, y = enemy.y - origin.y;
-        const projection = x * direction.x + y * direction.y;
-        if (projection < 0 || projection > range || projection >= nearest
-                || Math.abs(x * direction.y - y * direction.x) > width + enemyRadius(enemy)) continue;
-        const distance = Math.hypot(x, y);
-        if (distance > .001 && attackDistanceToWall(origin, { x: x / distance, y: y / distance }, distance)
-                < distance - .001) continue;
-        target = enemy;
-        nearest = projection;
-    }
-    return target;
-}
-
-function drawBatReach() {
-    const me = getMe(), stats = state.rules?.weapons?.bat;
-    if (!me || me.weapon !== "bat" || me.down || me.movingCore || me.selectedBuild
-            || !["preparing", "wave"].includes(state.phase) || !stats) return;
-    const origin = predictedLocal || me;
-    const pointer = firingPointer || weaponPointer;
-    const aim = pointer ? worldFromScreen(pointer.clientX, pointer.clientY)
-        : { x: origin.x + localFacing.x, y: origin.y + localFacing.y };
-    const dx = aim.x - origin.x, dy = aim.y - origin.y, length = Math.hypot(dx, dy);
-    const direction = length < .001 ? { x: 1, y: 0 } : { x: dx / length, y: dy / length };
-    const range = attackDistanceToWall(origin, direction, stats.range);
-    const target = batReachTarget(origin, direction, range, stats.width, state.enemies);
-    if (!target) return;
-    const p = smoothEntity("enemy", target);
-    ctx.save();
-    ctx.strokeStyle = "#79d8ff";
-    ctx.shadowColor = "#79d8ff";
-    ctx.shadowBlur = 12;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, enemyRadius(target) + 5, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-}
-
 function drawRailguns() {
     for (const player of state.players) {
         if (player.down || player.weapon !== "railgun") continue;
@@ -2523,14 +2457,10 @@ function drawHitEffects() {
             const progress = age / 360;
             ctx.save(); ctx.globalAlpha = 1 - progress; ctx.strokeStyle = "#ff5964";
             if (effect.weapon === "bat" && effect.damage === 0 && progress < .55) {
-                const length = Math.hypot(effect.x - effect.fromX, effect.y - effect.fromY);
-                const angle = Math.atan2(effect.y - effect.fromY, effect.x - effect.fromX);
                 ctx.strokeStyle = "#79d8ff";
-                ctx.shadowColor = "#79d8ff";
-                ctx.shadowBlur = 10;
-                ctx.lineWidth = 3;
+                ctx.lineWidth = 1.5;
                 ctx.beginPath();
-                ctx.arc(effect.fromX, effect.fromY, length, angle - .4, angle + .4);
+                ctx.arc(effect.x, effect.y, 4 + progress * 6, 0, Math.PI * 2);
                 ctx.stroke();
             }
             if ((effect.weapon === "turret" || effect.damage === 0)

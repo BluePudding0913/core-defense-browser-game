@@ -2017,6 +2017,13 @@ final class GameSession {
             fireRicochet(player, weapon, directionX, directionY);
             return;
         }
+        if (player.weapon.equals("bat")) {
+            double effectDistance = GameMap.distanceToWall(player.x, player.y, directionX, directionY,
+                    Math.min(Math.hypot(aimX - player.x, aimY - player.y), weapon.range()));
+            sendHitEffect(player.id, "bat", player.x, player.y,
+                    player.x + directionX * effectDistance, player.y + directionY * effectDistance,
+                    0, false, 0, false);
+        }
         boolean shotgun = player.weapon.equals("shotgun");
         int rays = shotgun ? GameConfig.SHOTGUN_PELLETS : 1;
         double angle = Math.atan2(directionY, directionX);
@@ -2148,7 +2155,9 @@ final class GameSession {
             endX = originX + directionX * entry; endY = originY + directionY * entry;
         }
         // A trajectory event is separate from impact and reward events.
-        sendHitEffect(player.id, player.weapon, originX, originY, endX, endY, 0, false, 0, false);
+        if (!player.weapon.equals("bat")) {
+            sendHitEffect(player.id, player.weapon, originX, originY, endX, endY, 0, false, 0, false);
+        }
         for (Enemy hit : targets) {
             int creditsBeforeHit = player.credits;
             boolean headshot = isHeadshot(hit, player, originX, originY, directionX, directionY, weapon, shotDistance);
