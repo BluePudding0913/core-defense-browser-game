@@ -373,6 +373,52 @@ class GameSessionTest {
     }
 
     @Test
+    void batEffectUsesClickPositionWithinReachAndClampsDistantClicks() throws Exception {
+        startWave();
+        game.enemies.clear();
+        player.x = GameMap.CORE_X;
+        player.y = GameMap.CORE_Y;
+        game.handleMessage(player, "WEAPON:bat");
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        for (double[] offset : List.of(new double[]{40, 0}, new double[]{30, 40},
+                new double[]{GameSession.weaponStats("bat").range(), 0}, new double[]{300, 0}, new double[]{0, 0})) {
+            player.cooldown = 0;
+            events.broadcasts.clear();
+            double aimX = player.x + offset[0], aimY = player.y + offset[1];
+            game.handleMessage(player, "FIRE:" + aimX + ":" + aimY + ":1");
+            game.handleMessage(player, "FIRE:" + aimX + ":" + aimY + ":0");
+            var effects = new java.util.ArrayList<com.fasterxml.jackson.databind.JsonNode>();
+            for (String message : events.broadcasts) {
+                var event = mapper.readTree(message);
+                if (event.path("effect").asText().equals("hit")
+                        && event.path("weapon").asText().equals("bat")
+                        && event.path("damage").asDouble() == 0) effects.add(event);
+            }
+            assertEquals(1, effects.size(), "each swing should produce exactly one visual effect");
+            double length = Math.hypot(offset[0], offset[1]);
+            double fraction = length == 0 ? 0 : Math.min(length, GameSession.weaponStats("bat").range()) / length;
+            assertEquals(player.x + offset[0] * fraction, effects.get(0).path("x").asDouble(), .1);
+            assertEquals(player.y + offset[1] * fraction, effects.get(0).path("y").asDouble(), .1);
+        }
+    }
+
+    @Test
+    void closeBatClickRetainsFullCombatReach() {
+        startWave();
+        game.enemies.clear();
+        player.x = GameMap.CORE_X;
+        player.y = GameMap.CORE_Y;
+        game.handleMessage(player, "WEAPON:bat");
+        Enemy enemy = new Enemy(9_003, "grunt", GameMap.SPAWN_POINTS.get(0), 500, 0, 0, 0);
+        enemy.x = player.x + 80;
+        enemy.y = player.y;
+        game.enemies.add(enemy);
+        game.handleMessage(player, "FIRE:" + (player.x + 40) + ":" + player.y + ":1");
+        game.handleMessage(player, "FIRE:" + (player.x + 40) + ":" + player.y + ":0");
+        assertEquals(500 - GameSession.weaponStats("bat").damage(), enemy.hp, .001);
+    }
+
+    @Test
     void directionalFireProducesAVisibleShotEvenWhenItMisses() {
         startWave();
         player.x = GameMap.CORE_X;

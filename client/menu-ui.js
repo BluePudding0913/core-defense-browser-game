@@ -54,7 +54,7 @@ function mountMenu() {
         updateMatchResult();
         if (focus) (root.querySelector("input") || root.querySelector("button"))?.focus();
     }
-    function go(next) { view = next; quickRequested = false; matchResult = ""; render(true); }
+    function go(next) { view = next; quickRequested = false; matchResult = ""; render(next !== "settings"); }
     function updateMatchResult() {
         const result = root.querySelector('.ui-match-result');
         if (!result) return;

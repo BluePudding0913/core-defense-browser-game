@@ -2431,6 +2431,13 @@ function drawHitEffects() {
         if (age < 360) {
             const progress = age / 360;
             ctx.save(); ctx.globalAlpha = 1 - progress; ctx.strokeStyle = "#ff5964";
+            if (effect.weapon === "bat" && effect.damage === 0 && progress < .55) {
+                ctx.strokeStyle = "#79d8ff";
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(effect.x, effect.y, 4 + progress * 6, 0, Math.PI * 2);
+                ctx.stroke();
+            }
             if ((effect.weapon === "turret" || effect.damage === 0)
                 && !["bat", "mine"].includes(effect.weapon) && progress < .55) {
                 ctx.lineWidth = 1.35;

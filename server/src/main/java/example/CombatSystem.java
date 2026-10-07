@@ -66,6 +66,13 @@ final class CombatSystem {
             fireRicochet(player, weapon, directionX, directionY);
             return;
         }
+        if (player.weapon.equals("bat")) {
+            double effectDistance = GameMap.distanceToWall(player.x, player.y, directionX, directionY,
+                    Math.min(Math.hypot(aimX - player.x, aimY - player.y), weapon.range()));
+            events.hit(player.id, "bat", player.x, player.y,
+                    player.x + directionX * effectDistance, player.y + directionY * effectDistance,
+                    0, false, 0, false, null);
+        }
         boolean shotgun = WeaponCatalog.find(player.weapon).mode() == WeaponCatalog.AttackMode.SPREAD;
         int rays = WeaponCatalog.find(player.weapon).pellets();
         double angle = Math.atan2(directionY, directionX);
@@ -196,7 +203,9 @@ final class CombatSystem {
             endX = originX + directionX * entry; endY = originY + directionY * entry;
         }
         // A trajectory event is separate from impact and reward events.
-        events.hit(player.id, player.weapon, originX, originY, endX, endY, 0, false, 0, false, null);
+        if (!player.weapon.equals("bat")) {
+            events.hit(player.id, player.weapon, originX, originY, endX, endY, 0, false, 0, false, null);
+        }
         for (Enemy hit : targets) {
             int creditsBeforeHit = player.credits;
             boolean headshot = isHeadshot(hit, player, originX, originY, directionX, directionY, weapon, shotDistance);
