@@ -19,3 +19,17 @@
     .job-detail p { min-height: 0; }
     .job-detail dl { margin-top: 20px; }
 }
+
+.job-panel { position: absolute; z-index: 12; left: calc(100% + 24px); top: 0; width: 420px; max-height: min(480px, calc(100dvh - 48px)); overflow-y: auto; padding: 20px; border: 1px solid #383838; border-radius: .3rem; background: #151515; box-shadow: 0 16px 48px #0006; }
+.job-panel[hidden] { display: none; }
+.job-panel .job-picker { grid-template-columns: 120px minmax(0, 1fr); gap: 18px; }
+.job-panel .job-detail { padding-left: 18px; }
+.job-panel .job-detail h3 { font-size: 1.25rem; }
+.job-panel .job-detail p { min-height: 0; }
+@media (max-width: 1180px) {
+    .job-panel { position: fixed; left: auto; right: 16px; top: max(24px, calc(50dvh - 48px)); width: min(420px, calc(100vw - 32px)); max-height: calc(50dvh + 24px); }
+}
+@media (max-width: 560px) {
+    .job-panel .job-picker { grid-template-columns: minmax(0, 1fr); }
+    .job-panel .job-detail { padding-left: 2px; }
+}

@@ -12,6 +12,18 @@ const roomList = document.querySelector("#room-list");
 const roomMembers = document.querySelector("#room-members");
 const JOBS = window.JobUI.catalog;
 const jobSelect = document.querySelector("#job-select");
+const jobToggle = document.querySelector("#job-toggle");
+const legacyJobPanel = document.querySelector("#legacy-job-panel");
+jobToggle.addEventListener("click", () => {
+    legacyJobPanel.hidden = !legacyJobPanel.hidden;
+    jobToggle.setAttribute("aria-expanded", String(!legacyJobPanel.hidden));
+});
+document.addEventListener("click", event => {
+    if (!event.target.closest("#job-toggle, #legacy-job-panel")) {
+        legacyJobPanel.hidden = true;
+        jobToggle.setAttribute("aria-expanded", "false");
+    }
+});
 const jobAbilityButton = document.querySelector("#job-ability");
 jobSelect.addEventListener("click", event => {
     const job = event.target.closest("[data-job]")?.dataset.job;
@@ -568,10 +580,11 @@ function updateRoomLobby(snapshot) {
     roomOwner.textContent = `作成者: ${owner?.name || "接続待ち"}`;
     const humans = snapshot.players.filter(player => player.human);
     roomMembers.innerHTML = humans.map(player => `<div class="room-member ${player.id === snapshot.roomOwnerId || player.ready ? "ready" : ""}">
-        <strong>${escapeHtml(player.name)} · ${JOBS[player.job]?.name || "ヒーラー"}</strong>
+        <strong>${escapeHtml(player.name)}</strong>
         <span>${player.id === snapshot.roomOwnerId ? "host" : player.ready ? "準備完了" : "準備中"}</span>
     </div>`).join("");
     const me = snapshot.players.find(player => player.id === myPlayerId);
+    jobToggle.textContent = `ジョブ:${JOBS[me?.job]?.name || "ヒーラー"}`;
     const jobScroll = jobSelect.querySelector(".job-list")?.scrollTop || 0;
     const focusedJob = document.activeElement?.dataset?.job;
     jobSelect.innerHTML = window.JobUI.render(me?.job, !me, JOBS, "legacy-job-detail");

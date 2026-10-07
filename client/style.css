@@ -675,6 +675,5 @@ button, input { font: inherit; }
 .health-heart.full .heart-fill { clip-path: none; }
 .health-heart.full .heart-base { color: var(--accent-red); }
 
-.job-select { margin: 1rem 0; }
-#room-lobby { width: min(680px, 100%); }
+#room-lobby { position: relative; }
 #job-ability { padding: .6rem; min-width: 64px; font-size: .8rem; }
