@@ -1744,7 +1744,7 @@ final class GameSession {
         if (tryBotUnlock(bot)) return true;
         TrapSlot damaged = trapSlots.stream().filter(slot -> slot.defense != null
                 && slot.defense.hp < slot.defense.maxHp * .65
-                && (Set.of("turret", "copperTurret", "silverTurret", "wire", "mine").contains(slot.defense.type) ? bot.ore > 0 : bot.wood > 0)
+                && BuildingRules.repair(slot.defense.type, slot.defense.hp, slot.defense.maxHp, materials(bot)).status() == BuildingRules.RepairStatus.READY
                 && isAssignedBot(bot, slot.x, slot.y))
                 .min(Comparator.comparingDouble(slot -> distance(bot.x, bot.y, slot.x, slot.y))).orElse(null);
         if (damaged != null) return botUse(bot, damaged.x, damaged.y, 70, () -> repair(bot, damaged.id));
@@ -1815,7 +1815,7 @@ final class GameSession {
             return false; // No legal site: guard instead of accumulating more unplaceable equipment.
         }
         var recipe = BUILD_RECIPES.get(buildType);
-        if (bot.wood >= recipe.getOrDefault("wood", 0) && bot.ore >= recipe.getOrDefault("ore", 0)) {
+        if (BuildingRules.canAfford(recipe, materials(bot))) {
             WorkbenchUnit bench = GameMap.WORKBENCH_UNITS.stream()
                     .filter(unit -> unit.requiredArea() == null || unlockedAreas.contains(unit.requiredArea()))
                     .min(Comparator.comparingDouble(unit -> distance(bot.x, bot.y, unit.x(), unit.y()))).orElse(null);
@@ -2073,9 +2073,7 @@ final class GameSession {
             return;
         }
         var recipe = BUILD_RECIPES.get(type);
-        int woodCost = recipe.getOrDefault("wood", 0);
-        int oreCost = recipe.getOrDefault("ore", 0);
-        if(recipe.entrySet().stream().anyMatch(entry -> resourceCount(player,entry.getKey()) < entry.getValue())) {
+        if (!BuildingRules.canAfford(recipe, materials(player))) {
             gameEffects.feedback(player, "素材が足りません");
             return;
         }
@@ -2184,14 +2182,8 @@ final class GameSession {
             gameEffects.feedback(player, "もう少し近づいてください");
             return;
         }
-        if (!GameMap.canPlaceCore(point.x(), point.y(), unlockedAreas)
-                || factories.stream().anyMatch(unit -> distance(point.x(), point.y(), unit.x, unit.y) < 45)
-                || trapSlots.stream().anyMatch(slot -> slot.defense != null
-                        && distance(point.x(), point.y(), slot.x, slot.y) < 45)
-                || players.stream().anyMatch(other -> other != player && !other.down
-                        && distance(point.x(), point.y(), other.x, other.y) < 24)
-                || enemies.stream().anyMatch(enemy -> enemy.hp > 0
-                        && distance(point.x(), point.y(), enemy.x, enemy.y) < 55)) {
+        if (!BuildingRules.canPlaceCore(point,
+                GameMap.canPlaceCore(point.x(), point.y(), unlockedAreas), buildingPlacementState(), player)) {
             gameEffects.feedback(player, "ここにはコアを置けません");
             return;
         }
@@ -2312,16 +2304,17 @@ final class GameSession {
         gameEffects.feedback(player, "設置しました");
     }
 
+    private BuildingRules.PlacementState buildingPlacementState() {
+        return new BuildingRules.PlacementState(coreX, coreY, factories, trapSlots, players, enemies);
+    }
+
+    private static BuildingRules.Materials materials(Player player) {
+        return new BuildingRules.Materials(player.wood, player.ore, player.copper, player.silver);
+    }
+
     private boolean canPlaceDefenseAt(MapPoint point, TrapSlot ignored) {
-        return GameMap.canPlaceDefense(point.x(), point.y(), unlockedAreas)
-                && distance(point.x(), point.y(), coreX, coreY) >= 40
-                && factories.stream().noneMatch(unit -> distance(point.x(), point.y(), unit.x, unit.y) < 36)
-                && trapSlots.stream().noneMatch(slot -> slot != ignored && slot.defense != null
-                        && distance(point.x(), point.y(), slot.x, slot.y) < 36)
-                && players.stream().noneMatch(other -> Math.abs(point.x() - other.x) < 23
-                        && Math.abs(point.y() - other.y) < 23)
-                && enemies.stream().noneMatch(enemy -> enemy.hp > 0
-                        && distance(point.x(), point.y(), enemy.x, enemy.y) < 48);
+        return BuildingRules.canPlaceDefense(point,
+                GameMap.canPlaceDefense(point.x(), point.y(), unlockedAreas), buildingPlacementState(), ignored);
     }
 
     private void removeDefense(Player player, String slotId) {
@@ -2342,16 +2335,16 @@ final class GameSession {
         TrapSlot slot = slotById(slotId);
         if (slot == null || slot.defense == null
                 || !canInteract(player, slot.x, slot.y, 100)) return;
-        if (slot.defense.hp >= slot.defense.maxHp) {
+        var plan = BuildingRules.repair(slot.defense.type, slot.defense.hp, slot.defense.maxHp, materials(player));
+        if (plan.status() == BuildingRules.RepairStatus.FULL) {
             gameEffects.feedback(player, "設備の耐久値は満タンです");
             return;
         }
-        boolean metal = Set.of("turret", "copperTurret", "silverTurret", "wire", "mine").contains(slot.defense.type);
-        if (metal && player.ore < 1 || !metal && player.wood < 1) {
+        if (plan.status() == BuildingRules.RepairStatus.MISSING_MATERIAL) {
             gameEffects.feedback(player, "素材が足りません");
             return;
         }
-        if (metal) player.ore--; else player.wood--;
+        addResource(player, plan.resource(), -1);
         slot.defense.hp = slot.defense.maxHp;
         gameEffects.feedback(player, "設備を修理しました");
     }
