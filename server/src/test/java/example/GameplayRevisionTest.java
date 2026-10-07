@@ -181,6 +181,13 @@ class GameplayRevisionTest {
         assertEquals(0, player.revolverAmmo + player.lmgAmmo);
     }
 
+    @Test void snapshotProvidesAuthoritativeBatReachForPreview() throws Exception {
+        var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
+        var bat = snapshot.path("rules").path("weapons").path("bat");
+        assertEquals(GameSession.weaponStats("bat").range(), bat.path("range").asDouble());
+        assertEquals(GameSession.weaponStats("bat").width(), bat.path("width").asDouble());
+    }
+
     @Test void newWeaponsRequireUnlockedShopsAndSupportCombatRefillsAndSnapshots() throws Exception {
         for (String weapon : List.of("revolver", "lmg")) {
             ShopUnit shop = GameMap.shopByItem(weapon);
