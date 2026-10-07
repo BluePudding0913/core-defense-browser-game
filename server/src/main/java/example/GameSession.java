@@ -433,6 +433,12 @@ final class GameSession {
         }
         drone.x = player.x; drone.y = player.y;
         drone.active = drone.controlled = true;
+        if (DroneRules.mounted(player, player.weapon)) {
+            String available = WeaponCatalog.ALL.stream().map(WeaponCatalog.Definition::id)
+                    .filter(id -> !id.equals("bat") && player.weapons.owns(id) && !DroneRules.mounted(player, id))
+                    .findFirst().orElse("bat");
+            player.equipWeapon(available);
+        }
         drone.attackers.clear();
         player.selectedBuild = null;
         player.firing = player.dashHeld = player.dashing = false;
@@ -2158,7 +2164,7 @@ final class GameSession {
     }
 
     private void switchWeapon(Player player, String weapon) {
-        if (player.weapons.owns(weapon)) {
+        if (player.weapons.owns(weapon) && !DroneRules.mounted(player, weapon)) {
             releaseCarriedCore(player);
             player.equipWeapon(weapon);
             player.selectedBuild = null;

@@ -30,7 +30,8 @@ final class CombatSystem {
             attackDrone(player, aimX, aimY);
             return;
         }
-        if (!world.canAttack() || player.down || player.movingCore || player.selectedBuild != null || player.cooldown > 0) return;
+        if (!world.canAttack() || player.down || player.movingCore || player.selectedBuild != null || player.cooldown > 0
+                || DroneRules.mounted(player, player.weapon)) return;
 
         if (player.weapon.equals("railgun")) {
             if (!player.firing || player.selectedBuild != null) return;
@@ -126,7 +127,7 @@ final class CombatSystem {
     }
 
     void updateRailgun(Player player, double dt) {
-        if (DroneRules.controlling(player) || !player.weapon.equals("railgun") || !player.firing || player.down
+        if (DroneRules.controlling(player) || DroneRules.mounted(player, player.weapon) || !player.weapon.equals("railgun") || !player.firing || player.down
                 || player.movingCore || player.selectedBuild != null || !world.canAttack()) {
             player.stopRailgun();
             return;

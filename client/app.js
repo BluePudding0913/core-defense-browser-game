@@ -740,7 +740,8 @@ function reorderEquipment(sourceKey, targetKey) {
 }
 
 function equipmentEntries(me) {
-    const entries = WeaponUI.entries(me, WEAPON_FIELDS);
+    const entries = WeaponUI.entries(me, WEAPON_FIELDS)
+        .filter(entry => !(me.drone?.active && entry.value === me.drone.weapon));
     for (const [type, info] of Object.entries(BUILD_INFO)) {
         if ((me.buildItems?.[type] || 0) > 0) entries.push({ key: `build:${type}`, kind: "build", value: type, label: info.name });
     }
@@ -799,6 +800,14 @@ function beginInteractionHold() {
         ? interaction.kind === "core" ? "core" : interaction.target.id : null;
     const hold = { used: false, timer: null };
     interactionHold = hold;
+    if (getMe()?.drone?.active && actionMenu.classList.contains("hidden")) {
+        hold.interaction = { action: () => send("JOB_ABILITY") };
+        hold.timer = setTimeout(() => {
+            hold.used = true;
+            if (findNearestInteraction()?.kind === "drone") send("DRONE_RECOVER");
+        }, 500);
+        return;
+    }
     if (interaction?.kind === "teleporter" && actionMenu.classList.contains("hidden") && !placementSelection(getMe())) {
         hold.interaction = interaction;
         if (interaction.owned) hold.timer = setTimeout(() => {
@@ -929,9 +938,9 @@ function updateHud() {
         const placing = Boolean(placementSelection(me));
         const interaction = findNearestInteraction();
         const launchingDrone = me.selectedBuild === "drone" && !(me.drone?.hp <= 0 && interaction);
-        interactLabel.textContent = launchingDrone ? "LAUNCH" : interaction?.kind === "drone" ? "RECOVER" : placing ? "PLACE" : interaction?.kind === "teleporter"
+        interactLabel.textContent = me.drone?.active ? interaction?.kind === "drone" ? "VIEW / 長押しで回収" : "VIEW" : launchingDrone ? "LAUNCH" : placing ? "PLACE" : interaction?.kind === "teleporter"
             ? interaction.owned ? "TP / 長押しで回収" : "TP" : ["core", "defense"].includes(interaction?.kind) ? "長押しで運搬" : "INTERACT";
-        interactButton.classList.toggle("hidden", !placing && !interaction && me.selectedBuild !== "drone");
+        interactButton.classList.toggle("hidden", !placing && !interaction && me.selectedBuild !== "drone" && !me.drone?.active);
     }
 }
 
@@ -1663,7 +1672,7 @@ function findNearestInteraction() {
     if (me?.drone?.active) {
         const drone = me.drone;
         if (distance(me, drone) <= me.droneRecoveryRange && hasInteractionPath(me, drone)) {
-            return { kind: "drone", target: drone, action: () => send("DRONE_RECOVER") };
+            return { kind: "drone", target: drone, action: () => send("JOB_ABILITY") };
         }
         if (drone.controlled) return null;
     }
@@ -1729,6 +1738,7 @@ function toggleNearestInteraction() {
     }
     inventoryMenu.classList.add("hidden");
     const me = getMe();
+    if (me?.drone?.active) { send("JOB_ABILITY"); return; }
     if (me?.selectedBuild === "drone" && me.drone?.hp <= 0 && findNearestInteraction()) {
         useNearestInteraction();
         return;
@@ -1958,7 +1968,13 @@ function drawBlackoutSignals() {
 
 function drawBlackout() {
     const local = getMe();
-    if (local?.drone?.controlled) return;
+    if (local?.drone?.controlled) {
+        ctx.save();
+        ctx.fillStyle = "rgba(60, 255, 110, .12)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+        return;
+    }
     const me = predictedLocal || local;
     if (!me) return;
     const x = (me.x - camera.x) * scale + canvas.width / 2;

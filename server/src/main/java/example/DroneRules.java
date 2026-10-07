@@ -5,7 +5,7 @@ import java.util.List;
 
 /** Drone targeting and repair rules shared by all operators. */
 final class DroneRules {
-    static final double HP = 60, SPEED = 210, RECOVERY_RANGE = 45;
+    static final double HP = 45, SPEED = 210, RECOVERY_RANGE = 45;
     static final int REPAIR_ORE = 5, REPAIR_COPPER = 2;
 
     static boolean canRepair(int ore, int copper) {
@@ -20,6 +20,10 @@ final class DroneRules {
         var definition = WeaponCatalog.find(weapon);
         return definition != null && definition.mode() != WeaponCatalog.AttackMode.MELEE
                 && !java.util.Set.of("rocket", "railgun", "lmg").contains(weapon);
+    }
+
+    static boolean mounted(Player player, String weapon) {
+        return player.drone != null && player.drone.active && weapon.equals(player.drone.weapon);
     }
 
     static boolean canRecover(double range, boolean clearLine) {

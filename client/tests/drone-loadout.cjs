@@ -53,9 +53,15 @@ context.findNearestInteraction = realInteraction;
 me.drone = { active: true, controlled: true, weapon: 'smg', x: 200, y: 100 };
 me.selectedBuild = null; me.buildItems.drone = 0;
 assert.ok(!run('equipmentEntries(me)').some(e => e.key === 'build:drone'));
+assert.ok(!run('equipmentEntries(me)').some(e => e.key === 'weapon:smg'), 'mounted gun is unavailable in player equipment');
+me.drone.controlled = false;
+assert.ok(!run('equipmentEntries(me)').some(e => e.key === 'weapon:smg'), 'switching views does not release the gun');
+me.drone.active = false;
+assert.ok(run('equipmentEntries(me)').some(e => e.key === 'weapon:smg'), 'recovery returns the gun to player equipment');
+me.drone.active = me.drone.controlled = true;
 assert.equal(run('findNearestInteraction()'), null, 'no remote recovery');
 me.drone.x = 145;
-run('findNearestInteraction().action()'); assert.equal(commands.pop(), 'DRONE_RECOVER');
+run('findNearestInteraction().action()'); assert.equal(commands.pop(), 'JOB_ABILITY');
 context.hasInteractionPath = () => false;
 assert.equal(run('findNearestInteraction()'), null, 'wall blocks recovery');
 context.hitEffects = [
