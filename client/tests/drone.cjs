@@ -44,4 +44,26 @@ assert.equal(droneBodies, 1);
 context.next = { players: [{ ...me, drone: { active: false } }] };
 vm.runInContext('reconcileDroneSmoothing(next)', context);
 assert.equal(context.smoothed.has('drone-self'), false);
-console.log('Drone UI passed: job selection, stationary operator, blocked interactions, camera, rendering and relaunch smoothing');
+
+// Only the local drone camera ignores blackout; returning restores the body view immediately.
+const gradients = [], overlays = [];
+context.state.blackoutActive = true;
+context.state.trippedBreakers = ['breaker'];
+context.state.blackoutBreakerTotal = 1;
+context.ctx = {
+    createRadialGradient(...args) { gradients.push(args); return { addColorStop() {} }; },
+    fillRect(...args) { overlays.push(args); },
+};
+vm.runInContext(extract('drawBlackout'), context);
+vm.runInContext('drawBlackout()', context);
+assert.equal(overlays.length, 0, 'piloting drone has no blackout overlay');
+me.drone.active = false;
+vm.runInContext('drawBlackout()', context);
+assert.equal(overlays.length, 1, 'recall or destruction restores blackout');
+assert.equal(gradients[0][0], (context.predictedLocal.x - context.camera.x) + 400);
+assert.equal(gradients[0][1], (context.predictedLocal.y - context.camera.y) + 300);
+me.drone = null;
+context.state.players.push({ id: 'ally', drone: { active: true } });
+vm.runInContext('drawBlackout()', context);
+assert.equal(overlays.length, 2, 'another player piloting does not remove local blackout');
+console.log('Drone UI passed: selection, stationary operator, interactions, camera, rendering, relaunch and blackout immunity with restored player vision');

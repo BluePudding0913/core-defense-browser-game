@@ -1897,7 +1897,8 @@ function drawBlackoutSignals() {
 
 function drawBlackout() {
     const local = getMe();
-    const me = local?.drone?.active ? local.drone : predictedLocal || local;
+    if (local?.drone?.active) return;
+    const me = predictedLocal || local;
     if (!me) return;
     const x = (me.x - camera.x) * scale + canvas.width / 2;
     const y = (me.y - camera.y) * scale + canvas.height / 2;
