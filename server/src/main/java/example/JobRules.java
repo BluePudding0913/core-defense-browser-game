@@ -19,6 +19,10 @@ final class JobRules {
         return player.job.equals("spy") && !player.down && player.spyRemaining > 0;
     }
 
+    static boolean canRecoverTeleport(String job, boolean owned, double range, boolean clearLine) {
+        return job.equals("tp") && owned && range <= 45 && clearLine;
+    }
+
     static boolean canTeleportTo(MapPoint point, boolean terrainAllowed, Player actor,
             java.util.List<Player> players, java.util.List<Enemy> enemies, double coreX, double coreY) {
         return terrainAllowed && GameSupport.distance(point.x(), point.y(), coreX, coreY) >= 24

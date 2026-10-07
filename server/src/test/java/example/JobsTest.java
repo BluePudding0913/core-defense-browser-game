@@ -112,14 +112,16 @@ class JobsTest {
     @Test void teleportPairIsLimitedAndUsableByAlliesWithSafeDestinationAndCooldown() {
         start("tp");
         player.facingX = 1; player.facingY = 0;
-        game.handleMessage(player, "JOB_ABILITY");
+        game.handleMessage(player, "EQUIP_BUILD:teleporter");
+        game.handleMessage(player, "PLACE_FRONT");
         assertEquals(1, player.teleportPads.size());
         Player ally = game.players.get(1);
         ally.x = 1180; ally.y = 1900;
         game.handleMessage(ally, "TELEPORT");
         assertEquals(1180, ally.x, "unfinished pair cannot be used");
         player.y = 1820;
-        game.handleMessage(player, "JOB_ABILITY");
+        game.handleMessage(player, "EQUIP_BUILD:teleporter");
+        game.handleMessage(player, "PLACE_FRONT");
         assertEquals(2, player.teleportPads.size());
         game.handleMessage(ally, "TELEPORT");
         assertEquals(1820, ally.y);
@@ -137,22 +139,28 @@ class JobsTest {
         ally.movingCore = false;
         game.handleMessage(ally, "TELEPORT");
         assertEquals(1900, ally.y);
-        game.handleMessage(player, "JOB_ABILITY");
-        assertTrue(player.teleportPads.isEmpty(), "completed pair is recovered rather than adding a third pad");
+        game.handleMessage(player, "EQUIP_BUILD:teleporter");
+        game.handleMessage(player, "PLACE_FRONT");
+        assertEquals(2, player.teleportPads.size(), "cannot place a third pad");
+        assertEquals(0, player.buildItemCount("teleporter"));
     }
 
     @Test void teleportPlacementRejectsWallsOverlapAndWrongJob() {
         start("tp");
         player.x = 1140; player.facingX = 1; player.facingY = 0;
-        game.handleMessage(player, "JOB_ABILITY");
-        game.handleMessage(player, "JOB_ABILITY");
+        game.handleMessage(player, "EQUIP_BUILD:teleporter");
+        game.handleMessage(player, "PLACE_FRONT");
+        game.handleMessage(player, "EQUIP_BUILD:teleporter");
+        game.handleMessage(player, "PLACE_FRONT");
         assertEquals(1, player.teleportPads.size());
         assertTrue(BuildingRules.teleportPadOccupied(new MapPoint(1180, 1900), game.players, 36));
         player.x = 900; player.y = 600;
-        game.handleMessage(player, "JOB_ABILITY");
+        game.handleMessage(player, "EQUIP_BUILD:teleporter");
+        game.handleMessage(player, "PLACE_FRONT");
         assertEquals(1, player.teleportPads.size());
         player.job = "healer";
-        game.handleMessage(player, "JOB_ABILITY");
+        game.handleMessage(player, "EQUIP_BUILD:teleporter");
+        game.handleMessage(player, "PLACE_FRONT");
         assertEquals(1, player.teleportPads.size());
     }
 
@@ -175,13 +183,63 @@ class JobsTest {
     @Test void snapshotIncludesJobsTimersMovementRulesAndPads() throws Exception {
         start("tp");
         player.facingX = 1; player.facingY = 0;
-        game.handleMessage(player, "JOB_ABILITY");
+        game.handleMessage(player, "EQUIP_BUILD:teleporter");
+        game.handleMessage(player, "PLACE_FRONT");
         var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
         var me = snapshot.get("players").get(0);
         assertEquals("tp", me.get("job").asText());
         assertEquals(1, me.get("teleportPads").size());
+        assertEquals(1, me.get("buildItems").get("teleporter").asInt());
         assertEquals(265, me.get("dashSpeed").asDouble());
         assertEquals(4, me.get("reviveSeconds").asDouble());
         assertEquals(0, me.get("jobCooldown").asDouble());
+    }
+
+    @Test void teleporterInventoryRecoveryIsLocalOwnerOnlyAndCanBePlacedAgain() {
+        start("tp");
+        assertEquals(2, player.buildItemCount("teleporter"));
+        game.handleMessage(player, "JOB_ABILITY");
+        assertTrue(player.teleportPads.isEmpty(), "old ability no longer places pads");
+        player.facingX = 1; player.facingY = 0;
+        game.handleMessage(player, "EQUIP_BUILD:teleporter");
+        game.handleMessage(player, "PLACE_FRONT");
+        player.y = 1820;
+        game.handleMessage(player, "PLACE_FRONT");
+        assertEquals(0, player.buildItemCount("teleporter"));
+        assertNull(player.selectedBuild);
+        Player ally = game.players.get(1);
+        ally.job = "tp"; ally.x = 1180; ally.y = 1820;
+        game.handleMessage(ally, "PICKUP_TELEPORT:1180:1820");
+        assertEquals(2, player.teleportPads.size(), "another TP cannot recover the owner's pad");
+        assertEquals(2, ally.buildItemCount("teleporter"));
+        game.handleMessage(player, "PICKUP_TELEPORT:1180:1900");
+        assertEquals(2, player.teleportPads.size(), "remote recovery is rejected");
+        player.down = true;
+        game.handleMessage(player, "PICKUP_TELEPORT:1180:1820");
+        assertEquals(2, player.teleportPads.size());
+        player.down = false; player.movingCore = true;
+        game.handleMessage(player, "PICKUP_TELEPORT:1180:1820");
+        assertEquals(2, player.teleportPads.size());
+        player.movingCore = false;
+        game.handleMessage(player, "PICKUP_TELEPORT:1180:1820");
+        assertEquals(1, player.teleportPads.size());
+        assertEquals(1, player.buildItemCount("teleporter"));
+        assertEquals("teleporter", player.selectedBuild);
+        game.handleMessage(player, "PICKUP_TELEPORT:1180:1820");
+        assertEquals(1, player.buildItemCount("teleporter"), "repeating recovery cannot duplicate items");
+        ally.x = 820;
+        game.handleMessage(player, "PLACE_FRONT");
+        assertEquals(2, player.teleportPads.size());
+        player.x = 1180;
+        game.handleMessage(player, "TELEPORT");
+        assertEquals(1900, player.y);
+    }
+
+    @Test void teleporterRecoveryRulesRejectWrongJobOwnershipRangeAndObstructions() {
+        assertTrue(JobRules.canRecoverTeleport("tp", true, 45, true));
+        assertFalse(JobRules.canRecoverTeleport("healer", true, 40, true));
+        assertFalse(JobRules.canRecoverTeleport("tp", false, 40, true));
+        assertFalse(JobRules.canRecoverTeleport("tp", true, 45.01, true));
+        assertFalse(JobRules.canRecoverTeleport("tp", true, 40, false));
     }
 }

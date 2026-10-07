@@ -112,6 +112,7 @@ final class Player {
 
     int buildItemCount(String type) {
         return switch (type) {
+            case "teleporter" -> job.equals("tp") ? Math.max(0, 2 - teleportPads.size()) : 0;
             case "block" -> blockItems;
             case "turret" -> turretItems;
             case "copperTurret" -> copperTurretItems;

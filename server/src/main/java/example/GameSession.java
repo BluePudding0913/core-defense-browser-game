@@ -211,6 +211,10 @@ final class GameSession {
             case "JOB" -> { if (parts.length >= 2) selectJob(player, parts[1]); }
             case "JOB_ABILITY" -> useJobAbility(player);
             case "TELEPORT" -> useTeleport(player);
+            case "PICKUP_TELEPORT" -> {
+                if (parts.length >= 3) pickupTeleport(player, new MapPoint(
+                        Double.parseDouble(parts[1]), Double.parseDouble(parts[2])));
+            }
             case "ROOM_READY" -> setRoomReady(player, parts);
             case "MOVE" -> handleMove(player, parts);
             case "DASH" -> handleDash(player, parts);
@@ -364,20 +368,30 @@ final class GameSession {
             if (player.jobCooldown > 0) return;
             player.spyRemaining = JobRules.SPY_DURATION;
             player.jobCooldown = JobRules.SPY_COOLDOWN;
-        } else if (player.job.equals("tp")) {
-            if (player.teleportPads.size() == 2) {
-                player.teleportPads.clear();
-                return;
-            }
-            MapPoint origin = GameMap.snapToTile(player.x, player.y);
-            MapPoint point = GameMap.snapToTile(origin.x() + player.facingX * GameMap.TILE_SIZE,
-                    origin.y() + player.facingY * GameMap.TILE_SIZE);
-            if (!canPlaceDefenseAt(point, null)) {
-                gameEffects.feedback(player, "ここには設置できません");
-                return;
-            }
-            player.teleportPads.add(point);
         }
+    }
+
+    private void placeTeleport(Player player, MapPoint point) {
+        if (!player.job.equals("tp") || !"teleporter".equals(player.selectedBuild)
+                || player.buildItemCount("teleporter") <= 0) return;
+        if (!canPlaceDefenseAt(point, null)) {
+            gameEffects.feedback(player, "ここには設置できません");
+            return;
+        }
+        player.teleportPads.add(point);
+        if (player.buildItemCount("teleporter") == 0) player.selectedBuild = null;
+        gameEffects.sound(player, "item-use", "build");
+    }
+
+    private void pickupTeleport(Player player, MapPoint point) {
+        if (!canUseFacilities() || player.down || player.movingCore
+                || !Double.isFinite(point.x()) || !Double.isFinite(point.y())
+                || !JobRules.canRecoverTeleport(player.job, player.teleportPads.contains(point),
+                    distance(player.x, player.y, point.x(), point.y()),
+                    GameMap.hasClearLine(player.x, player.y, point.x(), point.y()))) return;
+        player.teleportPads.remove(point);
+        player.selectedBuild = "teleporter";
+        gameEffects.feedback(player, "テレポーターを回収しました");
     }
 
     private void useTeleport(Player player) {
@@ -2154,7 +2168,7 @@ final class GameSession {
         if (type.equals("none")) {
             releaseCarriedCore(player);
             player.selectedBuild = null;
-        } else if ((BUILD_RECIPES.containsKey(type) || type.endsWith("Factory")) && player.buildItemCount(type) > 0) {
+        } else if ((type.equals("teleporter") || BUILD_RECIPES.containsKey(type) || type.endsWith("Factory")) && player.buildItemCount(type) > 0) {
             releaseCarriedCore(player);
             player.selectedBuild = type;
         }
@@ -2272,6 +2286,8 @@ final class GameSession {
         if (player.movingCore) {
             placeCore(player, new String[] {"PLACE_CORE",
                     Double.toString(targetX), Double.toString(targetY)});
+        } else if ("teleporter".equals(player.selectedBuild)) {
+            placeTeleport(player, GameMap.snapToTile(targetX, targetY));
         } else if (player.selectedBuild != null && player.selectedBuild.endsWith("Factory")) {
             placeFactory(player, GameMap.snapToTile(targetX, targetY));
         } else if (player.selectedBuild != null) {

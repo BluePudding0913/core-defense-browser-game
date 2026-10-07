@@ -13,13 +13,11 @@ const roomMembers = document.querySelector("#room-members");
 const JOBS = window.JobUI.catalog;
 const jobSelect = document.querySelector("#job-select");
 const jobAbilityButton = document.querySelector("#job-ability");
-const teleportUseButton = document.querySelector("#teleport-use");
 jobSelect.addEventListener("click", event => {
     const job = event.target.closest("[data-job]")?.dataset.job;
     if (job) send(`JOB:${job}`);
 });
 jobAbilityButton.addEventListener("click", () => send("JOB_ABILITY"));
-teleportUseButton.addEventListener("click", () => send("TELEPORT"));
 const roomCode = document.querySelector("#room-code");
 const roomOwner = document.querySelector("#room-owner");
 const createRoomButton = document.querySelector("#create-room");
@@ -488,7 +486,7 @@ function acknowledgeInputs(value) {
 
 function applyRules(next) {
     if (next.rules) {
-        BUILD_INFO = { ...next.rules.recipes };
+        BUILD_INFO = { ...next.rules.recipes, teleporter: { name: "テレポーター", shopOnly: true } };
         SHOP_UNITS.filter(shop => shop.item.endsWith("Factory")).forEach(shop => {
             BUILD_INFO[shop.item] = { name: shop.label, description: "持ち運べる製造装置", shopOnly: true };
         });
@@ -767,7 +765,13 @@ function beginInteractionHold() {
         ? interaction.kind === "core" ? "core" : interaction.target.id : null;
     const hold = { used: false, timer: null };
     interactionHold = hold;
-    if (target && actionMenu.classList.contains("hidden") && !placementSelection(getMe())) {
+    if (interaction?.kind === "teleporter" && actionMenu.classList.contains("hidden") && !placementSelection(getMe())) {
+        hold.interaction = interaction;
+        if (interaction.owned) hold.timer = setTimeout(() => {
+            hold.used = true;
+            send(`PICKUP_TELEPORT:${interaction.target.x}:${interaction.target.y}`);
+        }, 500);
+    } else if (target && actionMenu.classList.contains("hidden") && !placementSelection(getMe())) {
         hold.timer = setTimeout(() => {
             hold.used = true;
             send(`CARRY_NEAREST:${target}`);
@@ -779,7 +783,10 @@ function endInteractionHold(cancel = false) {
     if (!hold) return;
     clearTimeout(hold.timer);
     interactionHold = null;
-    if (!cancel && !hold.used) toggleNearestInteraction();
+    if (!cancel && !hold.used) {
+        if (hold.interaction) hold.interaction.action();
+        else toggleNearestInteraction();
+    }
 }
 interactButton.addEventListener("pointerdown", event => {
     if (event.button !== 0) return;
@@ -832,15 +839,10 @@ function updateHud() {
         : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}`
             : "";
     const me = getMe();
-    jobAbilityButton.classList.toggle("hidden", !me || !["spy", "tp"].includes(me.job));
-    jobAbilityButton.textContent = me?.job === "spy"
-        ? me.spyRemaining > 0 ? `偽装 ${Math.ceil(me.spyRemaining)}s` : me.jobCooldown > 0 ? `偽装 ${Math.ceil(me.jobCooldown)}s` : "偽装"
-        : me?.teleportPads?.length === 2 ? "TP回収" : `TP設置 ${(me?.teleportPads?.length || 0) + 1}/2`;
-    jobAbilityButton.disabled = !me || me.down || me.movingCore || Boolean(me.selectedBuild) || (me.job === "spy" && me.jobCooldown > 0);
-    const nearPad = me && state.players.some(owner => owner.teleportPads?.length === 2
-        && owner.teleportPads.some(pad => Math.hypot(me.x - pad.x, me.y - pad.y) <= 45));
-    teleportUseButton.classList.toggle("hidden", !nearPad);
-    teleportUseButton.disabled = !me || me.down || me.movingCore || me.teleportCooldown > 0;
+    jobAbilityButton.classList.toggle("hidden", me?.job !== "spy");
+    jobAbilityButton.textContent = me?.spyRemaining > 0 ? `偽装 ${Math.ceil(me.spyRemaining)}s`
+        : me?.jobCooldown > 0 ? `偽装 ${Math.ceil(me.jobCooldown)}s` : "偽装";
+    jobAbilityButton.disabled = !me || me.down || me.movingCore || Boolean(me.selectedBuild) || me.jobCooldown > 0;
     teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">
             <div class="teammate-label">
@@ -875,7 +877,8 @@ function updateHud() {
         updateInventory(me);
         const placing = Boolean(placementSelection(me));
         const interaction = findNearestInteraction();
-        interactLabel.textContent = placing ? "PLACE" : ["core", "defense"].includes(interaction?.kind) ? "長押しで運搬" : "INTERACT";
+        interactLabel.textContent = placing ? "PLACE" : interaction?.kind === "teleporter"
+            ? interaction.owned ? "TP / 長押しで回収" : "TP" : ["core", "defense"].includes(interaction?.kind) ? "長押しで運搬" : "INTERACT";
         interactButton.classList.toggle("hidden", !placing && !interaction);
     }
 }
@@ -1228,6 +1231,7 @@ function canBuildAt(point, forCore = false) {
     if (PREP_CONSOLE && distance(point, PREP_CONSOLE) < 36) return false;
     if ((state.resources || []).some(node => distance(point, node) < 36)) return false;
     if (SPAWN_POINTS.some(spawn => distance(point, spawn) < 80)) return false;
+    if (state.players.some(owner => (owner.teleportPads || []).some(pad => distance(point, pad) < (forCore ? 45 : 36)))) return false;
     if ((state.factories || []).some(unit => distance(point, unit) < (forCore ? 45 : 36))) return false;
     if (state.slots.some(slot => slot.defense && distance(point, slot) < (forCore ? 45 : 36))) return false;
     return !state.players.some(player => (forCore ? player.id !== myPlayerId && !player.down && distance(point, player) < 24
@@ -1559,6 +1563,16 @@ function findNearestInteraction() {
     const me = getMe();
     if (!me || me.down || !state || !["preparing", "wave"].includes(state.phase)) return null;
     const choices = [];
+    for (const owner of state.players) {
+        for (const pad of owner.teleportPads || []) {
+            const separation = distance(me, pad);
+            const owned = owner.id === me.id && me.job === "tp";
+            if ((!owned && owner.teleportPads.length !== 2) || separation > 45 || !hasInteractionPath(me, pad)) continue;
+            choices.push({ kind: "teleporter", target: pad, owned, separation,
+                action: () => { if (owner.teleportPads.length === 2) send("TELEPORT"); } });
+        }
+    }
+    if (choices.length) return choices.sort((a, b) => a.separation - b.separation)[0];
     const add = (kind, target, range, label, action) => {
         const separation = distance(me, target);
         if (separation <= range && hasInteractionPath(me, target)) choices.push({ kind, target, label, action, separation });

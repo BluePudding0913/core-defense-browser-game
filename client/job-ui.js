@@ -5,7 +5,7 @@ window.JobUI = (() => {
     const catalog = Object.freeze({
         healer: { name: "ヒーラー", description: "ダウンした味方を素早くリバイブする。", stats: [["蘇生", "2秒"]] },
         spy: { name: "スパイ", description: "敵に似た姿に偽装し、認識と通常攻撃を避ける。爆発などの範囲攻撃は受ける。", stats: [["偽装", "8秒"], ["再使用", "30秒"]] },
-        tp: { name: "TP", description: "2地点をつなぐテレポート装置を設置。味方全員が利用でき、回収して設置し直せる。", stats: [["設置上限", "1組 / 2台"]] },
+        tp: { name: "TP", description: "テレポーターを2台所持。Rで設置・移動、R長押しで自分の装置を回収。味方全員が利用可能。", stats: [["設置上限", "1組 / 2台"]] },
         scout: { name: "スカウト", description: "ダッシュが少し速くなり、スタミナも長持ちする。", stats: [["ダッシュ速度", "+15%"], ["持続時間", "+60%"]] }
     });
     const escape = value => String(value).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);

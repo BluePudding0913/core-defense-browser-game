@@ -258,6 +258,7 @@ button, input { font: inherit; }
 .weapon-icon.build-turret::before { left: 1rem; top: .75rem; width: 2.7rem; height: 1.45rem; border: .14rem solid #eee; background: #777; }
 .weapon-icon.build-turret::after { left: 2.12rem; top: -.25rem; width: .55rem; height: 1.45rem; background: #79d8ff; }
 .weapon-icon.build-wire::before { left: .4rem; top: .4rem; width: 4.1rem; height: 1.7rem; border-top: .24rem solid #ddd; border-bottom: .24rem solid #aaa; background: repeating-linear-gradient(125deg, transparent 0 .45rem, #888 .5rem .68rem); }
+.weapon-icon.build-teleporter::before { left: 1.25rem; top: .2rem; width: 2.5rem; height: 2.25rem; border: .2rem solid #aa83ff; border-radius: 50%; background: #282035; box-shadow: inset 0 0 .7rem #aa83ff; }
 .weapon-icon.build-mine::before { left: 1.35rem; top: .2rem; width: 2.25rem; height: 2.25rem; border: .14rem solid #fff; border-radius: 50%; background: #777; }
 .weapon-icon.build-mine::after { left: 2.18rem; top: .95rem; width: .62rem; height: .62rem; border-radius: 50%; background: #ff5964; }
 .weapon-icon.build-barricade::before { left: .25rem; top: .45rem; width: 4.5rem; height: 1.75rem; border: .14rem solid #ddd; background: repeating-linear-gradient(0deg, #666 0 .4rem, #999 .4rem .62rem); }
@@ -676,4 +677,4 @@ button, input { font: inherit; }
 
 .job-select { margin: 1rem 0; }
 #room-lobby { width: min(680px, 100%); }
-#job-ability, #teleport-use { padding: .6rem; min-width: 64px; font-size: .8rem; }
+#job-ability { padding: .6rem; min-width: 64px; font-size: .8rem; }

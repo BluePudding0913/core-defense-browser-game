@@ -210,7 +210,8 @@ final class SnapshotBuilder {
                     .append(",\"mine\":").append(player.mineItems)
                     .append(",\"barricade\":").append(player.barricadeItems)
                     .append(",\"copperTurret\":").append(player.copperTurretItems)
-                    .append(",\"silverTurret\":").append(player.silverTurretItems);
+                    .append(",\"silverTurret\":").append(player.silverTurretItems)
+                    .append(",\"teleporter\":").append(player.buildItemCount("teleporter"));
             for (String item : List.of("woodFactory", "oreFactory", "copperFactory", "silverFactory")) {
                 json.append(",\"").append(item).append("\":").append(player.buildItemCount(item));
             }
