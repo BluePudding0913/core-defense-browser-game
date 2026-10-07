@@ -28,11 +28,12 @@ final class CombatSystem {
     }
 
     void attackAt(Player player, double aimX, double aimY) {
-        if (player.drone != null && player.drone.active) {
+        if (DroneRules.controlling(player)) {
             attackDrone(player, aimX, aimY);
             return;
         }
-        if (!world.canAttack() || player.down || player.movingCore || player.cooldown > 0) return;
+        if (!world.canAttack() || player.down || player.movingCore || player.selectedBuild != null || player.cooldown > 0
+                || DroneRules.mounted(player, player.weapon)) return;
 
         if (player.weapon.equals("railgun")) {
             if (!player.firing || player.selectedBuild != null) return;
@@ -90,31 +91,45 @@ final class CombatSystem {
         }
     }
 
+    private record DroneShot(Player owner, String weapon, double x, double y, Drone drone) { }
+    private DroneShot droneShot;
+    private String shotWeapon(Player p) { return droneShot != null && droneShot.owner == p ? droneShot.weapon : p.weapon; }
+    private double shotX(Player p) { return droneShot != null && droneShot.owner == p ? droneShot.x : p.x; }
+    private double shotY(Player p) { return droneShot != null && droneShot.owner == p ? droneShot.y : p.y; }
+
     private void attackDrone(Player player, double aimX, double aimY) {
         Drone drone = player.drone;
-        if (!world.canAttack() || player.down || drone.hp <= 0 || drone.cooldown > 0) return;
+        if (!world.canAttack() || player.down || drone.hp <= 0 || drone.cooldown > 0
+                || !DroneRules.mountable(drone.weapon) || !player.weapons.owns(drone.weapon)) return;
         double dx = aimX - drone.x, dy = aimY - drone.y;
         double length = Math.hypot(dx, dy);
         if (length < .001) return;
-        dx /= length; dy /= length;
-        double range = GameMap.distanceToWall(drone.x, drone.y, dx, dy, DroneRules.RANGE, world.unlockedAreas());
-        Enemy hit = DroneRules.hit(world.enemies(), drone.x, drone.y, dx, dy, range);
-        double dealt = 0;
-        if (hit != null) {
-            // Record hostility before damage, including a bomber's death callback.
-            drone.attackers.add(hit.id);
-            dealt = damageEnemy(hit, hit.shieldedDamage(DroneRules.DAMAGE, drone.x, drone.y), player);
+        if (!player.weapons.consume(drone.weapon)) {
+            events.outOfAmmo(player); player.firing = false; return;
         }
-        drone.cooldown = DroneRules.COOLDOWN;
-        events.sound(player, "shot", "pistol");
-        events.hit(player.id, "pistol", drone.x, drone.y,
-                hit == null ? drone.x + dx * range : hit.x,
-                hit == null ? drone.y + dy * range : hit.y,
-                dealt, hit != null && hit.hp <= 0, 0, false, hit == null ? null : hit.id);
+        var definition = WeaponCatalog.find(drone.weapon);
+        var stats = definition.stats();
+        drone.cooldown = stats.cooldown();
+        // Freeze origin and weapon for the entire burst, even if a bomber destroys the drone.
+        droneShot = new DroneShot(player, drone.weapon, drone.x, drone.y, drone);
+        try {
+            events.sound(player, "shot", drone.weapon);
+            double directionX = dx / length, directionY = dy / length;
+            if (definition.mode() == WeaponCatalog.AttackMode.RICOCHET) {
+                fireRicochet(player, stats, directionX, directionY);
+            } else {
+                double angle = Math.atan2(directionY, directionX);
+                for (int pellet = 0; pellet < definition.pellets(); pellet++) {
+                    double spread = definition.mode() == WeaponCatalog.AttackMode.SPREAD
+                            ? (pellet - (definition.pellets() - 1) / 2.0) * .14 : 0;
+                    fireRay(player, stats, Math.cos(angle + spread), Math.sin(angle + spread));
+                }
+            }
+        } finally { droneShot = null; }
     }
 
     void updateRailgun(Player player, double dt) {
-        if (!player.weapon.equals("railgun") || !player.firing || player.down
+        if (DroneRules.controlling(player) || DroneRules.mounted(player, player.weapon) || !player.weapon.equals("railgun") || !player.firing || player.down
                 || player.movingCore || player.selectedBuild != null || !world.canAttack()) {
             player.stopRailgun();
             return;
@@ -214,7 +229,7 @@ final class CombatSystem {
 
     private void fireRicochet(Player player, WeaponStats weapon, double dx, double dy) {
         // All reflected segments share one distance budget, including the wall clearance.
-        double x = player.x, y = player.y, remaining = weapon.range();
+        double x = shotX(player), y = shotY(player), remaining = weapon.range();
         for (int bounce = 0; bounce <= 2 && remaining > .01; bounce++) {
             GameMap.WallImpact wall = GameMap.rayWall(x, y, dx, dy, remaining, world.unlockedAreas());
             double length = Math.max(0, wall.distance() - .001);
@@ -230,9 +245,9 @@ final class CombatSystem {
     }
 
     void fireRay(Player player, WeaponStats weapon, double directionX, double directionY) {
-        double shotDistance = GameMap.distanceToWall(player.x, player.y,
+        double shotDistance = GameMap.distanceToWall(shotX(player), shotY(player),
                 directionX, directionY, weapon.range(), world.unlockedAreas());
-        fireSegment(player, weapon, player.x, player.y, directionX, directionY, shotDistance);
+        fireSegment(player, weapon, shotX(player), shotY(player), directionX, directionY, shotDistance);
     }
 
     boolean fireSegment(Player player, WeaponStats weapon, double originX, double originY,
@@ -244,9 +259,9 @@ final class CombatSystem {
                 .filter(enemy -> GameMap.hasClearLine(originX, originY, enemy.x, enemy.y, world.unlockedAreas()))
                 .sorted(Comparator.comparingDouble(enemy ->
                         (enemy.x - originX) * directionX + (enemy.y - originY) * directionY)).toList();
-        boolean piercing = WeaponCatalog.find(player.weapon).piercing();
+        boolean piercing = WeaponCatalog.find(shotWeapon(player)).piercing();
         List<Enemy> targets = piercing ? candidates : candidates.stream().limit(1).toList();
-        List<Player> allies = WeaponCatalog.find(player.weapon).mode() == WeaponCatalog.AttackMode.MELEE
+        List<Player> allies = WeaponCatalog.find(shotWeapon(player)).mode() == WeaponCatalog.AttackMode.MELEE
                 ? List.of() : friendlyRayTargets(player, originX, originY, directionX, directionY, weapon, shotDistance);
         double firstEnemy = targets.isEmpty() ? Double.POSITIVE_INFINITY
                 : (targets.get(0).x - originX) * directionX + (targets.get(0).y - originY) * directionY;
@@ -261,7 +276,7 @@ final class CombatSystem {
             double entry = Math.max(0, projection - Math.sqrt(Math.max(0, radius * radius - perpendicular * perpendicular)));
             endX = originX + directionX * entry; endY = originY + directionY * entry;
         }
-        if (!piercing && !targets.isEmpty() && WeaponCatalog.find(player.weapon).mode() != WeaponCatalog.AttackMode.MELEE) {
+        if (!piercing && !targets.isEmpty() && WeaponCatalog.find(shotWeapon(player)).mode() != WeaponCatalog.AttackMode.MELEE) {
             Enemy first = targets.get(0);
             double projection = (first.x - originX) * directionX + (first.y - originY) * directionY;
             double perpendicular = Math.abs((first.x - originX) * directionY - (first.y - originY) * directionX);
@@ -270,18 +285,18 @@ final class CombatSystem {
             endX = originX + directionX * entry; endY = originY + directionY * entry;
         }
         // A trajectory event is separate from impact and reward events.
-        if (!player.weapon.equals("bat")) {
-            events.hit(player.id, player.weapon, originX, originY, endX, endY, 0, false, 0, false, null);
+        if (!shotWeapon(player).equals("bat")) {
+            events.hit(player.id, shotWeapon(player), originX, originY, endX, endY, 0, false, 0, false, null);
         }
         for (Enemy hit : targets) {
             int creditsBeforeHit = player.credits;
             boolean headshot = isHeadshot(hit, player, originX, originY, directionX, directionY, weapon, shotDistance);
             double damage = weapon.damage() * (headshot ? 2 : 1);
-            if (WeaponCatalog.find(player.weapon).mode() != WeaponCatalog.AttackMode.MELEE) damage = hit.shieldedDamage(damage, originX, originY);
+            if (WeaponCatalog.find(shotWeapon(player)).mode() != WeaponCatalog.AttackMode.MELEE) damage = hit.shieldedDamage(damage, originX, originY);
             double dealt = damageEnemy(hit, damage, player);
-            if (headshot) player.credits += 3;
+            if (headshot) awardCredits(player, 3);
             knockbackEnemy(originX, originY, hit, weapon.knockback());
-            events.hit(player.id, player.weapon, player.x, player.y, hit.x, hit.y,
+            events.hit(player.id, shotWeapon(player), shotX(player), shotY(player), hit.x, hit.y,
                     dealt, hit.hp <= 0, player.credits - creditsBeforeHit, headshot, hit.id);
         }
         for (Player target : allies) world.damagePlayer(target, weapon.damage());
@@ -314,7 +329,7 @@ final class CombatSystem {
 
     private boolean isHeadshot(Enemy enemy, Player player, double originX, double originY, double directionX,
             double directionY, WeaponStats weapon, double shotDistance) {
-        if (WeaponCatalog.find(player.weapon).mode() == WeaponCatalog.AttackMode.MELEE || enemy.type.equals("explosionBoss")) return false;
+        if (WeaponCatalog.find(shotWeapon(player)).mode() == WeaponCatalog.AttackMode.MELEE || enemy.type.equals("explosionBoss")) return false;
         double radius = enemyRadius(enemy);
         double headX = enemy.x;
         double headY = enemy.y - radius * 0.5;
@@ -324,7 +339,7 @@ final class CombatSystem {
         if (projection < 0 || projection > shotDistance) return false;
         double perpendicular = Math.abs(toHeadX * directionY - toHeadY * directionX);
         double headRadius = Math.min(radius * 0.5, Math.max(4, radius * 0.28));
-        double aimTolerance = WeaponCatalog.find(player.weapon).mode() == WeaponCatalog.AttackMode.SPREAD
+        double aimTolerance = WeaponCatalog.find(shotWeapon(player)).mode() == WeaponCatalog.AttackMode.SPREAD
                 ? Math.min(3, weapon.width() * 0.25)
                 : weapon.width() * 0.25;
         return perpendicular <= headRadius + aimTolerance;
@@ -353,6 +368,7 @@ final class CombatSystem {
     double damageEnemy(Enemy enemy, double damage, Player player) {
         if (enemy.hp <= 0) return 0;
         if (enemy.type.equals("explosionBoss")) damage *= .001;
+        if (droneShot != null && droneShot.owner == player && damage > 0) droneShot.drone.attackers.add(enemy.id);
         double dealt = Math.min(enemy.hp, damage);
         enemy.hp -= dealt;
         if (player != null && dealt > 0) {
@@ -361,7 +377,7 @@ final class CombatSystem {
                     (int) Math.floor(enemy.creditProgress + 1e-9));
             int payout = earnedCredits - enemy.paidCredits;
             if (payout > 0) {
-                player.credits += payout;
+                awardCredits(player, payout);
                 enemy.paidCredits += payout;
             }
             if (enemy.hp <= 0) player.kills++;
@@ -369,6 +385,15 @@ final class CombatSystem {
         if (enemy.hp <= 0) world.onEnemyDefeated(enemy);
         // Report the mitigated hit strength, retaining ordinary overkill feedback.
         return damage;
+    }
+
+    private void awardCredits(Player player, int amount) {
+        if (droneShot != null && droneShot.owner == player) {
+            // Carry half-gold between payouts so small hits and odd bonuses still earn half overall.
+            int total = amount + player.droneRewardRemainder;
+            player.credits += total / 2;
+            player.droneRewardRemainder = total % 2;
+        } else player.credits += amount;
     }
 
     private void knockbackEnemy(double fromX, double fromY, Enemy enemy, double amount) {

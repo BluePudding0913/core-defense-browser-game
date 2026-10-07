@@ -41,13 +41,21 @@ class DroneOperatorTest {
         return e;
     }
 
-    void launch() { game.handleMessage(player, "JOB_ABILITY"); }
+    void launch() {
+        if (player.drone != null && player.drone.active) {
+            player.drone.x = player.x; player.drone.y = player.y;
+            game.handleMessage(player, "DRONE_RECOVER");
+        } else {
+            game.handleMessage(player, "EQUIP_BUILD:drone");
+            game.handleMessage(player, "PLACE_FRONT");
+        }
+    }
 
     @Test void selectionPersistsAcrossReconnectAndRestartResetsDrone() {
         assertEquals("drone", player.job);
         launch(); Drone original = player.drone;
         game.disconnectPlayer(player);
-        assertFalse(original.active);
+        assertTrue(original.active); assertFalse(original.controlled);
         assertSame(player, game.connectPlayer("drone-test"));
         assertEquals("drone", player.job);
         assertSame(original, player.drone);
@@ -78,14 +86,14 @@ class DroneOperatorTest {
         Enemy hit = enemy(1, "runner", 1200), behind = enemy(2, "runner", 1250);
         launch(); player.cooldown = 5;
         game.handleMessage(player, "FIRE:1400:1900:1");
-        assertEquals(88, hit.hp); assertEquals(100, behind.hp);
-        assertEquals(12, player.credits);
+        assertEquals(74, hit.hp); assertEquals(100, behind.hp);
+        assertEquals(13, player.credits);
         assertSame(player, DroneRules.target(hit, game.players));
         assertNull(DroneRules.target(behind, game.players));
         game.handleMessage(player, "ATTACK");
-        assertEquals(88, hit.hp, "drone cooldown prevents duplicate shots");
+        assertEquals(74, hit.hp, "drone cooldown prevents duplicate shots");
         game.update(.4);
-        assertEquals(76, hit.hp, "held fire uses drone cooldown even when body weapon is cooling");
+        assertEquals(48, hit.hp, "held fire uses drone cooldown even when body weapon is cooling");
     }
 
     @Test void missesRangeAndWallsDoNotCreateHostility() {
@@ -101,12 +109,12 @@ class DroneOperatorTest {
         Enemy hostile = enemy(1, "runner", 1200);
         launch(); player.drone.x = 1210;
         call("updateEnemies", .05);
-        assertEquals(60, player.drone.hp);
+        assertEquals(DroneRules.HP, player.drone.hp);
         hostile.attackCooldown = 0; player.drone.attackers.add(hostile.id);
         call("updateEnemies", .05);
-        assertEquals(40, player.drone.hp); assertEquals(100, player.hp);
+        assertEquals(DroneRules.HP - 20, player.drone.hp); assertEquals(100, player.hp);
         launch(); assertNull(DroneRules.target(hostile, game.players));
-        launch(); assertEquals(40, player.drone.hp);
+        launch(); assertEquals(DroneRules.HP - 20, player.drone.hp);
         assertTrue(player.drone.attackers.isEmpty());
     }
 
@@ -125,8 +133,8 @@ class DroneOperatorTest {
         launch(); player.drone.x = 1300;
         call("updateEnemies", .05);
         assertTrue(player.down); assertEquals(0, player.hp);
-        assertFalse(player.drone.active); assertFalse(player.firing);
-        launch(); assertFalse(player.drone.active);
+        assertTrue(player.drone.active); assertFalse(player.drone.controlled); assertFalse(player.firing);
+        game.handleMessage(player, "DRONE_RECOVER"); assertTrue(player.drone.active);
     }
 
     @Test void brokenDroneRequiresMaterialsAndConsumesExactlyOnce() throws Exception {
@@ -137,9 +145,9 @@ class DroneOperatorTest {
         player.ore = DroneRules.REPAIR_ORE; player.copper = DroneRules.REPAIR_COPPER - 1;
         launch(); assertFalse(player.drone.active); assertEquals(DroneRules.REPAIR_ORE, player.ore);
         player.copper++; launch();
-        assertTrue(player.drone.active); assertEquals(60, player.drone.hp);
+        assertTrue(player.drone.active); assertEquals(DroneRules.HP, player.drone.hp);
         assertEquals(0, player.ore); assertEquals(0, player.copper);
-        launch(); launch(); assertEquals(0, player.ore); assertEquals(60, player.drone.hp);
+        launch(); launch(); assertEquals(0, player.ore); assertEquals(DroneRules.HP, player.drone.hp);
     }
 
     @Test void artilleryAimsAtProvokedDroneAndOnlyItsShellsDamageIt() throws Exception {
@@ -155,7 +163,7 @@ class DroneOperatorTest {
         player.ore = 5; player.copper = 2; launch();
         game.artilleryShells.add(new ArtilleryShell(1020, 1900, player.drone.x, player.drone.y, 60, 99));
         call("updateEnemies", 2);
-        assertEquals(60, player.drone.hp);
+        assertEquals(DroneRules.HP, player.drone.hp);
     }
 
     @Test void activeDroneDoesNotReviveAlliesAndCannotUseFacilities() throws Exception {
@@ -177,7 +185,7 @@ class DroneOperatorTest {
         var p = snapshot.get("players").get(0);
         assertEquals("drone", p.get("job").asText());
         assertTrue(p.get("drone").get("active").asBoolean());
-        assertEquals(60, p.get("drone").get("hp").asDouble());
+        assertEquals(DroneRules.HP, p.get("drone").get("hp").asDouble());
         assertEquals(DroneRules.REPAIR_ORE, p.get("droneRepairOre").asInt());
         assertEquals(DroneRules.REPAIR_COPPER, p.get("droneRepairCopper").asInt());
     }
@@ -189,7 +197,7 @@ class DroneOperatorTest {
         launch(); player.drone.x = 1300; player.drone.attackers.add(e.id);
         call("updateEnemies", .1);
         assertEquals(300, block.defense.hp);
-        assertEquals(60, player.drone.hp);
+        assertEquals(DroneRules.HP, player.drone.hp);
     }
 
     @Test void matchEndAllowsJobSelectionAndRestartWhileDroneWasActive() {
@@ -209,11 +217,11 @@ class DroneOperatorTest {
         Enemy e = enemy(1, "bomber", 1300);
         launch(); player.drone.x = 1300;
         game.combat.damageEnemy(e, 200, null);
-        assertEquals(60, player.drone.hp);
+        assertEquals(DroneRules.HP, player.drone.hp);
         Enemy second = enemy(2, "bomber", 1300); second.hp = 1;
         player.drone.attackers.add(second.id);
         game.combat.damageEnemy(second, 200, player);
-        assertEquals(40, player.drone.hp);
+        assertEquals(DroneRules.HP - 20, player.drone.hp);
     }
 
     @Test void explosionBossFollowsProvokedDroneAndBlastDestroysIt() throws Exception {

@@ -5,6 +5,15 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class DroneRulesTest {
+    @Test void recoveryRequiresRangeAndClearLineAndHeavyGunsCannotBeMounted() {
+        assertTrue(DroneRules.canRecover(45, true));
+        assertFalse(DroneRules.canRecover(45.01, true));
+        assertFalse(DroneRules.canRecover(20, false));
+        for (String weapon : List.of("pistol", "shotgun", "smg", "rifle", "sniper", "ricochet", "revolver"))
+            assertTrue(DroneRules.mountable(weapon), weapon);
+        for (String weapon : List.of("bat", "rocket", "railgun", "lmg", "unknown"))
+            assertFalse(DroneRules.mountable(weapon), weapon);
+    }
     @Test void repairChecksBothMaterialsAtBoundary() {
         assertFalse(DroneRules.canRepair(4, 2));
         assertFalse(DroneRules.canRepair(5, 1));
@@ -23,7 +32,8 @@ class DroneRulesTest {
         assertNull(DroneRules.target(e, List.of(a, b)));
         a.drone.attackers.add(e.id); b.drone.attackers.add(e.id);
         assertSame(a, DroneRules.target(e, List.of(a, b)));
-        a.down = true; assertSame(b, DroneRules.target(e, List.of(a, b)));
+        a.down = true; assertSame(a, DroneRules.target(e, List.of(a, b)));
+        a.drone.active = false; assertSame(b, DroneRules.target(e, List.of(a, b)));
         b.drone.active = false; assertNull(DroneRules.target(e, List.of(a, b)));
     }
 }

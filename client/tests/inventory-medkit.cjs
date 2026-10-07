@@ -13,6 +13,7 @@ const grid = { querySelectorAll: () => [] };
 let click;
 const inventoryItems = {
     querySelector: selector => selector === '.equipment-grid' ? grid
+        : selector === '.drone-loadout' ? null
         : selector === '.inventory-health' ? health : card,
     addEventListener: (_, callback) => { click = callback; },
 };

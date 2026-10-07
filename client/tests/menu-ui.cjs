@@ -95,7 +95,7 @@ assert.doesNotMatch(root.innerHTML, / · HOST/);
 assert.doesNotMatch(root.innerHTML, /CORE DEFENSE|クイックマッチ|合言葉|ホスト設定|data-action="cpu"|空席|CPU/);
 assert.equal((root.innerHTML.match(/class="room-member/g) || []).length, 1);
 assert.doesNotMatch(root.innerHTML, /data-action="start" disabled/, 'host can start with automatic CPU fill');
-assert.match(root.innerHTML, /data-action="toggle-job"[^>]*>ジョブ:ヒーラー<\/button>/);
+assert.match(root.innerHTML, /data-action="toggle-job"[^>]*>ジョブ:Healer<\/button>/);
 assert.match(root.innerHTML, /id="job-panel"[^>]*hidden/);
 assert(root.innerHTML.indexOf('data-action="start"') < root.innerHTML.indexOf('data-action="toggle-job"'));
 assert(root.innerHTML.indexOf('data-action="toggle-job"') < root.innerHTML.indexOf('data-action="leave"'));
@@ -118,7 +118,7 @@ assert.equal(field('#job-panel').hidden, false, 'choosing a job keeps the panel 
 state.players[0].job = 'scout';
 context.window.coreMenu.snapshot(state, 'p1');
 assert.match(root.innerHTML, /data-job="scout" aria-pressed="true"/);
-assert.match(root.innerHTML, /ジョブ:スカウト/);
+assert.match(root.innerHTML, /ジョブ:Scout/);
 assert.equal(field('.job-list').scrollTop, 220, 'selection preserves catalogue scroll position');
 assert.match(root.innerHTML, /class="job-detail"[\s\S]*ダッシュが少し速く/);
 assert.doesNotMatch(root.innerHTML, /ダウンした味方を素早くリバイブする/);

@@ -55,4 +55,9 @@ final class WeaponInventory {
         return grant(incoming);
     }
     void clear() { owned.clear(); owned.add("pistol"); ammunition.clear(); }
+    void remove(String id) {
+        if (id.equals("bat")) return;
+        owned.remove(id);
+        ammunition.remove(id);
+    }
 }

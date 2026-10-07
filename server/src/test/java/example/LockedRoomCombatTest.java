@@ -67,7 +67,12 @@ class LockedRoomCombatTest {
         game.handleMessage(player, "START");
         game.players.clear(); game.players.add(player);
         player.x = 1020; player.y = 1700;
-        if (weapon.equals("drone")) game.handleMessage(player, "JOB_ABILITY");
+        if (weapon.equals("drone")) {
+            player.weapons.grant("pistol");
+            game.handleMessage(player, "EQUIP_BUILD:drone");
+            game.handleMessage(player, "DRONE_LAUNCH:pistol");
+            assertTrue(player.drone.active && player.drone.controlled);
+        }
         else {
             player.weapons.grant(weapon);
             player.equipWeapon(weapon);
