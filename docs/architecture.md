@@ -6,6 +6,7 @@
 | --- | --- |
 | 武器ID・表示順・性能・弾薬容量・攻撃方式 | `WeaponCatalog` |
 | 所持・弾薬・消費・補充・リセット | `WeaponInventory`（プレイヤーごとに保持） |
+| 所持品のドロップ数量・所持上限までの拾得数量 | `InventoryDropRules` |
 | CPUの武器選択 | `BotWeaponPolicy` |
 | 敵のCORE経路共有・局所的な進路選択・プレイヤーの視認間隔 | `EnemyNavigation` |
 | 建築・コア設置の重なり判定、製作・修理の素材判定 | `BuildingRules` |

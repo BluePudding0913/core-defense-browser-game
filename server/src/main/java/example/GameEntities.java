@@ -139,7 +139,7 @@ final class DroppedResource {
     final String type;
     final double x;
     final double y;
-    final int amount;
+    int amount;
     final String droppedBy;
     boolean ownerLeft;
     double pickupDelay = PICKUP_DELAY_SECONDS;

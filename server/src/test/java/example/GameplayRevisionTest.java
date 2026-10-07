@@ -486,6 +486,61 @@ class GameplayRevisionTest {
         assertTrue(game.droppedResources.isEmpty());
     }
 
+    @Test void medkitsCanBeDroppedTransferredAndUsedWithoutExceedingCapacity() {
+        player.x = 845; player.y = 1980; player.facingX = -1; player.facingY = 0;
+        player.medkits = 3;
+        game.handleMessage(player, "DROP_ITEM:medkit:-1");
+        game.handleMessage(player, "DROP_ITEM:medkit:NaN");
+        game.handleMessage(player, "DROP_ITEM:unknown:1");
+        player.down = true;
+        game.handleMessage(player, "DROP_ITEM:medkit:1");
+        player.down = false;
+        assertEquals(3, player.medkits);
+        assertTrue(game.droppedResources.isEmpty());
+        game.handleMessage(player, "DROP_ITEM:medkit:1");
+        assertEquals(2, player.medkits);
+        assertEquals(1, game.droppedResources.get(0).amount);
+        game.handleMessage(player, "DROP_ITEM:medkit:999");
+        assertEquals(0, player.medkits);
+        assertEquals(2, game.droppedResources.get(1).amount);
+        assertTrue(SnapshotBuilder.build(game).contains("\"type\":\"medkit\""));
+        Player receiver = game.players.get(1);
+        receiver.x = 865; receiver.y = 1980;
+        receiver.medkits = GameConfig.MEDKIT_CAPACITY;
+        game.update(1);
+        assertEquals(2, game.droppedResources.size());
+        game.update(2);
+        assertEquals(2, game.droppedResources.size(), "Full inventory must leave drops on the ground");
+        receiver.medkits = 3;
+        game.update(.05);
+        assertEquals(5, receiver.medkits);
+        assertEquals(1, game.droppedResources.size());
+        assertEquals(1, game.droppedResources.get(0).amount);
+        receiver.hp = 40;
+        game.handleMessage(receiver, "USE:medkit");
+        assertEquals(100, receiver.hp);
+        game.update(.05);
+        assertEquals(5, receiver.medkits);
+        assertTrue(game.droppedResources.isEmpty());
+        assertEquals(0, player.medkits);
+        assertTrue(broadcasts.stream().anyMatch(message -> message.contains("\"resource\":\"medkit\"")));
+    }
+
+    @Test void medkitDropAgainstWallWaitsUntilOwnerLeavesAndReturns() {
+        player.x = 845; player.y = 1980; player.facingX = -1; player.facingY = 0;
+        player.medkits = 1;
+        game.handleMessage(player, "DROP_ITEM:medkit:1");
+        game.update(3);
+        assertEquals(0, player.medkits);
+        assertEquals(1, game.droppedResources.size());
+        player.x = 900;
+        game.update(.05);
+        player.x = 845;
+        game.update(.05);
+        assertEquals(1, player.medkits);
+        assertTrue(game.droppedResources.isEmpty());
+    }
+
     @Test void everyTerminalHasAnOutsideApproach() {
         for (UnlockArea area : GameMap.AREAS) {
             int col = (int) area.terminalX() / 40, row = (int) area.terminalY() / 40;

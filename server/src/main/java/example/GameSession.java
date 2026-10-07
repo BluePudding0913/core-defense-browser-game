@@ -224,6 +224,7 @@ final class GameSession {
             case "BREAKER" -> { if (parts.length >= 2) resetBreaker(player, parts[1]); }
             case "GATHER" -> { if (parts.length >= 2) gather(player, parts[1]); }
             case "DROP_RESOURCE" -> { if (parts.length >= 3) dropResource(player, parts); }
+            case "DROP_ITEM" -> { if (parts.length >= 3 && parts[1].equals("medkit")) dropInventory(player, parts); }
             case "CRAFT" -> { if (parts.length >= 2) craft(player, parts[1]); }
             case "EQUIP_BUILD" -> { if (parts.length >= 2) equipBuild(player, parts[1]); }
             case "EQUIP_CORE" -> equipCore(player);
@@ -640,13 +641,19 @@ final class GameSession {
             if (drop.pickupDelay > 0) continue;
             Player collector = players.stream()
                     .filter(player -> !player.down
+                            && (!drop.type.equals("medkit") || player.medkits < GameConfig.MEDKIT_CAPACITY)
                             && (!player.id.equals(drop.droppedBy) || drop.ownerLeft)
                             && GameMap.hasClearLine(player.x, player.y, drop.x, drop.y)
                             && distance(player.x, player.y, drop.x, drop.y) <= 30)
                     .findFirst().orElse(null);
             if (collector == null) continue;
-            addResource(collector,drop.type,drop.amount);
-            drop.pickupDelay = -1;
+            int collected = drop.type.equals("medkit")
+                    ? InventoryDropRules.pickupAmount(drop.amount, collector.medkits, GameConfig.MEDKIT_CAPACITY)
+                    : drop.amount;
+            if (drop.type.equals("medkit")) collector.medkits += collected;
+            else addResource(collector, drop.type, collected);
+            drop.amount -= collected;
+            if (drop.amount == 0) drop.pickupDelay = -1;
             events.broadcast("{\"type\":\"effect\",\"effect\":\"pickup\",\"resource\":\""
                     + drop.type + "\",\"playerId\":\"" + collector.id + "\",\"x\":"
                     + roundOne(drop.x) + ",\"y\":" + roundOne(drop.y) + "}");
@@ -2036,19 +2043,23 @@ final class GameSession {
     }
 
     private void dropResource(Player player, String[] parts) {
+        if (!Set.of("wood", "ore", "copper", "silver").contains(parts[1])) return;
+        dropInventory(player, parts);
+    }
+
+    private void dropInventory(Player player, String[] parts) {
         if (!canUseFacilities() || player.down) return;
         String type = parts[1];
-        if(!Set.of("wood","ore","copper","silver").contains(type)) return;
-        int available = resourceCount(player,type);
+        int available = type.equals("medkit") ? player.medkits : resourceCount(player,type);
         int requested;
         try {
             requested = Integer.parseInt(parts[2]);
         } catch (NumberFormatException error) {
             return;
         }
-        int amount = Math.min(available, Math.max(0, requested));
+        int amount = InventoryDropRules.dropAmount(available, requested);
         if (amount <= 0) {
-            gameEffects.feedback(player, "渡せる素材がありません");
+            gameEffects.feedback(player, type.equals("medkit") ? "回復キットがありません" : "渡せる素材がありません");
             return;
         }
         MapPoint origin = GameMap.snapToTile(player.x, player.y);
@@ -2056,10 +2067,11 @@ final class GameSession {
                 origin.y() + player.facingY * GameMap.TILE_SIZE);
         double dropX = canOccupy(target.x(), target.y(), 5) ? target.x() : player.x;
         double dropY = canOccupy(target.x(), target.y(), 5) ? target.y() : player.y;
-        addResource(player,type,-amount);
+        if (type.equals("medkit")) player.medkits -= amount;
+        else addResource(player,type,-amount);
         droppedResources.add(new DroppedResource(nextDroppedResourceId++, type,
                 dropX, dropY, amount, player.id));
-        gameEffects.feedback(player, "素材を置きました");
+        gameEffects.feedback(player, type.equals("medkit") ? "回復キットを置きました" : "素材を置きました");
     }
 
     private void craft(Player player, String type) {
