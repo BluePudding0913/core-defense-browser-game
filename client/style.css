@@ -78,6 +78,9 @@ button, input { font: inherit; }
 .player-stats b { color: white; font-size: .9em; }
 .hp-line { height: 6px; margin-top: .45rem; background: rgb(255 255 255 / 16%); overflow: hidden; }
 .hp-line span { display: block; height: 100%; background: var(--accent-blue); box-shadow: 0 0 8px rgb(121 216 255 / 58%); }
+.teammate-intel { display: flex; flex-wrap: wrap; gap: .12rem .5rem; margin-top: .35rem; font-size: clamp(.65rem, 1.3vw, .78rem); line-height: 1.3; }
+.teammate-intel > span:first-child { color: var(--accent-blue); }
+.teammate-intel > span:last-child { color: rgb(255 255 255 / 80%); overflow-wrap: anywhere; }
 .teammate.low .hp-line span,
 .teammate.down .hp-line span { background: var(--accent-red); box-shadow: 0 0 8px rgb(255 89 100 / 58%); }
 .materials { margin-top: .36rem; color: rgb(255 255 255 / 62%); font: 800 .7rem ui-monospace, monospace; letter-spacing: .08em; }

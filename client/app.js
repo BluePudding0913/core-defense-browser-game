@@ -82,6 +82,7 @@ let WORKBENCH = { id: "workbench", x: 0, y: 0 };
 let WORKBENCHES = [];
 let TILE_MAP = { tileSize: 40, legend: {}, rows: [] };
 let AREAS = [];
+let STARTING_AREA = null;
 let SPAWN_POINTS = [];
 let SHOP_UNITS = [];
 let BREAKER_TERMINALS = [];
@@ -173,6 +174,7 @@ function applyMap(map) {
         rows: [...map.tileMap.rows],
     };
     AREAS = map.areas.map(area => ({ ...area }));
+    STARTING_AREA = map.startingArea;
     SPAWN_POINTS = map.spawnPoints.map(spawn => ({ ...spawn }));
     SHOP_UNITS = map.shopUnits.map(shop => ({ ...shop }));
     BREAKER_TERMINALS = map.breakerTerminals.map(breaker => ({ ...breaker }));
@@ -889,6 +891,7 @@ function updateHud() {
                 <span class="player-stats">${player.down ? "DOWN" : ""}<b>${player.credits}G</b></span>
             </div>
             <div class="hp-line"><span style="width:${player.hp}%"></span></div>
+            ${me?.job === "scout" ? window.JobUI.renderAllyIntel(player, AREAS, areaContains, STARTING_AREA) : ""}
         </div>`).join("");
     selfVitals.classList.toggle("hidden", !me);
     if (me) {
@@ -1164,12 +1167,12 @@ function reconcileLocalPrediction(snapshot) {
     if (!predictedLocal) {
         predictedLocal = { x: serverMe.x, y: serverMe.y, stamina: serverMe.stamina, dashing: serverMe.dashing, exhausted: false };
         localFacing = { x: serverMe.facingX, y: serverMe.facingY };
-        return;
     }
     const errorX = serverMe.x - predictedLocal.x;
     const errorY = serverMe.y - predictedLocal.y;
     const error = Math.hypot(errorX, errorY);
-    if (error > 120 || !["preparing", "wave"].includes(snapshot.phase)) {
+    if (error > 120 || serverMe.scoutDashRemaining > 0 || predictedLocal.scoutDashRemaining > 0
+            || !["preparing", "wave"].includes(snapshot.phase)) {
         predictedLocal.x = serverMe.x;
         predictedLocal.y = serverMe.y;
     } else {
@@ -1180,6 +1183,9 @@ function reconcileLocalPrediction(snapshot) {
         predictedLocal.y += errorY * correction;
     }
     predictedLocal.stamina += (serverMe.stamina - predictedLocal.stamina) * .4;
+    predictedLocal.scoutDashRemaining = serverMe.scoutDashRemaining || 0;
+    predictedLocal.scoutDashDx = serverMe.scoutDashDx || 0;
+    predictedLocal.scoutDashDy = serverMe.scoutDashDy || 0;
     if (Math.hypot(localMove.x, localMove.y) <= .12) {
         localFacing = { x: serverMe.facingX, y: serverMe.facingY };
     }
@@ -1467,6 +1473,24 @@ function worldFromScreen(clientX, clientY) {
     const py = (clientY - rect.top) * canvas.height / rect.height;
     return { x: camera.x + (px - canvas.width / 2) / scale, y: camera.y + (py - canvas.height / 2) / scale };
 }
+
+function requestScoutDash(point) {
+    const me = getMe();
+    if (!me || me.job !== "scout" || !["preparing", "wave"].includes(state.phase)
+            || me.down || me.movingCore || me.selectedBuild || me.jobCooldown > 0
+            || me.stamina < me.scoutDashStamina || me.railgunRemaining > 0 || me.railgunCharge > 0
+            || exitDialog.open || !howToMenu.classList.contains("hidden")
+            || !inventoryMenu.classList.contains("hidden") || !actionMenu.classList.contains("hidden")) return;
+    send(`SCOUT_DASH:${point.x.toFixed(1)}:${point.y.toFixed(1)}`);
+}
+
+// Mouse down also fires when the left button is held, allowing a dash while shooting.
+canvas.addEventListener("mousedown", event => {
+    if (event.button !== 2) return;
+    event.preventDefault();
+    canvas.focus({ preventScroll: true });
+    requestScoutDash(worldFromScreen(event.clientX, event.clientY));
+});
 
 canvas.addEventListener("pointerdown", event => {
     if (!state || !getMe()) return;
@@ -1778,6 +1802,18 @@ function updateLocalPrediction(dt) {
         return;
     }
     if (!predictedLocal || !serverMe || !["preparing", "wave"].includes(state.phase)) return;
+    if (predictedLocal.scoutDashRemaining > 0 && !serverMe.down && !serverMe.movingCore
+            && !serverMe.selectedBuild && !(serverMe.railgunRemaining > 0 || serverMe.railgunCharge > 0)) {
+        const travel = serverMe.scoutDashSpeed * Math.min(dt, predictedLocal.scoutDashRemaining);
+        const next = window.ScoutMovement.advance(predictedLocal, predictedLocal.scoutDashDx,
+            predictedLocal.scoutDashDy, travel, serverMe.scoutDashStep, canPredictOccupy);
+        predictedLocal.x = next.x; predictedLocal.y = next.y;
+        predictedLocal.scoutDashRemaining = next.blocked ? 0 : Math.max(0, predictedLocal.scoutDashRemaining - dt);
+        if (predictedLocal.scoutDashRemaining < 1e-9) predictedLocal.scoutDashRemaining = 0;
+        predictedLocal.dashing = false;
+        return;
+    }
+    predictedLocal.scoutDashRemaining = 0;
     const input = Math.hypot(localMove.x, localMove.y);
     if (predictedLocal.exhausted && predictedLocal.stamina >= 28) predictedLocal.exhausted = false;
     predictedLocal.dashing = !(serverMe.railgunRemaining > 0 || serverMe.railgunCharge > 0) && !serverMe.down && !serverMe.movingCore
@@ -2042,6 +2078,16 @@ function drawDebugSpawn(spawn) {
 function drawAreas() {
     const reachable = reachableFloorTiles();
     const size = TILE_MAP.tileSize;
+    if (STARTING_AREA) {
+        ctx.save();
+        ctx.fillStyle = "rgb(255 255 255 / 72%)";
+        ctx.shadowColor = "#000";
+        ctx.shadowBlur = 5;
+        ctx.font = "900 13px ui-monospace, monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(STARTING_AREA.name, STARTING_AREA.labelX, STARTING_AREA.labelY);
+        ctx.restore();
+    }
     for (const area of AREAS) {
         const unlocked = state.areas[area.id];
         const column = Math.floor(area.terminalX / size);

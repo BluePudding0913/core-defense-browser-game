@@ -176,6 +176,12 @@ final class SnapshotBuilder {
                     .append(",\"dashing\":").append(player.dashing);
             json.append(",\"job\":\"").append(player.job).append('"')
                     .append(",\"spyRemaining\":").append(roundOne(player.spyRemaining))
+                    .append(",\"scoutDashRemaining\":").append(player.scoutDashRemaining)
+                    .append(",\"scoutDashDx\":").append(player.scoutDashDx)
+                    .append(",\"scoutDashDy\":").append(player.scoutDashDy)
+                    .append(",\"scoutDashSpeed\":").append(JobRules.SCOUT_DASH_SPEED)
+                    .append(",\"scoutDashStep\":").append(JobRules.SCOUT_DASH_STEP)
+                    .append(",\"scoutDashStamina\":").append(JobRules.SCOUT_DASH_STAMINA)
                     .append(",\"jobCooldown\":").append(roundOne(player.jobCooldown))
                     .append(",\"teleportCooldown\":").append(roundOne(player.teleportCooldown))
                     .append(",\"dashSpeed\":").append(JobRules.dashSpeed(player.job))

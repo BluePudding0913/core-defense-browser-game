@@ -74,6 +74,17 @@
       "####################################################"
     ]
   },
+  "startingArea": {"name":"BASE","labelX":1020,"labelY":1840,"tiles":[
+      {"column":23,"row":42},{"column":24,"row":42},{"column":25,"row":42},{"column":26,"row":42},{"column":27,"row":42},{"column":28,"row":42},
+      {"column":22,"row":43},{"column":23,"row":43},{"column":24,"row":43},{"column":25,"row":43},{"column":26,"row":43},{"column":27,"row":43},{"column":28,"row":43},{"column":29,"row":43},{"column":30,"row":43},
+      {"column":21,"row":44},{"column":22,"row":44},{"column":23,"row":44},{"column":24,"row":44},{"column":25,"row":44},{"column":26,"row":44},{"column":27,"row":44},{"column":28,"row":44},{"column":29,"row":44},{"column":30,"row":44},{"column":31,"row":44},
+      {"column":17,"row":45},{"column":18,"row":45},{"column":19,"row":45},{"column":20,"row":45},{"column":21,"row":45},{"column":22,"row":45},{"column":23,"row":45},{"column":24,"row":45},{"column":25,"row":45},{"column":26,"row":45},{"column":27,"row":45},{"column":28,"row":45},{"column":29,"row":45},{"column":30,"row":45},{"column":31,"row":45},
+      {"column":17,"row":46},{"column":18,"row":46},{"column":19,"row":46},{"column":20,"row":46},{"column":21,"row":46},{"column":22,"row":46},{"column":23,"row":46},{"column":24,"row":46},{"column":25,"row":46},{"column":26,"row":46},{"column":27,"row":46},{"column":28,"row":46},{"column":29,"row":46},{"column":30,"row":46},{"column":31,"row":46},
+      {"column":17,"row":47},{"column":18,"row":47},{"column":19,"row":47},{"column":20,"row":47},{"column":21,"row":47},{"column":22,"row":47},{"column":23,"row":47},{"column":24,"row":47},{"column":25,"row":47},{"column":26,"row":47},{"column":27,"row":47},{"column":28,"row":47},{"column":29,"row":47},{"column":30,"row":47},{"column":31,"row":47},
+      {"column":17,"row":48},{"column":18,"row":48},{"column":19,"row":48},{"column":20,"row":48},{"column":21,"row":48},{"column":22,"row":48},{"column":23,"row":48},{"column":24,"row":48},{"column":25,"row":48},{"column":26,"row":48},{"column":27,"row":48},{"column":28,"row":48},{"column":29,"row":48},{"column":30,"row":48},{"column":31,"row":48},
+      {"column":21,"row":49},{"column":22,"row":49},{"column":23,"row":49},{"column":24,"row":49},{"column":25,"row":49},{"column":26,"row":49},{"column":27,"row":49},{"column":28,"row":49},{"column":29,"row":49},{"column":30,"row":49},
+      {"column":23,"row":50},{"column":24,"row":50},{"column":25,"row":50},{"column":26,"row":50},{"column":27,"row":50},{"column":28,"row":50}
+  ]},
   "areas": [
     {"id":"entry-room","name":"ENTRY ROOM","terminalX":1060,"terminalY":1660,"labelX":900,"labelY":1340,"color":"#ffffff","detail":"Entry sector / WORKBENCH",
       "tiles": [
