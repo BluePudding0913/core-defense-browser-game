@@ -85,7 +85,7 @@ button, input { font: inherit; }
 .self-vitals {
     position: absolute;
     left: max(.8rem, env(safe-area-inset-left));
-    bottom: max(.75rem, env(safe-area-inset-bottom));
+    bottom: calc(max(.75rem, env(safe-area-inset-bottom)) + 1.5rem);
     z-index: 5;
     display: flex;
     align-items: center;
@@ -127,7 +127,7 @@ button, input { font: inherit; }
 .notice {
     position: absolute;
     left: max(.9rem, env(safe-area-inset-left));
-    bottom: calc(max(.9rem, env(safe-area-inset-bottom)) + 8rem);
+    bottom: calc(max(.9rem, env(safe-area-inset-bottom)) + 11rem);
     z-index: 3;
     display: grid;
     gap: .22rem;
