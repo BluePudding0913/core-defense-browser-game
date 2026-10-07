@@ -64,7 +64,7 @@ final class MapValidator {
             }
         }
         for (ShopUnit shop : map.shopUnits()) {
-            if (!Set.of("shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "ricochet", "rocket", "railgun", "medkit", "ammo", "woodFactory", "oreFactory", "copperFactory", "silverFactory").contains(shop.item())
+            if (WeaponCatalog.find(shop.item()) == null && !Set.of("medkit", "ammo", "woodFactory", "oreFactory", "copperFactory", "silverFactory").contains(shop.item())
                     || shop.cost() <= 0) {
                 throw new IllegalStateException("Invalid shop unit: " + shop.id());
             }
@@ -76,6 +76,15 @@ final class MapValidator {
             uniqueIds(map.medBayUnits().stream().map(Station::id).toList(), "medbay");
             for (Station station : map.medBayUnits()) {
                 validatePoint(map, station.id(), station.x(), station.y(), true);
+            }
+        }
+        for (WorkbenchUnit unit : java.util.Arrays.asList(map.missileComputer(), map.jobStation())) {
+            if (unit == null) continue;
+            validatePoint(map, unit.id(), unit.x(), unit.y(), true);
+            if (!areaIds.contains(unit.requiredArea())) throw new IllegalStateException("Invalid terminal area");
+            if (map.areas().stream().noneMatch(area -> area.id().equals(unit.requiredArea())
+                    && area.tiles().contains(map.tileMap().cellAt(unit.x(), unit.y())))) {
+                throw new IllegalStateException("Terminal outside its area: " + unit.id());
             }
         }
         validatePoint(map, "core", map.core().x(), map.core().y(), true);

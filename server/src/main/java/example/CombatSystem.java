@@ -32,7 +32,7 @@ final class CombatSystem {
             attackDrone(player, aimX, aimY);
             return;
         }
-        if (!world.canAttack() || player.down || player.movingCore || player.cooldown > 0) return;
+        if (!world.canAttack() || player.missileControl || player.down || player.movingCore || player.cooldown > 0) return;
 
         if (player.weapon.equals("railgun")) {
             if (!player.firing || player.selectedBuild != null) return;
@@ -74,6 +74,10 @@ final class CombatSystem {
             fireRicochet(player, weapon, directionX, directionY);
             return;
         }
+        if (WeaponCatalog.find(player.weapon).mode() == WeaponCatalog.AttackMode.FLAME) {
+            fireFlame(player, weapon, directionX, directionY);
+            return;
+        }
         if (player.weapon.equals("bat")) {
             double effectDistance = GameMap.distanceToWall(player.x, player.y, directionX, directionY,
                     Math.min(Math.hypot(aimX - player.x, aimY - player.y), weapon.range()), world.unlockedAreas());
@@ -88,6 +92,31 @@ final class CombatSystem {
             double spreadAngle = shotgun ? (pellet - (rays - 1) / 2.0) * .14 : 0;
             fireRay(player, weapon, Math.cos(angle + spreadAngle), Math.sin(angle + spreadAngle));
         }
+    }
+
+    void missileImpact(Player player, double x, double y) {
+        events.explosion(x, y, MissileRules.radius());
+        for (Enemy enemy : List.copyOf(world.enemies())) {
+            double separation = distance(x, y, enemy.x, enemy.y);
+            if (enemy.hp <= 0 || separation > MissileRules.radius()
+                    || !GameMap.hasClearLine(x, y, enemy.x, enemy.y, world.unlockedAreas())) continue;
+            int credits = player.credits;
+            double dealt = damageEnemy(enemy, MissileRules.damage() * (1 - .5 * separation / MissileRules.radius()), player);
+            events.hit(player.id, "rocket", x, y, enemy.x, enemy.y, dealt, enemy.hp <= 0, player.credits - credits, false, enemy.id);
+        }
+    }
+
+    private void fireFlame(Player player, WeaponStats weapon, double dx, double dy) {
+        double range = GameMap.distanceToWall(player.x, player.y, dx, dy, weapon.range(), world.unlockedAreas());
+        events.hit(player.id, player.weapon, player.x, player.y, player.x + dx * range, player.y + dy * range, 0, false, 0, false, null);
+        for (Enemy enemy : List.copyOf(world.enemies())) {
+            if (enemy.hp <= 0 || !isInsideAttack(enemy, player.x, player.y, dx, dy, weapon, range)
+                    || !GameMap.hasClearLine(player.x, player.y, enemy.x, enemy.y, world.unlockedAreas())) continue;
+            int credits = player.credits;
+            double dealt = damageEnemy(enemy, enemy.shieldedDamage(weapon.damage(), player.x, player.y), player);
+            events.hit(player.id, player.weapon, player.x, player.y, enemy.x, enemy.y, dealt, enemy.hp <= 0, player.credits - credits, false, enemy.id);
+        }
+        for (Player target : friendlyRayTargets(player, player.x, player.y, dx, dy, weapon, range)) world.damagePlayer(target, weapon.damage());
     }
 
     private void attackDrone(Player player, double aimX, double aimY) {

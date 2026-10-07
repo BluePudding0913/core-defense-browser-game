@@ -87,6 +87,7 @@ let SPAWN_POINTS = [];
 let SHOP_UNITS = [];
 let BREAKER_TERMINALS = [];
 let PREP_CONSOLE = null;
+let MISSILE_COMPUTER = null, JOB_STATION = null;
 let BUILD_INFO = {};
 const RESOURCE_NAMES = { wood: "木材", ore: "鉄鉱石", copper: "銅", silver: "銀" };
 const WEAPON_FIELDS = {};
@@ -180,6 +181,7 @@ function applyMap(map) {
     BREAKER_TERMINALS = map.breakerTerminals.map(breaker => ({ ...breaker }));
     WORKBENCHES = map.workbenchUnits.map(workbench => ({ ...workbench }));
     PREP_CONSOLE = { ...map.prepConsole };
+    MISSILE_COMPUTER = map.missileComputer; JOB_STATION = map.jobStation;
     camera = { x: CORE.x, y: CORE.y };
     if (!mapReady) {
         mapReady = true;
@@ -393,6 +395,7 @@ function connect() {
     });
     socket.addEventListener("close", () => {
         if (socket !== connectingSocket) return;
+        window.coreAudio?.stopRailguns?.();
         endInteractionHold(true);
         clearTimeout(connectionAttemptTimer);
         smoothed.clear();
@@ -543,7 +546,9 @@ function receiveState(next) {
     const endsDefense = ["won", "lost"].includes(next.phase) && previousPhase !== next.phase;
     if (lastCoreHp !== undefined && next.core.hp < lastCoreHp) coreHitStarted = performance.now();
     lastCoreHp = next.core.hp;
-    const controlChanged = Boolean(getMe()?.drone?.active) !== Boolean(next.players.find(p => p.id === myPlayerId)?.drone?.active);
+    const incomingMe = next.players.find(p => p.id === myPlayerId);
+    const controlChanged = Boolean(getMe()?.drone?.active) !== Boolean(incomingMe?.drone?.active)
+        || Boolean(getMe()?.missileControl) !== Boolean(incomingMe?.missileControl);
     reconcileDroneSmoothing(next);
     reconcileEnemySmoothing(next);
     state = next;
@@ -1141,6 +1146,7 @@ function showFeedback(text) {
 function playSoundEffect(message) {
     const me = getMe();
     if (!me) return;
+    if (message.item === "railgun-charge" || message.weapon === "railgun") return;
     const own = message.playerId === myPlayerId;
     if (message.effect === "pickup" && !own) return;
     let name;
@@ -1227,7 +1233,7 @@ function openNearbyActionMenu(title, options, target, range, layout = "default",
 
 function canUseNearby(target, range, showReason) {
     const me = getMe();
-    if (me?.drone?.active) return false;
+    if (me?.drone?.active || me?.missileControl) return false;
     if (!me || !state || !["preparing", "wave"].includes(state.phase)) return false;
     if (me.down) {
         if (showReason) showFeedback("ダウン中は利用できません");
@@ -1263,6 +1269,29 @@ function closeActionMenu() {
     activeMenuAccess = null;
     actionMenu.classList.add("hidden");
     actionMenu.classList.remove("single-action");
+}
+
+function openJobStation() {
+    if (!canUseNearby(JOB_STATION, 70, true)) return;
+    activeMenuAccess = { target: JOB_STATION, range: 70, refresh: refreshJobStation };
+    actionTitle.textContent = "JOB";
+    document.querySelector("#workbench-materials").hidden = true;
+    actionMenu.classList.remove("single-action", "hidden");
+    refreshJobStation();
+}
+
+function refreshJobStation() {
+    const me = getMe();
+    if (actionOptions.dataset.selectedJob === me?.job && actionOptions.querySelector(".job-picker")) return;
+    const position = actionOptions.querySelector(".job-list")?.scrollTop || 0;
+    const focused = document.activeElement?.dataset.job;
+    actionOptions.innerHTML = window.JobUI.render(me?.job, !me || me.down, JOBS, "station-job-detail");
+    actionOptions.dataset.selectedJob = me?.job;
+    actionOptions.querySelector(".job-list").scrollTop = position;
+    actionOptions.querySelectorAll("[data-job]").forEach(button => {
+        button.onclick = () => send("JOB:" + button.dataset.job);
+        if (button.dataset.job === focused) button.focus({ preventScroll: true });
+    });
 }
 
 function openSlotMenu(slot) {
@@ -1315,6 +1344,7 @@ function canBuildAt(point, forCore = false) {
     if (SHOP_UNITS.some(shop => distance(point, shop) < 36)) return false;
     if (BREAKER_TERMINALS.some(breaker => distance(point, breaker) < 36)) return false;
     if (PREP_CONSOLE && distance(point, PREP_CONSOLE) < 36) return false;
+    if ([MISSILE_COMPUTER, JOB_STATION].some(unit => unit && distance(point, unit) < 36)) return false;
     if ((state.resources || []).some(node => distance(point, node) < 36)) return false;
     if (SPAWN_POINTS.some(spawn => distance(point, spawn) < 80)) return false;
     if (state.players.some(owner => (owner.teleportPads || []).some(pad => distance(point, pad) < (forCore ? 45 : 36)))) return false;
@@ -1462,7 +1492,7 @@ function resize() {
     canvas.height = Math.round(innerHeight * dpr);
     canvas.style.width = `${innerWidth}px`;
     canvas.style.height = `${innerHeight}px`;
-    scale = Math.min(canvas.width / VIEW.width, canvas.height / VIEW.height);
+    scale = Math.max(canvas.width / VIEW.width, canvas.height / VIEW.height);
 }
 window.addEventListener("resize", resize);
 resize();
@@ -1533,6 +1563,7 @@ canvas.addEventListener("pointercancel", event => {
 canvas.addEventListener("contextmenu", event => event.preventDefault());
 
 function startFiring(pointerId, clientX, clientY) {
+    if (getMe()?.missileControl) return;
     if (getMe()?.movingCore) {
         showFeedback("CORE運搬中は武器を使用できません");
         return;
@@ -1560,6 +1591,7 @@ function stopFiring(clientX, clientY) {
     const point = worldFromScreen(clientX, clientY);
     send(`FIRE:${point.x.toFixed(1)}:${point.y.toFixed(1)}:0`);
     firingPointer = null;
+    window.coreAudio?.stopRailgun?.(myPlayerId);
 }
 
 function fireOnce(clientX, clientY) {
@@ -1677,7 +1709,7 @@ window.addEventListener("blur", () => {
 
 function findNearestInteraction() {
     const me = getMe();
-    if (me?.drone?.active) return null;
+    if (me?.drone?.active || me?.missileControl) return null;
     if (!me || me.down || !state || !["preparing", "wave"].includes(state.phase)) return null;
     const choices = [];
     for (const owner of state.players) {
@@ -1695,6 +1727,10 @@ function findNearestInteraction() {
         if (separation <= range && hasInteractionPath(me, target)) choices.push({ kind, target, label, action, separation });
     };
 
+    if (MISSILE_COMPUTER && me.job === "hacker" && state.areas[MISSILE_COMPUTER.requiredArea])
+        add("computer", MISSILE_COMPUTER, 70, "MISSILE", () => send("COMPUTER"));
+    if (JOB_STATION && state.areas[JOB_STATION.requiredArea])
+        add("job-station", JOB_STATION, 70, "JOB", openJobStation);
     (state.factories || []).forEach(unit =>
         add("factory", unit, 70, "PICK UP", () => openNearbyActionMenu("QUARRY", [{
             label: "PICK UP", detail: "回収して持ち運ぶ", command: "PICKUP_FACTORY:" + unit.id,
@@ -1796,6 +1832,7 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
 function updateLocalPrediction(dt) {
     const serverMe = getMe();
+    if (serverMe?.missileControl) return;
     if (serverMe?.drone?.active && predictedLocal) {
         predictedLocal.x = serverMe.x; predictedLocal.y = serverMe.y;
         predictedLocal.dashing = false;
@@ -1825,7 +1862,7 @@ function updateLocalPrediction(dt) {
             predictedLocal.dashing = false;
         }
     } else {
-        predictedLocal.stamina = Math.min(100, predictedLocal.stamina + 24 * dt);
+        predictedLocal.stamina = Math.min(100, predictedLocal.stamina + (serverMe.staminaRecovery ?? 24) * dt);
     }
 
     const speed = serverMe.railgunRemaining > 0 ? 155 * .3 : serverMe.railgunCharge > 0 ? 155 * .6 : serverMe.down ? 45 : serverMe.movingCore ? 82 : predictedLocal.dashing ? (serverMe.dashSpeed ?? 265) : 155;
@@ -1865,6 +1902,8 @@ function animate(now = performance.now()) {
     const dt = Math.min(.05, Math.max(0, (now - lastFrameAt) / 1000));
     lastFrameAt = now;
     updateLocalPrediction(dt);
+    window.coreAudio?.syncRailguns?.(socket?.readyState === WebSocket.OPEN ? state?.players || [] : [], predictedLocal || getMe(), myPlayerId, Boolean(firingPointer));
+    window.TerminalUI?.update(state, getMe(), { map: { world: WORLD, tileMap: TILE_MAP, areas: AREAS, startingArea: STARTING_AREA }, send });
     draw();
     requestAnimationFrame(animate);
 }
@@ -1894,6 +1933,7 @@ function draw() {
         drawTrapSlots();
         drawTeleportPads();
         drawArtilleryShells();
+        drawMissiles();
         drawEnemies();
         drawRailguns();
         drawPlayers();
@@ -1959,7 +1999,7 @@ function drawBlackoutSignals() {
 
 function drawBlackout() {
     const local = getMe();
-    if (local?.drone?.active) return;
+    if (local?.drone?.active || local?.missileControl) return;
     const me = predictedLocal || local;
     if (!me) return;
     const x = (me.x - camera.x) * scale + canvas.width / 2;
@@ -2226,6 +2266,8 @@ function drawCore() {
 }
 
 function drawShops() {
+    for (const [unit, label] of [[MISSILE_COMPUTER, "MISSILE"], [JOB_STATION, "JOB"]])
+        if (unit && state.areas[unit.requiredArea]) drawStation(unit, label, "#7adba1", "#111");
     SHOP_UNITS.filter(isUnlockedPoint)
         .forEach(shop => {
             drawStation(shop, shop.label, "#d8d8d8", "#111");
@@ -2437,6 +2479,15 @@ function drawEnemies() {
             ctx.fillStyle = "#fff"; ctx.font = "800 10px ui-monospace, monospace"; ctx.textAlign = "center";
             ctx.fillText(`${Math.ceil(enemy.hp)} / ${Math.ceil(enemy.maxHp)}`, p.x, p.y - radius - 23);
         }
+    }
+}
+
+function drawMissiles() {
+    for (const strike of state.missiles || []) {
+        ctx.save(); ctx.strokeStyle = "#7adba1"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(strike.x, strike.y, strike.radius, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = "#153f2a"; ctx.font = "bold 14px monospace"; ctx.textAlign = "center";
+        ctx.fillText(Math.max(0, strike.remaining - (performance.now() - state.artilleryReceivedAt) / 1000).toFixed(1), strike.x, strike.y); ctx.restore();
     }
 }
 
@@ -2673,7 +2724,8 @@ function drawHitEffects() {
             }
             if ((effect.weapon === "turret" || effect.damage === 0)
                 && !["bat", "mine"].includes(effect.weapon) && progress < .55) {
-                ctx.lineWidth = 1.35;
+                ctx.strokeStyle = effect.weapon === "flamethrower" ? "#ff9c38" : ctx.strokeStyle;
+                ctx.lineWidth = effect.weapon === "flamethrower" ? 24 * (1 - progress) : 1.35;
                 ctx.beginPath(); ctx.moveTo(effect.fromX, effect.fromY); ctx.lineTo(effect.x, effect.y); ctx.stroke();
             }
             ctx.restore();

@@ -30,6 +30,8 @@ final class Player {
     double scoutDashRemaining, scoutDashDx, scoutDashDy;
     double jobCooldown;
     Drone drone;
+    boolean missileControl;
+    double missileCooldown;
     double teleportCooldown;
     final java.util.List<MapPoint> teleportPads = new java.util.ArrayList<>();
     String weapon = "pistol";

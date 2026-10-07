@@ -67,6 +67,7 @@ final class GameSession {
 
     final List<Player> players = new ArrayList<>();
     final List<Enemy> enemies = new ArrayList<>();
+    final List<MissileStrike> missiles = new ArrayList<>();
     final List<ArtilleryShell> artilleryShells = new ArrayList<>();
     final List<TrapSlot> trapSlots = GameMap.createTrapSlots();
     final List<ResourceNode> resourceNodes = GameMap.createResourceNodes();
@@ -172,6 +173,7 @@ final class GameSession {
         String displayName = player.name;
         player.human = false;
         recallDrone(player);
+        player.missileControl = false;
         player.roomReady = false;
         player.reconnectGrace = player.sessionId == null ? 0 : RECONNECT_GRACE_SECONDS;
         refreshCpuNames();
@@ -204,6 +206,7 @@ final class GameSession {
         String[] parts = message.split(":", 4);
         if (canMove() && player.drone != null && player.drone.active
                 && !Set.of("MOVE", "FIRE", "ATTACK", "JOB_ABILITY", "HELLO").contains(parts[0])) return;
+        if (player.missileControl && !Set.of("MISSILE", "COMPUTER", "HELLO").contains(parts[0])) return;
         switch (parts[0]) {
             case "HELLO" -> updateName(player, parts);
             case "START" -> {
@@ -217,6 +220,16 @@ final class GameSession {
                     }
                 }
             }
+            case "COMPUTER" -> {
+                if (player.missileControl) player.missileControl = false;
+                else if (player.job.equals("hacker") && canOperate(player, GameMap.MISSILE_COMPUTER)) {
+                    player.missileControl = true;
+                    player.moveX = player.moveY = 0;
+                    player.firing = player.dashHeld = player.dashing = false;
+                    player.stopRailgun(); cancelAction(player);
+                }
+            }
+            case "MISSILE" -> { if (parts.length >= 3) launchMissile(player, Double.parseDouble(parts[1]), Double.parseDouble(parts[2])); }
             case "JOB" -> { if (parts.length >= 2) selectJob(player, parts[1]); }
             case "JOB_ABILITY" -> useJobAbility(player);
             case "SCOUT_DASH" -> { if (parts.length >= 3) useScoutDash(player,
@@ -262,6 +275,8 @@ final class GameSession {
         for (Player player : players) {
             if (!canMove()) recallDrone(player);
             if (player.drone != null) player.drone.cooldown = Math.max(0, player.drone.cooldown - dt);
+            player.missileCooldown = Math.max(0, player.missileCooldown - dt);
+            if (!canOperate(player, GameMap.MISSILE_COMPUTER) || !player.job.equals("hacker")) player.missileControl = false;
             player.spyRemaining = Math.max(0, player.spyRemaining - dt);
             player.jobCooldown = Math.max(0, player.jobCooldown - dt);
             player.teleportCooldown = Math.max(0, player.teleportCooldown - dt);
@@ -280,6 +295,7 @@ final class GameSession {
         updateBots(dt);
         updatePlayers(dt);
         players.forEach(player -> combat.updateRailgun(player, dt));
+        updateMissiles(dt);
         updateMedbay(dt);
         updateRevives(dt);
         updateResources(dt);
@@ -368,13 +384,37 @@ final class GameSession {
 
     private void selectJob(Player player, String job) {
         if (!player.human || !JobRules.valid(job)
-                || !(phase == GamePhase.LOBBY || phase == GamePhase.WON || phase == GamePhase.LOST)) return;
+                || !(phase == GamePhase.LOBBY || phase == GamePhase.WON || phase == GamePhase.LOST || canOperate(player, GameMap.JOB_STATION))) return;
         if (player.job.equals(job)) return;
+        player.firing = player.dashing = player.dashHeld = player.missileControl = false;
+        player.stopRailgun(); cancelAction(player);
         player.job = job;
         player.drone = null;
         player.roomReady = false;
         player.spyRemaining = player.jobCooldown = player.scoutDashRemaining = 0;
         player.teleportPads.clear();
+    }
+
+    private boolean canOperate(Player player, WorkbenchUnit unit) {
+        return unit != null && canUseFacilities() && !player.down && !player.movingCore && player.selectedBuild == null
+                && unlockedAreas.contains(unit.requiredArea()) && canInteract(player, unit.x(), unit.y(), 70);
+    }
+
+    private void launchMissile(Player player, double x, double y) {
+        if (!player.missileControl || !player.job.equals("hacker") || player.missileCooldown > 0
+                || !canOperate(player, GameMap.MISSILE_COMPUTER) || !MissileRules.validTarget(x, y, unlockedAreas)) return;
+        missiles.add(new MissileStrike(player, x, y));
+        player.missileCooldown = MissileRules.cooldown();
+        gameEffects.sound(player, "shot", "rocket");
+    }
+
+    private void updateMissiles(double dt) {
+        for (MissileStrike strike : List.copyOf(missiles)) {
+            strike.remaining -= dt;
+            if (strike.remaining > 1e-9) continue;
+            combat.missileImpact(strike.owner, strike.x, strike.y);
+            missiles.remove(strike);
+        }
     }
 
     private void useJobAbility(Player player) {
@@ -656,6 +696,7 @@ final class GameSession {
 
     private void updatePlayers(double dt) {
         for (Player player : players) {
+            if (player.missileControl) continue;
             if (player.drone != null && player.drone.active) {
                 Drone drone = player.drone;
                 double nextX = clamp(drone.x + player.moveX * DroneRules.SPEED * dt, 7, WORLD_W - 7);
@@ -694,7 +735,7 @@ final class GameSession {
                     player.dashing = false;
                 }
             } else {
-                player.stamina = Math.min(100, player.stamina + 24 * dt);
+                player.stamina = Math.min(100, player.stamina + JobRules.staminaRecovery(player.job) * dt);
             }
             double speed = player.down ? 45 : player.movingCore ? 82 : player.dashing ? JobRules.dashSpeed(player.job) : 155;
             if (player.railgunRemaining > 0) speed = 155 * .3;
@@ -2803,6 +2844,7 @@ final class GameSession {
         coreRegenLevel = 0;
         enemies.clear();
         artilleryShells.clear();
+        missiles.clear();
         droppedResources.clear();
         activeLanes.clear();
         activeSpawnIds.clear();
@@ -2833,6 +2875,7 @@ final class GameSession {
             player.dashing = false;
             player.scoutDashRemaining = 0;
             player.dashExhausted = false;
+            player.missileControl = false; player.missileCooldown = 0;
             player.stamina = 100;
             player.spyRemaining = 0;
             player.drone = null;

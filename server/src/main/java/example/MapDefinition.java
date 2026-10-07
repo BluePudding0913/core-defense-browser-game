@@ -76,5 +76,5 @@ record MapDefinition(int version, WorldSize world, MapPoint core, Stations stati
         List<TrapSlotDefinition> trapSlots, List<ResourceNodeDefinition> resourceNodes,
         List<ShopUnit> shopUnits, List<WorkbenchUnit> workbenchUnits,
         PrepConsole prepConsole, List<BreakerTerminal> breakerTerminals,
-        List<Station> medBayUnits, StartingArea startingArea) { }
+        List<Station> medBayUnits, StartingArea startingArea, WorkbenchUnit missileComputer, WorkbenchUnit jobStation) { }
 

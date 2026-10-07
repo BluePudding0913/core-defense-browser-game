@@ -10,7 +10,8 @@ function extract(name) {
     return source.slice(begin, end < 0 ? undefined : end);
 }
 let options;
-const me = { ownsRailgun: true, railgunAmmo: 8, ownsRicochet: true, ricochetAmmo: 60, ownsSmg: true, smgAmmo: 300, ownsRevolver: true, revolverAmmo: 36, ownsLmg: true, lmgAmmo: 150, ownsRocket: true, rocketAmmo: 12, credits: 2000 };
+// Synthetic received rules test UI behavior independently of production balance.
+const me = { ownsRailgun: true, railgunAmmo: 2, ownsRicochet: true, ricochetAmmo: 60, ownsSmg: true, smgAmmo: 300, ownsRevolver: true, revolverAmmo: 36, ownsLmg: true, lmgAmmo: 150, ownsRocket: true, rocketAmmo: 12, credits: 2000 };
 const context = vm.createContext({ WeaponUI, me, getMe: () => me, BUILD_INFO: {}, equipmentOrder: [], SHOP_UNITS: map.shopUnits,
     state: { rules: { weaponLimit: 3 } },
     WEAPON_AMMO_REFILL_COST: 120, INTERACTION_RANGE: { shop: 100 },
@@ -24,7 +25,7 @@ for (const name of ['applyRules', 'equipmentEntries', 'ammoForWeapon', 'openShop
 context.rules = { recipes: {}, shop: { ammo: 500 }, weapons: Object.fromEntries(
     ['railgun', 'ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket'].map(w => [w, { owned: 'owns' + w[0].toUpperCase() + w.slice(1), ammo: w + 'Ammo', capacity: me[w + 'Ammo'] || 111, refillCost: 120 }])) };
 vm.runInContext('applyRules({rules})', context);
-for (const [weapon, capacity] of [['railgun', 8], ['ricochet', 60], ['smg', 300], ['revolver', 36], ['lmg', 150], ['rocket', 12]]) {
+for (const [weapon, {capacity}] of Object.entries(context.rules.weapons).filter(([,rule]) => me[rule.owned])) {
     context.weapon = weapon;
     context.shop = map.shopUnits.find(shop => shop.item === weapon);
     assert(context.shop);
@@ -50,7 +51,7 @@ assert(options[0].disabled);
 me.credits = 500;
 vm.runInContext('openShopPurchase(shop)', context);
 assert(!options[0].disabled);
-me.railgunAmmo = 8; me.ricochetAmmo = 60; me.smgAmmo = 300; me.revolverAmmo = 36; me.lmgAmmo = 150; me.rocketAmmo = 12;
+for (const rule of Object.values(context.rules.weapons)) if (me[rule.owned]) me[rule.ammo] = rule.capacity;
 vm.runInContext('openShopPurchase(shop)', context);
 assert.equal(options[0].label, 'FULL');
 assert(options[0].disabled);

@@ -60,6 +60,7 @@ context.SHOP_UNITS = [];
 context.WORKBENCHES = [];
 context.AREAS = [];
 context.PREP_CONSOLE = null;
+context.MISSILE_COMPUTER = context.JOB_STATION = null;
 context.MED = { x: 10000, y: 10000 };
 context.openMedMenu = () => {};
 context.openCoreMenu = () => {};
