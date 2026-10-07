@@ -236,7 +236,7 @@ button, input { font: inherit; }
 .weapon::after { content: ""; position: absolute; left: 0; bottom: 0; width: var(--cooldown-progress); height: 3px; background: #fff; transition: width .08s linear; }
 .weapon:active { transform: scale(.98); }
 .weapon:disabled { opacity: .66; cursor: not-allowed; }
-.weapon-meta { display: grid; align-content: center; gap: .46rem; min-width: 0; }
+.weapon-meta { position: relative; z-index: 1; display: grid; align-content: center; gap: .46rem; min-width: 0; }
 #weapon-name { font: 900 1.42rem ui-monospace, monospace; letter-spacing: .08em; }
 #weapon-ammo { color: white; font: 900 1.85rem ui-monospace, monospace; }
 .weapon-cooldown { color: rgb(255 255 255 / 70%); font: 800 .86rem ui-monospace, monospace; }
