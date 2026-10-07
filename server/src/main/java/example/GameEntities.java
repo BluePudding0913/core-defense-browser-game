@@ -25,6 +25,11 @@ final class Player {
     boolean dashing;
     boolean dashExhausted;
     double stamina;
+    String job = JobRules.DEFAULT;
+    double spyRemaining;
+    double jobCooldown;
+    double teleportCooldown;
+    final java.util.List<MapPoint> teleportPads = new java.util.ArrayList<>();
     String weapon = "pistol";
     double cooldown;
     double cooldownMax;
@@ -107,6 +112,7 @@ final class Player {
 
     int buildItemCount(String type) {
         return switch (type) {
+            case "teleporter" -> job.equals("tp") ? Math.max(0, 2 - teleportPads.size()) : 0;
             case "block" -> blockItems;
             case "turret" -> turretItems;
             case "copperTurret" -> copperTurretItems;

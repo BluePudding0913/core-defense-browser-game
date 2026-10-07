@@ -14,7 +14,7 @@ function mountMenu() {
     const escape = value => String(value).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
     let name = "", view = "guest", renderedView;
     let snapshot, selfId, busy = false, connected = false, lastLobby = "", quickRequested = false;
-    let matchResult = "";
+    let matchResult = "", jobOpen = false;
     try { name = localStorage.getItem("core-defense-guest-name")?.trim() || ""; } catch { /* Optional storage. */ }
     if (name) view = "home";
     const back = to => `<button type="button" class="ui-back" data-action="${to}">戻る</button>`;
@@ -46,15 +46,22 @@ function mountMenu() {
                 return `<li class="room-member ${host || p.ready ? "ready" : ""}"><strong>${escape(p.name)}</strong><span>${host ? "host" : p.ready ? "準備完了" : "準備中"}</span></li>`;
             }).join("") + '</ol>';
             content += owner ? `<button data-action="start" ${!snapshot.allReady || !connected ? "disabled" : ""}>${snapshot.phase === "lobby" ? "開始" : "もう一度プレイ"}</button>` : `<button data-action="ready" ${disabled()}>${me?.ready ? "準備を取り消す" : "準備OK"}</button>`;
+            content += `<button type="button" data-action="toggle-job" aria-expanded="${jobOpen}" aria-controls="job-panel" ${disabled()}>ジョブ:${window.coreJobs?.[me?.job]?.name || "ヒーラー"}</button>`;
             content += button("leave", "戻る");
+            content += `<aside id="job-panel" class="job-panel" aria-label="ジョブ選択" ${jobOpen ? "" : "hidden"}>${window.JobUI.render(me?.job, busy || !connected)}</aside>`;
         }
+        const jobScroll = root.querySelector(".job-list")?.scrollTop || 0;
+        const focusedJob = document.activeElement?.dataset?.job;
         root.innerHTML = `<div class="ui-shell"><section class="ui-content">${content}</section></div>`;
+        const jobList = root.querySelector(".job-list");
+        if (jobList) jobList.scrollTop = jobScroll;
+        if (focusedJob && window.coreJobs?.[focusedJob]) root.querySelector(`[data-job="${focusedJob}"]`)?.focus();
         renderedView = view;
         updateMatchButtons();
         updateMatchResult();
         if (focus) (root.querySelector("input") || root.querySelector("button"))?.focus();
     }
-    function go(next) { view = next; quickRequested = false; matchResult = ""; render(next !== "settings"); }
+    function go(next) { jobOpen = false; view = next; quickRequested = false; matchResult = ""; render(next !== "settings"); }
     function updateMatchResult() {
         const result = root.querySelector('.ui-match-result');
         if (!result) return;
@@ -97,7 +104,7 @@ function mountMenu() {
         connected() { connected = true; status(); },
         disconnected() {
             if (["create", "search"].includes(view)) matchResult = "接続できません";
-            connected = false; busy = false; lastLobby = "";
+            connected = false; busy = false; lastLobby = ""; jobOpen = false;
             if (quickRequested) view = "quick-error";
             root.hidden = false; document.body.classList.add("menu-preview");
             render();
@@ -108,15 +115,20 @@ function mountMenu() {
             const playing = ["preparing", "wave"].includes(next.phase) || keepArea;
             root.hidden = playing;
             document.body.classList.toggle("menu-preview", !playing);
-            if (playing) { lastLobby = ""; return; }
+            if (playing) { jobOpen = false; lastLobby = ""; return; }
             const signature = JSON.stringify([id, next.roomId, next.privateRoom, next.phase, next.roomOwnerId, next.allReady,
-                next.players.map(p => [p.id, p.name, p.human, p.ready])]);
+                next.players.map(p => [p.id, p.name, p.human, p.ready, p.job])]);
             if (signature === lastLobby && view === "lobby") return;
             lastLobby = signature; view = "lobby";
             render();
         }
     };
     root.addEventListener("keydown", event => {
+        if (event.key === "Escape" && jobOpen) {
+            setJobOpen(false);
+            root.querySelector('[data-action="toggle-job"]')?.focus();
+            return;
+        }
         if (view !== "settings" || event.target.name !== "medkit-key") return;
         if (event.key === "Tab") return;
         event.preventDefault();
@@ -157,14 +169,23 @@ function mountMenu() {
             match(action === "search" ? "join" : action, phrase);
         } catch (error) { status(error.message); }
     });
+    function setJobOpen(open) {
+        jobOpen = open;
+        const panel = root.querySelector("#job-panel");
+        if (panel) panel.hidden = !open;
+        root.querySelector('[data-action="toggle-job"]')?.setAttribute("aria-expanded", String(open));
+    }
     root.addEventListener("click", event => {
         const target = event.target.closest("button[data-action]");
+        if (!event.target.closest(".job-panel") && target?.dataset.action !== "toggle-job") setJobOpen(false);
         if (!target || target.disabled || busy) return;
+        if (target.dataset.action === "toggle-job") { setJobOpen(!jobOpen); return; }
         const action = target.dataset.action;
         if (["home", "phrase", "create", "search", "settings"].includes(action)) go(action);
         if (action === "quick") {
             try { match("quick"); } catch (error) { status(error.message); }
         }
+        if (action === "job") window.coreGame.send(`JOB:${target.dataset.job}`);
         if (action === "start") window.coreGame.send("START");
         if (action === "ready") window.coreGame.send(`ROOM_READY:${snapshot.players.find(p => p.id === selfId)?.ready ? 0 : 1}`);
         if (action === "leave") {

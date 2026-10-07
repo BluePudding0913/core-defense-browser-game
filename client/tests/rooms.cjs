@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync('client/app.js', 'utf8');
 const html = fs.readFileSync('client/index.html', 'utf8');
+assert.equal((html.match(/id="job-select"/g) || []).length, 1, 'job choices exist only inside the expandable panel');
 function extract(name) {
     const begin = source.indexOf('function ' + name + '(');
     const end = source.indexOf('\nfunction ', begin + 1);
@@ -50,8 +51,11 @@ const context = {
 };
 for (const name of ['nameInput', 'createRoomButton', 'joinRoomsButton', 'refreshRoomsButton',
     'startButton', 'readyRoomButton', 'leaveRoomButton', 'menu', 'menuStatus', 'hud',
-    'roomBrowser', 'roomLobby', 'roomCode', 'roomMembers', 'roomOwner']) context[name] = element();
+    'roomBrowser', 'roomLobby', 'roomCode', 'roomMembers', 'roomOwner', 'jobSelect', 'jobToggle']) context[name] = element();
 context.document = { querySelector: () => element() };
+context.window.JobUI = { render: () => "" };
+context.jobSelect.querySelector = () => element();
+context.JOBS = { healer: { name: "ヒーラー", detail: "蘇生 2秒" }, scout: { name: "スカウト", detail: "ダッシュ UP" } };
 vm.createContext(context);
 for (const name of ['connect', 'switchConnection', 'enterRoom', 'leaveRoom', 'updateRoomLobby', 'hideScreenIntro']) {
     vm.runInContext(extract(name), context);

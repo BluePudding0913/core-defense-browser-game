@@ -64,7 +64,7 @@ context.MED = { x: 10000, y: 10000 };
 context.openMedMenu = () => {};
 context.openCoreMenu = () => {};
 context.INTERACTION_RANGE = { shop: 70, medBay: 95, core: 100 };
-state.phase = 'preparing'; state.slots = []; state.core = { x: 10000, y: 10000 };
+state.phase = 'preparing'; state.players = []; state.slots = []; state.core = { x: 10000, y: 10000 };
 state.factories = [{ id: 'quarry-1', item: 'woodFactory', x: 980, y: 1820 },
     { id: 'quarry-2', item: 'woodFactory', x: 1060, y: 1820 }];
 const interactionStart = source.indexOf('function findNearestInteraction(');
@@ -76,3 +76,25 @@ for (const unit of state.factories) {
     assert.equal(options[0].command, 'PICKUP_FACTORY:' + unit.id);
 }
 console.log('Quarry pickup UI targets individual instances');
+
+me.id = 'owner'; me.job = 'tp'; me.selectedBuild = null;
+me.buildItems = { teleporter: 2 };
+assert(vm.runInContext('equipmentEntries(getMe()).some(entry => entry.value === "teleporter")', context));
+me.selectedBuild = 'teleporter';
+assert.equal(vm.runInContext('placementSelection(getMe()).type', context), 'teleporter');
+me.selectedBuild = null;
+const sent = []; context.send = command => sent.push(command);
+state.players = [{ id: 'owner', teleportPads: [{x:980, y:1820}, {x:1060, y:1820}] }];
+me.x=980; me.y=1820;
+assert.equal(vm.runInContext('findNearestInteraction().owned', context), true);
+vm.runInContext('findNearestInteraction().action()', context);
+assert.deepEqual(sent, ['TELEPORT']);
+me.id='ally'; me.job='healer';
+assert.equal(vm.runInContext('findNearestInteraction().owned', context), false);
+state.players[0].teleportPads.pop();
+assert.notEqual(vm.runInContext('findNearestInteraction().kind', context), 'teleporter', 'allies cannot use unfinished pairs');
+me.id='owner'; me.job='tp';
+assert.equal(vm.runInContext('findNearestInteraction().owned', context), true, 'owner can recover an unfinished pair');
+context.hasInteractionPath = () => false;
+assert.equal(vm.runInContext('findNearestInteraction()', context), null, 'walls prevent interaction');
+console.log('Teleporter inventory and proximity passed: equipment, placement, ally use and owner recovery');

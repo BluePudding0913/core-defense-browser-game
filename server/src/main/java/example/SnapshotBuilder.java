@@ -173,6 +173,20 @@ final class SnapshotBuilder {
                         ? GameMap.distanceToWall(player.x, player.y, player.railgunDx, player.railgunDy, GameSession.weaponStats("railgun").range()) : 0);
             json.append(",\"stamina\":").append(roundOne(player.stamina))
                     .append(",\"dashing\":").append(player.dashing);
+            json.append(",\"job\":\"").append(player.job).append('"')
+                    .append(",\"spyRemaining\":").append(roundOne(player.spyRemaining))
+                    .append(",\"jobCooldown\":").append(roundOne(player.jobCooldown))
+                    .append(",\"teleportCooldown\":").append(roundOne(player.teleportCooldown))
+                    .append(",\"dashSpeed\":").append(JobRules.dashSpeed(player.job))
+                    .append(",\"staminaDrain\":").append(JobRules.staminaDrain(player.job))
+                    .append(",\"reviveSeconds\":").append(JobRules.reviveSeconds(player.job))
+                    .append(",\"teleportPads\":[");
+            for (int padIndex = 0; padIndex < player.teleportPads.size(); padIndex++) {
+                if (padIndex > 0) json.append(',');
+                MapPoint pad = player.teleportPads.get(padIndex);
+                json.append("{\"x\":").append(pad.x()).append(",\"y\":").append(pad.y()).append('}');
+            }
+            json.append(']');
             // Keep the existing wire fields for browser/reconnect compatibility.
             for (var definition : WeaponCatalog.ALL) {
                 if (!definition.usesAmmo()) continue;
@@ -196,7 +210,8 @@ final class SnapshotBuilder {
                     .append(",\"mine\":").append(player.mineItems)
                     .append(",\"barricade\":").append(player.barricadeItems)
                     .append(",\"copperTurret\":").append(player.copperTurretItems)
-                    .append(",\"silverTurret\":").append(player.silverTurretItems);
+                    .append(",\"silverTurret\":").append(player.silverTurretItems)
+                    .append(",\"teleporter\":").append(player.buildItemCount("teleporter"));
             for (String item : List.of("woodFactory", "oreFactory", "copperFactory", "silverFactory")) {
                 json.append(",\"").append(item).append("\":").append(player.buildItemCount(item));
             }

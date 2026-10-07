@@ -10,6 +10,26 @@ const roomBrowser = document.querySelector("#room-browser");
 const roomLobby = document.querySelector("#room-lobby");
 const roomList = document.querySelector("#room-list");
 const roomMembers = document.querySelector("#room-members");
+const JOBS = window.JobUI.catalog;
+const jobSelect = document.querySelector("#job-select");
+const jobToggle = document.querySelector("#job-toggle");
+const legacyJobPanel = document.querySelector("#legacy-job-panel");
+jobToggle.addEventListener("click", () => {
+    legacyJobPanel.hidden = !legacyJobPanel.hidden;
+    jobToggle.setAttribute("aria-expanded", String(!legacyJobPanel.hidden));
+});
+document.addEventListener("click", event => {
+    if (!event.target.closest("#job-toggle, #legacy-job-panel")) {
+        legacyJobPanel.hidden = true;
+        jobToggle.setAttribute("aria-expanded", "false");
+    }
+});
+const jobAbilityButton = document.querySelector("#job-ability");
+jobSelect.addEventListener("click", event => {
+    const job = event.target.closest("[data-job]")?.dataset.job;
+    if (job) send(`JOB:${job}`);
+});
+jobAbilityButton.addEventListener("click", () => send("JOB_ABILITY"));
 const roomCode = document.querySelector("#room-code");
 const roomOwner = document.querySelector("#room-owner");
 const createRoomButton = document.querySelector("#create-room");
@@ -478,7 +498,7 @@ function acknowledgeInputs(value) {
 
 function applyRules(next) {
     if (next.rules) {
-        BUILD_INFO = { ...next.rules.recipes };
+        BUILD_INFO = { ...next.rules.recipes, teleporter: { name: "テレポーター", shopOnly: true } };
         SHOP_UNITS.filter(shop => shop.item.endsWith("Factory")).forEach(shop => {
             BUILD_INFO[shop.item] = { name: shop.label, description: "持ち運べる製造装置", shopOnly: true };
         });
@@ -564,6 +584,12 @@ function updateRoomLobby(snapshot) {
         <span>${player.id === snapshot.roomOwnerId ? "host" : player.ready ? "準備完了" : "準備中"}</span>
     </div>`).join("");
     const me = snapshot.players.find(player => player.id === myPlayerId);
+    jobToggle.textContent = `ジョブ:${JOBS[me?.job]?.name || "ヒーラー"}`;
+    const jobScroll = jobSelect.querySelector(".job-list")?.scrollTop || 0;
+    const focusedJob = document.activeElement?.dataset?.job;
+    jobSelect.innerHTML = window.JobUI.render(me?.job, !me, JOBS, "legacy-job-detail");
+    jobSelect.querySelector(".job-list").scrollTop = jobScroll;
+    if (focusedJob && JOBS[focusedJob]) jobSelect.querySelector(`[data-job="${focusedJob}"]`)?.focus();
     const isOwner = myPlayerId === snapshot.roomOwnerId;
     readyRoomButton.classList.toggle("hidden", isOwner);
     readyRoomButton.disabled = !me || isOwner;
@@ -752,7 +778,13 @@ function beginInteractionHold() {
         ? interaction.kind === "core" ? "core" : interaction.target.id : null;
     const hold = { used: false, timer: null };
     interactionHold = hold;
-    if (target && actionMenu.classList.contains("hidden") && !placementSelection(getMe())) {
+    if (interaction?.kind === "teleporter" && actionMenu.classList.contains("hidden") && !placementSelection(getMe())) {
+        hold.interaction = interaction;
+        if (interaction.owned) hold.timer = setTimeout(() => {
+            hold.used = true;
+            send(`PICKUP_TELEPORT:${interaction.target.x}:${interaction.target.y}`);
+        }, 500);
+    } else if (target && actionMenu.classList.contains("hidden") && !placementSelection(getMe())) {
         hold.timer = setTimeout(() => {
             hold.used = true;
             send(`CARRY_NEAREST:${target}`);
@@ -764,7 +796,10 @@ function endInteractionHold(cancel = false) {
     if (!hold) return;
     clearTimeout(hold.timer);
     interactionHold = null;
-    if (!cancel && !hold.used) toggleNearestInteraction();
+    if (!cancel && !hold.used) {
+        if (hold.interaction) hold.interaction.action();
+        else toggleNearestInteraction();
+    }
 }
 interactButton.addEventListener("pointerdown", event => {
     if (event.button !== 0) return;
@@ -817,6 +852,10 @@ function updateHud() {
         : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}`
             : "";
     const me = getMe();
+    jobAbilityButton.classList.toggle("hidden", me?.job !== "spy");
+    jobAbilityButton.textContent = me?.spyRemaining > 0 ? `偽装 ${Math.ceil(me.spyRemaining)}s`
+        : me?.jobCooldown > 0 ? `偽装 ${Math.ceil(me.jobCooldown)}s` : "偽装";
+    jobAbilityButton.disabled = !me || me.down || me.movingCore || Boolean(me.selectedBuild) || me.jobCooldown > 0;
     teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">
             <div class="teammate-label">
@@ -851,7 +890,8 @@ function updateHud() {
         updateInventory(me);
         const placing = Boolean(placementSelection(me));
         const interaction = findNearestInteraction();
-        interactLabel.textContent = placing ? "PLACE" : ["core", "defense"].includes(interaction?.kind) ? "長押しで運搬" : "INTERACT";
+        interactLabel.textContent = placing ? "PLACE" : interaction?.kind === "teleporter"
+            ? interaction.owned ? "TP / 長押しで回収" : "TP" : ["core", "defense"].includes(interaction?.kind) ? "長押しで運搬" : "INTERACT";
         interactButton.classList.toggle("hidden", !placing && !interaction);
     }
 }
@@ -1204,6 +1244,7 @@ function canBuildAt(point, forCore = false) {
     if (PREP_CONSOLE && distance(point, PREP_CONSOLE) < 36) return false;
     if ((state.resources || []).some(node => distance(point, node) < 36)) return false;
     if (SPAWN_POINTS.some(spawn => distance(point, spawn) < 80)) return false;
+    if (state.players.some(owner => (owner.teleportPads || []).some(pad => distance(point, pad) < (forCore ? 45 : 36)))) return false;
     if ((state.factories || []).some(unit => distance(point, unit) < (forCore ? 45 : 36))) return false;
     if (state.slots.some(slot => slot.defense && distance(point, slot) < (forCore ? 45 : 36))) return false;
     return !state.players.some(player => (forCore ? player.id !== myPlayerId && !player.down && distance(point, player) < 24
@@ -1535,6 +1576,16 @@ function findNearestInteraction() {
     const me = getMe();
     if (!me || me.down || !state || !["preparing", "wave"].includes(state.phase)) return null;
     const choices = [];
+    for (const owner of state.players) {
+        for (const pad of owner.teleportPads || []) {
+            const separation = distance(me, pad);
+            const owned = owner.id === me.id && me.job === "tp";
+            if ((!owned && owner.teleportPads.length !== 2) || separation > 45 || !hasInteractionPath(me, pad)) continue;
+            choices.push({ kind: "teleporter", target: pad, owned, separation,
+                action: () => { if (owner.teleportPads.length === 2) send("TELEPORT"); } });
+        }
+    }
+    if (choices.length) return choices.sort((a, b) => a.separation - b.separation)[0];
     const add = (kind, target, range, label, action) => {
         const separation = distance(me, target);
         if (separation <= range && hasInteractionPath(me, target)) choices.push({ kind, target, label, action, separation });
@@ -1647,7 +1698,7 @@ function updateLocalPrediction(dt) {
     predictedLocal.dashing = !(serverMe.railgunRemaining > 0 || serverMe.railgunCharge > 0) && !serverMe.down && !serverMe.movingCore
         && dashRequested && !predictedLocal.exhausted && input > .12 && predictedLocal.stamina > 0;
     if (predictedLocal.dashing) {
-        predictedLocal.stamina = Math.max(0, predictedLocal.stamina - 38 * dt);
+        predictedLocal.stamina = Math.max(0, predictedLocal.stamina - (serverMe.staminaDrain ?? 38) * dt);
         if (predictedLocal.stamina <= 0) {
             predictedLocal.exhausted = true;
             predictedLocal.dashing = false;
@@ -1656,7 +1707,7 @@ function updateLocalPrediction(dt) {
         predictedLocal.stamina = Math.min(100, predictedLocal.stamina + 24 * dt);
     }
 
-    const speed = serverMe.railgunRemaining > 0 ? 155 * .3 : serverMe.railgunCharge > 0 ? 155 * .6 : serverMe.down ? 45 : serverMe.movingCore ? 82 : predictedLocal.dashing ? 265 : 155;
+    const speed = serverMe.railgunRemaining > 0 ? 155 * .3 : serverMe.railgunCharge > 0 ? 155 * .6 : serverMe.down ? 45 : serverMe.movingCore ? 82 : predictedLocal.dashing ? (serverMe.dashSpeed ?? 265) : 155;
     const nextX = clamp(predictedLocal.x + localMove.x * speed * dt, 25, WORLD.width - 25);
     const nextY = clamp(predictedLocal.y + localMove.y * speed * dt, 25, WORLD.height - 25);
     if (canPredictOccupy(nextX, predictedLocal.y, 5)) predictedLocal.x = nextX;
@@ -1720,6 +1771,7 @@ function draw() {
         drawResources();
         drawDroppedResources();
         drawTrapSlots();
+        drawTeleportPads();
         drawArtilleryShells();
         drawEnemies();
         drawRailguns();
@@ -2269,12 +2321,25 @@ function drawRailguns() {
     }
 }
 
+function drawTeleportPads() {
+    for (const owner of state.players) {
+        for (const [index, pad] of (owner.teleportPads || []).entries()) {
+            ctx.save(); ctx.translate(pad.x, pad.y);
+            ctx.strokeStyle = owner.teleportPads.length === 2 ? "#aa83ff" : "#666";
+            ctx.fillStyle = "#211a36"; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = "#eee"; ctx.font = "800 10px system-ui"; ctx.textAlign = "center";
+            ctx.fillText(`TP${index + 1}`, 0, 4); ctx.restore();
+        }
+    }
+}
+
 function drawPlayers() {
     for (const player of state.players) {
         const isLocal = player.id === myPlayerId && predictedLocal;
         const p = isLocal ? predictedLocal : smoothEntity("player", player);
         const rescuers = state.players.filter(worker => worker.action === player.id);
-        if (player.down && rescuers.length && (player.id === myPlayerId || rescuers.some(worker => worker.id === myPlayerId))) drawReviveEffect(p.x, p.y, Math.max(...rescuers.map(worker => worker.actionProgress / 4)));
+        if (player.down && rescuers.length && (player.id === myPlayerId || rescuers.some(worker => worker.id === myPlayerId))) drawReviveEffect(p.x, p.y, Math.max(...rescuers.map(worker => worker.actionProgress / (worker.reviveSeconds ?? 4))));
         ctx.save();
         if (player.down) { ctx.translate(p.x, p.y + 8); ctx.scale(1.35, .65); }
         else ctx.translate(p.x, p.y);
@@ -2291,8 +2356,15 @@ function drawPlayers() {
         }
         ctx.fillStyle = hit || player.down ? "#ff5964" : player.id === myPlayerId ? "#79d8ff" : "#454545";
         const playerSize = 10;
-        ctx.fillRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize);
-        if (player.id === myPlayerId) { ctx.strokeStyle = "white"; ctx.lineWidth = 1.5; ctx.strokeRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize); }
+        const disguised = player.spyRemaining > 0 && !player.down;
+        if (disguised) {
+            ctx.fillStyle = "#707070"; ctx.strokeStyle = "#c8c8c8"; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(-6, -5, 3, 3); ctx.fillRect(3, -5, 3, 3);
+            ctx.fillStyle = "#79d8ff"; ctx.fillRect(-2, 6, 4, 2);
+        } else ctx.fillRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize);
+        if (player.id === myPlayerId && !disguised) { ctx.strokeStyle = "white"; ctx.lineWidth = 1.5; ctx.strokeRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize); }
         if (player.selectedBuild?.endsWith("Factory") && player.buildItems?.[player.selectedBuild] > 0) {
             ctx.fillStyle = "#70bfff";
             ctx.fillRect(-9, -24, 18, 16);

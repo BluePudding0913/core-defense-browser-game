@@ -652,7 +652,7 @@ class GameSessionTest {
     @Test
     void nearbyPlayerIsRevivedOnlyAfterFourSeconds() {
         startPreparing();
-        game.players.forEach(candidate -> candidate.human = true);
+        game.players.forEach(candidate -> { candidate.human = true; candidate.job = "scout"; });
         Player target = game.players.get(1);
         player.x = 1020;
         player.y = 1900;

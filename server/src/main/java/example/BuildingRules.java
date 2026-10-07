@@ -49,6 +49,11 @@ final class BuildingRules {
                         && distance(point.x(), point.y(), enemy.x, enemy.y) < 48);
     }
 
+    static boolean teleportPadOccupied(MapPoint point, List<Player> players, double clearance) {
+        return players.stream().anyMatch(owner -> owner.teleportPads.stream()
+                .anyMatch(pad -> distance(point.x(), point.y(), pad.x(), pad.y()) < clearance));
+    }
+
     static boolean canPlaceCore(MapPoint point, boolean terrainAllowed, PlacementState state, Player actor) {
         return terrainAllowed
                 && state.factories().stream().noneMatch(unit -> distance(point.x(), point.y(), unit.x, unit.y) < 45)

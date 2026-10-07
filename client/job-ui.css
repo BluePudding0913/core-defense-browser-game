@@ -1,0 +1,27 @@
+.job-picker { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 28px; text-align: left; }
+.job-list { display: grid; align-content: start; gap: 6px; max-height: 264px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 2px; }
+.job-list button, #menu-ui .job-list button { min-width: 0; width: 100%; min-height: 44px; margin: 0; padding: .7rem .9rem; text-align: left; border: 1px solid transparent; border-radius: .25rem; background: transparent; color: #aaa; font-weight: 700; }
+.job-list button:hover:not(:disabled), #menu-ui .job-list button:hover:not(:disabled) { color: #fff; background: #1b1b1b; border-color: transparent; }
+.job-list button[aria-pressed="true"], #menu-ui .job-list button[aria-pressed="true"] { color: #fff; border-color: transparent; background: #1b1b1b; }
+.job-list button:focus-visible, #menu-ui .job-list button:focus-visible { outline: none; text-decoration: underline; text-underline-offset: .2em; }
+.job-detail { min-width: 0; min-height: 264px; padding: 18px 0 12px 28px; border-left: 1px solid #303030; }
+.job-detail p { min-height: 4.5em; margin: 0; color: #aaa; font-size: .88rem; line-height: 1.8; overflow-wrap: anywhere; }
+@media (max-width: 560px) {
+    .job-picker { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+    .job-list { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 150px; }
+    .job-detail { min-height: 0; padding: 20px 2px 0; border-left: 0; border-top: 1px solid #303030; }
+    .job-detail p { min-height: 0; }
+}
+
+.job-panel { position: absolute; z-index: 12; left: calc(100% + 24px); top: 0; width: 420px; max-height: min(480px, calc(100dvh - 48px)); overflow-y: auto; padding: 20px; border: 1px solid #383838; border-radius: .3rem; background: #151515; box-shadow: 0 16px 48px #0006; }
+.job-panel[hidden] { display: none; }
+.job-panel .job-picker { grid-template-columns: 120px minmax(0, 1fr); gap: 18px; }
+.job-panel .job-detail { padding-left: 18px; }
+.job-panel .job-detail p { min-height: 0; }
+@media (max-width: 1180px) {
+    .job-panel { position: fixed; left: auto; right: 16px; top: max(24px, calc(50dvh - 48px)); width: min(420px, calc(100vw - 32px)); max-height: calc(50dvh + 24px); }
+}
+@media (max-width: 560px) {
+    .job-panel .job-picker { grid-template-columns: minmax(0, 1fr); }
+    .job-panel .job-detail { padding-left: 2px; }
+}

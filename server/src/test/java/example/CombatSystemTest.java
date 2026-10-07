@@ -12,6 +12,8 @@ class CombatSystemTest {
         final List<Enemy> enemies = new ArrayList<>();
         public boolean canAttack() { return active; }
         public List<Enemy> enemies() { return enemies; }
+        public List<Player> players() { return List.of(); }
+        public void damagePlayer(Player player, double damage) { fail("No player targets in this fixture"); }
         public boolean canOccupy(double x, double y, double radius) { return true; }
         public void onEnemyDefeated(Enemy enemy) { deaths++; }
     }
