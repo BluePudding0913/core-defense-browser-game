@@ -315,7 +315,7 @@
     {"id":"workbench-entry","x":980,"y":1460,"requiredArea":"entry-room"},
     {"id":"workbench-armory","x":1740,"y":900,"requiredArea":"armory-wing"},
     {"id":"workbench-relay","x":1340,"y":380,"requiredArea":"relay-gallery"},
-    {"id":"workbench-command","x":380,"y":460,"requiredArea":"command-room"}
+    {"id":"workbench-command","x":380,"y":420,"requiredArea":"command-room"}
   ],
   "prepConsole": {"id":"prep-console","x":1260,"y":980,"requiredArea":"operations-room","cost":100,"seconds":60},
   "breakerTerminals": [
