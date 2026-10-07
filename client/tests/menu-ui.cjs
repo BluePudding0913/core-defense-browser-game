@@ -29,6 +29,7 @@ const context = { document: { querySelector: () => root, body, createElement: ()
     window: { coreGame: { match: (...args) => calls.push(args), send: command => calls.push(command), leave: () => calls.push('leave') } } };
 vm.runInNewContext(fs.readFileSync('client/pointer-settings.js', 'utf8'), context);
 vm.runInNewContext(fs.readFileSync('client/key-settings.js', 'utf8'), context);
+vm.runInNewContext(fs.readFileSync('client/sound.js', 'utf8'), { ...context, window: Object.assign(context.window, { addEventListener() {} }) });
 vm.runInNewContext(fs.readFileSync('client/menu-ui.js', 'utf8'), context);
 const submit = (form, data = {}) => handlers.submit({ preventDefault() {}, target: { dataset: { form }, data } });
 const click = (action, slot) => handlers.click({ target: { closest: () => ({ dataset: { action, slot } }) } });
@@ -226,6 +227,11 @@ assert.equal(result.textContent, '接続できません', 'reconnection preserve
 click('phrase'); click('search');
 assert.equal(result.textContent, '', 'reopening search clears its previous result');
 click('home'); click('settings');
+assert.match(root.innerHTML, /name="volume"[^>]*value="100"/);
+handlers.input({ target: { name: 'volume', value: '35' } });
+assert.equal(context.window.coreAudio.getVolume(), .35);
+assert.equal(field('#volume-value').textContent, '35%');
+assert.equal(saved.get('core-defense-volume'), '0.35');
 assert.match(root.innerHTML, /name="medkit-key"[^>]*value="H"/);
 const medkitInput = { name: 'medkit-key', value: 'H' };
 handlers.keydown({ target: medkitInput, key: 'q', preventDefault() {} });

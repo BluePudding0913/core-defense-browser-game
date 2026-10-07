@@ -6,7 +6,7 @@ let contexts = 0;
 class AudioContext {
     constructor() { contexts++; this.sampleRate = 48000; this.state = 'suspended'; }
     resume() { this.state = 'running'; return Promise.resolve(); }
-    createGain() { return { gain: { value: 1 }, connect() {}, disconnect() { this.disconnected = true; } }; }
+    createGain() { return { gain: { value: 1 }, connect(node) { this.output = node; }, disconnect() { this.disconnected = true; } }; }
     createBuffer(channels, length) {
         const data = new Float32Array(length);
         const buffer = { getChannelData: () => data };
@@ -18,7 +18,9 @@ class AudioContext {
     }
 }
 const window = { AudioContext, addEventListener: (name, fn) => listeners[name] = fn };
-vm.runInNewContext(fs.readFileSync('client/sound.js', 'utf8'), { window });
+const saved = new Map();
+const localStorage = { getItem: key => saved.get(key) ?? null, setItem: (key, value) => saved.set(key, value) };
+vm.runInNewContext(fs.readFileSync('client/sound.js', 'utf8'), { window, localStorage });
 window.coreAudio.play('pistol'); assert.equal(contexts, 0);
 listeners.pointerdown(); assert.equal(contexts, 1);
 const names = ['pistol', 'ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket', 'bat', 'medkit', 'heal', 'build', 'pickup', 'item', 'railgun', 'railgun-charge'];
@@ -53,6 +55,24 @@ for (const name of names) {
     for (const distance of [600, 1000, NaN, Infinity]) window.coreAudio.play(name, distance);
     assert.equal(sources.length, count, `${name} is silent beyond hearing range`);
 }
+
+window.coreAudio.play('pistol');
+const master = sources.at(-1).output.output;
+window.coreAudio.setVolume(.35);
+assert.equal(master.gain.value, .35, 'changes already playing voices');
+assert.equal(saved.get('core-defense-volume'), '0.35');
+window.coreAudio.setVolume(0);
+const mutedCount = sources.length;
+window.coreAudio.play('heal');
+assert.equal(sources.length, mutedCount, 'zero volume mutes all effects');
+const reloaded = { addEventListener() {} };
+vm.runInNewContext(fs.readFileSync('client/sound.js', 'utf8'), { window: reloaded, localStorage });
+assert.equal(reloaded.coreAudio.getVolume(), 0, 'saved mute survives reload');
+for (const [value, expected] of [[2, 1], [-1, 0], [NaN, 1]]) {
+    window.coreAudio.setVolume(value);
+    assert.equal(window.coreAudio.getVolume(), expected);
+}
+sources.at(-1).onended();
 
 const app = fs.readFileSync('client/app.js', 'utf8');
 const start = app.indexOf('function playSoundEffect(');
