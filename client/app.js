@@ -862,6 +862,7 @@ function updateHud() {
                 <span class="player-stats">${player.down ? "DOWN" : ""}<b>${player.credits}G</b></span>
             </div>
             <div class="hp-line"><span style="width:${player.hp}%"></span></div>
+            ${me?.job === "spy" ? window.JobUI.renderAllyIntel(player, AREAS, areaContains) : ""}
         </div>`).join("");
     selfVitals.classList.toggle("hidden", !me);
     if (me) {
