@@ -46,33 +46,17 @@ final class Player {
 
     void stopRailgun() {
         if (railgunRemaining > 0) {
-            cooldown = GameConfig.WEAPONS.get("railgun").cooldown();
+            cooldown = WeaponCatalog.stats("railgun").cooldown();
             cooldownMax = cooldown;
         }
         railgunCharge = railgunRemaining = railgunTick = 0;
     }
 
+    final WeaponInventory weapons = new WeaponInventory();
+
     boolean firing;
     double aimX;
     double aimY;
-    boolean ownsShotgun;
-    boolean ownsSmg;
-    boolean ownsRifle;
-    boolean ownsSniper;
-    boolean ownsRevolver;
-    boolean ownsRocket;
-    boolean ownsRailgun;
-    boolean ownsLmg;
-    boolean ownsRicochet;
-    int shotgunAmmo;
-    int smgAmmo;
-    int rifleAmmo;
-    int sniperAmmo;
-    int revolverAmmo;
-    int rocketAmmo;
-    int railgunAmmo;
-    int lmgAmmo;
-    int ricochetAmmo;
     int wood;
     int ore;
     int copper, silver, medkits, copperTurretItems, silverTurretItems;

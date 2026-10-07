@@ -81,7 +81,7 @@ class LateRoundEnemiesTest {
         tiny.x = grunt.x = 100;
         tiny.y = grunt.y = 10;
         Class<?>[] signature = {Enemy.class, double.class, double.class, double.class,
-                double.class, GameConfig.WeaponStats.class, double.class};
+                double.class, WeaponCatalog.WeaponStats.class, double.class};
         for (String weapon : new String[]{"pistol", "smg", "rifle", "sniper", "revolver", "lmg", "ricochet"}) {
             var stats = GameSession.weaponStats(weapon);
             assertEquals(true, invoke("isInsideAttack", signature, grunt, 0., 0., 1., 0., stats, 200.), weapon);

@@ -1,7 +1,7 @@
 package example;
 
 import static example.GameConfig.BUILD_RECIPES;
-import example.GameConfig.WeaponStats;
+import example.WeaponCatalog.WeaponStats;
 import static example.GameConfig.GATHER_COOLDOWN_SECONDS;
 import static example.GameConfig.MAX_ROUNDS;
 import static example.GameConfig.PLAYER_COUNT;
@@ -358,7 +358,7 @@ final class GameSession {
         resetWorld();
         if (debugMode) {
             host.credits = 100_000;
-            GameConfig.WEAPONS.keySet().forEach(weapon -> giveBotWeapon(host, weapon));
+            WeaponCatalog.ALL.forEach(weapon -> grantWeapon(host, weapon.id()));
             host.equipWeapon("pistol");
         }
         phase = GamePhase.PREPARING;
@@ -1291,7 +1291,7 @@ final class GameSession {
                 } else moveBotToward(bot, downed.x, downed.y);
                 Enemy threat = bestBotCombatTarget(bot);
                 if (threat != null && recognizeBotTarget(bot, threat, dt)) {
-                    selectBotWeapon(bot, distance(bot.x, bot.y, threat.x, threat.y));
+                    BotWeaponPolicy.select(bot, distance(bot.x, bot.y, threat.x, threat.y));
                     attack(bot, threat.id);
                 } else if (threat == null) {
                     clearBotTarget(bot);
@@ -1443,7 +1443,7 @@ final class GameSession {
 
     private void engageBotTarget(Player bot, Enemy target) {
         double targetDistance = distance(bot.x, bot.y, target.x, target.y);
-        selectBotWeapon(bot, targetDistance);
+        BotWeaponPolicy.select(bot, targetDistance);
         WeaponStats weapon = weaponStats(bot.weapon);
         double effectiveRange = weapon.range() - 8;
         boolean clearShot = GameMap.hasClearLine(bot.x, bot.y, target.x, target.y);
@@ -1472,48 +1472,6 @@ final class GameSession {
         } else {
             moveBotAround(bot, target.x, target.y);
         }
-    }
-
-    private static void selectBotWeapon(Player bot, double targetDistance) {
-        if (targetDistance <= 72 && (!hasBotRangedAmmo(bot) || bot.hp > 70)) {
-            bot.equipWeapon("bat");
-        } else if (bot.ownsRevolver && bot.revolverAmmo > 0 && targetDistance <= 500) {
-            bot.equipWeapon("revolver");
-        } else if (bot.ownsRocket && bot.rocketAmmo > 0 && targetDistance > 160 && targetDistance <= weaponStats("rocket").range()) {
-            bot.equipWeapon("rocket");
-        } else if (targetDistance > 390 && bot.ownsSniper && bot.sniperAmmo > 0) {
-            bot.equipWeapon("sniper");
-        } else if (targetDistance > 260 && bot.ownsRifle && bot.rifleAmmo > 0) {
-            bot.equipWeapon("rifle");
-        } else if (bot.ownsLmg && bot.lmgAmmo > 0 && targetDistance <= 360) {
-            bot.equipWeapon("lmg");
-        } else if (bot.ownsRicochet && bot.ricochetAmmo > 0 && targetDistance <= 300) {
-            bot.equipWeapon("ricochet");
-        } else if (targetDistance > 155 && bot.ownsSmg && bot.smgAmmo > 0) {
-            bot.equipWeapon("smg");
-        } else if (targetDistance <= 190 && bot.ownsShotgun && bot.shotgunAmmo > 0) {
-            bot.equipWeapon("shotgun");
-        } else if (bot.ownsSmg && bot.smgAmmo > 0) {
-            bot.equipWeapon("smg");
-        } else if (bot.ownsRifle && bot.rifleAmmo > 0) {
-            bot.equipWeapon("rifle");
-        } else if (bot.ownsSniper && bot.sniperAmmo > 0) {
-            bot.equipWeapon("sniper");
-        } else {
-            bot.equipWeapon("pistol");
-        }
-        bot.selectedBuild = null;
-    }
-
-    private static boolean hasBotRangedAmmo(Player bot) {
-        return bot.ownsShotgun && bot.shotgunAmmo > 0
-                || bot.ownsSmg && bot.smgAmmo > 0
-                || bot.ownsRifle && bot.rifleAmmo > 0
-                || bot.ownsSniper && bot.sniperAmmo > 0
-                || bot.ownsRevolver && bot.revolverAmmo > 0
-                || bot.ownsRocket && bot.rocketAmmo > 0
-                || bot.ownsLmg && bot.lmgAmmo > 0
-                || bot.ownsRicochet && bot.ricochetAmmo > 0;
     }
 
     private void moveBotToSaferPosition(Player bot, Enemy enemy) {
@@ -1787,10 +1745,10 @@ final class GameSession {
         };
         for (String item : preference) {
             ShopUnit shop = GameMap.shopByItem(item);
-            boolean owned = botOwnsWeapon(bot, item);
+            boolean owned = bot.weapons.owns(item);
             if (shop == null || !isPointUnlocked(shop.x(), shop.y())
                     || bot.credits < (owned ? ammoRefillCost() : shop.cost())) continue;
-            if (owned ? weaponAmmo(bot, item) > weaponAmmoCapacity(item) / 4 : hasBotRangedAmmo(bot)) continue;
+            if (owned ? weaponAmmo(bot, item) > weaponAmmoCapacity(item) / 4 : BotWeaponPolicy.hasRangedAmmo(bot)) continue;
             return botUse(bot, shop.x(), shop.y(), 55, () -> buy(bot, item));
         }
         if (phase != GamePhase.PREPARING) return false;
@@ -1919,37 +1877,11 @@ final class GameSession {
                 .allMatch(area -> unlockedAreas.contains(area.id()));
     }
 
-    private static boolean botOwnsWeapon(Player bot, String item) {
-        return switch (item) {
-            case "shotgun" -> bot.ownsShotgun;
-            case "smg" -> bot.ownsSmg;
-            case "rifle" -> bot.ownsRifle;
-            case "sniper" -> bot.ownsSniper;
-            case "revolver" -> bot.ownsRevolver;
-            case "rocket" -> bot.ownsRocket;
-            case "railgun" -> bot.ownsRailgun;
-            case "lmg" -> bot.ownsLmg;
-            case "ricochet" -> bot.ownsRicochet;
-            default -> true;
-        };
-    }
-
-    private static void giveBotWeapon(Player bot, String item) {
-        switch (item) {
-            case "shotgun" -> bot.ownsShotgun = true;
-            case "smg" -> bot.ownsSmg = true;
-            case "rifle" -> bot.ownsRifle = true;
-            case "sniper" -> bot.ownsSniper = true;
-            case "revolver" -> bot.ownsRevolver = true;
-            case "rocket" -> bot.ownsRocket = true;
-            case "railgun" -> bot.ownsRailgun = true;
-            case "lmg" -> bot.ownsLmg = true;
-            case "ricochet" -> bot.ownsRicochet = true;
-            default -> { return; }
-        }
-        setWeaponAmmo(bot, item, weaponAmmoCapacity(item));
-        bot.equipWeapon(item);
-        bot.selectedBuild = null;
+    private static void grantWeapon(Player player, String item) {
+        if (WeaponCatalog.capacity(item) == 0) return;
+        player.weapons.grant(item);
+        player.equipWeapon(item);
+        player.selectedBuild = null;
     }
 
     private void attack(Player player, int enemyId) {
@@ -1963,7 +1895,7 @@ final class GameSession {
 
         if (player.weapon.equals("railgun")) {
             if (!player.firing || player.selectedBuild != null) return;
-            if (!player.ownsRailgun || player.railgunAmmo <= 0 && player.railgunRemaining <= 0) {
+            if (!player.weapons.owns("railgun") || player.weapons.ammo("railgun") <= 0 && player.railgunRemaining <= 0) {
                 player.firing = false;
                 return;
             }
@@ -1974,27 +1906,11 @@ final class GameSession {
             return;
         }
         WeaponStats weapon = weaponStats(player.weapon);
-        boolean empty = player.weapon.equals("shotgun") && player.shotgunAmmo <= 0
-                || player.weapon.equals("smg") && player.smgAmmo <= 0
-                || player.weapon.equals("rifle") && player.rifleAmmo <= 0
-                || player.weapon.equals("sniper") && player.sniperAmmo <= 0
-                || player.weapon.equals("revolver") && player.revolverAmmo <= 0
-                || player.weapon.equals("rocket") && player.rocketAmmo <= 0
-                || player.weapon.equals("lmg") && player.lmgAmmo <= 0
-                || player.weapon.equals("ricochet") && player.ricochetAmmo <= 0;
-        if (empty) {
+        if (!player.weapons.consume(player.weapon)) {
             feedback(player, "弾薬がありません");
             player.firing = false;
             return;
         }
-        if (player.weapon.equals("shotgun")) player.shotgunAmmo--;
-        if (player.weapon.equals("smg")) player.smgAmmo--;
-        if (player.weapon.equals("rifle")) player.rifleAmmo--;
-        if (player.weapon.equals("sniper")) player.sniperAmmo--;
-        if (player.weapon.equals("revolver")) player.revolverAmmo--;
-        if (player.weapon.equals("rocket")) player.rocketAmmo--;
-        if (player.weapon.equals("lmg")) player.lmgAmmo--;
-        if (player.weapon.equals("ricochet")) player.ricochetAmmo--;
 
         sendSoundEffect(player,"shot",player.weapon);
         player.cooldown = weapon.cooldown();
@@ -2009,15 +1925,15 @@ final class GameSession {
         }
         double directionX = dx / length;
         double directionY = dy / length;
-        if (player.weapon.equals("rocket")) {
+        if (WeaponCatalog.find(player.weapon).mode() == WeaponCatalog.AttackMode.ROCKET) {
             fireRocket(player, weapon, directionX, directionY, Math.min(length, weapon.range()));
             return;
         }
-        if (player.weapon.equals("ricochet")) {
+        if (WeaponCatalog.find(player.weapon).mode() == WeaponCatalog.AttackMode.RICOCHET) {
             fireRicochet(player, weapon, directionX, directionY);
             return;
         }
-        boolean shotgun = player.weapon.equals("shotgun");
+        boolean shotgun = WeaponCatalog.find(player.weapon).mode() == WeaponCatalog.AttackMode.SPREAD;
         int rays = shotgun ? GameConfig.SHOTGUN_PELLETS : 1;
         double angle = Math.atan2(directionY, directionX);
         for (int pellet = 0; pellet < rays; pellet++) {
@@ -2039,8 +1955,8 @@ final class GameSession {
             remainingDt -= step;
             if (player.railgunCharge + 1e-9 < GameConfig.RAILGUN_CHARGE) return;
             player.railgunCharge = 0;
-            if (player.railgunAmmo <= 0) return;
-            player.railgunAmmo--;
+            if (player.weapons.ammo("railgun") <= 0) return;
+            player.weapons.consume("railgun");
             double dx = player.aimX - player.x, dy = player.aimY - player.y;
             double length = Math.hypot(dx, dy);
             player.railgunDx = length < .001 ? 1 : dx / length;
@@ -2137,7 +2053,7 @@ final class GameSession {
                 .filter(enemy -> GameMap.hasClearLine(originX, originY, enemy.x, enemy.y))
                 .sorted(Comparator.comparingDouble(enemy ->
                         (enemy.x - originX) * directionX + (enemy.y - originY) * directionY)).toList();
-        boolean piercing = player.weapon.equals("sniper") || player.weapon.equals("revolver");
+        boolean piercing = WeaponCatalog.find(player.weapon).piercing();
         List<Enemy> targets = piercing ? candidates : candidates.stream().limit(1).toList();
         if (!piercing && !targets.isEmpty() && !player.weapon.equals("bat")) {
             Enemy first = targets.get(0);
@@ -2213,9 +2129,7 @@ final class GameSession {
         };
     }
 
-    static WeaponStats weaponStats(String weapon) {
-        return GameConfig.WEAPONS.getOrDefault(weapon, GameConfig.WEAPONS.get("pistol"));
-    }
+    static WeaponStats weaponStats(String weapon) { return WeaponCatalog.stats(weapon); }
 
     private double damageEnemy(Enemy enemy, double damage, Player player) {
         if (enemy.hp <= 0) return 0;
@@ -2275,17 +2189,7 @@ final class GameSession {
     }
 
     private void switchWeapon(Player player, String weapon) {
-        boolean owned = weapon.equals("pistol") || weapon.equals("bat")
-                || weapon.equals("shotgun") && player.ownsShotgun
-                || weapon.equals("smg") && player.ownsSmg
-                || weapon.equals("rifle") && player.ownsRifle
-                || weapon.equals("sniper") && player.ownsSniper
-                || weapon.equals("revolver") && player.ownsRevolver
-                || weapon.equals("railgun") && player.ownsRailgun
-                || weapon.equals("rocket") && player.ownsRocket
-                || weapon.equals("lmg") && player.ownsLmg
-                || weapon.equals("ricochet") && player.ownsRicochet;
-        if (owned) {
+        if (player.weapons.owns(weapon)) {
             releaseCarriedCore(player);
             player.equipWeapon(weapon);
             player.selectedBuild = null;
@@ -2319,17 +2223,18 @@ final class GameSession {
             feedback(player, shop.label() + "を購入しました。Rで設置できます");
             return;
         }
+        if (WeaponCatalog.capacity(item) > 0) {
+            buyOrRefillWeapon(player, shop, item);
+            return;
+        }
         switch (item) {
-            case "shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "ricochet", "rocket", "railgun" ->
-                    buyOrRefillWeapon(player, shop, item);
             case "ammo" -> {
-                if (!player.ownsShotgun && !player.ownsSmg
-                        && !player.ownsRifle && !player.ownsSniper && !player.ownsRevolver && !player.ownsLmg && !player.ownsRicochet && !player.ownsRocket && !player.ownsRailgun) {
+                List<String> owned = WeaponCatalog.ALL.stream().filter(WeaponCatalog.Definition::usesAmmo)
+                        .map(WeaponCatalog.Definition::id).filter(player.weapons::owns).toList();
+                if (owned.isEmpty()) {
                     feedback(player, "弾薬を使う武器を持っていません");
                     return;
                 }
-                List<String> owned = List.of("shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "ricochet", "rocket", "railgun")
-                        .stream().filter(weapon -> botOwnsWeapon(player, weapon)).toList();
                 if (owned.stream().allMatch(weapon -> weaponAmmo(player, weapon) >= weaponAmmoCapacity(weapon))) {
                     return;
                 }
@@ -2346,7 +2251,7 @@ final class GameSession {
     }
 
     private void buyOrRefillWeapon(Player player, ShopUnit shop, String item) {
-        if (botOwnsWeapon(player, item)) {
+        if (player.weapons.owns(item)) {
             int capacity = weaponAmmoCapacity(item);
             if (weaponAmmo(player, item) >= capacity) {
                 return;
@@ -2362,47 +2267,18 @@ final class GameSession {
         }
         if (spend(player, shop.cost())) {
             releaseCarriedCore(player);
-            giveBotWeapon(player, item);
+            grantWeapon(player, item);
             feedback(player, "購入しました");
         } else {
             feedback(player, "お金が足りません");
         }
     }
 
-    static int weaponAmmo(Player player, String item) {
-        return switch (item) {
-            case "shotgun" -> player.shotgunAmmo;
-            case "smg" -> player.smgAmmo;
-            case "rifle" -> player.rifleAmmo;
-            case "sniper" -> player.sniperAmmo;
-            case "revolver" -> player.revolverAmmo;
-            case "rocket" -> player.rocketAmmo;
-            case "railgun" -> player.railgunAmmo;
-            case "lmg" -> player.lmgAmmo;
-            case "ricochet" -> player.ricochetAmmo;
-            default -> 0;
-        };
-    }
+    static int weaponAmmo(Player player, String item) { return player.weapons.ammo(item); }
 
-    static int weaponAmmoCapacity(String item) {
-        return GameConfig.AMMO_CAPACITIES.getOrDefault(item, 0);
-    }
+    static int weaponAmmoCapacity(String item) { return WeaponCatalog.capacity(item); }
 
-    private static void setWeaponAmmo(Player player, String item, int ammo) {
-        ammo = Math.max(0, Math.min(ammo, weaponAmmoCapacity(item)));
-        switch (item) {
-            case "shotgun" -> player.shotgunAmmo = ammo;
-            case "smg" -> player.smgAmmo = ammo;
-            case "rifle" -> player.rifleAmmo = ammo;
-            case "sniper" -> player.sniperAmmo = ammo;
-            case "revolver" -> player.revolverAmmo = ammo;
-            case "rocket" -> player.rocketAmmo = ammo;
-            case "railgun" -> player.railgunAmmo = ammo;
-            case "lmg" -> player.lmgAmmo = ammo;
-            case "ricochet" -> player.ricochetAmmo = ammo;
-            default -> { }
-        }
-    }
+    private static void setWeaponAmmo(Player player, String item, int ammo) { player.weapons.setAmmo(item, ammo); }
 
     private void gather(Player player, String resource) {
         if (!canUseFacilities() || player.down) return;
@@ -3000,25 +2876,8 @@ final class GameSession {
             player.firing = false;
             player.aimX = player.x + 100;
             player.aimY = player.y;
-            player.ownsShotgun = false;
-            player.ownsSmg = false;
-            player.ownsRifle = false;
-            player.ownsSniper = false;
-            player.ownsRevolver = false;
-            player.ownsRocket = false;
-            player.ownsRailgun = false;
             player.stopRailgun();
-            player.ownsLmg = false;
-            player.ownsRicochet = false;
-            player.shotgunAmmo = 0;
-            player.smgAmmo = 0;
-            player.rifleAmmo = 0;
-            player.sniperAmmo = 0;
-            player.revolverAmmo = 0;
-            player.rocketAmmo = 0;
-            player.railgunAmmo = 0;
-            player.lmgAmmo = 0;
-            player.ricochetAmmo = 0;
+            player.weapons.clear();
             player.wood = 0;
             player.ore = 0;
             player.recoveredDefenses.clear();

@@ -122,7 +122,7 @@ class ExplosionBossTest {
         for (double y : new double[]{1900, 1879}) {
             player.y = y;
             effects.clear();
-            invoke("fireRay", new Class<?>[]{Player.class, GameConfig.WeaponStats.class, double.class, double.class},
+            invoke("fireRay", new Class<?>[]{Player.class, WeaponCatalog.WeaponStats.class, double.class, double.class},
                     player, GameSession.weaponStats("pistol"), 1., 0.);
             assertEquals(.026, before - boss.hp, .000001);
             assertTrue(effects.stream().anyMatch(s -> s.contains("\"damage\":0.026") && s.contains("\"headshot\":false")));

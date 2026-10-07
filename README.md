@@ -64,7 +64,10 @@ CPUは準備中にHP85未満、戦闘中にHP55未満で安全なMED BAYへ向�
 - `client/`：ブラウザ画面・入力・描画
 - `server/`：Java製WebSocketサーバー・ゲームルール
 - `shared/map.json`：マップ・施設配置・販売価格（変更後はサーバーを再ビルド）
-- `server/src/main/java/example/GameConfig.java`：武器性能などの設定
+- `server/src/main/java/example/WeaponCatalog.java`：武器性能・弾薬容量・攻撃方式（ブラウザにも配信）
+- `server/src/main/java/example/GameConfig.java`：ラウンド・建築・回復などの設定
+
+責務分離の現状と、機能変更時の分割手順は[開発構成](docs/refactoring.md)を参照してください。
 
 サーバーのテストは`server/`で`.\mvnw.cmd test`、ビルドは`.\mvnw.cmd package`を実行します。ビルド時にもテストが実行されます。
 クライアントのテストはプロジェクト直下で`node client/tests/menu-ui.cjs`などを実行します。`rooms-server.cjs`にはビルド済みサーバーとNode.js 22以上が必要です。
