@@ -4,14 +4,14 @@
   "core": { "x": 1020, "y": 1900 },
   "stations": {
     "armory": { "id": "armory", "x": 1660, "y": 980 },
-    "medBay": { "id": "med", "x": 440, "y": 1860 },
+    "medBay": { "id": "med", "x": 460, "y": 1860 },
     "woodcutter": { "id": "woodcutter", "x": 1580, "y": 540 },
     "quarry": { "id": "quarry", "x": 860, "y": 220 },
     "workbench": { "id": "workbench", "x": 980, "y": 1460 }
   },
   "medBayUnits": [
     { "id": "med-infirmary", "x": 1700, "y": 1100 },
-    { "id": "med-security", "x": 620, "y": 300 }
+    { "id": "med-security", "x": 620, "y": 220 }
   ],
   "tileMap": {
     "tileSize": 40,
@@ -49,7 +49,7 @@
       "##############################..#####........##....#",
       "##############################..#####........#######",
       "#########################....................#######",
-      "#########################............###############",
+      "#########################....................#######",
       "#########################..#######..################",
       "#########################..######....###############",
       "#######################......####....###############",
@@ -106,7 +106,8 @@
         {"column":37,"row":25},{"column":38,"row":25},{"column":39,"row":25},{"column":40,"row":25},{"column":41,"row":25},{"column":42,"row":25},{"column":43,"row":25},{"column":44,"row":25},
         {"column":37,"row":26},{"column":38,"row":26},{"column":39,"row":26},{"column":40,"row":26},{"column":41,"row":26},{"column":42,"row":26},{"column":43,"row":26},{"column":44,"row":26},
         {"column":37,"row":27},{"column":38,"row":27},{"column":39,"row":27},{"column":40,"row":27},{"column":41,"row":27},{"column":42,"row":27},{"column":43,"row":27},{"column":44,"row":27},
-        {"column":37,"row":28},{"column":38,"row":28},{"column":39,"row":28},{"column":40,"row":28},{"column":41,"row":28},{"column":42,"row":28},{"column":43,"row":28},{"column":44,"row":28}
+        {"column":37,"row":28},{"column":38,"row":28},{"column":39,"row":28},{"column":40,"row":28},{"column":41,"row":28},{"column":42,"row":28},{"column":43,"row":28},{"column":44,"row":28},
+        {"column":37,"row":29},{"column":38,"row":29},{"column":39,"row":29},{"column":40,"row":29},{"column":41,"row":29},{"column":42,"row":29},{"column":43,"row":29},{"column":44,"row":29}
       ]
     },
     {"id":"forest","name":"FOREST LAB","terminalX":1620,"terminalY":700,"labelX":1900,"labelY":580,"color":"#ffffff","detail":"近づくだけで木材を回収できる森林区画",
@@ -298,7 +299,7 @@
     {"id":"wood-factory","item":"woodFactory","label":"QUARRY W","x":1700,"y":460,"cost":4000,"detail":""},
     {"id":"ore-factory","item":"oreFactory","label":"QUARRY I","x":940,"y":140,"cost":5000,"detail":""},
     {"id":"copper-factory","item":"copperFactory","label":"QUARRY C","x":580,"y":340,"cost":7000,"detail":""},
-    {"id":"silver-factory","item":"silverFactory","label":"QUARRY S","x":220,"y":180,"cost":10000,"detail":""},
+    {"id":"silver-factory","item":"silverFactory","label":"QUARRY S","x":380,"y":180,"cost":10000,"detail":""},
     {"id":"shop-shotgun","item":"shotgun","label":"SHOTGUN","x":1340,"y":1620,"cost":450,"detail":"十分な弾薬を補充できます"},
     {"id":"shop-smg","item":"smg","label":"SMG","x":1980,"y":1020,"cost":550,"detail":"十分な弾薬を補充できます"},
     {"id":"shop-ammo","item":"ammo","label":"AMMO","x":1740,"y":660,"cost":500,"detail":"Refill all owned weapons to MAX"},
@@ -314,7 +315,7 @@
     {"id":"workbench-entry","x":980,"y":1460,"requiredArea":"entry-room"},
     {"id":"workbench-armory","x":1740,"y":900,"requiredArea":"armory-wing"},
     {"id":"workbench-relay","x":1340,"y":380,"requiredArea":"relay-gallery"},
-    {"id":"workbench-command","x":300,"y":300,"requiredArea":"command-room"}
+    {"id":"workbench-command","x":380,"y":420,"requiredArea":"command-room"}
   ],
   "prepConsole": {"id":"prep-console","x":1260,"y":980,"requiredArea":"operations-room","cost":100,"seconds":60},
   "breakerTerminals": [
@@ -325,7 +326,7 @@
     {"id":"breaker-forest","label":"FOREST LAB","x":1660,"y":420,"requiredArea":"forest"},
     {"id":"breaker-relay","label":"RELAY GALLERY","x":1220,"y":300,"requiredArea":"relay-gallery"},
     {"id":"breaker-mine","label":"MINE LAB","x":820,"y":100,"requiredArea":"mine"},
-    {"id":"breaker-security","label":"SECURITY HALL","x":580,"y":220,"requiredArea":"security-hall"},
+    {"id":"breaker-security","label":"SECURITY HALL","x":540,"y":220,"requiredArea":"security-hall"},
     {"id":"breaker-command","label":"COMMAND ROOM","x":100,"y":300,"requiredArea":"command-room"}
   ]
 }

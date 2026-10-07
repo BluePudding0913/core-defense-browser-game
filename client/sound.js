@@ -24,11 +24,26 @@
     const active = new Set();
     const buffers = new Map();
     let synth;
+    let masterGain;
+    let masterVolume = 1;
+    const storageKey = "core-defense-volume";
+    const normalizeVolume = value => Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 1;
+    try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved !== null) masterVolume = normalizeVolume(JSON.parse(saved));
+    } catch { /* Optional storage. */ }
     let unlocked = false;
     function context() {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         if (!AudioContext) return null;
-        try { synth ||= new AudioContext(); } catch { return null; }
+        try {
+            if (!synth) {
+                synth = new AudioContext();
+                masterGain = synth.createGain();
+                masterGain.gain.value = masterVolume;
+                masterGain.connect(synth.destination);
+            }
+        } catch { return null; }
         return synth;
     }
     function unlock() {
@@ -68,8 +83,14 @@
         return buffer;
     }
     window.coreAudio = {
+        getVolume() { return masterVolume; },
+        setVolume(value) {
+            masterVolume = normalizeVolume(value);
+            if (masterGain) masterGain.gain.value = masterVolume;
+            try { localStorage.setItem(storageKey, JSON.stringify(masterVolume)); } catch { /* Optional storage. */ }
+        },
         play(name, distance = 0) {
-            if (!unlocked || !Object.hasOwn(effects, name) || active.size >= 8) return;
+            if (!unlocked || masterVolume === 0 || !Object.hasOwn(effects, name) || active.size >= 8) return;
             if (!Number.isFinite(distance)) return;
             const volume = Math.pow(Math.max(0, 1 - Math.max(0, distance) / 600), 2);
             if (volume === 0) return;
@@ -80,7 +101,7 @@
             gain.gain.value = volume;
             source.buffer = bufferFor(name, audio);
             source.connect(gain);
-            gain.connect(audio.destination);
+            gain.connect(masterGain);
             active.add(source);
             source.onended = () => { active.delete(source); source.disconnect(); gain.disconnect(); };
             source.start();
