@@ -61,6 +61,8 @@ CPUは準備中にHP85未満、戦闘中にHP55未満で安全なMED BAYへ向�
 
 ## 開発
 
+効果音は`client/sound.js`でWeb Audio APIを使って合成します。MP3ファイルによる再生は使用しません。音声合成は`node client/tests/sound.cjs`、ゲームイベントからの呼び出しは`node client/tests/gameplay-ui.cjs`で確認します。
+
 - `client/`：ブラウザ画面・入力・描画
 - `server/`：Java製WebSocketサーバー・ゲームルール
 - `shared/map.json`：マップ・施設配置・販売価格（変更後はサーバーを再ビルド）

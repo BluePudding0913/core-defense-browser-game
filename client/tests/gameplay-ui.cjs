@@ -43,15 +43,15 @@ assert.equal(context.BUILD_INFO.silverTurret.silver, 7);
 run('applyRules({rules:{recipes:{},shop:{ammo:19},weapons:{smg:{capacity:321}}}})');
 assert.equal(context.WEAPON_FIELDS.smg.capacity, 321, 'server changes replace displayed limits');
 
-const activeAudio = [];
-const soundContext = vm.createContext({ window: { addEventListener: (_, fn) => fn() },
-    Audio: class { constructor(path) { this.path = path; activeAudio.push(this); } addEventListener() {} play() { return Promise.reject(new Error('empty placeholder')); } }
-});
-vm.runInContext(fs.readFileSync('client/sound.js', 'utf8'), soundContext);
-soundContext.window.coreAudio.play('shotgun');
-assert.equal(activeAudio[0].path, 'sounds/shotgun.mp3');
-for (const file of fs.readdirSync('client/sounds')) assert.equal(fs.statSync('client/sounds/' + file).size, 0);
-console.log('Gameplay UI passed: tap/hold/cancel/down/placement, authoritative rules, silent audio placeholders');
+// Gameplay routes shot events to the synthesized audio API; sound.cjs verifies synthesis.
+const played = [];
+context.window = { coreAudio: { play: (...args) => played.push(args) } };
+context.myPlayerId = 'self';
+context.state.players = [];
+vm.runInContext(extract('playSoundEffect'), context);
+run('playSoundEffect({effect:"shot",playerId:"self",weapon:"shotgun"})');
+assert.deepEqual(played, [['shotgun', 0]]);
+console.log('Gameplay UI passed: tap/hold/cancel/down/placement, authoritative rules and shot audio');
 
 const entranceLines = [];
 context.TILE_MAP = { tileSize: 40, rows: ['###', '#.#', '###'], legend: { '#': { solid: true }, '.': { solid: false } } };
