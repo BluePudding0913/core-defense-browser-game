@@ -105,6 +105,7 @@ final class GameSession {
     private final List<String> activeLanes = new ArrayList<>();
     private final Random random = new Random();
     private final EnemyTravel laterFeatureTravel = new EnemyTravel();
+    private final EnemyNavigation enemyNavigation = new EnemyNavigation();
     private double spawnTimer;
     private int nextEnemyId = 1;
     private int nextDefenseId = 1;
@@ -863,11 +864,10 @@ final class GameSession {
                 reward = 14;
             }
         }
-        if (GameMap.spawnArea(spawn) != null) {
-            List<MapPoint> route = findPath(spawn.x(), spawn.y(), coreX, coreY, 17, false);
-            spawn = new SpawnPoint(spawn.id(), spawn.name(), spawn.x(), spawn.y(), spawn.lane(),
-                    spawn.enemyBias(), spawn.speedMultiplier(), spawn.targetPriority(), route);
-        }
+        // Retain route metadata for snapshots/threat scoring; movement uses the shared field.
+        if (GameMap.spawnArea(spawn) != null) spawn = new SpawnPoint(spawn.id(), spawn.name(),
+                spawn.x(), spawn.y(), spawn.lane(), spawn.enemyBias(), spawn.speedMultiplier(),
+                spawn.targetPriority(), List.of(new MapPoint(spawn.x(), spawn.y()), new MapPoint(coreX, coreY)));
         enemies.add(new Enemy(nextEnemyId++, type, spawn, hp * 2, speed * 0.5, damage,
                 (int) Math.round(reward * 2.5 * GameConfig.goldMultiplier(round))));
     }
@@ -933,6 +933,7 @@ final class GameSession {
 
     private void updateEnemies(double dt) {
         updateArtilleryShells(dt);
+        if (!enemies.isEmpty()) enemyNavigation.prepare(coreX, coreY, unlockedAreas);
         long remaining = queuedEnemies + queuedBosses + enemies.stream()
                 .filter(e -> e.hp > 0 && !e.type.equals("explosionBoss")).count();
         List<Enemy> explodedBosses = new ArrayList<>();
@@ -973,13 +974,8 @@ final class GameSession {
                 case "players" -> 75;
                 default -> 50;
             };
-            double playerRange = switch (enemy.targetPriority) {
-                case "players" -> 190;
-                case "defenses" -> 75;
-                default -> 55;
-            };
             TrapSlot defenseTarget = nearestDefense(enemy, defenseRange);
-            Player playerTarget = nearestPlayer(enemy, playerRange);
+            Player playerTarget = enemyNavigation.visiblePlayer(enemy, players, dt);
             boolean preferDefense = enemy.targetPriority.equals("defenses");
             if (preferDefense && defenseTarget != null || playerTarget == null) {
                 playerTarget = null;
@@ -988,41 +984,40 @@ final class GameSession {
             }
 
             if (defenseTarget != null) {
+                enemy.navigationTimer = 0;
                 double targetDistance = distance(enemy.x, enemy.y, defenseTarget.x, defenseTarget.y);
                 if (targetDistance <= 38) attackDefense(enemy, defenseTarget);
                 else moveEnemyToward(enemy, defenseTarget.x, defenseTarget.y, enemy.speed * enemy.slow * dt);
                 continue;
             }
             if (playerTarget != null) {
+                enemy.navigationTimer = 0;
                 enemy.faceToward(playerTarget.x, playerTarget.y);
                 double targetDistance = distance(enemy.x, enemy.y, playerTarget.x, playerTarget.y);
                 if (targetDistance <= 36) {
+                    if (!GameMap.hasClearLine(enemy.x, enemy.y, playerTarget.x, playerTarget.y)) continue;
                     if (enemy.attackCooldown <= 0) {
                         damagePlayer(playerTarget, enemy.damage);
                         enemy.attackCooldown = 0.9;
                     }
                 } else {
-                    moveEnemyToward(enemy, playerTarget.x, playerTarget.y, enemy.speed * enemy.slow * dt);
+                    // Follow the last visible position until the next perception check.
+                    // A player ducking behind a wall must not trigger per-enemy path searches.
+                    moveEnemyDirect(enemy, enemy.visiblePlayerX, enemy.visiblePlayerY, enemy.speed * enemy.slow * dt);
                 }
                 continue;
             }
 
-            boolean canSeeCore = distance(enemy.x, enemy.y, coreX, coreY) <= 520
-                    && GameMap.hasClearLine(enemy.x, enemy.y, coreX, coreY);
-            MapPoint routeTarget = !canSeeCore && enemy.routeIndex < enemy.route.size()
-                    ? enemy.route.get(enemy.routeIndex) : null;
-            double targetX = routeTarget == null ? coreX : routeTarget.x();
-            double targetY = routeTarget == null ? coreY : routeTarget.y();
-            double targetDistance = distance(enemy.x, enemy.y, targetX, targetY);
-
-            if (routeTarget == null && distance(enemy.x, enemy.y, coreX, coreY) <= 72) {
+            if (distance(enemy.x, enemy.y, coreX, coreY) <= 72
+                    && GameMap.hasClearLine(enemy.x, enemy.y, coreX, coreY)) {
                 enemy.faceToward(coreX, coreY);
                 if (enemy.attackCooldown <= 0) {
                     damageCore(enemy.damage);
                     enemy.attackCooldown = 0.9;
                 }
             } else {
-                moveEnemyToward(enemy, targetX + enemy.wanderX, targetY + enemy.wanderY,
+                MapPoint target = enemyNavigation.coreTarget(enemy, dt);
+                moveEnemyDirect(enemy, target.x(), target.y(),
                         enemy.speed * enemy.slow * dt);
             }
         }
@@ -1230,10 +1225,15 @@ final class GameSession {
                 targetY = enemy.path.get(enemy.pathIndex).y();
             }
         }
+        moveEnemyDirect(enemy, targetX, targetY, amount);
+    }
+
+    private void moveEnemyDirect(Enemy enemy, double targetX, double targetY, double amount) {
         double dx = targetX - enemy.x;
         double dy = targetY - enemy.y;
         enemy.faceToward(targetX, targetY);
         double length = Math.max(1, Math.hypot(dx, dy));
+        amount = Math.min(amount, length);
         double nextX = clamp(enemy.x + dx / length * amount, 18, WORLD_W - 18);
         double nextY = clamp(enemy.y + dy / length * amount, 18, WORLD_H - 18);
         if (canOccupy(nextX, enemy.y, 17)) enemy.x = nextX;
@@ -1251,7 +1251,7 @@ final class GameSession {
     }
 
     // Later boss spawning and artillery dodging still require a body-safe segment.
-    // Ordinary enemy movement uses the original point sight line and axis steps.
+    // CORE steering uses its own shared field; local movement retains axis steps.
     private boolean canEnemyTravel(double fromX, double fromY, double toX, double toY) {
         return laterFeatureTravel.canTravel(fromX, fromY, toX, toY, 17, unlockedAreas);
     }

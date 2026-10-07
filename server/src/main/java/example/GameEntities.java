@@ -202,6 +202,13 @@ final class Enemy {
     List<MapPoint> path = List.of();
     int pathIndex;
     double pathTimer;
+    MapPoint navigationTarget;
+    int navigationGeneration = -1;
+    double navigationTimer;
+    Player visiblePlayer;
+    double visiblePlayerX;
+    double visiblePlayerY;
+    double perceptionTimer;
 
     Enemy(int id, String type, SpawnPoint spawn, double hp, double speed, double damage, int reward) {
         this.id = id;
