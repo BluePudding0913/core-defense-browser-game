@@ -1,13 +1,14 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
+const WeaponUI = require('../weapon-ui.js');
 const source = fs.readFileSync('client/app.js', 'utf8');
 const map = JSON.parse(fs.readFileSync('shared/map.json', 'utf8'));
 const shops = map.shopUnits.filter(shop => shop.item.endsWith('Factory'));
 const me = { credits: 10000 };
 let options;
 const state = { factories: [] };
-const context = vm.createContext({ state, getMe: () => me,
+const context = vm.createContext({ WeaponUI, state, getMe: () => me,
     INTERACTION_RANGE: { shop: 70 },
     openNearbyActionMenu: (title, entries) => { options = entries; } });
 const start = source.indexOf('function openShopPurchase(');

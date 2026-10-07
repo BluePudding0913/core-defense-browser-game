@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
+const WeaponUI = require('../weapon-ui.js');
 const source = fs.readFileSync('client/app.js', 'utf8');
 const map = JSON.parse(fs.readFileSync('shared/map.json', 'utf8'));
 function extract(name) {
@@ -10,17 +11,17 @@ function extract(name) {
 }
 let options;
 const me = { ownsRailgun: true, railgunAmmo: 8, ownsRicochet: true, ricochetAmmo: 60, ownsSmg: true, smgAmmo: 300, ownsRevolver: true, revolverAmmo: 36, ownsLmg: true, lmgAmmo: 150, ownsRocket: true, rocketAmmo: 12, credits: 2000 };
-const context = vm.createContext({ me, getMe: () => me, BUILD_INFO: {}, equipmentOrder: [], SHOP_UNITS: map.shopUnits,
+const context = vm.createContext({ WeaponUI, me, getMe: () => me, BUILD_INFO: {}, equipmentOrder: [], SHOP_UNITS: map.shopUnits,
     WEAPON_AMMO_REFILL_COST: 120, INTERACTION_RANGE: { shop: 100 },
     openNearbyActionMenu: (title, entries) => { options = entries; }
 });
 const start = source.indexOf('const WEAPON_FIELDS =');
-vm.runInContext(source.slice(start, source.indexOf('\n});', start) + 4), context);
+vm.runInContext('const WEAPON_FIELDS = {};', context);
 for (const name of ['applyRules', 'equipmentEntries', 'ammoForWeapon', 'openShopPurchase']) {
     vm.runInContext(extract(name), context);
 }
 context.rules = { recipes: {}, shop: { ammo: 500 }, weapons: Object.fromEntries(
-    ['railgun', 'ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket'].map(w => [w, { capacity: me[w + 'Ammo'] || 111, refillCost: 120 }])) };
+    ['railgun', 'ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket'].map(w => [w, { owned: 'owns' + w[0].toUpperCase() + w.slice(1), ammo: w + 'Ammo', capacity: me[w + 'Ammo'] || 111, refillCost: 120 }])) };
 vm.runInContext('applyRules({rules})', context);
 for (const [weapon, capacity] of [['railgun', 8], ['ricochet', 60], ['smg', 300], ['revolver', 36], ['lmg', 150], ['rocket', 12]]) {
     context.weapon = weapon;
@@ -57,3 +58,24 @@ vm.runInContext('openShopPurchase(shop)', context);
 assert.equal(options[0].label, 'LOCKED');
 assert(options[0].disabled);
 console.log('Weapon UI passed: weapon caps, full/empty AMMO unit, equipment and refills');
+
+// A previously unknown weapon is listed, counted and refilled using only server rules.
+context.rules.weapons.pulse = { name: 'pulse', capacity: 7, owned: 'ownsPulse', ammo: 'pulseAmmo', refillCost: 33 };
+context.rules.weapons.bat = { capacity: 0 };
+context.rules.weapons.pistol = { capacity: 0 };
+me.ownsPulse = true; me.pulseAmmo = 2; me.credits = 100;
+vm.runInContext('applyRules({rules})', context);
+assert(vm.runInContext('equipmentEntries(me).some(entry => entry.value === "pulse" && entry.label === "PULSE")', context));
+assert.equal(vm.runInContext('ammoForWeapon(me, "pulse")', context), '2');
+assert.equal(vm.runInContext('ammoForWeapon(me, "pistol")', context), '∞');
+context.shop = { item: 'pulse', label: 'PULSE', cost: 99 };
+vm.runInContext('openShopPurchase(shop)', context);
+assert.equal(options[0].command, 'BUY:pulse');
+assert.equal(options[0].detail, '33G');
+me.pulseAmmo = 7;
+vm.runInContext('openShopPurchase(shop)', context);
+assert(options[0].disabled);
+delete context.rules.weapons.pulse;
+vm.runInContext('applyRules({rules})', context);
+assert(!vm.runInContext('equipmentEntries(me).some(entry => entry.value === "pulse")', context));
+console.log('Catalog-driven UI passed: unknown weapon, unlimited ammo and removed definitions');

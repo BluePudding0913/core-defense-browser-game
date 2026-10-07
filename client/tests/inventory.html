@@ -1,6 +1,7 @@
 <!doctype html><html lang="ja"><meta charset="utf-8"><title>Inventory regression</title>
 <link rel="stylesheet" href="/client/style.css">
 <body><h1>Inventory regression</h1><pre id="result">Running…</pre><div class="inventory-card"><div class="inventory-heading">INVENTORY</div><div id="inventory-items" class="inventory-items"></div></div>
+<script src="/client/weapon-ui.js"></script>
 <script>
 (async () => {
  const output = document.querySelector('#result');
@@ -15,12 +16,13 @@
   let storedOrder = '[]';
   const orderStart = source.indexOf('let equipmentOrder =');
   const orderEnd = source.indexOf('\nfunction selectEquipment', orderStart);
-  const ordering = new Function('getMe','BUILD_INFO','localStorage',
+  const weaponDefinitions = {bat:{capacity:0},pistol:{capacity:0},shotgun:{capacity:50,owned:'ownsShotgun',ammo:'shotgunAmmo'}};
+  const ordering = new Function('getMe','BUILD_INFO','localStorage','WeaponUI','WEAPON_FIELDS',
     source.slice(orderStart,orderEnd)+'\nreturn {equipmentEntries,reorderEquipment};')(
-      ()=>me,{}, {getItem:()=>storedOrder,setItem:(_,value)=>{storedOrder=value;}});
+      ()=>me,{}, {getItem:()=>storedOrder,setItem:(_,value)=>{storedOrder=value;}},WeaponUI,weaponDefinitions);
   const entries = ordering.equipmentEntries;
   const render = new Function('inventoryItems','getMe','equipmentEntries','WEAPON_FIELDS','ammoForWeapon','selectEquipment','send','reorderEquipment','RESOURCE_NAMES',
-    source.slice(begin,end)+'\nreturn updateInventory;')(container,()=>me,entries,{shotgun:{capacity:30}},()=>me.ammo||5,e=>selected.push(e.key),s=>sent.push(s),ordering.reorderEquipment,
+    source.slice(begin,end)+'\nreturn updateInventory;')(container,()=>me,entries,weaponDefinitions,()=>me.ammo||5,e=>selected.push(e.key),s=>sent.push(s),ordering.reorderEquipment,
       {wood:'木材',ore:'鉄鉱石',copper:'銅',silver:'銀'});
   let checks=0;
   const check=(ok,msg)=>{if(!ok)throw new Error(msg);checks++;};

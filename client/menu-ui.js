@@ -32,7 +32,7 @@ function mountMenu() {
         if (view === "guest" || view === "settings") content = `<h2>プレイヤー設定</h2><form data-form="name" novalidate><input name="name" maxlength="16" placeholder="ゲストプレイヤー名" aria-label="ゲストプレイヤー名" autocomplete="nickname" value="${escape(name)}"><button>決定</button></form>`;
         if (view === "settings") {
             const pointer = window.corePointerSettings.get();
-            content = content.replace("<button>決定</button></form>", `<fieldset class="ui-pointer-settings"><legend>ポインター</legend><label>形<select name="pointer-shape">${[["dot", "●"], ["cross", "×"], ["plus", "+"]].map(([value, label]) => `<option value="${value}" ${pointer.shape === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><label>色<input type="color" name="pointer-color" value="${pointer.color}"></label><label>大きさ<input type="range" name="pointer-size" min="4" max="32" step="1" value="${pointer.size}"><output id="pointer-size-value">${pointer.size}px</output></label><div class="ui-pointer-preview" aria-label="ポインターのプレビュー"><span></span></div></fieldset><fieldset class="ui-pointer-settings"><legend>キー割り当て</legend><label>回復キット<input name="medkit-key" aria-label="回復キットのキー。選択してキーを押す" readonly value="${escape(window.coreKeySettings.getMedkit().toUpperCase())}"></label><small id="medkit-key-status" role="status">選択してキーを押す</small></fieldset><button type="submit" class="ui-back">決定</button></form>`);
+            content = content.replace("<button>決定</button></form>", `<fieldset class="ui-pointer-settings"><legend>ポインター</legend><label>形<select name="pointer-shape">${[["dot", "●"], ["cross", "×"], ["plus", "+"]].map(([value, label]) => `<option value="${value}" ${pointer.shape === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><label>色<input type="color" name="pointer-color" value="${pointer.color}"></label><label>大きさ<input type="range" name="pointer-size" min="4" max="32" step="1" value="${pointer.size}"><output id="pointer-size-value">${pointer.size}px</output></label><div class="ui-pointer-preview" aria-label="ポインターのプレビュー"><span></span></div></fieldset><fieldset class="ui-pointer-settings"><legend>キー割り当て</legend><label>回復キット<input name="medkit-key" aria-label="回復キットのキー" readonly value="${escape(window.coreKeySettings.getMedkit().toUpperCase())}"></label><small id="medkit-key-status" role="status"></small></fieldset><button type="submit" class="ui-back">決定</button></form>`);
         }
         if (view === "home") content = `<h1>CORE DEFENSE</h1><nav aria-label="メインメニュー">${button("quick", "クイックマッチ")}${button("phrase", "合言葉")}${back("settings").replace("戻る", "設定")}</nav>`;
         if (view === "phrase") content = `<nav aria-label="合言葉">${button("create", "ルーム作成")}${button("search", "ルーム検索")}</nav>${back("home")}`;
@@ -54,7 +54,7 @@ function mountMenu() {
         updateMatchResult();
         if (focus) (root.querySelector("input") || root.querySelector("button"))?.focus();
     }
-    function go(next) { view = next; quickRequested = false; matchResult = ""; render(true); }
+    function go(next) { view = next; quickRequested = false; matchResult = ""; render(next !== "settings"); }
     function updateMatchResult() {
         const result = root.querySelector('.ui-match-result');
         if (!result) return;

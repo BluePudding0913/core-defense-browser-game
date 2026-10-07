@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
+const WeaponUI = require('../weapon-ui.js');
 const source = fs.readFileSync('client/app.js', 'utf8');
 function extract(name) {
     const begin = source.indexOf('function ' + name + '(');
@@ -12,7 +13,7 @@ const feedback = [];
 let options;
 const me = { id: 'me', x: 1119, y: 1900, selectedBuild: 'block', buildItems: { block: 2 },
     ownsShotgun: true, shotgunAmmo: 5, credits: 1000 };
-const context = vm.createContext({
+const context = vm.createContext({ WeaponUI,
     TILE_MAP: { tileSize: 40 }, myPlayerId: 'me', localFacing: { x: 1, y: 0 }, me,
     getMe: () => me, send: command => messages.push(command),
     showFeedback: text => feedback.push(text), findNearestInteraction: () => null,
