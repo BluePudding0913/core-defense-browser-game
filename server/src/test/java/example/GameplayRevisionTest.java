@@ -374,8 +374,6 @@ class GameplayRevisionTest {
     @Test void enemyHealthSpeedAndFullKillGoldMatchRequestedBalance() throws Exception {
         Method spawn = GameSession.class.getDeclaredMethod("spawnEnemy", String.class, SpawnPoint.class);
         spawn.setAccessible(true);
-        Method damage = GameSession.class.getDeclaredMethod("damageEnemy", Enemy.class, double.class, Player.class);
-        damage.setAccessible(true);
         game.round = 8;
         double[] hp = {106, 67, 254, 1727};
         double[] speed = {70, 168, 46, 32};
@@ -388,10 +386,10 @@ class GameplayRevisionTest {
             assertEquals(hp[i] * 2, enemy.maxHp, 1e-6);
             assertEquals(speed[i] * .5 * point.speedMultiplier(), enemy.speed, 1e-6);
             int before = player.credits;
-            damage.invoke(game, enemy, enemy.maxHp / 4, player);
+            game.combat.damageEnemy(enemy, enemy.maxHp / 4, player);
             assertEquals(gold[i] / 4, player.credits - before,
                     "partial hits must pay the increased reward before the kill");
-            for (int hit = 0; hit < 13; hit++) damage.invoke(game, enemy, enemy.maxHp / 12, player);
+            for (int hit = 0; hit < 13; hit++) game.combat.damageEnemy(enemy, enemy.maxHp / 12, player);
             assertEquals(gold[i], player.credits - before);
         }
     }

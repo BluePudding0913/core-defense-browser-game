@@ -100,6 +100,8 @@ final class GameSession {
     String roomOwnerId;
 
     private final GameEventSink events;
+    private final GameEffects gameEffects;
+    final CombatSystem combat;
     private final List<String> activeLanes = new ArrayList<>();
     private final Random random = new Random();
     private final EnemyTravel laterFeatureTravel = new EnemyTravel();
@@ -112,6 +114,15 @@ final class GameSession {
 
     GameSession(GameEventSink events) {
         this.events = events;
+        this.gameEffects = new GameEffects(events);
+        this.combat = new CombatSystem(new CombatSystem.World() {
+            public boolean canAttack() { return canMove(); }
+            public List<Enemy> enemies() { return enemies; }
+            public boolean canOccupy(double x, double y, double radius) { return GameSession.this.canOccupy(x, y, radius); }
+            public void onEnemyDefeated(Enemy enemy) {
+                if (enemy.type.equals("bomber")) explodeBomber(enemy);
+            }
+        }, gameEffects);
         for (int slot = 1; slot <= PLAYER_COUNT; slot++) players.add(new Player(slot));
         resetWorld();
     }
@@ -186,9 +197,9 @@ final class GameSession {
             case "START" -> {
                 if (phase == GamePhase.LOBBY || phase == GamePhase.WON || phase == GamePhase.LOST) {
                     if (!player.id.equals(roomOwnerId)) {
-                        feedback(player, "ルームのオーナーだけが開始できます");
+                        gameEffects.feedback(player, "ルームのオーナーだけが開始できます");
                     } else if (!roomReadyForStart()) {
-                        feedback(player, "全員の準備が完了するまでお待ちください");
+                        gameEffects.feedback(player, "全員の準備が完了するまでお待ちください");
                     } else {
                         startMatch(player, parts.length > 1 && parts[1].equals("DEBUG"));
                     }
@@ -197,7 +208,7 @@ final class GameSession {
             case "ROOM_READY" -> setRoomReady(player, parts);
             case "MOVE" -> handleMove(player, parts);
             case "DASH" -> handleDash(player, parts);
-            case "ATTACK" -> attackAt(player, player.aimX, player.aimY);
+            case "ATTACK" -> combat.attackAt(player, player.aimX, player.aimY);
             case "FIRE" -> handleFire(player, parts);
             case "INTERACT" -> { if (parts.length >= 2) interact(player, parts[1]); }
             case "WEAPON" -> { if (parts.length >= 2) switchWeapon(player, parts[1]); }
@@ -234,14 +245,14 @@ final class GameSession {
                 player.stopRailgun();
             }
             if (player.firing && player.cooldown <= 0 && canMove()) {
-                attackAt(player, player.aimX, player.aimY);
+                combat.attackAt(player, player.aimX, player.aimY);
             }
         }
         if (phase == GamePhase.LOBBY || phase == GamePhase.WON || phase == GamePhase.LOST) return;
 
         updateBots(dt);
         updatePlayers(dt);
-        players.forEach(player -> updateRailgun(player, dt));
+        players.forEach(player -> combat.updateRailgun(player, dt));
         updateMedbay(dt);
         updateRevives(dt);
         updateResources(dt);
@@ -350,7 +361,7 @@ final class GameSession {
         player.firing = active;
         if (!active) player.stopRailgun();
         if (beginsPress && player.cooldown <= 0) {
-            attackAt(player, player.aimX, player.aimY);
+            combat.attackAt(player, player.aimX, player.aimY);
         }
     }
 
@@ -888,9 +899,9 @@ final class GameSession {
                     boolean hit = !target.type.equals("tiny") || random.nextDouble() < tinyHitChance;
                     double turretDamage = (17+round*.5)*(defense.type.equals("silverTurret") ? 3.5 : defense.type.equals("copperTurret") ? 2 : 1);
                     turretDamage = target.shieldedDamage(turretDamage, slot.x, slot.y);
-                    double dealt = hit ? damageEnemy(target, turretDamage, null) : 0;
+                    double dealt = hit ? combat.damageEnemy(target, turretDamage, null) : 0;
                     double missAngle = Math.atan2(target.y - slot.y, target.x - slot.x) + Math.PI / 2;
-                    sendHitEffect("trap", "turret", slot.x, slot.y,
+                    gameEffects.hit("trap", "turret", slot.x, slot.y,
                             target.x + (hit ? 0 : Math.cos(missAngle) * 16),
                             target.y + (hit ? 0 : Math.sin(missAngle) * 16),
                             dealt, target.hp <= 0, 0, false);
@@ -903,8 +914,8 @@ final class GameSession {
                 if (trigger != null) {
                     for (Enemy enemy : enemies) {
                         if (enemy.hp > 0 && distance(slot.x, slot.y, enemy.x, enemy.y) < 120) {
-                            double dealt = damageEnemy(enemy, 450, null);
-                            sendHitEffect("trap", "mine", slot.x, slot.y, enemy.x, enemy.y,
+                            double dealt = combat.damageEnemy(enemy, 450, null);
+                            gameEffects.hit("trap", "mine", slot.x, slot.y, enemy.x, enemy.y,
                                     dealt, enemy.hp <= 0, 0, false);
                         }
                     }
@@ -1887,292 +1898,10 @@ final class GameSession {
     private void attack(Player player, int enemyId) {
         if (player.human) return;
         Enemy target = enemies.stream().filter(enemy -> enemy.id == enemyId && enemy.hp > 0).findFirst().orElse(null);
-        if (target != null) attackAt(player, target.x, target.y);
-    }
-
-    private void attackAt(Player player, double aimX, double aimY) {
-        if (!canMove() || player.down || player.movingCore || player.cooldown > 0) return;
-
-        if (player.weapon.equals("railgun")) {
-            if (!player.firing || player.selectedBuild != null) return;
-            if (!player.weapons.owns("railgun") || player.weapons.ammo("railgun") <= 0 && player.railgunRemaining <= 0) {
-                player.firing = false;
-                return;
-            }
-            if (player.railgunCharge <= 0 && player.railgunRemaining <= 0) {
-                player.railgunCharge = 1e-9;
-                sendSoundEffect(player, "shot", "railgun-charge");
-            }
-            return;
-        }
-        WeaponStats weapon = weaponStats(player.weapon);
-        if (!player.weapons.consume(player.weapon)) {
-            feedback(player, "弾薬がありません");
-            player.firing = false;
-            return;
-        }
-
-        sendSoundEffect(player,"shot",player.weapon);
-        player.cooldown = weapon.cooldown();
-        player.cooldownMax = weapon.cooldown();
-        double dx = aimX - player.x;
-        double dy = aimY - player.y;
-        double length = Math.hypot(dx, dy);
-        if (length < 0.001) {
-            dx = 1;
-            dy = 0;
-            length = 1;
-        }
-        double directionX = dx / length;
-        double directionY = dy / length;
-        if (WeaponCatalog.find(player.weapon).mode() == WeaponCatalog.AttackMode.ROCKET) {
-            fireRocket(player, weapon, directionX, directionY, Math.min(length, weapon.range()));
-            return;
-        }
-        if (WeaponCatalog.find(player.weapon).mode() == WeaponCatalog.AttackMode.RICOCHET) {
-            fireRicochet(player, weapon, directionX, directionY);
-            return;
-        }
-        boolean shotgun = WeaponCatalog.find(player.weapon).mode() == WeaponCatalog.AttackMode.SPREAD;
-        int rays = shotgun ? GameConfig.SHOTGUN_PELLETS : 1;
-        double angle = Math.atan2(directionY, directionX);
-        for (int pellet = 0; pellet < rays; pellet++) {
-            double spreadAngle = shotgun ? (pellet - (rays - 1) / 2.0) * .14 : 0;
-            fireRay(player, weapon, Math.cos(angle + spreadAngle), Math.sin(angle + spreadAngle));
-        }
-    }
-
-    private void updateRailgun(Player player, double dt) {
-        if (!player.weapon.equals("railgun") || !player.firing || player.down
-                || player.movingCore || player.selectedBuild != null || !canMove()) {
-            player.stopRailgun();
-            return;
-        }
-        double remainingDt = dt;
-        if (player.railgunCharge > 0) {
-            double step = Math.min(remainingDt, GameConfig.RAILGUN_CHARGE - player.railgunCharge);
-            player.railgunCharge += step;
-            remainingDt -= step;
-            if (player.railgunCharge + 1e-9 < GameConfig.RAILGUN_CHARGE) return;
-            player.railgunCharge = 0;
-            if (player.weapons.ammo("railgun") <= 0) return;
-            player.weapons.consume("railgun");
-            double dx = player.aimX - player.x, dy = player.aimY - player.y;
-            double length = Math.hypot(dx, dy);
-            player.railgunDx = length < .001 ? 1 : dx / length;
-            player.railgunDy = length < .001 ? 0 : dy / length;
-            player.railgunRemaining = GameConfig.RAILGUN_DURATION;
-            player.railgunTick = 0;
-            sendSoundEffect(player, "shot", "railgun");
-        }
-        if (player.railgunRemaining <= 0) return;
-        double elapsed = Math.min(remainingDt, player.railgunRemaining);
-        player.railgunRemaining = Math.max(0, player.railgunRemaining - elapsed);
-        player.railgunTick += elapsed;
-        WeaponStats stats = weaponStats("railgun");
-        while (player.railgunTick + 1e-9 >= GameConfig.RAILGUN_TICK) {
-            player.railgunTick -= GameConfig.RAILGUN_TICK;
-            double range = GameMap.distanceToWall(player.x, player.y, player.railgunDx, player.railgunDy, stats.range());
-            // Copy: damage can spawn enemies, so newly spawned enemies enter on the next tick.
-            for (Enemy enemy : List.copyOf(enemies)) {
-                if (enemy.hp <= 0 || !isInsideAttack(enemy, player.x, player.y, player.railgunDx, player.railgunDy, stats, range)
-                        || !GameMap.hasClearLine(player.x, player.y, enemy.x, enemy.y)) continue;
-                int before = player.credits;
-                double dealt = damageEnemy(enemy, stats.damage() * GameConfig.RAILGUN_TICK, player);
-                sendHitEffect(player.id, "railgun", player.x, player.y, enemy.x, enemy.y,
-                        dealt, enemy.hp <= 0, player.credits - before, false);
-            }
-        }
-        if (player.railgunRemaining < 1e-9) {
-            player.railgunRemaining = 0;
-            player.railgunTick = 0;
-            player.cooldown = stats.cooldown();
-            player.cooldownMax = player.cooldown;
-        }
-    }
-
-    private void fireRocket(Player player, WeaponStats weapon, double dx, double dy, double range) {
-        double impactDistance = GameMap.distanceToWall(player.x, player.y, dx, dy, range);
-        // Stop at the first enemy body; unlike bullets, the rocket detonates instead of piercing.
-        for (Enemy enemy : enemies) {
-            if (enemy.hp <= 0) continue;
-            double ex = enemy.x - player.x, ey = enemy.y - player.y;
-            double projection = ex * dx + ey * dy;
-            double perpendicular = Math.abs(ex * dy - ey * dx);
-            double radius = enemyRadius(enemy) + weapon.width();
-            if (projection < 0 || perpendicular > radius) continue;
-            double entry = Math.max(0, projection - Math.sqrt(radius * radius - perpendicular * perpendicular));
-            if (entry < impactDistance) impactDistance = entry;
-        }
-        double x = player.x + dx * impactDistance, y = player.y + dy * impactDistance;
-        sendHitEffect(player.id, "rocket", player.x, player.y, x, y, 0, false, 0, false);
-        events.broadcast("{\"type\":\"effect\",\"effect\":\"explosion\",\"x\":" + roundOne(x)
-                + ",\"y\":" + roundOne(y) + ",\"radius\":" + GameConfig.ROCKET_BLAST_RADIUS + "}");
-        for (Enemy enemy : enemies) {
-            double blastDistance = distance(x, y, enemy.x, enemy.y);
-            if (enemy.hp <= 0 || blastDistance > GameConfig.ROCKET_BLAST_RADIUS
-                    || !GameMap.hasClearLine(x, y, enemy.x, enemy.y)) continue;
-            // Full damage at the center, half damage at the edge; no headshot multiplier.
-            double damage = weapon.damage() * (1 - .5 * blastDistance / GameConfig.ROCKET_BLAST_RADIUS);
-            int creditsBefore = player.credits;
-            double dealt = damageEnemy(enemy, damage, player);
-            knockbackEnemy(x, y, enemy, weapon.knockback());
-            sendHitEffect(player.id, "rocket", x, y, enemy.x, enemy.y, dealt,
-                    enemy.hp <= 0, player.credits - creditsBefore, false);
-        }
-    }
-
-    private void fireRicochet(Player player, WeaponStats weapon, double dx, double dy) {
-        double x = player.x, y = player.y, remaining = weapon.range();
-        for (int bounce = 0; bounce <= 2 && remaining > .01; bounce++) {
-            GameMap.WallImpact wall = GameMap.rayWall(x, y, dx, dy, remaining);
-            double length = Math.max(0, wall.distance() - .001);
-            if (fireSegment(player, weapon, x, y, dx, dy, length)) return;
-            remaining -= wall.distance();
-            if (!wall.flipX() && !wall.flipY()) return;
-            x += dx * length; y += dy * length;
-            if (wall.flipX()) dx = -dx;
-            if (wall.flipY()) dy = -dy;
-            x += dx * .002; y += dy * .002;
-            remaining -= .002;
-        }
-    }
-
-    private void fireRay(Player player, WeaponStats weapon, double directionX, double directionY) {
-        double shotDistance = GameMap.distanceToWall(player.x, player.y,
-                directionX, directionY, weapon.range());
-        fireSegment(player, weapon, player.x, player.y, directionX, directionY, shotDistance);
-    }
-
-    private boolean fireSegment(Player player, WeaponStats weapon, double originX, double originY,
-            double directionX, double directionY, double shotDistance) {
-        double endX = originX + directionX * shotDistance;
-        double endY = originY + directionY * shotDistance;
-        List<Enemy> candidates = enemies.stream().filter(enemy -> enemy.hp > 0)
-                .filter(enemy -> isInsideAttack(enemy, originX, originY, directionX, directionY, weapon, shotDistance))
-                .filter(enemy -> GameMap.hasClearLine(originX, originY, enemy.x, enemy.y))
-                .sorted(Comparator.comparingDouble(enemy ->
-                        (enemy.x - originX) * directionX + (enemy.y - originY) * directionY)).toList();
-        boolean piercing = WeaponCatalog.find(player.weapon).piercing();
-        List<Enemy> targets = piercing ? candidates : candidates.stream().limit(1).toList();
-        if (!piercing && !targets.isEmpty() && !player.weapon.equals("bat")) {
-            Enemy first = targets.get(0);
-            double projection = (first.x - originX) * directionX + (first.y - originY) * directionY;
-            double perpendicular = Math.abs((first.x - originX) * directionY - (first.y - originY) * directionX);
-            double radius = enemyRadius(first) + weapon.width();
-            double entry = Math.max(0, projection - Math.sqrt(Math.max(0, radius * radius - perpendicular * perpendicular)));
-            endX = originX + directionX * entry; endY = originY + directionY * entry;
-        }
-        // A trajectory event is separate from impact and reward events.
-        sendHitEffect(player.id, player.weapon, originX, originY, endX, endY, 0, false, 0, false);
-        for (Enemy hit : targets) {
-            int creditsBeforeHit = player.credits;
-            boolean headshot = isHeadshot(hit, player, originX, originY, directionX, directionY, weapon, shotDistance);
-            double damage = weapon.damage() * (headshot ? 2 : 1);
-            if (!player.weapon.equals("bat")) damage = hit.shieldedDamage(damage, originX, originY);
-            double dealt = damageEnemy(hit, damage, player);
-            if (headshot) player.credits += 3;
-            knockbackEnemy(originX, originY, hit, weapon.knockback());
-            sendHitEffect(player.id, player.weapon, player.x, player.y, hit.x, hit.y,
-                    dealt, hit.hp <= 0, player.credits - creditsBeforeHit, headshot);
-        }
-        return !targets.isEmpty();
-    }
-
-    private boolean isInsideAttack(Enemy enemy, double originX, double originY, double directionX,
-            double directionY, WeaponStats weapon, double shotDistance) {
-        double toEnemyX = enemy.x - originX;
-        double toEnemyY = enemy.y - originY;
-        double projection = toEnemyX * directionX + toEnemyY * directionY;
-        if (projection < 0 || projection > shotDistance) return false;
-        double perpendicular = Math.abs(toEnemyX * directionY - toEnemyY * directionX);
-        double enemyRadius = enemyRadius(enemy);
-        double spread = weapon.width();
-        return perpendicular <= spread + enemyRadius;
-    }
-
-    private boolean isHeadshot(Enemy enemy, Player player, double originX, double originY, double directionX,
-            double directionY, WeaponStats weapon, double shotDistance) {
-        if (player.weapon.equals("bat") || enemy.type.equals("explosionBoss")) return false;
-        double radius = enemyRadius(enemy);
-        double headX = enemy.x;
-        double headY = enemy.y - radius * 0.5;
-        double toHeadX = headX - originX;
-        double toHeadY = headY - originY;
-        double projection = toHeadX * directionX + toHeadY * directionY;
-        if (projection < 0 || projection > shotDistance) return false;
-        double perpendicular = Math.abs(toHeadX * directionY - toHeadY * directionX);
-        double headRadius = Math.min(radius * 0.5, Math.max(4, radius * 0.28));
-        double aimTolerance = player.weapon.equals("shotgun")
-                ? Math.min(3, weapon.width() * 0.25)
-                : weapon.width() * 0.25;
-        return perpendicular <= headRadius + aimTolerance;
-    }
-
-    private static double enemyRadius(Enemy enemy) {
-        return switch (enemy.type) {
-            case "explosionBoss" -> 42;
-            case "bomber" -> 20;
-            case "tiny" -> 3;
-            case "boss" -> 42;
-            case "warlord" -> 44;
-            case "titan" -> 48;
-            case "armored" -> 30;
-            case "shield" -> 24;
-            case "artillery" -> 22;
-            case "siege" -> 32;
-            case "champion" -> 26;
-            case "hunter" -> 18;
-            case "brute" -> 28;
-            case "runner" -> 16;
-            default -> 21;
-        };
+        if (target != null) combat.attackAt(player, target.x, target.y);
     }
 
     static WeaponStats weaponStats(String weapon) { return WeaponCatalog.stats(weapon); }
-
-    private double damageEnemy(Enemy enemy, double damage, Player player) {
-        if (enemy.hp <= 0) return 0;
-        if (enemy.type.equals("explosionBoss")) damage *= .001;
-        double dealt = Math.min(enemy.hp, damage);
-        enemy.hp -= dealt;
-        if (player != null && dealt > 0) {
-            enemy.creditProgress += enemy.reward * dealt / enemy.maxHp;
-            int earnedCredits = Math.min(enemy.reward,
-                    (int) Math.floor(enemy.creditProgress + 1e-9));
-            int payout = earnedCredits - enemy.paidCredits;
-            if (payout > 0) {
-                player.credits += payout;
-                enemy.paidCredits += payout;
-            }
-            if (enemy.hp <= 0) player.kills++;
-        }
-        if (enemy.hp <= 0 && enemy.type.equals("bomber")) explodeBomber(enemy);
-        // Report the mitigated hit strength, retaining ordinary overkill feedback.
-        return damage;
-    }
-
-    private void knockbackEnemy(double fromX, double fromY, Enemy enemy, double amount) {
-        if (amount <= 0) return;
-        double dx = enemy.x - fromX;
-        double dy = enemy.y - fromY;
-        double length = Math.max(1, Math.hypot(dx, dy));
-        double nextX = clamp(enemy.x + dx / length * amount, 18, WORLD_W - 18);
-        double nextY = clamp(enemy.y + dy / length * amount, 18, WORLD_H - 18);
-        if (canOccupy(nextX, enemy.y, 17)) enemy.x = nextX;
-        if (canOccupy(enemy.x, nextY, 17)) enemy.y = nextY;
-    }
-
-    private void sendHitEffect(String playerId, String weapon, double fromX, double fromY,
-            double x, double y, double damage, boolean defeated, int credits,
-            boolean headshot) {
-        events.broadcast("{\"type\":\"effect\",\"effect\":\"hit\",\"playerId\":\"" + playerId
-                + "\",\"weapon\":\"" + weapon + "\",\"fromX\":" + roundOne(fromX)
-                + ",\"fromY\":" + roundOne(fromY) + ",\"x\":" + roundOne(x)
-                + ",\"y\":" + roundOne(y) + ",\"damage\":" + (Math.round(damage * 1000) / 1000.0)
-                + ",\"defeated\":" + defeated + ",\"credits\":" + credits
-                + ",\"headshot\":" + headshot + "}");
-    }
 
     private void interact(Player player, String targetId) {
         if (player.down || !canUseFacilities() || !targetId.startsWith("player-")) return;
@@ -2204,23 +1933,23 @@ final class GameSession {
             ShopUnit kitShop = GameMap.shopByItem("medkit");
             if (!isPointUnlocked(kitShop.x(), kitShop.y())
                     || !canInteract(player, kitShop.x(), kitShop.y(), 70)) return;
-            if(player.medkits >= GameConfig.MEDKIT_CAPACITY) { feedback(player,"回復キットは5個まで持てます"); return; }
-            if(spend(player,GameConfig.MEDKIT_PRICE)) { player.medkits++; feedback(player,"回復キットを購入しました"); }
-            else feedback(player,"お金が足りません");
+            if(player.medkits >= GameConfig.MEDKIT_CAPACITY) { gameEffects.feedback(player,"回復キットは5個まで持てます"); return; }
+            if(spend(player,GameConfig.MEDKIT_PRICE)) { player.medkits++; gameEffects.feedback(player,"回復キットを購入しました"); }
+            else gameEffects.feedback(player,"お金が足りません");
             return;
         }
         ShopUnit shop = GameMap.shopByItem(item);
         if (shop == null || !isPointUnlocked(shop.x(), shop.y())
                 || !canInteract(player, shop.x(), shop.y(), 70)) {
-            feedback(player, "ショップに近づいてください");
+            gameEffects.feedback(player, "ショップに近づいてください");
             return;
         }
         if (item.endsWith("Factory")) {
-            if (!spend(player, shop.cost())) { feedback(player, "お金が足りません"); return; }
+            if (!spend(player, shop.cost())) { gameEffects.feedback(player, "お金が足りません"); return; }
             player.addBuildItem(item, 1);
             player.selectedBuild = item;
             releaseCarriedCore(player);
-            feedback(player, shop.label() + "を購入しました。Rで設置できます");
+            gameEffects.feedback(player, shop.label() + "を購入しました。Rで設置できます");
             return;
         }
         if (WeaponCatalog.capacity(item) > 0) {
@@ -2232,7 +1961,7 @@ final class GameSession {
                 List<String> owned = WeaponCatalog.ALL.stream().filter(WeaponCatalog.Definition::usesAmmo)
                         .map(WeaponCatalog.Definition::id).filter(player.weapons::owns).toList();
                 if (owned.isEmpty()) {
-                    feedback(player, "弾薬を使う武器を持っていません");
+                    gameEffects.feedback(player, "弾薬を使う武器を持っていません");
                     return;
                 }
                 if (owned.stream().allMatch(weapon -> weaponAmmo(player, weapon) >= weaponAmmoCapacity(weapon))) {
@@ -2240,10 +1969,10 @@ final class GameSession {
                 }
                 if (spend(player, shop.cost())) {
                     owned.forEach(weapon -> setWeaponAmmo(player, weapon, weaponAmmoCapacity(weapon)));
-                    feedback(player, "弾薬を補充しました");
+                    gameEffects.feedback(player, "弾薬を補充しました");
                     events.send(player, "{\"type\":\"ammo-refilled\"}");
                 } else {
-                    feedback(player, "お金が足りません");
+                    gameEffects.feedback(player, "お金が足りません");
                 }
             }
             default -> { }
@@ -2258,19 +1987,19 @@ final class GameSession {
             }
             if (spend(player, ammoRefillCost())) {
                 setWeaponAmmo(player, item, capacity);
-                feedback(player, "弾薬を補充しました");
+                gameEffects.feedback(player, "弾薬を補充しました");
                 events.send(player, "{\"type\":\"ammo-refilled\"}");
             } else {
-                feedback(player, "お金が足りません");
+                gameEffects.feedback(player, "お金が足りません");
             }
             return;
         }
         if (spend(player, shop.cost())) {
             releaseCarriedCore(player);
             grantWeapon(player, item);
-            feedback(player, "購入しました");
+            gameEffects.feedback(player, "購入しました");
         } else {
-            feedback(player, "お金が足りません");
+            gameEffects.feedback(player, "お金が足りません");
         }
     }
 
@@ -2283,23 +2012,23 @@ final class GameSession {
     private void gather(Player player, String resource) {
         if (!canUseFacilities() || player.down) return;
         if (player.gatherCooldown > 0) {
-            feedback(player, "まだ採取できません");
+            gameEffects.feedback(player, "まだ採取できません");
             return;
         }
         if (resource.equals("wood")) {
             if (!isPointUnlocked(WOODCUTTER_X, WOODCUTTER_Y) || !canInteract(player, WOODCUTTER_X, WOODCUTTER_Y, 110)) {
-                feedback(player, "伐採所に近づいてください");
+                gameEffects.feedback(player, "伐採所に近づいてください");
                 return;
             }
             player.wood += 4;
-            feedback(player, "木材を4個入手しました");
+            gameEffects.feedback(player, "木材を4個入手しました");
         } else if (resource.equals("ore")) {
             if (!isPointUnlocked(QUARRY_X, QUARRY_Y) || !canInteract(player, QUARRY_X, QUARRY_Y, 110)) {
-                feedback(player, "採石場に近づいてください");
+                gameEffects.feedback(player, "採石場に近づいてください");
                 return;
             }
             player.ore++;
-            feedback(player, "鉄を1個入手しました");
+            gameEffects.feedback(player, "鉄を1個入手しました");
         } else {
             return;
         }
@@ -2319,7 +2048,7 @@ final class GameSession {
         }
         int amount = Math.min(available, Math.max(0, requested));
         if (amount <= 0) {
-            feedback(player, "渡せる素材がありません");
+            gameEffects.feedback(player, "渡せる素材がありません");
             return;
         }
         MapPoint origin = GameMap.snapToTile(player.x, player.y);
@@ -2330,7 +2059,7 @@ final class GameSession {
         addResource(player,type,-amount);
         droppedResources.add(new DroppedResource(nextDroppedResourceId++, type,
                 dropX, dropY, amount, player.id));
-        feedback(player, "素材を置きました");
+        gameEffects.feedback(player, "素材を置きました");
     }
 
     private void craft(Player player, String type) {
@@ -2340,21 +2069,21 @@ final class GameSession {
                         || unlockedAreas.contains(workbench.requiredArea()))
                 .anyMatch(workbench -> canInteract(player, workbench.x(), workbench.y(), 110));
         if (!nearWorkbench) {
-            feedback(player, "作業台に近づいてください");
+            gameEffects.feedback(player, "作業台に近づいてください");
             return;
         }
         var recipe = BUILD_RECIPES.get(type);
         int woodCost = recipe.getOrDefault("wood", 0);
         int oreCost = recipe.getOrDefault("ore", 0);
         if(recipe.entrySet().stream().anyMatch(entry -> resourceCount(player,entry.getKey()) < entry.getValue())) {
-            feedback(player, "素材が足りません");
+            gameEffects.feedback(player, "素材が足りません");
             return;
         }
         recipe.forEach((resource,cost) -> addResource(player,resource,-cost));
         player.addBuildItem(type, 1);
         player.selectedBuild = type;
         releaseCarriedCore(player);
-        feedback(player, "製作しました");
+        gameEffects.feedback(player, "製作しました");
     }
 
     private void equipBuild(Player player, String type) {
@@ -2419,27 +2148,21 @@ final class GameSession {
                 || player.medkits <= 0 || player.hp >= 100) return;
         player.medkits--;
         player.hp = Math.min(100, player.hp + GameConfig.MEDKIT_HEAL);
-        sendSoundEffect(player, "item-use", item);
-        feedback(player, "回復キットを使いました");
-    }
-
-    private void sendSoundEffect(Player player, String effect, String item) {
-        events.broadcast("{\"type\":\"effect\",\"effect\":\"" + effect
-                + "\",\"playerId\":\"" + player.id + "\",\"weapon\":\"" + player.weapon
-                + "\",\"item\":\"" + item + "\"}");
+        gameEffects.sound(player, "item-use", item);
+        gameEffects.feedback(player, "回復キットを使いました");
     }
 
     private void equipCore(Player player) {
         if (!canUseFacilities() || player.down
                 || !canInteract(player, coreX, coreY, 130)) {
-            feedback(player, "コアに近づいてください");
+            gameEffects.feedback(player, "コアに近づいてください");
             return;
         }
         Player carrier = players.stream()
                 .filter(other -> other != player && other.movingCore)
                 .findFirst().orElse(null);
         if (carrier != null) {
-            feedback(player, "コアはほかのプレイヤーが運んでいます");
+            gameEffects.feedback(player, "コアはほかのプレイヤーが運んでいます");
             return;
         }
         player.movingCore = true;
@@ -2458,7 +2181,7 @@ final class GameSession {
         if (!Double.isFinite(requestedX) || !Double.isFinite(requestedY)) return;
         MapPoint point = GameMap.snapToTile(requestedX, requestedY);
         if (distance(player.x, player.y, point.x(), point.y()) > 180) {
-            feedback(player, "もう少し近づいてください");
+            gameEffects.feedback(player, "もう少し近づいてください");
             return;
         }
         if (!GameMap.canPlaceCore(point.x(), point.y(), unlockedAreas)
@@ -2469,7 +2192,7 @@ final class GameSession {
                         && distance(point.x(), point.y(), other.x, other.y) < 24)
                 || enemies.stream().anyMatch(enemy -> enemy.hp > 0
                         && distance(point.x(), point.y(), enemy.x, enemy.y) < 55)) {
-            feedback(player, "ここにはコアを置けません");
+            gameEffects.feedback(player, "ここにはコアを置けません");
             return;
         }
         coreX = point.x();
@@ -2497,7 +2220,7 @@ final class GameSession {
             placeDefense(player, new String[] {"PLACE",
                     Double.toString(targetX), Double.toString(targetY), player.selectedBuild});
         } else {
-            feedback(player, "先に設置するアイテムを選んでください");
+            gameEffects.feedback(player, "先に設置するアイテムを選んでください");
         }
     }
 
@@ -2506,13 +2229,13 @@ final class GameSession {
         ShopUnit shop = GameMap.shopByItem(item);
         if (shop == null || !item.endsWith("Factory") || player.buildItemCount(item) <= 0) return;
         if (!canPlaceDefenseAt(point, null)) {
-            feedback(player, "ここには設置できません");
+            gameEffects.feedback(player, "ここには設置できません");
             return;
         }
         factories.add(new MaterialFactory("quarry-" + nextFactoryId++, shop, point));
         player.addBuildItem(item, -1);
         if (player.buildItemCount(item) == 0) player.selectedBuild = null;
-        feedback(player, "製造装置を設置しました");
+        gameEffects.feedback(player, "製造装置を設置しました");
     }
 
     private void pickupFactory(Player player, String id) {
@@ -2525,34 +2248,34 @@ final class GameSession {
         player.addBuildItem(item, 1);
         player.selectedBuild = item;
         releaseCarriedCore(player);
-        feedback(player, "製造装置を回収しました");
+        gameEffects.feedback(player, "製造装置を回収しました");
     }
 
     private void build(Player player, String slotId, String type) {
         if (!canUseFacilities() || player.down || !BUILD_RECIPES.containsKey(type)) return;
         TrapSlot slot = slotById(slotId);
         if (slot == null || !canInteract(player, slot.x, slot.y, 100)) {
-            feedback(player, "もう少し近づいてください");
+            gameEffects.feedback(player, "もう少し近づいてください");
             return;
         }
         if (slot.requiredArea != null && !unlockedAreas.contains(slot.requiredArea)) {
-            feedback(player, "このエリアはまだ開放されていません");
+            gameEffects.feedback(player, "このエリアはまだ開放されていません");
             return;
         }
         if (slot.defense != null) {
-            feedback(player, "すでに設備が置かれています");
+            gameEffects.feedback(player, "すでに設備が置かれています");
             return;
         }
         if (player.buildItemCount(type) <= 0) {
-            feedback(player, "先にこの設備を製作してください");
+            gameEffects.feedback(player, "先にこの設備を製作してください");
             return;
         }
         if (!canPlaceDefenseAt(new MapPoint(slot.x, slot.y), slot)) return;
         player.addBuildItem(type, -1);
         slot.ownerId = player.id;
         slot.defense = player.takeDefense(type);
-        sendSoundEffect(player,"item-use","build");
-        feedback(player, "設置しました");
+        gameEffects.sound(player,"item-use","build");
+        gameEffects.feedback(player, "設置しました");
     }
 
     private void placeDefense(Player player, String[] parts) {
@@ -2562,16 +2285,16 @@ final class GameSession {
         if (!Double.isFinite(requestedX) || !Double.isFinite(requestedY)) return;
         MapPoint point = GameMap.snapToTile(requestedX, requestedY);
         if (distance(player.x, player.y, point.x(), point.y()) > 180) {
-            feedback(player, "もう少し近づいてください");
+            gameEffects.feedback(player, "もう少し近づいてください");
             return;
         }
         if (!canPlaceDefenseAt(point, null)) {
-            feedback(player, "ここには設置できません");
+            gameEffects.feedback(player, "ここには設置できません");
             return;
         }
         String type = parts[3];
         if (!type.equals(player.selectedBuild) || player.buildItemCount(type) <= 0) {
-            feedback(player, "設置する設備を手に持ってください");
+            gameEffects.feedback(player, "設置する設備を手に持ってください");
             return;
         }
         player.addBuildItem(type, -1);
@@ -2585,8 +2308,8 @@ final class GameSession {
         placed.ownerId = player.id;
         placed.defense = player.takeDefense(type);
         trapSlots.add(placed);
-        sendSoundEffect(player,"item-use","build");
-        feedback(player, "設置しました");
+        gameEffects.sound(player,"item-use","build");
+        gameEffects.feedback(player, "設置しました");
     }
 
     private boolean canPlaceDefenseAt(MapPoint point, TrapSlot ignored) {
@@ -2611,7 +2334,7 @@ final class GameSession {
         player.recoverDefense(slot.defense);
         player.selectedBuild = type;
         releaseCarriedCore(player);
-        feedback(player, "設備を回収しました");
+        gameEffects.feedback(player, "設備を回収しました");
     }
 
     private void repair(Player player, String slotId) {
@@ -2620,17 +2343,17 @@ final class GameSession {
         if (slot == null || slot.defense == null
                 || !canInteract(player, slot.x, slot.y, 100)) return;
         if (slot.defense.hp >= slot.defense.maxHp) {
-            feedback(player, "設備の耐久値は満タンです");
+            gameEffects.feedback(player, "設備の耐久値は満タンです");
             return;
         }
         boolean metal = Set.of("turret", "copperTurret", "silverTurret", "wire", "mine").contains(slot.defense.type);
         if (metal && player.ore < 1 || !metal && player.wood < 1) {
-            feedback(player, "素材が足りません");
+            gameEffects.feedback(player, "素材が足りません");
             return;
         }
         if (metal) player.ore--; else player.wood--;
         slot.defense.hp = slot.defense.maxHp;
-        feedback(player, "設備を修理しました");
+        gameEffects.feedback(player, "設備を修理しました");
     }
 
     private void upgradeCore(Player player, String type) {
@@ -2642,9 +2365,9 @@ final class GameSession {
                 if (spend(player, cost)) {
                     coreMaxHp += 250;
                     coreHp += 250;
-                    feedback(player, "コアを強化しました");
+                    gameEffects.feedback(player, "コアを強化しました");
                 } else {
-                    feedback(player, "お金が足りません");
+                    gameEffects.feedback(player, "お金が足りません");
                 }
             }
             case "shield" -> {
@@ -2652,35 +2375,35 @@ final class GameSession {
                 if (spend(player, cost)) {
                     coreMaxShield += 180;
                     coreShield = coreMaxShield;
-                    feedback(player, "コアを強化しました");
+                    gameEffects.feedback(player, "コアを強化しました");
                 } else {
-                    feedback(player, "お金が足りません");
+                    gameEffects.feedback(player, "お金が足りません");
                 }
             }
             case "defense" -> {
                 int cost = coreUpgradeCost("defense");
                 if (coreDefenseLevel >= 4) {
-                    feedback(player, "すでに最大レベルです");
+                    gameEffects.feedback(player, "すでに最大レベルです");
                     return;
                 }
                 if (spend(player, cost)) {
                     coreDefenseLevel++;
-                    feedback(player, "コアを強化しました");
+                    gameEffects.feedback(player, "コアを強化しました");
                 } else {
-                    feedback(player, "お金が足りません");
+                    gameEffects.feedback(player, "お金が足りません");
                 }
             }
             case "regen" -> {
                 int cost = coreUpgradeCost("regen");
                 if (coreRegenLevel >= 4) {
-                    feedback(player, "すでに最大レベルです");
+                    gameEffects.feedback(player, "すでに最大レベルです");
                     return;
                 }
                 if (spend(player, cost)) {
                     coreRegenLevel++;
-                    feedback(player, "コアを強化しました");
+                    gameEffects.feedback(player, "コアを強化しました");
                 } else {
-                    feedback(player, "お金が足りません");
+                    gameEffects.feedback(player, "お金が足りません");
                 }
             }
             default -> { }
@@ -2696,19 +2419,19 @@ final class GameSession {
         if (!canUseFacilities() || player.down
                 || !unlockedAreas.contains(console.requiredArea())) return;
         if (!canInteract(player, console.x(), console.y(), 95)) {
-            feedback(player, "準備時間の操作端末に近づいてください");
+            gameEffects.feedback(player, "準備時間の操作端末に近づいてください");
             return;
         }
         if (!spend(player, prepExtensionCost())) {
-            feedback(player, "お金が足りません");
+            gameEffects.feedback(player, "お金が足りません");
             return;
         }
         if (phase == GamePhase.PREPARING) {
             prepTime += console.seconds();
-            feedback(player, "準備時間を1分延長しました");
+            gameEffects.feedback(player, "準備時間を1分延長しました");
         } else {
             nextPrepBonusSeconds += console.seconds();
-            feedback(player, "次の準備時間を1分延長しました");
+            gameEffects.feedback(player, "次の準備時間を1分延長しました");
         }
     }
 
@@ -2739,21 +2462,21 @@ final class GameSession {
                 || breaker.requiredArea() != null
                 && !unlockedAreas.contains(breaker.requiredArea())) return;
         if (!blackoutActive) {
-            feedback(player, "電力は正常です");
+            gameEffects.feedback(player, "電力は正常です");
             return;
         }
         if (!canInteract(player, breaker.x(), breaker.y(), 95)) {
-            feedback(player, "ブレーカーに近づいてください");
+            gameEffects.feedback(player, "ブレーカーに近づいてください");
             return;
         }
         if (!trippedBreakers.remove(breaker.id())) {
-            feedback(player, "このブレーカーは正常です");
+            gameEffects.feedback(player, "このブレーカーは正常です");
             return;
         }
         int remaining = trippedBreakers.size();
         if (remaining == 0) {
             blackoutActive = false;
-            feedback(player, "電力を復旧しました");
+            gameEffects.feedback(player, "電力を復旧しました");
             setNotice("電力が復旧しました");
         }
     }
@@ -2763,11 +2486,11 @@ final class GameSession {
         UnlockArea area = GameMap.areaById(areaId);
         if (area == null || !terminalAccessible(area)) return;
         if (unlockedAreas.contains(areaId)) {
-            feedback(player, "このエリアは開放済みです");
+            gameEffects.feedback(player, "このエリアは開放済みです");
             return;
         }
         if (!canInteract(player, area.terminalX(), area.terminalY(), 100)) {
-            feedback(player, "開放端末に近づいてください");
+            gameEffects.feedback(player, "開放端末に近づいてください");
             return;
         }
         int cost = unlockCost(areaId);
@@ -2776,7 +2499,7 @@ final class GameSession {
             // Opened areas only become spawn candidates when the next round starts.
             setNotice(area.name() + "を開放しました");
         } else {
-            feedback(player, "お金が足りません");
+            gameEffects.feedback(player, "お金が足りません");
         }
     }
 
@@ -2956,13 +2679,6 @@ final class GameSession {
     private void cancelAction(Player player) {
         player.actionTarget = null;
         player.actionProgress = 0;
-    }
-
-    private void feedback(Player player, String message) {
-        if (player.human) {
-            events.send(player, "{\"type\":\"feedback\",\"message\":\""
-                    + escapeJson(message) + "\"}");
-        }
     }
 
     private void setNotice(String text) {
