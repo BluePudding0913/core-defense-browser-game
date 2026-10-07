@@ -18,11 +18,39 @@ class CombatSystemTest {
 
     private static final class Events implements CombatEvents {
         int shots, feedback;
+        record Segment(double fromX, double fromY, double x, double y) {
+            double length() { return Math.hypot(x - fromX, y - fromY); }
+        }
+        final List<Segment> trajectories = new ArrayList<>();
         public void hit(String playerId, String weapon, double fromX, double fromY,
-                double x, double y, double damage, boolean defeated, int credits, boolean headshot, Integer enemyId) { }
+                double x, double y, double damage, boolean defeated, int credits, boolean headshot, Integer enemyId) {
+            if (enemyId == null) trajectories.add(new Segment(fromX, fromY, x, y));
+        }
         public void sound(Player player, String effect, String item) { shots++; }
         public void explosion(double x, double y, double radius) { }
         public void outOfAmmo(Player player) { feedback++; }
+    }
+
+    @Test void ricochetSharesItsRangeAcrossZeroOneAndTwoReflections() {
+        // Open floor, one wall, and a narrow corridor with two wall hits.
+        double[][] origins = {{100, 100}, {1020, 1900}, {1200, 1980}};
+        double[] endXs = {700, 940, 1000};
+        for (int i = 0; i < origins.length; i++) {
+            var world = new World();
+            world.active = true;
+            var events = new Events();
+            var combat = new CombatSystem(world, events);
+            var player = new Player(1);
+            player.x = origins[i][0]; player.y = origins[i][1];
+            player.weapons.grant("ricochet");
+            player.equipWeapon("ricochet");
+            combat.attackAt(player, player.x + 100, player.y);
+            assertEquals(i + 1, events.trajectories.size());
+            double total = events.trajectories.stream().mapToDouble(Events.Segment::length).sum();
+            assertTrue(total <= 600, "Reflections must not renew the range");
+            assertEquals(600, total, .01);
+            assertEquals(endXs[i], events.trajectories.get(i).x(), .01);
+        }
     }
 
     @Test void damageRewardsAndDeathCallbackWorkWithoutGameSessionOrTransport() {

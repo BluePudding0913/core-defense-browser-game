@@ -162,6 +162,7 @@ final class CombatSystem {
     }
 
     private void fireRicochet(Player player, WeaponStats weapon, double dx, double dy) {
+        // All reflected segments share one distance budget, including the wall clearance.
         double x = player.x, y = player.y, remaining = weapon.range();
         for (int bounce = 0; bounce <= 2 && remaining > .01; bounce++) {
             GameMap.WallImpact wall = GameMap.rayWall(x, y, dx, dy, remaining);

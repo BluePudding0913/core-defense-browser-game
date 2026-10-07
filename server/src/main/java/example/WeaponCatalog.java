@@ -24,7 +24,7 @@ final class WeaponCatalog {
             new Definition("smg", 240, AttackMode.RAY, false, new WeaponStats(270, 18, .14, 0, 2)),
             new Definition("rifle", 30, AttackMode.RAY, false, new WeaponStats(430, 120, 1.15, 0, 2)),
             new Definition("sniper", 15, AttackMode.RAY, true, new WeaponStats(2400, 280, 1.8, 0, 2)),
-            new Definition("ricochet", 240, AttackMode.RICOCHET, false, new WeaponStats(1000, 30, .30, 0, 2)),
+            new Definition("ricochet", 240, AttackMode.RICOCHET, false, new WeaponStats(600, 30, .30, 0, 2)),
             new Definition("revolver", 30, AttackMode.RAY, true, new WeaponStats(360, 320, 1.6, 10, 2)),
             new Definition("railgun", 8, AttackMode.BEAM, false, new WeaponStats(2400, 3000, 2, 0, GameMap.TILE_SIZE / 2.0)),
             new Definition("rocket", 8, AttackMode.ROCKET, false, new WeaponStats(1200, 3000, 5, 100, 2)),

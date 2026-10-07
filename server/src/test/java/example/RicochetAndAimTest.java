@@ -58,7 +58,7 @@ class RicochetAndAimTest {
 
     @Test void reflectedBulletHitsEnemyBehindPlayerAndSpendsOneRound() {
         player.weapon = "ricochet"; player.weapons.setAmmo("ricochet", 1);
-        Enemy behind = enemy(940, 1900);
+        Enemy behind = enemy(950, 1900);
         game.handleMessage(player, "FIRE:1200:1900:1");
         assertEquals(1970, behind.hp);
         assertEquals(0, player.weapons.ammo("ricochet"));
@@ -84,10 +84,21 @@ class RicochetAndAimTest {
 
     @Test void ricochetStopsAfterTwoReflections() {
         player.weapon = "ricochet"; player.weapons.setAmmo("ricochet", 1);
-        player.y = 1980;
+        player.x = 1200; player.y = 1980;
         game.handleMessage(player, "FIRE:1200:1980:1");
         assertEquals(3, effects.stream().filter(m -> m.contains("\"effect\":\"hit\"")
                 && m.contains("\"damage\":0.0")).count());
+    }
+
+    @Test void reflectedBulletCannotHitBeyondTotalRange() throws Exception {
+        player.weapon = "ricochet"; player.weapons.setAmmo("ricochet", 1);
+        Enemy beyondRange = enemy(930, 1900);
+        game.handleMessage(player, "FIRE:1200:1900:1");
+        assertEquals(2000, beyondRange.hp);
+        assertEquals(0, player.weapons.ammo("ricochet"));
+        assertEquals(WeaponCatalog.stats("ricochet").cooldown(), player.cooldown);
+        var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
+        assertEquals(600, snapshot.path("rules").path("weapons").path("ricochet").path("range").asDouble());
     }
 
     @Test void ordinaryGunsMissOffAxisAndPistolEmitsOneTrajectory() {
