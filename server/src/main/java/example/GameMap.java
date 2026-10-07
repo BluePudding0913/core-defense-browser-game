@@ -158,17 +158,22 @@ final class GameMap {
 
     static double distanceToWall(double x, double y, double directionX,
             double directionY, double maxDistance) {
+        return distanceToWall(x, y, directionX, directionY, maxDistance, null);
+    }
+
+    static double distanceToWall(double x, double y, double directionX,
+            double directionY, double maxDistance, Set<String> unlockedAreas) {
         if (maxDistance <= 0) return 0;
         double step = Math.max(4, TILE_SIZE / 8.0);
         double lastClear = 0;
         for (double traveled = step; traveled <= maxDistance; traveled += step) {
-            if (isSolidAt(x + directionX * traveled, y + directionY * traveled)) {
+            if (isShotBlockedAt(x + directionX * traveled, y + directionY * traveled, unlockedAreas)) {
                 return lastClear;
             }
             lastClear = traveled;
         }
         if (lastClear < maxDistance
-                && isSolidAt(x + directionX * maxDistance, y + directionY * maxDistance)) {
+                && isShotBlockedAt(x + directionX * maxDistance, y + directionY * maxDistance, unlockedAreas)) {
             return lastClear;
         }
         return maxDistance;
@@ -178,6 +183,11 @@ final class GameMap {
 
     // Traverse tile boundaries so reflection uses the wall face, including corners.
     static WallImpact rayWall(double x, double y, double dx, double dy, double range) {
+        return rayWall(x, y, dx, dy, range, null);
+    }
+
+    static WallImpact rayWall(double x, double y, double dx, double dy, double range,
+            Set<String> unlockedAreas) {
         int column = (int) Math.floor(x / TILE_SIZE), row = (int) Math.floor(y / TILE_SIZE);
         int sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1;
         double deltaX = dx == 0 ? Double.POSITIVE_INFINITY : TILE_SIZE / Math.abs(dx);
@@ -189,24 +199,33 @@ final class GameMap {
         while (Math.min(nextX, nextY) < range) {
             double distance = Math.min(nextX, nextY);
             boolean crossX = nextX <= nextY + 1e-8, crossY = nextY <= nextX + 1e-8;
-            boolean wallX = crossX && isSolidAt((column + sx + .5) * TILE_SIZE, (row + .5) * TILE_SIZE);
-            boolean wallY = crossY && isSolidAt((column + .5) * TILE_SIZE, (row + sy + .5) * TILE_SIZE);
+            boolean wallX = crossX && isShotBlockedAt((column + sx + .5) * TILE_SIZE, (row + .5) * TILE_SIZE, unlockedAreas);
+            boolean wallY = crossY && isShotBlockedAt((column + .5) * TILE_SIZE, (row + sy + .5) * TILE_SIZE, unlockedAreas);
             if (wallX || wallY) return new WallImpact(distance, wallX, wallY);
             if (crossX) { column += sx; nextX += deltaX; }
             if (crossY) { row += sy; nextY += deltaY; }
-            if (isSolidAt((column + .5) * TILE_SIZE, (row + .5) * TILE_SIZE))
+            if (isShotBlockedAt((column + .5) * TILE_SIZE, (row + .5) * TILE_SIZE, unlockedAreas))
                 return new WallImpact(distance, crossX, crossY);
         }
         return new WallImpact(range, false, false);
     }
 
     static boolean hasClearLine(double fromX, double fromY, double toX, double toY) {
+        return hasClearLine(fromX, fromY, toX, toY, null);
+    }
+
+    static boolean hasClearLine(double fromX, double fromY, double toX, double toY,
+            Set<String> unlockedAreas) {
         double dx = toX - fromX;
         double dy = toY - fromY;
         double distance = Math.hypot(dx, dy);
         if (distance < 0.001) return true;
-        return distanceToWall(fromX, fromY, dx / distance, dy / distance, distance)
+        return distanceToWall(fromX, fromY, dx / distance, dy / distance, distance, unlockedAreas)
                 >= distance - 0.001;
+    }
+
+    private static boolean isShotBlockedAt(double x, double y, Set<String> unlockedAreas) {
+        return unlockedAreas == null ? isSolidAt(x, y) : !canOccupy(x, y, 0, unlockedAreas);
     }
 
     private static boolean isSolidAt(double x, double y) {

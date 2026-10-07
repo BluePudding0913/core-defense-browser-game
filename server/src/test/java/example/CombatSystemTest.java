@@ -11,6 +11,9 @@ class CombatSystemTest {
         int deaths;
         final List<Enemy> enemies = new ArrayList<>();
         public boolean canAttack() { return active; }
+        public java.util.Set<String> unlockedAreas() {
+            return GameMap.AREAS.stream().map(UnlockArea::id).collect(java.util.stream.Collectors.toSet());
+        }
         public List<Enemy> enemies() { return enemies; }
         public List<Player> players() { return List.of(); }
         public void damagePlayer(Player player, double damage) { fail("No player targets in this fixture"); }

@@ -7,11 +7,13 @@ import static example.GameSupport.distance;
 import example.WeaponCatalog.WeaponStats;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 
 /** Weapon execution and shared enemy damage; emits domain events without JSON. */
 final class CombatSystem {
     interface World {
         boolean canAttack();
+        Set<String> unlockedAreas();
         List<Enemy> enemies();
         List<Player> players();
         void damagePlayer(Player player, double damage);
@@ -74,7 +76,7 @@ final class CombatSystem {
         }
         if (player.weapon.equals("bat")) {
             double effectDistance = GameMap.distanceToWall(player.x, player.y, directionX, directionY,
-                    Math.min(Math.hypot(aimX - player.x, aimY - player.y), weapon.range()));
+                    Math.min(Math.hypot(aimX - player.x, aimY - player.y), weapon.range()), world.unlockedAreas());
             events.hit(player.id, "bat", player.x, player.y,
                     player.x + directionX * effectDistance, player.y + directionY * effectDistance,
                     0, false, 0, false, null);
@@ -95,7 +97,7 @@ final class CombatSystem {
         double length = Math.hypot(dx, dy);
         if (length < .001) return;
         dx /= length; dy /= length;
-        double range = GameMap.distanceToWall(drone.x, drone.y, dx, dy, DroneRules.RANGE);
+        double range = GameMap.distanceToWall(drone.x, drone.y, dx, dy, DroneRules.RANGE, world.unlockedAreas());
         Enemy hit = DroneRules.hit(world.enemies(), drone.x, drone.y, dx, dy, range);
         double dealt = 0;
         if (hit != null) {
@@ -141,7 +143,7 @@ final class CombatSystem {
         WeaponStats stats = WeaponCatalog.stats("railgun");
         while (player.railgunTick + 1e-9 >= GameConfig.RAILGUN_TICK) {
             player.railgunTick -= GameConfig.RAILGUN_TICK;
-            double range = GameMap.distanceToWall(player.x, player.y, player.railgunDx, player.railgunDy, stats.range());
+            double range = GameMap.distanceToWall(player.x, player.y, player.railgunDx, player.railgunDy, stats.range(), world.unlockedAreas());
             for (Player target : friendlyRayTargets(player, player.x, player.y,
                     player.railgunDx, player.railgunDy, stats, range)) {
                 world.damagePlayer(target, stats.damage() * GameConfig.RAILGUN_TICK);
@@ -149,7 +151,7 @@ final class CombatSystem {
             // Copy: damage can spawn world.enemies(), so newly spawned world.enemies() enter on the next tick.
             for (Enemy enemy : List.copyOf(world.enemies())) {
                 if (enemy.hp <= 0 || !isInsideAttack(enemy, player.x, player.y, player.railgunDx, player.railgunDy, stats, range)
-                        || !GameMap.hasClearLine(player.x, player.y, enemy.x, enemy.y)) continue;
+                        || !GameMap.hasClearLine(player.x, player.y, enemy.x, enemy.y, world.unlockedAreas())) continue;
                 int before = player.credits;
                 double dealt = damageEnemy(enemy, stats.damage() * GameConfig.RAILGUN_TICK, player);
                 events.hit(player.id, "railgun", player.x, player.y, enemy.x, enemy.y,
@@ -165,7 +167,7 @@ final class CombatSystem {
     }
 
     void fireRocket(Player player, WeaponStats weapon, double dx, double dy, double range) {
-        double impactDistance = GameMap.distanceToWall(player.x, player.y, dx, dy, range);
+        double impactDistance = GameMap.distanceToWall(player.x, player.y, dx, dy, range, world.unlockedAreas());
         // Stop at the first enemy body; unlike bullets, the rocket detonates instead of piercing.
         for (Enemy enemy : world.enemies()) {
             if (enemy.hp <= 0) continue;
@@ -192,14 +194,14 @@ final class CombatSystem {
         for (Player target : world.players()) {
             double blastDistance = distance(x, y, target.x, target.y);
             if (JobRules.canHitDisguisedAlly(player, target) && blastDistance <= GameConfig.ROCKET_BLAST_RADIUS
-                    && GameMap.hasClearLine(x, y, target.x, target.y)) {
+                    && GameMap.hasClearLine(x, y, target.x, target.y, world.unlockedAreas())) {
                 world.damagePlayer(target, weapon.damage() * (1 - .5 * blastDistance / GameConfig.ROCKET_BLAST_RADIUS));
             }
         }
         for (Enemy enemy : world.enemies()) {
             double blastDistance = distance(x, y, enemy.x, enemy.y);
             if (enemy.hp <= 0 || blastDistance > GameConfig.ROCKET_BLAST_RADIUS
-                    || !GameMap.hasClearLine(x, y, enemy.x, enemy.y)) continue;
+                    || !GameMap.hasClearLine(x, y, enemy.x, enemy.y, world.unlockedAreas())) continue;
             // Full damage at the center, half damage at the edge; no headshot multiplier.
             double damage = weapon.damage() * (1 - .5 * blastDistance / GameConfig.ROCKET_BLAST_RADIUS);
             int creditsBefore = player.credits;
@@ -214,7 +216,7 @@ final class CombatSystem {
         // All reflected segments share one distance budget, including the wall clearance.
         double x = player.x, y = player.y, remaining = weapon.range();
         for (int bounce = 0; bounce <= 2 && remaining > .01; bounce++) {
-            GameMap.WallImpact wall = GameMap.rayWall(x, y, dx, dy, remaining);
+            GameMap.WallImpact wall = GameMap.rayWall(x, y, dx, dy, remaining, world.unlockedAreas());
             double length = Math.max(0, wall.distance() - .001);
             if (fireSegment(player, weapon, x, y, dx, dy, length)) return;
             remaining -= wall.distance();
@@ -229,7 +231,7 @@ final class CombatSystem {
 
     void fireRay(Player player, WeaponStats weapon, double directionX, double directionY) {
         double shotDistance = GameMap.distanceToWall(player.x, player.y,
-                directionX, directionY, weapon.range());
+                directionX, directionY, weapon.range(), world.unlockedAreas());
         fireSegment(player, weapon, player.x, player.y, directionX, directionY, shotDistance);
     }
 
@@ -239,7 +241,7 @@ final class CombatSystem {
         double endY = originY + directionY * shotDistance;
         List<Enemy> candidates = world.enemies().stream().filter(enemy -> enemy.hp > 0)
                 .filter(enemy -> isInsideAttack(enemy, originX, originY, directionX, directionY, weapon, shotDistance))
-                .filter(enemy -> GameMap.hasClearLine(originX, originY, enemy.x, enemy.y))
+                .filter(enemy -> GameMap.hasClearLine(originX, originY, enemy.x, enemy.y, world.unlockedAreas()))
                 .sorted(Comparator.comparingDouble(enemy ->
                         (enemy.x - originX) * directionX + (enemy.y - originY) * directionY)).toList();
         boolean piercing = WeaponCatalog.find(player.weapon).piercing();
@@ -290,7 +292,7 @@ final class CombatSystem {
             double dx, double dy, WeaponStats weapon, double range) {
         return world.players().stream().filter(target -> JobRules.canHitDisguisedAlly(shooter, target))
                 .filter(target -> isInsideAttack(target.x, target.y, 12, originX, originY, dx, dy, weapon, range))
-                .filter(target -> GameMap.hasClearLine(originX, originY, target.x, target.y))
+                .filter(target -> GameMap.hasClearLine(originX, originY, target.x, target.y, world.unlockedAreas()))
                 .sorted(Comparator.comparingDouble(target -> (target.x - originX) * dx + (target.y - originY) * dy)).toList();
     }
 

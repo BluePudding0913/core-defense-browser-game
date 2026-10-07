@@ -170,7 +170,8 @@ final class SnapshotBuilder {
                     .append(",\"railgunDx\":").append(player.railgunDx)
                     .append(",\"railgunDy\":").append(player.railgunDy)
                     .append(",\"railgunRange\":").append(player.railgunRemaining > 0
-                        ? GameMap.distanceToWall(player.x, player.y, player.railgunDx, player.railgunDy, GameSession.weaponStats("railgun").range()) : 0);
+                        ? GameMap.distanceToWall(player.x, player.y, player.railgunDx, player.railgunDy,
+                            GameSession.weaponStats("railgun").range(), game.unlockedAreas) : 0);
             json.append(",\"stamina\":").append(roundOne(player.stamina))
                     .append(",\"dashing\":").append(player.dashing);
             json.append(",\"job\":\"").append(player.job).append('"')

@@ -118,6 +118,7 @@ final class GameSession {
         this.gameEffects = new GameEffects(events);
         this.combat = new CombatSystem(new CombatSystem.World() {
             public boolean canAttack() { return canMove(); }
+            public Set<String> unlockedAreas() { return unlockedAreas; }
             public List<Enemy> enemies() { return enemies; }
             public List<Player> players() { return players; }
             public void damagePlayer(Player player, double damage) { GameSession.this.damagePlayer(player, damage); }
@@ -1031,7 +1032,7 @@ final class GameSession {
             } else if (Set.of("turret","copperTurret","silverTurret").contains(defense.type) && defense.cooldown <= 0) {
                 Enemy target = enemies.stream()
                         .filter(enemy -> enemy.hp > 0 && distance(slot.x, slot.y, enemy.x, enemy.y) <= (defense.type.equals("silverTurret") ? 380 : 300))
-                        .filter(enemy -> GameMap.hasClearLine(slot.x, slot.y, enemy.x, enemy.y))
+                        .filter(enemy -> GameMap.hasClearLine(slot.x, slot.y, enemy.x, enemy.y, unlockedAreas))
                         .min(Comparator.comparingDouble(enemy -> distance(enemy.x, enemy.y, coreX, coreY)))
                         .orElse(null);
                 if (target != null) {
