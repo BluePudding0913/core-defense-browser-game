@@ -153,7 +153,7 @@ final class GameSession {
             assigned.reconnectGrace = 0;
             if (!rejoining) {
                 assigned.job = JobRules.DEFAULT;
-                assigned.spyRemaining = assigned.jobCooldown = 0;
+                assigned.spyRemaining = assigned.jobCooldown = assigned.scoutDashRemaining = 0;
                 assigned.teleportPads.clear();
                 assigned.sessionId = reconnectId;
                 assigned.lastProcessedInput = 0;
@@ -176,6 +176,7 @@ final class GameSession {
         player.moveY = 0;
         player.dashHeld = false;
         player.dashing = false;
+        player.scoutDashRemaining = 0;
         player.firing = false;
         releaseCarriedCore(player);
         cancelAction(player);
@@ -213,6 +214,8 @@ final class GameSession {
             }
             case "JOB" -> { if (parts.length >= 2) selectJob(player, parts[1]); }
             case "JOB_ABILITY" -> useJobAbility(player);
+            case "SCOUT_DASH" -> { if (parts.length >= 3) useScoutDash(player,
+                    Double.parseDouble(parts[1]), Double.parseDouble(parts[2])); }
             case "TELEPORT" -> useTeleport(player);
             case "PICKUP_TELEPORT" -> {
                 if (parts.length >= 3) pickupTeleport(player, new MapPoint(
@@ -362,7 +365,7 @@ final class GameSession {
         if (player.job.equals(job)) return;
         player.job = job;
         player.roomReady = false;
-        player.spyRemaining = player.jobCooldown = 0;
+        player.spyRemaining = player.jobCooldown = player.scoutDashRemaining = 0;
         player.teleportPads.clear();
     }
 
@@ -373,6 +376,21 @@ final class GameSession {
             player.spyRemaining = JobRules.SPY_DURATION;
             player.jobCooldown = JobRules.SPY_COOLDOWN;
         }
+    }
+
+    private void useScoutDash(Player player, double targetX, double targetY) {
+        if (!canMove() || !JobRules.canScoutDash(player.job, player.down, player.movingCore,
+                player.selectedBuild != null, player.railgunRemaining > 0 || player.railgunCharge > 0,
+                player.jobCooldown, player.stamina)) return;
+        MapPoint direction = JobRules.scoutDashDirection(player.x, player.y, targetX, targetY);
+        if (direction == null) return;
+        player.scoutDashDx = direction.x(); player.scoutDashDy = direction.y();
+        player.scoutDashRemaining = JobRules.SCOUT_DASH_DURATION;
+        player.jobCooldown = JobRules.SCOUT_DASH_COOLDOWN;
+        player.stamina -= JobRules.SCOUT_DASH_STAMINA;
+        player.dashing = false;
+        updateFacing(player, direction.x(), direction.y());
+        cancelAction(player);
     }
 
     private void placeTeleport(Player player, MapPoint point) {
@@ -419,6 +437,7 @@ final class GameSession {
             return;
         }
         player.x = destination.x(); player.y = destination.y();
+        player.scoutDashRemaining = 0;
         player.teleportCooldown = 1.5;
         cancelAction(player);
     }
@@ -589,6 +608,22 @@ final class GameSession {
 
     private void updatePlayers(double dt) {
         for (Player player : players) {
+            if (player.scoutDashRemaining > 0) {
+                if (player.down || player.movingCore || player.selectedBuild != null
+                        || player.railgunRemaining > 0 || player.railgunCharge > 0) {
+                    player.scoutDashRemaining = 0;
+                } else {
+                    double travel = JobRules.SCOUT_DASH_SPEED * Math.min(dt, player.scoutDashRemaining);
+                    MapPoint next = JobRules.advanceScoutDash(player.x, player.y,
+                            player.scoutDashDx, player.scoutDashDy, travel, (x, y) -> canOccupy(x, y, 5));
+                    boolean blocked = distance(player.x, player.y, next.x(), next.y()) + .001 < travel;
+                    player.x = next.x(); player.y = next.y();
+                    player.scoutDashRemaining = blocked ? 0 : Math.max(0, player.scoutDashRemaining - dt);
+                    if (player.scoutDashRemaining < 1e-9) player.scoutDashRemaining = 0;
+                    player.dashing = false;
+                    continue;
+                }
+            }
             double input = Math.hypot(player.moveX, player.moveY);
             if (player.dashExhausted && player.stamina >= 28) player.dashExhausted = false;
             player.dashing = player.railgunRemaining <= 0 && player.railgunCharge <= 0 && !player.down && !player.movingCore
@@ -2271,6 +2306,7 @@ final class GameSession {
         player.movingCore = true;
         player.dashHeld = false;
         player.dashing = false;
+        player.scoutDashRemaining = 0;
         player.selectedBuild = null;
         player.firing = false;
         coreX = player.x;
@@ -2625,6 +2661,7 @@ final class GameSession {
             player.moveY = 0;
             player.dashHeld = false;
             player.dashing = false;
+            player.scoutDashRemaining = 0;
             player.firing = false;
             releaseCarriedCore(player);
             setNotice(player.name + "がダウンしました");
@@ -2690,6 +2727,7 @@ final class GameSession {
             player.down = false;
             player.dashHeld = false;
             player.dashing = false;
+            player.scoutDashRemaining = 0;
             player.dashExhausted = false;
             player.stamina = 100;
             player.spyRemaining = 0;

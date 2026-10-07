@@ -29,7 +29,13 @@ jobSelect.addEventListener("click", event => {
     const job = event.target.closest("[data-job]")?.dataset.job;
     if (job) send(`JOB:${job}`);
 });
-jobAbilityButton.addEventListener("click", () => send("JOB_ABILITY"));
+jobAbilityButton.addEventListener("click", () => {
+    const me = getMe();
+    if (me?.job === "scout") {
+        const origin = predictedLocal || me;
+        requestScoutDash({ x: origin.x + localFacing.x * 100, y: origin.y + localFacing.y * 100 });
+    } else send("JOB_ABILITY");
+});
 const roomCode = document.querySelector("#room-code");
 const roomOwner = document.querySelector("#room-owner");
 const createRoomButton = document.querySelector("#create-room");
@@ -853,10 +859,12 @@ function updateHud() {
         : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}`
             : "";
     const me = getMe();
-    jobAbilityButton.classList.toggle("hidden", me?.job !== "spy");
+    const abilityLabel = me?.job === "scout" ? "ダッシュ" : "偽装";
+    jobAbilityButton.classList.toggle("hidden", !["spy", "scout"].includes(me?.job));
     jobAbilityButton.textContent = me?.spyRemaining > 0 ? `偽装 ${Math.ceil(me.spyRemaining)}s`
-        : me?.jobCooldown > 0 ? `偽装 ${Math.ceil(me.jobCooldown)}s` : "偽装";
-    jobAbilityButton.disabled = !me || me.down || me.movingCore || Boolean(me.selectedBuild) || me.jobCooldown > 0;
+        : me?.jobCooldown > 0 ? `${abilityLabel} ${Math.ceil(me.jobCooldown)}s` : abilityLabel;
+    jobAbilityButton.disabled = !me || me.down || me.movingCore || Boolean(me.selectedBuild) || me.jobCooldown > 0
+        || (me.job === "scout" && (me.stamina < me.scoutDashStamina || me.railgunRemaining > 0 || me.railgunCharge > 0));
     teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">
             <div class="teammate-label">
@@ -1131,12 +1139,12 @@ function reconcileLocalPrediction(snapshot) {
     if (!predictedLocal) {
         predictedLocal = { x: serverMe.x, y: serverMe.y, stamina: serverMe.stamina, dashing: serverMe.dashing, exhausted: false };
         localFacing = { x: serverMe.facingX, y: serverMe.facingY };
-        return;
     }
     const errorX = serverMe.x - predictedLocal.x;
     const errorY = serverMe.y - predictedLocal.y;
     const error = Math.hypot(errorX, errorY);
-    if (error > 120 || !["preparing", "wave"].includes(snapshot.phase)) {
+    if (error > 120 || serverMe.scoutDashRemaining > 0 || predictedLocal.scoutDashRemaining > 0
+            || !["preparing", "wave"].includes(snapshot.phase)) {
         predictedLocal.x = serverMe.x;
         predictedLocal.y = serverMe.y;
     } else {
@@ -1147,6 +1155,9 @@ function reconcileLocalPrediction(snapshot) {
         predictedLocal.y += errorY * correction;
     }
     predictedLocal.stamina += (serverMe.stamina - predictedLocal.stamina) * .4;
+    predictedLocal.scoutDashRemaining = serverMe.scoutDashRemaining || 0;
+    predictedLocal.scoutDashDx = serverMe.scoutDashDx || 0;
+    predictedLocal.scoutDashDy = serverMe.scoutDashDy || 0;
     if (Math.hypot(localMove.x, localMove.y) <= .12) {
         localFacing = { x: serverMe.facingX, y: serverMe.facingY };
     }
@@ -1424,6 +1435,24 @@ function worldFromScreen(clientX, clientY) {
     const py = (clientY - rect.top) * canvas.height / rect.height;
     return { x: camera.x + (px - canvas.width / 2) / scale, y: camera.y + (py - canvas.height / 2) / scale };
 }
+
+function requestScoutDash(point) {
+    const me = getMe();
+    if (!me || me.job !== "scout" || !["preparing", "wave"].includes(state.phase)
+            || me.down || me.movingCore || me.selectedBuild || me.jobCooldown > 0
+            || me.stamina < me.scoutDashStamina || me.railgunRemaining > 0 || me.railgunCharge > 0
+            || exitDialog.open || !howToMenu.classList.contains("hidden")
+            || !inventoryMenu.classList.contains("hidden") || !actionMenu.classList.contains("hidden")) return;
+    send(`SCOUT_DASH:${point.x.toFixed(1)}:${point.y.toFixed(1)}`);
+}
+
+// Mouse down also fires when the left button is held, allowing a dash while shooting.
+canvas.addEventListener("mousedown", event => {
+    if (event.button !== 2) return;
+    event.preventDefault();
+    canvas.focus({ preventScroll: true });
+    requestScoutDash(worldFromScreen(event.clientX, event.clientY));
+});
 
 canvas.addEventListener("pointerdown", event => {
     if (!state || !getMe()) return;
@@ -1729,6 +1758,18 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 function updateLocalPrediction(dt) {
     const serverMe = getMe();
     if (!predictedLocal || !serverMe || !["preparing", "wave"].includes(state.phase)) return;
+    if (predictedLocal.scoutDashRemaining > 0 && !serverMe.down && !serverMe.movingCore
+            && !serverMe.selectedBuild && !(serverMe.railgunRemaining > 0 || serverMe.railgunCharge > 0)) {
+        const travel = serverMe.scoutDashSpeed * Math.min(dt, predictedLocal.scoutDashRemaining);
+        const next = window.ScoutMovement.advance(predictedLocal, predictedLocal.scoutDashDx,
+            predictedLocal.scoutDashDy, travel, serverMe.scoutDashStep, canPredictOccupy);
+        predictedLocal.x = next.x; predictedLocal.y = next.y;
+        predictedLocal.scoutDashRemaining = next.blocked ? 0 : Math.max(0, predictedLocal.scoutDashRemaining - dt);
+        if (predictedLocal.scoutDashRemaining < 1e-9) predictedLocal.scoutDashRemaining = 0;
+        predictedLocal.dashing = false;
+        return;
+    }
+    predictedLocal.scoutDashRemaining = 0;
     const input = Math.hypot(localMove.x, localMove.y);
     if (predictedLocal.exhausted && predictedLocal.stamina >= 28) predictedLocal.exhausted = false;
     predictedLocal.dashing = !(serverMe.railgunRemaining > 0 || serverMe.railgunCharge > 0) && !serverMe.down && !serverMe.movingCore
