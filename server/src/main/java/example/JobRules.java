@@ -48,6 +48,10 @@ final class JobRules {
         return player.job.equals("spy") && !player.down && player.spyRemaining > 0;
     }
 
+    static boolean avoidsContactDamage(Player player) {
+        return disguised(player) || (player.job.equals("scout") && !player.down && player.scoutDashRemaining > 0);
+    }
+
     static boolean canHitDisguisedAlly(Player shooter, Player target) {
         return shooter != target && disguised(target);
     }

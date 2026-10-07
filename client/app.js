@@ -29,13 +29,7 @@ jobSelect.addEventListener("click", event => {
     const job = event.target.closest("[data-job]")?.dataset.job;
     if (job) send(`JOB:${job}`);
 });
-jobAbilityButton.addEventListener("click", () => {
-    const me = getMe();
-    if (me?.job === "scout") {
-        const origin = predictedLocal || me;
-        requestScoutDash({ x: origin.x + localFacing.x * 100, y: origin.y + localFacing.y * 100 });
-    } else send("JOB_ABILITY");
-});
+jobAbilityButton.addEventListener("click", () => send("JOB_ABILITY"));
 const roomCode = document.querySelector("#room-code");
 const roomOwner = document.querySelector("#room-owner");
 const createRoomButton = document.querySelector("#create-room");
@@ -859,12 +853,10 @@ function updateHud() {
         : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}`
             : "";
     const me = getMe();
-    const abilityLabel = me?.job === "scout" ? "ダッシュ" : "偽装";
-    jobAbilityButton.classList.toggle("hidden", !["spy", "scout"].includes(me?.job));
+    jobAbilityButton.classList.toggle("hidden", me?.job !== "spy");
     jobAbilityButton.textContent = me?.spyRemaining > 0 ? `偽装 ${Math.ceil(me.spyRemaining)}s`
-        : me?.jobCooldown > 0 ? `${abilityLabel} ${Math.ceil(me.jobCooldown)}s` : abilityLabel;
-    jobAbilityButton.disabled = !me || me.down || me.movingCore || Boolean(me.selectedBuild) || me.jobCooldown > 0
-        || (me.job === "scout" && (me.stamina < me.scoutDashStamina || me.railgunRemaining > 0 || me.railgunCharge > 0));
+        : me?.jobCooldown > 0 ? `偽装 ${Math.ceil(me.jobCooldown)}s` : "偽装";
+    jobAbilityButton.disabled = !me || me.down || me.movingCore || Boolean(me.selectedBuild) || me.jobCooldown > 0;
     teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">
             <div class="teammate-label">

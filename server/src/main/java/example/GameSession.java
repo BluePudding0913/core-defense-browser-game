@@ -1119,7 +1119,7 @@ final class GameSession {
                 if (targetDistance <= 36) {
                     if (!GameMap.hasClearLine(enemy.x, enemy.y, playerTarget.x, playerTarget.y)) continue;
                     if (enemy.attackCooldown <= 0) {
-                        if (!JobRules.disguised(playerTarget)) damagePlayer(playerTarget, enemy.damage);
+                        if (!JobRules.avoidsContactDamage(playerTarget)) damagePlayer(playerTarget, enemy.damage);
                         enemy.attackCooldown = 0.9;
                     }
                 } else {

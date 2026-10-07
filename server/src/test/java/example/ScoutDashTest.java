@@ -111,4 +111,33 @@ class ScoutDashTest extends JobsTest {
         var direction = JobRules.scoutDashDirection(0, 0, 3, 4);
         assertEquals(.6, direction.x()); assertEquals(.8, direction.y());
     }
+
+    @Test void burstPreventsEnemyContactAndProtectionEndsWithBurst() throws Exception {
+        scout();
+        game.players.stream().filter(p -> p != player).forEach(p -> { p.x = 1220; p.y = 1900; });
+        Enemy enemy = new Enemy(99, "grunt", GameMap.SPAWN_POINTS.get(0), 100, 0, 10, 0);
+        enemy.x = player.x + 10; enemy.y = player.y; game.enemies.add(enemy);
+        game.phase = GamePhase.WAVE; game.queuedEnemies = 1;
+        game.handleMessage(player, "SCOUT_DASH:1500:1900");
+        call("updateEnemies", new Class<?>[]{double.class}, .05);
+        assertEquals(100, player.hp);
+        assertEquals(0, player.medbayDamageDelay);
+        move(.2); enemy.x = player.x + 10; enemy.attackCooldown = 0;
+        call("updateEnemies", new Class<?>[]{double.class}, .05);
+        assertEquals(90, player.hp);
+        assertEquals(GameConfig.MEDBAY_DAMAGE_DELAY, player.medbayDamageDelay);
+    }
+
+    @Test void sprintAndOtherJobsStillTakeContactAndBurstStillTakesAreaDamage() throws Exception {
+        scout();
+        player.dashing = true;
+        assertFalse(JobRules.avoidsContactDamage(player));
+        player.scoutDashRemaining = .1;
+        assertTrue(JobRules.avoidsContactDamage(player));
+        player.job = "healer";
+        assertFalse(JobRules.avoidsContactDamage(player));
+        player.job = "scout";
+        call("damagePlayer", new Class<?>[]{Player.class, double.class}, player, 10.0);
+        assertEquals(90, player.hp, "other damage sources remain effective during burst");
+    }
 }
