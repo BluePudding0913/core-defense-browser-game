@@ -17,7 +17,6 @@ window.JobUI = (() => {
             <div class="job-list" role="group" aria-label="ジョブ">${Object.entries(jobs).map(([id, job]) =>
                 `<button type="button" data-action="job" data-job="${escape(id)}" aria-pressed="${job === current}" aria-controls="${escape(detailId)}" ${disabled ? "disabled" : ""}>${escape(job.name)}</button>`).join("")}</div>
             <section id="${escape(detailId)}" class="job-detail" aria-live="polite" aria-atomic="true" aria-label="選択中のジョブ">
-                <h3>${escape(current.name)}</h3>
                 <p>${escape(current.description || "")}</p>
             </section>
         </div>`;
