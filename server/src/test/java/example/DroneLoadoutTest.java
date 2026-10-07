@@ -177,4 +177,25 @@ class DroneLoadoutTest {
         command("EQUIP_BUILD:drone"); command("DRONE_LAUNCH:smg");
         command("FIRE:1400:1900:1"); assertEquals(2, player.weapons.ammo("smg"));
     }
+
+    @Test void droneHalvesKillAndHeadshotGoldCarriesOddAmountsAndReportsActualPayout() {
+        launch();
+        for (int id = 1; id <= 2; id++) {
+            Enemy target = new Enemy(id, "grunt", GameMap.SPAWN_POINTS.get(0), 40, 0, 0, 10);
+            target.x = 1240; target.y = 1900; game.enemies.add(target);
+            player.drone.cooldown = 0; effects.clear();
+            command("FIRE:1240:1889.5:0"); command("FIRE:1240:1889.5:1");
+            assertEquals(0, target.hp); assertEquals(10, target.paidCredits);
+            int payout = id == 1 ? 6 : 7;
+            assertEquals(id == 1 ? 6 : 13, player.credits);
+            assertTrue(effects.stream().anyMatch(s -> s.contains("\"headshot\":true") && s.contains("\"credits\":" + payout)));
+        }
+        assertEquals(2, player.kills);
+        command("JOB_ABILITY");
+        Enemy normal = new Enemy(3, "grunt", GameMap.SPAWN_POINTS.get(0), 40, 0, 0, 10);
+        normal.x = 1240; normal.y = 1900; game.enemies.add(normal);
+        command("FIRE:1240:1889.5:1"); assertEquals(26, player.credits, "body shots still earn full gold");
+        player.droneRewardRemainder = 1;
+        game.phase = GamePhase.LOST; command("START"); assertEquals(0, player.droneRewardRemainder);
+    }
 }

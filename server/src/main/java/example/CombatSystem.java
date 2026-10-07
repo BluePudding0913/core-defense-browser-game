@@ -291,7 +291,7 @@ final class CombatSystem {
             double damage = weapon.damage() * (headshot ? 2 : 1);
             if (WeaponCatalog.find(shotWeapon(player)).mode() != WeaponCatalog.AttackMode.MELEE) damage = hit.shieldedDamage(damage, originX, originY);
             double dealt = damageEnemy(hit, damage, player);
-            if (headshot) player.credits += 3;
+            if (headshot) awardCredits(player, 3);
             knockbackEnemy(originX, originY, hit, weapon.knockback());
             events.hit(player.id, shotWeapon(player), shotX(player), shotY(player), hit.x, hit.y,
                     dealt, hit.hp <= 0, player.credits - creditsBeforeHit, headshot, hit.id);
@@ -374,7 +374,7 @@ final class CombatSystem {
                     (int) Math.floor(enemy.creditProgress + 1e-9));
             int payout = earnedCredits - enemy.paidCredits;
             if (payout > 0) {
-                player.credits += payout;
+                awardCredits(player, payout);
                 enemy.paidCredits += payout;
             }
             if (enemy.hp <= 0) player.kills++;
@@ -382,6 +382,15 @@ final class CombatSystem {
         if (enemy.hp <= 0) world.onEnemyDefeated(enemy);
         // Report the mitigated hit strength, retaining ordinary overkill feedback.
         return damage;
+    }
+
+    private void awardCredits(Player player, int amount) {
+        if (droneShot != null && droneShot.owner == player) {
+            // Carry half-gold between payouts so small hits and odd bonuses still earn half overall.
+            int total = amount + player.droneRewardRemainder;
+            player.credits += total / 2;
+            player.droneRewardRemainder = total % 2;
+        } else player.credits += amount;
     }
 
     private void knockbackEnemy(double fromX, double fromY, Enemy enemy, double amount) {

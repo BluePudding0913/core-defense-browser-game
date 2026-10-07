@@ -73,6 +73,7 @@ final class Player {
     int mineItems;
     int barricadeItems;
     int credits;
+    int droneRewardRemainder;
     final java.util.Map<String, Integer> quarryItems = new java.util.HashMap<>();
     String selectedBuild;
     boolean movingCore;

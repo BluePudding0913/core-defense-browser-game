@@ -87,7 +87,7 @@ class DroneOperatorTest {
         launch(); player.cooldown = 5;
         game.handleMessage(player, "FIRE:1400:1900:1");
         assertEquals(74, hit.hp); assertEquals(100, behind.hp);
-        assertEquals(26, player.credits);
+        assertEquals(13, player.credits);
         assertSame(player, DroneRules.target(hit, game.players));
         assertNull(DroneRules.target(behind, game.players));
         game.handleMessage(player, "ATTACK");
