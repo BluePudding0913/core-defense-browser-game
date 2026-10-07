@@ -545,6 +545,7 @@ function receiveState(next) {
     reconcileDroneSmoothing(next);
     reconcileEnemySmoothing(next);
     state = next;
+    if (getMe()?.drone?.controlled) slotPopup.classList.add("hidden");
     if (controlChanged) {
         if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
         endInteractionHold(true);
@@ -764,7 +765,7 @@ function selectEquipment(entry) {
 
 function showEquipmentPopup(selectedKey) {
     const me = getMe();
-    if (!me) return;
+    if (!me || me.drone?.controlled) return;
     const entries = equipmentEntries(me);
     slotPopup.innerHTML = entries.map((entry, index) => {
         const amount = entry.kind === "build" && entry.value !== "drone" ? ` ×${me.buildItems?.[entry.value] || 0}` : "";
@@ -778,7 +779,7 @@ function showEquipmentPopup(selectedKey) {
 function cycleEquipment(direction = 1) {
     const me = getMe();
     if (!me) return;
-    if (me.movingCore) return;
+    if (me.movingCore || me.drone?.controlled) return;
     const entries = equipmentEntries(me).filter(entry => entry.kind !== "item");
     const selectedKey = me.movingCore ? "core"
         : me.selectedBuild ? `build:${me.selectedBuild}` : `weapon:${me.weapon}`;
