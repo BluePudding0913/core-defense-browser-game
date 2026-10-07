@@ -4,7 +4,10 @@
 #menu-ui[hidden] { display: none; }
 #menu-ui { position: fixed; inset: 0; z-index: 9; overflow-y: auto; background: #101010; padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); }
 #menu-ui .ui-shell { min-height: 100%; display: grid; align-content: start; justify-items: center; padding-top: max(200px, calc(50dvh - 48px)); }
-/* Every page starts its actions at the home navigation's first row. */
+/* Settings need room for the full form above the fold. */
+#menu-ui .ui-shell.ui-settings { padding-top: clamp(8px, calc(100dvh - 660px), 64px); }
+#menu-ui .ui-settings form > input { position: static; }
+/* Other pages start their actions at the home navigation's first row. */
 #menu-ui .ui-content { position: relative; width: min(22rem, 100%); text-align: center; display: grid; gap: .55rem; }
 #menu-ui h1 { position: absolute; bottom: 100%; left: 0; right: 0; margin: 0 0 clamp(40px, 12vh, 100px); color: #fff; font: 800 clamp(1.5rem, 4vw, 2rem) ui-monospace, monospace; letter-spacing: .11em; text-align: center; }
 #menu-ui h2 { position: absolute; bottom: calc(100% + 84px); left: 0; right: 0; margin: 0; font-size: 1rem; text-align: center; outline: none; }
