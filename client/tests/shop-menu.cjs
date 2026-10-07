@@ -15,17 +15,24 @@ const actionOptions = { children: [],
     replaceChildren() { this.children = []; }, append(button) { this.children.push(button); } };
 const me = { credits: 500, medkits: 0, ownsShotgun: false, shotgunAmmo: 0 };
 const commands = [];
+const materials = { hidden: true, textContent: '' };
 let nearby = true;
 const context = vm.createContext({
     actionMenu, actionOptions, actionTitle: {}, activeMenuAccess: null,
-    document: { querySelector: () => ({}), createElement: () => ({
+    document: { querySelector: () => materials, createElement: () => ({
         dataset: {}, innerHTML: '', addEventListener(event, handler) { this[event] = handler; },
     }) },
     getMe: () => me, canUseNearby: () => nearby, escapeHtml: value => value,
-    send: command => commands.push(command), updateWorkbenchMaterials() {},
+    send: command => commands.push(command),
     WeaponUI: require('../weapon-ui.js'),
     WEAPON_FIELDS: { shotgun: { owned: 'ownsShotgun', ammo: 'shotgunAmmo', capacity: 12, refillCost: 120 } },
-    WEAPON_AMMO_REFILL_COST: 120, INTERACTION_RANGE: { shop: 70 },
+    WEAPON_AMMO_REFILL_COST: 120, INTERACTION_RANGE: { shop: 70, workbench: 70 },
+    RESOURCE_NAMES: { wood: 'WOOD', ore: 'ORE' },
+    BUILD_INFO: {
+        block: { name: 'BLOCK', description: 'Wall', wood: 2 },
+        turret: { name: 'TURRET', description: 'Defense', ore: 3 },
+        woodFactory: { name: 'FACTORY', shopOnly: true },
+    },
     state: { rules: { medkitCapacity: 3 } },
     applyRules() {}, keepEndArea: () => false, hideScreenIntro() {}, window: {},
     previousPhase: 'preparing', previousRound: 1, lastCoreHp: 100,
@@ -34,7 +41,8 @@ const context = vm.createContext({
     menu: { classList: { add() {} } }, hud: { classList: { remove() {} } },
     inventoryMenu: { classList: { add() {} } },
 });
-for (const name of ['openActionMenu', 'openNearbyActionMenu', 'closeActionMenu', 'openShopPurchase', 'receiveState']) {
+for (const name of ['openActionMenu', 'openNearbyActionMenu', 'closeActionMenu', 'openShopPurchase',
+    'openWorkbenchMenu', 'updateWorkbenchMaterials', 'receiveState']) {
     vm.runInContext(extract(name), context);
 }
 const run = code => vm.runInContext(code, context);
@@ -91,4 +99,46 @@ assert(classes.has('hidden'), 'other actions keep their existing close behavior'
 run('openShopPurchase(shop); closeActionMenu()');
 assert.equal(context.activeMenuAccess, null);
 assert(classes.has('hidden'), 'manual close clears the refresh callback');
-console.log('Shop menu passed: purchases/refills stay open, live availability, stable buttons and closing');
+me.wood = 4; me.ore = 3;
+context.workbench = { x: 0, y: 0 };
+run('openWorkbenchMenu(workbench)');
+assert.equal(actionOptions.children.length, 2, 'shop-only items stay out of the workbench');
+assert.equal(materials.textContent, '所持材料：WOOD 4 / ORE 3');
+assert(!materials.hidden);
+const craftButton = actionOptions.children[0];
+const turretButton = actionOptions.children[1];
+click();
+assert.equal(commands.at(-1), 'CRAFT:block');
+assert(!classes.has('hidden'), 'crafting keeps the workbench open');
+me.wood = 2;
+snapshot();
+assert.equal(actionOptions.children[0], craftButton, 'craft refresh preserves buttons and focus');
+assert(!craftButton.disabled);
+assert.equal(materials.textContent, '所持材料：WOOD 2 / ORE 3');
+click();
+me.wood = 0;
+snapshot();
+assert(craftButton.disabled, 'spent materials disable only the unavailable recipe');
+assert(!turretButton.disabled);
+const commandCount = commands.length;
+click();
+assert.equal(commands.length, commandCount, 'unavailable recipes do not send commands');
+turretButton.click();
+assert.equal(commands.at(-1), 'CRAFT:turret');
+assert(!classes.has('hidden'));
+me.ore = 0;
+snapshot();
+assert(turretButton.disabled);
+me.wood = 2;
+snapshot();
+assert(!craftButton.disabled, 'new materials re-enable crafting without reopening');
+nearby = false;
+snapshot();
+assert(classes.has('hidden'), 'moving away still closes the workbench');
+assert.equal(context.activeMenuAccess, null);
+nearby = true;
+run('openWorkbenchMenu(workbench); closeActionMenu()');
+snapshot();
+assert(classes.has('hidden'), 'snapshots do not reopen a manually closed workbench');
+assert.equal(context.activeMenuAccess, null);
+console.log('Shop/workbench menu passed: purchases/refills/crafts stay open, live availability, stable buttons and closing');

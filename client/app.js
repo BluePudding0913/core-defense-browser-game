@@ -1173,7 +1173,7 @@ function openActionMenu(title, options, layout = "default") {
             button.dataset.command = option.command || "";
             if (option.command) button.addEventListener("click", () => {
                 send(option.command);
-                if (!option.command.startsWith("BUY:")) closeActionMenu();
+                if (!option.command.startsWith("BUY:") && !option.command.startsWith("CRAFT:")) closeActionMenu();
             });
             actionOptions.append(button);
         }
@@ -1376,7 +1376,7 @@ function openWorkbenchMenu(workbench) {
         detail: `${info.description} — ${Object.entries(RESOURCE_NAMES).filter(([key]) => info[key] > 0).map(([key, name]) => `${name} ${info[key]}`).join(" / ")}`,
         command: `CRAFT:${type}`,
         disabled: Object.keys(RESOURCE_NAMES).some(key => (me[key] || 0) < (info[key] || 0)),
-    })), workbench, INTERACTION_RANGE.workbench, "workbench");
+    })), workbench, INTERACTION_RANGE.workbench, "workbench", () => openWorkbenchMenu(workbench));
 }
 
 function updateWorkbenchMaterials() {
