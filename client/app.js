@@ -2356,14 +2356,15 @@ function drawPlayers() {
         }
         ctx.fillStyle = hit || player.down ? "#ff5964" : player.id === myPlayerId ? "#79d8ff" : "#454545";
         const playerSize = 10;
-        if (player.spyRemaining > 0 && !player.down) {
+        const disguised = player.spyRemaining > 0 && !player.down;
+        if (disguised) {
             ctx.fillStyle = "#707070"; ctx.strokeStyle = "#c8c8c8"; ctx.lineWidth = 1.5;
             ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
             ctx.fillStyle = "#fff";
             ctx.fillRect(-6, -5, 3, 3); ctx.fillRect(3, -5, 3, 3);
             ctx.fillStyle = "#79d8ff"; ctx.fillRect(-2, 6, 4, 2);
         } else ctx.fillRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize);
-        if (player.id === myPlayerId) { ctx.strokeStyle = "white"; ctx.lineWidth = 1.5; ctx.strokeRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize); }
+        if (player.id === myPlayerId && !disguised) { ctx.strokeStyle = "white"; ctx.lineWidth = 1.5; ctx.strokeRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize); }
         if (player.selectedBuild?.endsWith("Factory") && player.buildItems?.[player.selectedBuild] > 0) {
             ctx.fillStyle = "#70bfff";
             ctx.fillRect(-9, -24, 18, 16);
