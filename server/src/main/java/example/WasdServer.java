@@ -109,6 +109,10 @@ public final class WasdServer extends WebSocketServer {
                 return;
             }
             boolean reconnecting = room.game.players.stream().anyMatch(p -> sessionId.equals(p.sessionId));
+            if ("1".equals(readQueryParameter(handshake.getResourceDescriptor(), "resume")) && !reconnecting) {
+                reject(connection, "復帰期限が切れました。新しく参加してください");
+                return;
+            }
             if (!reconnecting && room.game.phase != GamePhase.LOBBY) {
                 reject(connection, "このルームはプレイ中です");
                 return;
@@ -203,7 +207,7 @@ public final class WasdServer extends WebSocketServer {
                 }
             }
             if (room.playerConnections.isEmpty()) {
-                if (room.password == null && room.game.players.stream()
+                if (room.game.players.stream()
                         .anyMatch(p -> p.sessionId != null && p.reconnectGrace > 0)) {
                     room.emptySinceNanos = System.nanoTime();
                     room.reconnectPending = true;

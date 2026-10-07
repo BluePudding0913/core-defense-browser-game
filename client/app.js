@@ -124,26 +124,10 @@ let resolveMapReady;
 const mapReadyPromise = new Promise(resolve => { resolveMapReady = resolve; });
 const keys = new Set();
 const smoothed = new Map();
-const SESSION_STORAGE_KEY = "core-defense-session";
-const clientSessionId = loadClientSessionId();
+let clientSessionId = window.coreReconnect.session();
 let nextInputSequence = 1;
 let lastAcknowledgedInput = 0;
 let pendingInputs = [];
-
-function loadClientSessionId() {
-    const create = () => globalThis.crypto?.randomUUID?.()
-        || `session-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-    try {
-        let value = sessionStorage.getItem(SESSION_STORAGE_KEY);
-        if (!/^[A-Za-z0-9_-]{16,128}$/.test(value || "")) {
-            value = create();
-            sessionStorage.setItem(SESSION_STORAGE_KEY, value);
-        }
-        return value;
-    } catch {
-        return create();
-    }
-}
 
 function applyMap(map) {
     validateMap(map);
@@ -293,6 +277,7 @@ function connect() {
     if (connectionTarget.phrase) parameters.set("phrase", connectionTarget.phrase);
     if (connectionTarget.mode === "directory") parameters.set("directory", "1");
     else parameters.set("room", connectionTarget.roomId);
+    if (connectionTarget.resume) parameters.set("resume", "1");
     menuStatus.textContent = connectionTarget.mode === "directory"
         ? "ルーム一覧に接続しています…" : "ルームに接続しています…";
     socket = new WebSocket(`${protocol}://${host}:${serverPort}/?${parameters}`);
@@ -327,8 +312,10 @@ function connect() {
         if (message.type === "error" || message.type === "feedback") window.coreMenu?.status(message.message);
         if (message.type === "ammo-refilled") { closeActionMenu(); inventoryMenu.classList.add("hidden"); }
         if (message.type === "error" && !welcomed && connectionTarget.mode !== "directory" && window.coreMenu) {
+            window.coreReconnect?.forget(clientSessionId, connectionTarget.roomId);
             window.coreMenu.rejected();
             leaveRoom();
+            window.coreMenu.status(message.message);
             return;
         }
         if (message.type === "rooms") {
@@ -354,6 +341,9 @@ function connect() {
             welcomed = true;
             myPlayerId = message.playerId;
             connectionTarget.roomId = message.roomId;
+            window.coreReconnect?.remember(clientSessionId, message.roomId,
+                connectionTarget.phrase || "", nameInput.value || "Player");
+            window.coreMenu?.refreshResume();
             acknowledgeInputs(message.ackInput);
             nextInputSequence = Math.max(nextInputSequence, lastAcknowledgedInput + 1);
             lastMove = "";
@@ -376,8 +366,15 @@ function connect() {
             menuStatus.textContent = message.message;
         }
     });
-    socket.addEventListener("close", () => {
+    socket.addEventListener("close", event => {
         if (socket !== connectingSocket) return;
+        if (event?.code === 4000) {
+            // A newer tab now owns this player. Do not reconnect and steal it back.
+            clientSessionId = window.coreReconnect?.newSession() || clientSessionId;
+            leaveRoom(false);
+            window.coreMenu?.status("別のタブで再参加しました");
+            return;
+        }
         endInteractionHold(true);
         clearTimeout(connectionAttemptTimer);
         smoothed.clear();
@@ -419,7 +416,7 @@ function switchConnection(target) {
     connect();
 }
 
-function enterRoom(roomId) {
+function enterRoom(roomId, options = {}) {
     if (typeof roomId !== "string" || !roomId) return;
     setMenuView("lobby");
     hitEffects = [];
@@ -432,10 +429,11 @@ function enterRoom(roomId) {
     roomMembers.innerHTML = "";
     readyRoomButton.disabled = true;
     startButton.classList.add("hidden");
-    switchConnection({ mode: "room", roomId, phrase: window.coreMenu?.phrase || "" });
+    switchConnection({ mode: "room", roomId, phrase: window.coreMenu?.phrase || "", ...options });
 }
 
-function leaveRoom() {
+function leaveRoom(forget = true) {
+    if (forget) window.coreReconnect?.forget(clientSessionId, connectionTarget.roomId);
     keepEndArea({ phase: "lobby" });
     hideScreenIntro();
     previousPhase = undefined;
@@ -2516,6 +2514,14 @@ async function initialize() {
 }
 
 window.coreGame = {
+    resume() {
+        const saved = window.coreReconnect?.saved();
+        if (!saved) throw new Error("復帰できるゲームがありません");
+        clientSessionId = window.coreReconnect.adopt(saved.sessionId);
+        nameInput.value = saved.name;
+        if (window.coreMenu) window.coreMenu.phrase = saved.phrase;
+        enterRoom(saved.roomId, { phrase: saved.phrase, resume: true });
+    },
     match(action, password, name) {
         if (socket?.readyState !== WebSocket.OPEN || connectionTarget.mode !== "directory") {
             throw new Error("接続できません");

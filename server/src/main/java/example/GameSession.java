@@ -121,12 +121,12 @@ final class GameSession {
     }
 
     Player connectPlayer(String sessionId) {
-        if (phase == GamePhase.WON || phase == GamePhase.LOST) resetWorld();
         String reconnectId = sessionId == null || sessionId.isBlank() ? null : sessionId;
         Player assigned = reconnectId == null ? null : players.stream()
                 .filter(player -> reconnectId.equals(player.sessionId))
                 .findFirst().orElse(null);
         boolean rejoining = assigned != null;
+        if (!rejoining && (phase == GamePhase.WON || phase == GamePhase.LOST)) resetWorld();
         if (assigned == null) {
             assigned = players.stream()
                     .filter(player -> !player.human

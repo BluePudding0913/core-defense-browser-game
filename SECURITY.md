@@ -14,6 +14,8 @@ The Java server owns movement, collision, health, damage, weapon ownership, ammu
 
 Session IDs are random bearer credentials for reconnecting, not authenticated user accounts. Keep them private. Client modifications can still automate aiming or reveal received world state; server authority does not prevent these information/automation cheats.
 
+The browser stores the most recently joined room's reconnect credential and private-room phrase in localStorage, scoped to the page origin and game-server port. Use a trusted browser profile. Tabs keep independent session IDs until an explicit resume; resuming replaces the old connection, which stops retrying. Disconnected player slots and empty rooms are retained for ten minutes; explicit exit releases the slot. Game state is in memory and is lost on server restart.
+
 TLS is available through CORE_TLS_KEYSTORE / CORE_TLS_PASSWORD (optional CORE_TLS_KEYSTORE_TYPE). Configure CORE_ALLOWED_ORIGINS and CORE_ACCESS_TOKEN when sharing access. CORE_MAX_ROOMS limits room allocation. Default settings are for trusted local/private play; public hosting still needs authenticated users, per-IP connection limits, TLS, monitoring and appropriate proxy configuration. A per-connection message limit is not a distributed denial-of-service defense.
 
 Report vulnerabilities privately through the repository's security advisory feature.

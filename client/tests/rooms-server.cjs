@@ -105,8 +105,8 @@ const deadline = setTimeout(() => {
         directory.peer.ws.send('MATCH:' + JSON.stringify({ action, password, name: 'Host' }));
         return directory.peer.next(m => m.type === 'room-created' || m.type === 'error');
     }
-    async function enter(directory, roomId, password = '') {
-        const peer = client(`${base}session=${directory.session}&room=${roomId}&phrase=${encodeURIComponent(password)}`);
+    async function enter(directory, roomId, password = '', resume = false) {
+        const peer = client(`${base}session=${directory.session}&room=${roomId}&phrase=${encodeURIComponent(password)}${resume ? '&resume=1' : ''}`);
         await peer.opened;
         return peer;
     }
@@ -150,7 +150,7 @@ const deadline = setTimeout(() => {
     assert.equal(guestState.phase, 'lobby');
     friend.ws.send('ROOM_READY:1');
     await privateHost.next(m => m.type === 'state' && m.allReady);
-    privateHost.ws.close();
+    await close(privateHost);
     await friend.next(m => m.type === 'state' && m.roomOwnerId === friendWelcome.playerId);
     await friend.next(m => m.type === 'state' && m.roomOwnerId === friendWelcome.playerId && m.allReady);
     friend.ws.send('START');
@@ -254,11 +254,33 @@ const deadline = setTimeout(() => {
     assert(newOwnerWelcome.owner, 'the sole returning guest replaces an owner who explicitly left');
     await close(newOwner, false);
     await new Promise(resolve => setTimeout(resolve, 31000));
-    assert.notEqual((await match(returningGuestDirectory, 'quick')).roomId, activeRoom.roomId,
-        'expired reconnection windows return to normal matching');
-    const expiredRoom = await enter(returningGuestDirectory, activeRoom.roomId);
-    assert.equal((await expiredRoom.next(m => m.type === 'error')).type, 'error',
-        'remove empty quick rooms after the reconnect window');
+    const afterThirtySeconds = await enter(returningGuestDirectory, activeRoom.roomId, '', true);
+    assert.equal((await afterThirtySeconds.next(m => m.type === 'welcome')).playerId, activeGuestWelcome.playerId,
+        'explicit browser resume remains available beyond thirty seconds');
+    await close(afterThirtySeconds);
+    const expiredRoom = await enter(returningGuestDirectory, activeRoom.roomId, '', true);
+    assert.equal((await expiredRoom.next(m => m.type === 'error')).type, 'error', 'explicit exit prevents resume');
+    // A closed browser can resume a private room directly, including when everyone left.
+    const privateReturnDirectory = await directoryClient();
+    const privateReturnRoom = await match(privateReturnDirectory, 'create', 'return-private');
+    const privateReturnHost = await enter(privateReturnDirectory, privateReturnRoom.roomId, 'return-private');
+    const privateReturnWelcome = await privateReturnHost.next(m => m.type === 'welcome');
+    privateReturnHost.ws.send('START');
+    await privateReturnHost.next(m => m.type === 'state' && m.phase === 'preparing');
+    await close(privateReturnHost, false);
+    const wrongIdentity = await enter(outsider, privateReturnRoom.roomId, 'return-private', true);
+    assert.equal((await wrongIdentity.next(m => m.type === 'error')).type, 'error');
+    const privateResumed = await enter(privateReturnDirectory, privateReturnRoom.roomId, 'return-private', true);
+    assert.equal((await privateResumed.next(m => m.type === 'welcome')).playerId, privateReturnWelcome.playerId);
+    await close(privateResumed);
+    // Resume must never allocate a fresh player, even in a lobby with free CPU slots.
+    const lobbyDirectory = await directoryClient();
+    const lobbyRoom = await match(lobbyDirectory, 'create', 'resume-lobby');
+    const lobbyHost = await enter(lobbyDirectory, lobbyRoom.roomId, 'resume-lobby');
+    await lobbyHost.next(m => m.type === 'welcome');
+    const lobbyDenied = await enter(outsider, lobbyRoom.roomId, 'resume-lobby', true);
+    assert.equal((await lobbyDenied.next(m => m.type === 'error')).type, 'error');
+    await close(lobbyHost);
     console.log('Quick rejoin passed: running room, original slot, state, last disconnect, explicit exit, unrelated sessions');
     await close(friend);
     assert.equal((await match(privateDirectory, 'join', phrase)).type, 'error');

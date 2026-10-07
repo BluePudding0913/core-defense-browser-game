@@ -30,7 +30,7 @@ class Socket {
     addEventListener(type, handler) { this.handlers[type] = handler; }
     send(message) { this.sent.push(message); }
     open() { this.readyState = 1; this.handlers.open(); }
-    close(code, reason) { this.closeCode = code; this.closeReason = reason; this.readyState = 3; this.handlers.close?.(); }
+    close(code, reason) { this.closeCode = code; this.closeReason = reason; this.readyState = 3; this.handlers.close?.({ code }); }
     message(message) { this.handlers.message({ data: JSON.stringify(message) }); }
 }
 const context = {
@@ -148,3 +148,40 @@ assert(context.createRoomButton.disabled && context.joinRoomsButton.disabled);
 context.nameInput.fire('input');
 assert(context.createRoomButton.disabled && context.joinRoomsButton.disabled);
 console.log('Room regressions passed: name gating, create/retry, join, lobby, leave, disconnect');
+
+let savedRoom = { sessionId: 'persistent-session-123', roomId: 'return-room', phrase: '友達', name: 'Returning' };
+context.window.coreReconnect = {
+    saved: () => savedRoom, adopt: id => id, newSession: () => 'independent-session-123',
+    remember: (sessionId, roomId, phrase, name) => { savedRoom = { sessionId, roomId, phrase, name }; },
+    forget: (id, room) => { if (savedRoom?.sessionId === id && savedRoom.roomId === room) savedRoom = null; }
+};
+const statuses = [];
+context.window.coreMenu = { phrase: '', refreshResume() {}, connected() {}, disconnected() {}, rejected() {}, exited() {}, status: text => statuses.push(text) };
+context.acknowledgeInputs = () => {};
+context.lastAcknowledgedInput = 5;
+context.nextInputSequence = 1;
+context.sendMovement = () => {};
+vm.runInContext(source.slice(source.indexOf('window.coreGame = {'), source.indexOf('\ninitialize();')), context);
+context.window.coreGame.resume();
+const resumed = context.socket;
+const resumeUrl = new URL(resumed.url);
+assert.equal(resumeUrl.searchParams.get('session'), 'persistent-session-123');
+assert.equal(resumeUrl.searchParams.get('phrase'), '友達');
+assert.equal(resumeUrl.searchParams.get('resume'), '1');
+assert.equal(context.nameInput.value, 'Returning');
+resumed.open();
+resumed.message({ type: 'welcome', playerId: 'player-1', roomId: 'return-room', ackInput: 5 });
+assert.equal(savedRoom.sessionId, 'persistent-session-123');
+assert.equal(context.nextInputSequence, 6, 'resume continues the authoritative input sequence');
+resumed.close(4000, 'reconnected');
+assert.equal(context.connectionTarget.mode, 'directory');
+assert.match(context.socket.url, /session=independent-session-123/);
+assert.equal(savedRoom.sessionId, 'persistent-session-123', 'replacement preserves the active tab resume record');
+assert.match(statuses.at(-1), /別のタブ/);
+context.window.coreGame.resume();
+context.socket.open();
+context.socket.message({ type: 'error', message: '復帰期限が切れました' });
+assert.equal(savedRoom, null);
+assert.equal(context.connectionTarget.mode, 'directory');
+assert.equal(statuses.at(-1), '復帰期限が切れました');
+console.log('Resume transport passed: saved identity/phrase, input sequence, replacement, rejected resume cleanup');
