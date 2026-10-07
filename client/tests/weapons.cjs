@@ -115,6 +115,7 @@ let buttons = [], closed = 0;
 const classes = new Set(['hidden']);
 Object.assign(context, {
     actionTitle: {}, actionOptions: {
+        get children() { return buttons; },
         replaceChildren() { buttons = []; }, append(button) { buttons.push(button); },
     },
     actionMenu: { classList: {
@@ -122,7 +123,7 @@ Object.assign(context, {
         remove(name) { classes.delete(name); },
     } },
     document: { querySelector: () => ({}), createElement: () => ({
-        addEventListener(name, callback) { this[name] = callback; },
+        dataset: {}, click() { this.onclick?.(); },
     }) },
     updateWorkbenchMaterials() {}, escapeHtml: value => value,
     canUseNearby: () => true, send: command => sent.push(command),
@@ -143,5 +144,6 @@ assert(!classes.has('single-action'));
 buttons[0].click();
 assert.equal(sent.length, 1);
 assert(sent[0].startsWith('BUY:rifle:'));
-assert.equal(closed, 1);
+assert.equal(closed, 0);
+assert(!classes.has('hidden'), 'exchange purchase keeps the shop open');
 console.log('Weapon purchase flow passed: BUY click, exchange selection, then purchase');

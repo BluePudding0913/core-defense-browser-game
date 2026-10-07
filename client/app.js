@@ -335,7 +335,10 @@ function connect() {
         let message;
         try { message = JSON.parse(data); } catch { return; }
         if (message.type === "error" || message.type === "feedback") window.coreMenu?.status(message.message);
-        if (message.type === "ammo-refilled") { closeActionMenu(); inventoryMenu.classList.add("hidden"); }
+        if (message.type === "ammo-refilled") {
+            if (!activeMenuAccess?.refresh) closeActionMenu();
+            inventoryMenu.classList.add("hidden");
+        }
         if (message.type === "error" && !welcomed && connectionTarget.mode !== "directory" && window.coreMenu) {
             window.coreMenu.rejected();
             leaveRoom();
@@ -554,6 +557,7 @@ function receiveState(next) {
             && !canUseNearby(activeMenuAccess.target, activeMenuAccess.range, false)) {
         closeActionMenu();
     }
+    activeMenuAccess?.refresh?.();
     receiveLog(next.noticeVersion, next.notice);
     updateHud();
     updateWorkbenchMaterials();
@@ -1156,21 +1160,30 @@ function openActionMenu(title, options, layout = "default") {
     document.querySelector("#workbench-materials").hidden = layout !== "workbench";
     updateWorkbenchMaterials();
     actionMenu.classList.toggle("single-action", layout === "single");
-    actionOptions.replaceChildren();
-    for (const option of options) {
-        const button = document.createElement("button");
+    const buttons = Array.from(actionOptions.children);
+    const reuseButtons = buttons.length === options.length
+        && options.every((option, index) => buttons[index].dataset.command === (option.command || ""));
+    if (!reuseButtons) actionOptions.replaceChildren();
+    options.forEach((option, index) => {
+        const button = reuseButtons ? buttons[index] : document.createElement("button");
         button.disabled = Boolean(option.disabled);
-        button.innerHTML = `${escapeHtml(option.label)}${option.detail ? `<small>${escapeHtml(option.detail)}</small>` : ""}`;
-        if (option.onSelect) button.addEventListener("click", option.onSelect);
-        else if (option.command) button.addEventListener("click", () => { send(option.command); closeActionMenu(); });
-        actionOptions.append(button);
-    }
+        const content = `${escapeHtml(option.label)}${option.detail ? `<small>${escapeHtml(option.detail)}</small>` : ""}`;
+        if (button.innerHTML !== content) button.innerHTML = content;
+        button.onclick = option.onSelect || (option.command ? () => {
+            send(option.command);
+            if (!option.command.startsWith("BUY:") && !option.command.startsWith("CRAFT:")) closeActionMenu();
+        } : null);
+        if (!reuseButtons) {
+            button.dataset.command = option.command || "";
+            actionOptions.append(button);
+        }
+    });
     actionMenu.classList.remove("hidden");
 }
 
-function openNearbyActionMenu(title, options, target, range, layout = "default") {
+function openNearbyActionMenu(title, options, target, range, layout = "default", refresh = null) {
     if (!canUseNearby(target, range, true)) return;
-    activeMenuAccess = { target: { x: target.x, y: target.y }, range };
+    activeMenuAccess = { target: { x: target.x, y: target.y }, range, refresh };
     openActionMenu(title, options, layout);
 }
 
@@ -1306,7 +1319,7 @@ function openShopPurchase(shop, chooseExchange = false) {
             detail: `${shop.cost}G`,
             command: "BUY:medkit",
             disabled: me.medkits >= state.rules.medkitCapacity || me.credits < shop.cost,
-        }], shop, INTERACTION_RANGE.shop, "single");
+        }], shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
         return;
     }
     if (shop.item.endsWith("Factory")) {
@@ -1315,7 +1328,7 @@ function openShopPurchase(shop, chooseExchange = false) {
             detail: shop.cost + "G",
             command: "BUY:" + shop.item,
             disabled: !me || me.credits < shop.cost,
-        }], shop, INTERACTION_RANGE.shop, "single");
+        }], shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
         return;
     }
     const weaponFields = WEAPON_FIELDS[shop.item];
@@ -1335,7 +1348,7 @@ function openShopPurchase(shop, chooseExchange = false) {
                 label: `交換: ${entry.label}`,
                 command: `BUY:${shop.item}:${entry.value}`,
                 disabled: me.credits < price,
-            })), shop, INTERACTION_RANGE.shop);
+            })), shop, INTERACTION_RANGE.shop, "default", () => openShopPurchase(shop, true));
         return;
     }
     openNearbyActionMenu(shop.label, [{
@@ -1345,7 +1358,7 @@ function openShopPurchase(shop, chooseExchange = false) {
         command: weaponLimitReached ? undefined : `BUY:${shop.item}`,
         onSelect: weaponLimitReached ? () => openShopPurchase(shop, true) : undefined,
         disabled: ammoFull || unavailable || me.credits < price,
-    }], shop, INTERACTION_RANGE.shop, "single");
+    }], shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
 }
 
 function openWoodcutterMenu() {
@@ -1375,7 +1388,7 @@ function openWorkbenchMenu(workbench) {
         detail: `${info.description} — ${Object.entries(RESOURCE_NAMES).filter(([key]) => info[key] > 0).map(([key, name]) => `${name} ${info[key]}`).join(" / ")}`,
         command: `CRAFT:${type}`,
         disabled: Object.keys(RESOURCE_NAMES).some(key => (me[key] || 0) < (info[key] || 0)),
-    })), workbench, INTERACTION_RANGE.workbench, "workbench");
+    })), workbench, INTERACTION_RANGE.workbench, "workbench", () => openWorkbenchMenu(workbench));
 }
 
 function updateWorkbenchMaterials() {
