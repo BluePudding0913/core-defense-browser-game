@@ -95,6 +95,7 @@ final class SnapshotBuilder {
                 .append(",\"cooldown\":").append(stats.cooldown()).append(",\"ammoPerShot\":").append(1)
                 .append(",\"pellets\":").append(definition.pellets()).append(",\"maxTargets\":").append(definition.maxTargets())
                 .append(",\"blastRadius\":").append(definition.blastRadius())
+                .append(",\"droneMountable\":").append(DroneRules.mountable(key))
                 .append(",\"owned\":\"").append(definition.ownedField())
                 .append("\",\"ammo\":\"").append(definition.ammoField())
                 .append("\",\"name\":\"").append(key).append("\"}");
@@ -195,9 +196,12 @@ final class SnapshotBuilder {
                     .append(",\"hp\":").append(roundOne(player.drone.hp))
                     .append(",\"maxHp\":").append(DroneRules.HP)
                     .append(",\"cooldown\":").append(roundOne(player.drone.cooldown))
-                    .append(",\"cooldownMax\":").append(DroneRules.COOLDOWN)
+                    .append(",\"cooldownMax\":").append(WeaponCatalog.stats(player.drone.weapon).cooldown())
+                    .append(",\"weapon\":\"").append(player.drone.weapon).append('"')
+                    .append(",\"controlled\":").append(DroneRules.controlling(player))
                     .append(",\"active\":").append(player.drone.active).append('}');
             json.append(",\"droneRepairOre\":").append(DroneRules.REPAIR_ORE)
+                    .append(",\"droneRecoveryRange\":").append(DroneRules.RECOVERY_RANGE)
                     .append(",\"droneRepairCopper\":").append(DroneRules.REPAIR_COPPER);
             for (var definition : WeaponCatalog.ALL) {
                 json.append(",\"").append(definition.ownedField()).append("\":").append(player.weapons.owns(definition.id()));
@@ -222,6 +226,7 @@ final class SnapshotBuilder {
                     .append(",\"copperTurret\":").append(player.copperTurretItems)
                     .append(",\"silverTurret\":").append(player.silverTurretItems)
                     .append(",\"teleporter\":").append(player.buildItemCount("teleporter"));
+            json.append(",\"drone\":").append(player.buildItemCount("drone"));
             for (String item : List.of("woodFactory", "oreFactory", "copperFactory", "silverFactory")) {
                 json.append(",\"").append(item).append("\":").append(player.buildItemCount(item));
             }

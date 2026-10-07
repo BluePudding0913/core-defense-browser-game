@@ -113,6 +113,7 @@ final class Player {
 
     int buildItemCount(String type) {
         return switch (type) {
+            case "drone" -> job.equals("drone") && (drone == null || !drone.active) ? 1 : 0;
             case "teleporter" -> job.equals("tp") ? Math.max(0, 2 - teleportPads.size()) : 0;
             case "block" -> blockItems;
             case "turret" -> turretItems;
@@ -141,7 +142,8 @@ final class Player {
 
 final class Drone {
     double x, y, hp = DroneRules.HP, cooldown;
-    boolean active;
+    boolean active, controlled;
+    String weapon = "pistol";
     final java.util.Set<Integer> attackers = new java.util.HashSet<>();
 }
 

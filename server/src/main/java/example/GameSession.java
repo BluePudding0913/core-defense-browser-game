@@ -170,7 +170,7 @@ final class GameSession {
         if (!player.human) return;
         String displayName = player.name;
         player.human = false;
-        recallDrone(player);
+        releaseDroneControl(player);
         player.roomReady = false;
         player.reconnectGrace = player.sessionId == null ? 0 : RECONNECT_GRACE_SECONDS;
         refreshCpuNames();
@@ -200,8 +200,8 @@ final class GameSession {
 
     private void handleCommand(Player player, String message) {
         String[] parts = message.split(":", 4);
-        if (canMove() && player.drone != null && player.drone.active
-                && !Set.of("MOVE", "FIRE", "ATTACK", "JOB_ABILITY", "HELLO").contains(parts[0])) return;
+        if (canMove() && DroneRules.controlling(player)
+                && !Set.of("MOVE", "FIRE", "ATTACK", "JOB_ABILITY", "DRONE_RECOVER", "HELLO").contains(parts[0])) return;
         switch (parts[0]) {
             case "HELLO" -> updateName(player, parts);
             case "START" -> {
@@ -217,6 +217,8 @@ final class GameSession {
             }
             case "JOB" -> { if (parts.length >= 2) selectJob(player, parts[1]); }
             case "JOB_ABILITY" -> useJobAbility(player);
+            case "DRONE_RECOVER" -> recoverDrone(player);
+            case "DRONE_MOUNT" -> { if (parts.length > 1) mountDrone(player, parts[1]); }
             case "TELEPORT" -> useTeleport(player);
             case "PICKUP_TELEPORT" -> {
                 if (parts.length >= 3) pickupTeleport(player, new MapPoint(
@@ -267,7 +269,7 @@ final class GameSession {
             if (!player.firing || player.down || player.movingCore || player.selectedBuild != null || !canMove()) {
                 player.stopRailgun();
             }
-            if (player.firing && (player.cooldown <= 0 || player.drone != null && player.drone.active) && canMove()) {
+            if (player.firing && (player.cooldown <= 0 || DroneRules.controlling(player)) && canMove()) {
                 combat.attackAt(player, player.aimX, player.aimY);
             }
         }
@@ -346,7 +348,7 @@ final class GameSession {
             player.moveX /= length;
             player.moveY /= length;
         }
-        if (length > 0.12 && !(player.drone != null && player.drone.active)) {
+        if (length > 0.12 && !DroneRules.controlling(player)) {
             updateFacing(player, player.moveX, player.moveY);
         }
     }
@@ -374,32 +376,18 @@ final class GameSession {
     }
 
     private void useJobAbility(Player player) {
-        if (!canMove() || player.down || player.movingCore || player.selectedBuild != null) return;
+        if (!canMove() || player.down || player.movingCore) return;
         if (player.job.equals("drone")) {
-            if (player.drone != null && player.drone.active) {
-                recallDrone(player);
-                return;
-            }
-            if (player.drone != null && player.drone.hp <= 0) {
-                if (!DroneRules.canRepair(player.ore, player.copper)) {
-                    gameEffects.feedback(player, "修復: 鉱石" + DroneRules.REPAIR_ORE + " / 銅" + DroneRules.REPAIR_COPPER);
-                    return;
-                }
-                player.ore -= DroneRules.REPAIR_ORE;
-                player.copper -= DroneRules.REPAIR_COPPER;
-                player.drone = null;
-            }
-            if (player.drone == null) player.drone = new Drone();
-            player.drone.x = player.x;
-            player.drone.y = player.y;
-            player.drone.active = true;
-            player.drone.attackers.clear();
-            player.firing = player.dashHeld = player.dashing = false;
-            player.stopRailgun();
+            if (player.drone == null || !player.drone.active) return;
+            boolean next = !player.drone.controlled;
+            releaseDroneControl(player);
+            player.drone.controlled = next;
+            player.selectedBuild = null;
             cancelAction(player);
             return;
         }
         if (player.job.equals("spy")) {
+            if (player.selectedBuild != null) return;
             if (player.jobCooldown > 0) return;
             player.spyRemaining = JobRules.SPY_DURATION;
             player.jobCooldown = JobRules.SPY_COOLDOWN;
@@ -418,12 +406,61 @@ final class GameSession {
         gameEffects.sound(player, "item-use", "build");
     }
 
+    private void launchDrone(Player player) {
+        if (!player.job.equals("drone") || player.down || player.movingCore || !canMove()
+                || !"drone".equals(player.selectedBuild) || player.buildItemCount("drone") <= 0) return;
+        if (player.drone == null) player.drone = new Drone();
+        Drone drone = player.drone;
+        if (drone.hp <= 0) {
+            if (!DroneRules.canRepair(player.ore, player.copper)) {
+                gameEffects.feedback(player, "修復: 鉱石" + DroneRules.REPAIR_ORE + " / 銅" + DroneRules.REPAIR_COPPER);
+                return;
+            }
+            player.ore -= DroneRules.REPAIR_ORE; player.copper -= DroneRules.REPAIR_COPPER;
+            drone.hp = DroneRules.HP;
+        }
+        if (!player.weapons.owns(drone.weapon)) {
+            drone.weapon = WeaponCatalog.ALL.stream().map(WeaponCatalog.Definition::id)
+                    .filter(id -> DroneRules.mountable(id) && player.weapons.owns(id)).findFirst().orElse("pistol");
+        }
+        drone.x = player.x; drone.y = player.y;
+        drone.active = drone.controlled = true;
+        drone.attackers.clear();
+        player.selectedBuild = null;
+        player.firing = player.dashHeld = player.dashing = false;
+        player.stopRailgun(); cancelAction(player);
+    }
+
+    private void mountDrone(Player player, String weapon) {
+        if (!canMove() || player.down || !player.job.equals("drone")
+                || player.drone != null && player.drone.active
+                || !DroneRules.mountable(weapon) || !player.weapons.owns(weapon)) return;
+        if (player.drone == null) player.drone = new Drone();
+        player.drone.weapon = weapon;
+    }
+
+    private void releaseDroneControl(Player player) {
+        if (player.drone == null) return;
+        player.drone.controlled = false;
+        player.moveX = player.moveY = 0;
+        player.firing = player.dashHeld = player.dashing = false;
+        player.stopRailgun();
+    }
+
+    private void recoverDrone(Player player) {
+        if (!canMove() || player.down || player.drone == null || !player.drone.active
+                || !DroneRules.canRecover(distance(player.x, player.y, player.drone.x, player.drone.y),
+                    GameMap.hasClearLine(player.x, player.y, player.drone.x, player.drone.y))) return;
+        recallDrone(player);
+        player.selectedBuild = "drone";
+    }
+
     private void recallDrone(Player player) {
         if (player.drone == null || !player.drone.active) return;
+        if (player.drone.controlled) releaseDroneControl(player);
         player.drone.active = false;
+        player.drone.controlled = false;
         player.drone.attackers.clear();
-        player.moveX = player.moveY = 0;
-        player.firing = false;
     }
 
     private void damageDrone(Player owner, double damage) {
@@ -491,7 +528,7 @@ final class GameSession {
         player.aimY = clamp(y, 0, WORLD_H);
         player.firing = active;
         if (!active) player.stopRailgun();
-        if (beginsPress && (player.cooldown <= 0 || player.drone != null && player.drone.active)) {
+        if (beginsPress && (player.cooldown <= 0 || DroneRules.controlling(player))) {
             combat.attackAt(player, player.aimX, player.aimY);
         }
     }
@@ -636,7 +673,7 @@ final class GameSession {
 
     private void updatePlayers(double dt) {
         for (Player player : players) {
-            if (player.drone != null && player.drone.active) {
+            if (DroneRules.controlling(player)) {
                 Drone drone = player.drone;
                 double nextX = clamp(drone.x + player.moveX * DroneRules.SPEED * dt, 7, WORLD_W - 7);
                 double nextY = clamp(drone.y + player.moveY * DroneRules.SPEED * dt, 7, WORLD_H - 7);
@@ -696,7 +733,7 @@ final class GameSession {
 
     private void updateRevives(double dt) {
         for (Player player : players) {
-            Player target = player.down || player.drone != null && player.drone.active ? null : players.stream()
+            Player target = player.down || DroneRules.controlling(player) ? null : players.stream()
                     .filter(other -> other != player && other.down
                             && distance(player.x, player.y, other.x, other.y) <= 78
                             && GameMap.hasClearLine(player.x, player.y, other.x, other.y))
@@ -2295,7 +2332,7 @@ final class GameSession {
         if (type.equals("none")) {
             releaseCarriedCore(player);
             player.selectedBuild = null;
-        } else if ((type.equals("teleporter") || BUILD_RECIPES.containsKey(type) || type.endsWith("Factory")) && player.buildItemCount(type) > 0) {
+        } else if ((type.equals("teleporter") || type.equals("drone") || BUILD_RECIPES.containsKey(type) || type.endsWith("Factory")) && player.buildItemCount(type) > 0) {
             releaseCarriedCore(player);
             player.selectedBuild = type;
         }
@@ -2402,6 +2439,7 @@ final class GameSession {
 
     private void placeInFacingTile(Player player) {
         if (!canUseFacilities() || player.down) return;
+        if ("drone".equals(player.selectedBuild)) { launchDrone(player); return; }
         MapPoint origin = GameMap.snapToTile(player.x, player.y);
         double targetX = origin.x() + player.facingX * GameMap.TILE_SIZE;
         double targetY = origin.y() + player.facingY * GameMap.TILE_SIZE;
@@ -2719,7 +2757,7 @@ final class GameSession {
         player.medbayDamageDelay = GameConfig.MEDBAY_DAMAGE_DELAY;
         player.hp = Math.max(0, player.hp - damage);
         if (player.hp <= 0) {
-            recallDrone(player);
+            releaseDroneControl(player);
             player.down = true;
             events.broadcast("{\"type\":\"effect\",\"effect\":\"player-down\",\"playerId\":\"" + player.id
                     + "\",\"x\":" + player.x + ",\"y\":" + player.y + "}");

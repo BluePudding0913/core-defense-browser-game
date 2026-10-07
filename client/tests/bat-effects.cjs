@@ -6,7 +6,7 @@ let now = 50;
 const arcs = [];
 const context = vm.createContext({
     performance: { now: () => now }, myPlayerId: 'me', hitEffects: [],
-    ctx: { save() {}, restore() {}, beginPath() {}, stroke() {}, arc(...args) { arcs.push(args); } },
+    ctx: { save() {}, restore() {}, beginPath() {}, stroke() {}, fillText() {}, arc(...args) { arcs.push(args); } },
 });
 const begin = source.indexOf('function drawHitEffects(');
 vm.runInContext(source.slice(begin, source.indexOf('\nfunction ', begin + 1)), context);

@@ -41,13 +41,21 @@ class DroneOperatorTest {
         return e;
     }
 
-    void launch() { game.handleMessage(player, "JOB_ABILITY"); }
+    void launch() {
+        if (player.drone != null && player.drone.active) {
+            player.drone.x = player.x; player.drone.y = player.y;
+            game.handleMessage(player, "DRONE_RECOVER");
+        } else {
+            game.handleMessage(player, "EQUIP_BUILD:drone");
+            game.handleMessage(player, "PLACE_FRONT");
+        }
+    }
 
     @Test void selectionPersistsAcrossReconnectAndRestartResetsDrone() {
         assertEquals("drone", player.job);
         launch(); Drone original = player.drone;
         game.disconnectPlayer(player);
-        assertFalse(original.active);
+        assertTrue(original.active); assertFalse(original.controlled);
         assertSame(player, game.connectPlayer("drone-test"));
         assertEquals("drone", player.job);
         assertSame(original, player.drone);
@@ -78,14 +86,14 @@ class DroneOperatorTest {
         Enemy hit = enemy(1, "runner", 1200), behind = enemy(2, "runner", 1250);
         launch(); player.cooldown = 5;
         game.handleMessage(player, "FIRE:1400:1900:1");
-        assertEquals(88, hit.hp); assertEquals(100, behind.hp);
-        assertEquals(12, player.credits);
+        assertEquals(74, hit.hp); assertEquals(100, behind.hp);
+        assertEquals(26, player.credits);
         assertSame(player, DroneRules.target(hit, game.players));
         assertNull(DroneRules.target(behind, game.players));
         game.handleMessage(player, "ATTACK");
-        assertEquals(88, hit.hp, "drone cooldown prevents duplicate shots");
+        assertEquals(74, hit.hp, "drone cooldown prevents duplicate shots");
         game.update(.4);
-        assertEquals(76, hit.hp, "held fire uses drone cooldown even when body weapon is cooling");
+        assertEquals(48, hit.hp, "held fire uses drone cooldown even when body weapon is cooling");
     }
 
     @Test void missesRangeAndWallsDoNotCreateHostility() {
@@ -125,8 +133,8 @@ class DroneOperatorTest {
         launch(); player.drone.x = 1300;
         call("updateEnemies", .05);
         assertTrue(player.down); assertEquals(0, player.hp);
-        assertFalse(player.drone.active); assertFalse(player.firing);
-        launch(); assertFalse(player.drone.active);
+        assertTrue(player.drone.active); assertFalse(player.drone.controlled); assertFalse(player.firing);
+        game.handleMessage(player, "DRONE_RECOVER"); assertTrue(player.drone.active);
     }
 
     @Test void brokenDroneRequiresMaterialsAndConsumesExactlyOnce() throws Exception {
