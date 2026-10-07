@@ -541,8 +541,16 @@ function receiveState(next) {
     const endsDefense = ["won", "lost"].includes(next.phase) && previousPhase !== next.phase;
     if (lastCoreHp !== undefined && next.core.hp < lastCoreHp) coreHitStarted = performance.now();
     lastCoreHp = next.core.hp;
+    const controlChanged = Boolean(getMe()?.drone?.active) !== Boolean(next.players.find(p => p.id === myPlayerId)?.drone?.active);
+    reconcileDroneSmoothing(next);
     reconcileEnemySmoothing(next);
     state = next;
+    if (controlChanged) {
+        if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
+        endInteractionHold(true);
+        closeActionMenu();
+        sendMovement(true);
+    }
     state.artilleryReceivedAt = performance.now();
     if (!getMe() || getMe().down || !["preparing", "wave"].includes(next.phase)) endInteractionHold(true);
     CORE.x = next.core.x;
@@ -604,6 +612,15 @@ function updateRoomLobby(snapshot) {
     menuStatus.textContent = snapshot.phase === "won" ? "防衛成功"
         : snapshot.phase === "lost" ? "防衛失敗"
             : "";
+}
+
+function reconcileDroneSmoothing(next) {
+    for (const owner of next.players) {
+        const key = `drone-${owner.id}`;
+        const previous = state?.players.find(p => p.id === owner.id)?.drone;
+        if (!owner.drone?.active) smoothed.delete(key);
+        else if (!previous?.active) smoothed.set(key, { x: owner.drone.x, y: owner.drone.y });
+    }
 }
 
 function reconcileEnemySmoothing(next) {
@@ -855,10 +872,16 @@ function updateHud() {
         : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}`
             : "";
     const me = getMe();
-    jobAbilityButton.classList.toggle("hidden", me?.job !== "spy");
+    jobAbilityButton.classList.toggle("hidden", !["spy", "drone"].includes(me?.job));
     jobAbilityButton.textContent = me?.spyRemaining > 0 ? `偽装 ${Math.ceil(me.spyRemaining)}s`
         : me?.jobCooldown > 0 ? `偽装 ${Math.ceil(me.jobCooldown)}s` : "偽装";
     jobAbilityButton.disabled = !me || me.down || me.movingCore || Boolean(me.selectedBuild) || me.jobCooldown > 0;
+    if (me?.job === "drone") {
+        const broken = me.drone && me.drone.hp <= 0;
+        jobAbilityButton.textContent = me.drone?.active ? `RETURN ${Math.ceil(me.drone.hp)}HP`
+            : broken ? `REPAIR ${me.droneRepairOre}鉱石 / ${me.droneRepairCopper}銅` : "DRONE";
+        jobAbilityButton.disabled ||= Boolean(broken && (me.ore < me.droneRepairOre || me.copper < me.droneRepairCopper));
+    }
     teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">
             <div class="teammate-label">
@@ -890,6 +913,15 @@ function updateHud() {
         weaponButton.classList.toggle("cooling", !showingItem && me.cooldown > 0);
         weaponButton.classList.toggle("locked", me.movingCore);
         weaponButton.disabled = me.movingCore;
+        if (me.drone?.active) {
+            weaponName.textContent = "DRONE";
+            weaponAmmo.textContent = "∞";
+            weaponIcon.className = "weapon-icon drone";
+            weaponCooldown.textContent = me.drone.cooldown > 0 ? `${me.drone.cooldown.toFixed(1)}s` : "READY";
+            weaponButton.style.setProperty("--cooldown-progress", `${(1 - me.drone.cooldown / me.drone.cooldownMax) * 100}%`);
+            weaponButton.classList.toggle("cooling", me.drone.cooldown > 0);
+            weaponButton.disabled = true;
+        }
         updateInventory(me);
         const placing = Boolean(placementSelection(me));
         const interaction = findNearestInteraction();
@@ -1189,6 +1221,7 @@ function openNearbyActionMenu(title, options, target, range, layout = "default",
 
 function canUseNearby(target, range, showReason) {
     const me = getMe();
+    if (me?.drone?.active) return false;
     if (!me || !state || !["preparing", "wave"].includes(state.phase)) return false;
     if (me.down) {
         if (showReason) showFeedback("ダウン中は利用できません");
@@ -1620,6 +1653,7 @@ window.addEventListener("blur", () => {
 
 function findNearestInteraction() {
     const me = getMe();
+    if (me?.drone?.active) return null;
     if (!me || me.down || !state || !["preparing", "wave"].includes(state.phase)) return null;
     const choices = [];
     for (const owner of state.players) {
@@ -1738,6 +1772,11 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
 function updateLocalPrediction(dt) {
     const serverMe = getMe();
+    if (serverMe?.drone?.active && predictedLocal) {
+        predictedLocal.x = serverMe.x; predictedLocal.y = serverMe.y;
+        predictedLocal.dashing = false;
+        return;
+    }
     if (!predictedLocal || !serverMe || !["preparing", "wave"].includes(state.phase)) return;
     const input = Math.hypot(localMove.x, localMove.y);
     if (predictedLocal.exhausted && predictedLocal.stamina >= 28) predictedLocal.exhausted = false;
@@ -1798,7 +1837,7 @@ function draw() {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const me = getMe();
-    const cameraTarget = predictedLocal || me;
+    const cameraTarget = me?.drone?.active ? smoothEntity("drone", { ...me.drone, id: me.id }) : predictedLocal || me;
     if (cameraTarget) {
         camera.x += (cameraTarget.x - camera.x) * .12;
         camera.y += (cameraTarget.y - camera.y) * .12;
@@ -1822,6 +1861,7 @@ function draw() {
         drawEnemies();
         drawRailguns();
         drawPlayers();
+        drawDrones();
         drawInteractionPrompt();
         drawHitEffects();
     }
@@ -1882,7 +1922,9 @@ function drawBlackoutSignals() {
 }
 
 function drawBlackout() {
-    const me = predictedLocal || getMe();
+    const local = getMe();
+    if (local?.drone?.active) return;
+    const me = predictedLocal || local;
     if (!me) return;
     const x = (me.x - camera.x) * scale + canvas.width / 2;
     const y = (me.y - camera.y) * scale + canvas.height / 2;
@@ -2432,6 +2474,26 @@ function drawPlayers() {
 
     }
     ctx.textAlign = "left";
+}
+
+function drawDrones() {
+    for (const owner of state.players) {
+        if (!owner.drone?.active) continue;
+        const p = smoothEntity("drone", { ...owner.drone, id: owner.id });
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.fillStyle = "#0005";
+        ctx.beginPath(); ctx.ellipse(0, 12, 15, 6, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#8be8f5"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-9, -9); ctx.lineTo(9, 9);
+        ctx.moveTo(9, -9); ctx.lineTo(-9, 9); ctx.stroke();
+        for (const [x, y] of [[-9, -9], [9, -9], [-9, 9], [9, 9]]) {
+            ctx.beginPath(); ctx.ellipse(x, y, 6, 3, performance.now() / 70, 0, Math.PI * 2); ctx.stroke();
+        }
+        ctx.fillStyle = "#ddfbff"; ctx.fillRect(-4, -4, 8, 8);
+        drawBar(-15, -23, 30, 3, owner.drone.hp / owner.drone.maxHp, "#8be8f5");
+        ctx.restore();
+    }
 }
 
 function drawMedbayParticles(player, position) {

@@ -9,7 +9,7 @@ final class JobRules {
     private JobRules() { }
 
     static boolean valid(String job) {
-        return java.util.Set.of("spy", "tp", "healer", "scout").contains(job);
+        return java.util.Set.of("spy", "tp", "healer", "scout", "drone").contains(job);
     }
 
     static double dashSpeed(String job) { return job.equals("scout") ? 305 : 265; }

@@ -36,7 +36,7 @@ const context = vm.createContext({
     state: { rules: { medkitCapacity: 3 } },
     applyRules() {}, keepEndArea: () => false, hideScreenIntro() {}, window: {},
     previousPhase: 'preparing', previousRound: 1, lastCoreHp: 100,
-    performance: { now: () => 0 }, reconcileEnemySmoothing() {}, endInteractionHold() {},
+    performance: { now: () => 0 }, reconcileEnemySmoothing() {}, reconcileDroneSmoothing() {}, endInteractionHold() {},
     CORE: {}, reconcileLocalPrediction() {}, receiveLog() {}, updateHud() {}, updateRoomLobby() {},
     menu: { classList: { add() {} } }, hud: { classList: { remove() {} } },
     inventoryMenu: { classList: { add() {} } },
@@ -47,7 +47,7 @@ for (const name of ['openActionMenu', 'openNearbyActionMenu', 'closeActionMenu',
 }
 const run = code => vm.runInContext(code, context);
 const snapshot = () => {
-    context.next = { phase: 'preparing', round: 1, core: { hp: 100 }, rules: { medkitCapacity: 3, weaponLimit: 3 } };
+    context.next = { phase: 'preparing', round: 1, players: [], core: { hp: 100 }, rules: { medkitCapacity: 3, weaponLimit: 3 } };
     run('receiveState(next)');
 };
 const click = () => { const button = actionOptions.children[0]; if (!button.disabled) button.click(); };
