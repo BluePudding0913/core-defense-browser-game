@@ -153,7 +153,7 @@ class GameSessionTest {
     }
 
     @Test
-    void debugStartGivesOnlyTheHostCreditsAndEveryWeaponWithFullAmmo() {
+    void debugStartGivesOnlyTheHostCreditsWithoutExtraWeapons() {
         Player guest = game.connectPlayer("test-session-b");
         game.handleMessage(guest, "ROOM_READY:1");
         game.handleMessage(guest, "START:DEBUG");
@@ -164,10 +164,11 @@ class GameSessionTest {
         assertEquals(GamePhase.PREPARING, game.phase);
         assertEquals(100_000, player.credits);
         assertEquals("pistol", player.weapon);
-        for (String weapon : WeaponCatalog.ALL.stream().map(WeaponCatalog.Definition::id).toList()) {
+        for (String weapon : WeaponCatalog.ALL.stream().filter(WeaponCatalog.Definition::usesAmmo).map(WeaponCatalog.Definition::id).toList()) {
             game.handleMessage(player, "WEAPON:" + weapon);
-            assertEquals(weapon, player.weapon);
-            assertEquals(GameSession.weaponAmmoCapacity(weapon), GameSession.weaponAmmo(player, weapon));
+            assertEquals("pistol", player.weapon);
+            assertFalse(player.weapons.owns(weapon));
+            assertEquals(0, GameSession.weaponAmmo(player, weapon));
         }
         for (Player other : game.players) {
             if (other == player) continue;
@@ -185,7 +186,7 @@ class GameSessionTest {
         game.handleMessage(guest, "ROOM_READY:1");
         game.handleMessage(player, "START:DEBUG");
         assertEquals(100_000, player.credits);
-        assertEquals(GameSession.weaponAmmoCapacity("shotgun"), player.weapons.ammo("shotgun"));
+        assertEquals(0, player.weapons.ammo("shotgun"));
 
         game.phase = GamePhase.LOST;
         game.handleMessage(guest, "ROOM_READY:1");
@@ -1238,6 +1239,76 @@ class GameSessionTest {
         game.handleMessage(player, "READY");
         game.update(0.05);
         assertEquals(GamePhase.WAVE, game.phase);
+    }
+
+    @Test void purchaseAtLimitExchangesOnlySelectedWeaponAndChargesOnlyOnSuccess() throws Exception {
+        startPreparing();
+        GameMap.AREAS.forEach(area -> game.unlockedAreas.add(area.id()));
+        player.credits = 100_000;
+        for (String id : List.of("shotgun", "smg")) {
+            var shop = GameMap.shopByItem(id);
+            player.x = shop.x(); player.y = shop.y();
+            game.handleMessage(player, "BUY:" + id);
+        }
+        assertEquals(3, player.weapons.weaponCount());
+        var shop = GameMap.shopByItem("rifle");
+        player.x = shop.x(); player.y = shop.y();
+        int credits = player.credits;
+        String equipped = player.weapon;
+        for (String command : List.of("BUY:rifle", "BUY:rifle:bat", "BUY:rifle:sniper")) {
+            game.handleMessage(player, command);
+            assertEquals(credits, player.credits);
+            assertEquals(equipped, player.weapon);
+            assertFalse(player.weapons.owns("rifle"));
+        }
+        assertTrue(events.directMessages.stream().anyMatch(message -> message.contains("交換する武器")));
+        player.credits = shop.cost() - 1;
+        game.handleMessage(player, "BUY:rifle:shotgun");
+        assertTrue(player.weapons.owns("shotgun"));
+        assertEquals(shop.cost() - 1, player.credits);
+        player.credits = credits;
+        game.handleMessage(player, "BUY:rifle:shotgun");
+        assertEquals(credits - shop.cost(), player.credits);
+        assertFalse(player.weapons.owns("shotgun"));
+        assertEquals(0, player.weapons.ammo("shotgun"));
+        assertTrue(player.weapons.owns("smg"));
+        assertEquals("rifle", player.weapon);
+        assertEquals(3, player.weapons.weaponCount());
+        credits = player.credits;
+        game.handleMessage(player, "BUY:rifle:smg");
+        assertEquals(credits, player.credits);
+        assertTrue(player.weapons.owns("smg"));
+        player.weapons.setAmmo("rifle", 0);
+        game.handleMessage(player, "BUY:rifle");
+        assertEquals(credits - GameSession.ammoRefillCost(), player.credits);
+        assertEquals(WeaponCatalog.capacity("rifle"), player.weapons.ammo("rifle"));
+        shop = GameMap.shopByItem("sniper");
+        player.x = shop.x(); player.y = shop.y();
+        game.handleMessage(player, "BUY:sniper:pistol");
+        assertFalse(player.weapons.owns("pistol"));
+        assertEquals(3, player.weapons.weaponCount());
+        var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
+        assertEquals(3, snapshot.path("rules").path("weaponLimit").asInt());
+        assertTrue(snapshot.path("players").get(player.slot - 1).has("ownsPistol"));
+        assertFalse(snapshot.path("players").get(player.slot - 1).path("ownsPistol").asBoolean());
+    }
+
+    @Test void cpuPurchaseUsesTheSameExchangeLimitAndCost() throws Exception {
+        startPreparing();
+        var bot = game.players.stream().filter(candidate -> !candidate.human).findFirst().orElseThrow();
+        bot.weapons.grant("shotgun");
+        bot.weapons.grant("smg");
+        GameMap.AREAS.forEach(area -> game.unlockedAreas.add(area.id()));
+        var shop = GameMap.shopByItem("rifle");
+        bot.x = shop.x(); bot.y = shop.y(); bot.credits = shop.cost();
+        var buy = GameSession.class.getDeclaredMethod("buy", Player.class, String.class);
+        buy.setAccessible(true);
+        buy.invoke(game, bot, "rifle");
+        assertEquals(0, bot.credits);
+        assertEquals(3, bot.weapons.weaponCount());
+        assertFalse(bot.weapons.owns("pistol"));
+        assertTrue(bot.weapons.owns("rifle"));
+        assertEquals("rifle", bot.weapon);
     }
 
     private static final class RecordingEvents implements GameEventSink {

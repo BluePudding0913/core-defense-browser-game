@@ -229,7 +229,7 @@ final class GameSession {
             case "FIRE" -> handleFire(player, parts);
             case "INTERACT" -> { if (parts.length >= 2) interact(player, parts[1]); }
             case "WEAPON" -> { if (parts.length >= 2) switchWeapon(player, parts[1]); }
-            case "BUY" -> { if (parts.length >= 2) buy(player, parts[1]); }
+            case "BUY" -> { if (parts.length >= 2) buy(player, parts[1], parts.length >= 3 ? parts[2] : null); }
             case "BUILD" -> { if (parts.length >= 3) build(player, parts[1], parts[2]); }
             case "PICKUP_FACTORY" -> { if (parts.length >= 2) pickupFactory(player, parts[1]); }
             case "REMOVE" -> { if (parts.length >= 2) removeDefense(player, parts[1]); }
@@ -500,8 +500,6 @@ final class GameSession {
         resetWorld();
         if (debugMode) {
             host.credits = 100_000;
-            WeaponCatalog.ALL.forEach(weapon -> grantWeapon(host, weapon.id()));
-            host.equipWeapon("pistol");
         }
         phase = GamePhase.PREPARING;
         prepTime = GameConfig.prepSeconds(1);
@@ -2081,7 +2079,7 @@ final class GameSession {
 
     private static void grantWeapon(Player player, String item) {
         if (WeaponCatalog.capacity(item) == 0) return;
-        player.weapons.grant(item);
+        if (!player.weapons.grant(item)) return;
         player.equipWeapon(item);
         player.selectedBuild = null;
     }
@@ -2119,6 +2117,13 @@ final class GameSession {
     }
 
     private void buy(Player player, String item) {
+        String outgoing = player.human || player.weapons.canAcquire(item) ? null
+                : WeaponCatalog.ALL.stream().map(WeaponCatalog.Definition::id)
+                .filter(id -> !id.equals("bat") && player.weapons.owns(id)).findFirst().orElse(null);
+        buy(player, item, outgoing);
+    }
+
+    private void buy(Player player, String item, String outgoing) {
         if (!canUseFacilities() || player.down) return;
         if(item.equals("medkit")) {
             ShopUnit kitShop = GameMap.shopByItem("medkit");
@@ -2144,7 +2149,7 @@ final class GameSession {
             return;
         }
         if (WeaponCatalog.capacity(item) > 0) {
-            buyOrRefillWeapon(player, shop, item);
+            buyOrRefillWeapon(player, shop, item, outgoing);
             return;
         }
         switch (item) {
@@ -2170,7 +2175,7 @@ final class GameSession {
         }
     }
 
-    private void buyOrRefillWeapon(Player player, ShopUnit shop, String item) {
+    private void buyOrRefillWeapon(Player player, ShopUnit shop, String item, String outgoing) {
         if (player.weapons.owns(item)) {
             int capacity = weaponAmmoCapacity(item);
             if (weaponAmmo(player, item) >= capacity) {
@@ -2185,8 +2190,14 @@ final class GameSession {
             }
             return;
         }
+        boolean exchange = !player.weapons.canAcquire(item);
+        if (exchange && !player.weapons.canExchange(item, outgoing)) {
+            gameEffects.feedback(player, "交換する武器を選んでください");
+            return;
+        }
         if (spend(player, shop.cost())) {
             releaseCarriedCore(player);
+            if (exchange) player.weapons.exchange(item, outgoing);
             grantWeapon(player, item);
             gameEffects.feedback(player, "購入しました");
         } else {

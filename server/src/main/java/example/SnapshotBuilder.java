@@ -81,7 +81,7 @@ final class SnapshotBuilder {
     }
 
     private static void appendRules(StringBuilder json, GameSession game) {
-        json.append(",\"rules\":{\"weapons\":{");
+        json.append(",\"rules\":{\"weaponLimit\":").append(WeaponInventory.MAX_WEAPONS).append(",\"weapons\":{");
         boolean first = true;
         for (var definition : WeaponCatalog.ALL) {
             if (!first) json.append(',');
@@ -200,7 +200,6 @@ final class SnapshotBuilder {
             json.append(",\"droneRepairOre\":").append(DroneRules.REPAIR_ORE)
                     .append(",\"droneRepairCopper\":").append(DroneRules.REPAIR_COPPER);
             for (var definition : WeaponCatalog.ALL) {
-                if (!definition.usesAmmo()) continue;
                 json.append(",\"").append(definition.ownedField()).append("\":").append(player.weapons.owns(definition.id()));
                 json.append(",\"").append(definition.ammoField()).append("\":").append(player.weapons.ammo(definition.id()));
             }

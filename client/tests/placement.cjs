@@ -14,6 +14,7 @@ let options;
 const me = { id: 'me', x: 1119, y: 1900, selectedBuild: 'block', buildItems: { block: 2 },
     ownsShotgun: true, shotgunAmmo: 5, credits: 1000 };
 const context = vm.createContext({ WeaponUI,
+    state: { rules: { weaponLimit: 3 } },
     TILE_MAP: { tileSize: 40 }, myPlayerId: 'me', localFacing: { x: 1, y: 0 }, me,
     getMe: () => me, send: command => messages.push(command),
     showFeedback: text => feedback.push(text), findNearestInteraction: () => null,
