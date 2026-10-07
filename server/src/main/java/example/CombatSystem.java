@@ -30,7 +30,7 @@ final class CombatSystem {
             attackDrone(player, aimX, aimY);
             return;
         }
-        if (!world.canAttack() || player.down || player.movingCore || player.cooldown > 0) return;
+        if (!world.canAttack() || player.down || player.movingCore || player.selectedBuild != null || player.cooldown > 0) return;
 
         if (player.weapon.equals("railgun")) {
             if (!player.firing || player.selectedBuild != null) return;

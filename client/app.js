@@ -1513,6 +1513,7 @@ canvas.addEventListener("pointercancel", event => {
 canvas.addEventListener("contextmenu", event => event.preventDefault());
 
 function startFiring(pointerId, clientX, clientY) {
+    if (getMe()?.selectedBuild) return;
     if (getMe()?.movingCore) {
         showFeedback("CORE運搬中は武器を使用できません");
         return;
@@ -1524,7 +1525,7 @@ function startFiring(pointerId, clientX, clientY) {
 
 function updateFiringAim(clientX, clientY) {
     if (!firingPointer) return;
-    if (getMe()?.movingCore) {
+    if (getMe()?.movingCore || getMe()?.selectedBuild) {
         firingPointer = null;
         return;
     }
@@ -1543,6 +1544,7 @@ function stopFiring(clientX, clientY) {
 }
 
 function fireOnce(clientX, clientY) {
+    if (getMe()?.selectedBuild) return;
     if (getMe()?.movingCore) {
         showFeedback("CORE運搬中は武器を使用できません");
         return;

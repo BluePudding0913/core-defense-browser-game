@@ -533,7 +533,7 @@ final class GameSession {
         double y = Double.parseDouble(parts[2]);
         if (!Double.isFinite(x) || !Double.isFinite(y)) return;
         boolean active = parts[3].equals("1") || parts[3].equalsIgnoreCase("true");
-        if (player.movingCore) {
+        if (player.movingCore || player.selectedBuild != null) {
             player.firing = false;
             return;
         }
@@ -2349,6 +2349,8 @@ final class GameSession {
         } else if ((type.equals("teleporter") || type.equals("drone") || BUILD_RECIPES.containsKey(type) || type.endsWith("Factory")) && player.buildItemCount(type) > 0) {
             releaseCarriedCore(player);
             player.selectedBuild = type;
+            player.firing = false;
+            player.stopRailgun();
         }
     }
 

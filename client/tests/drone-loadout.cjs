@@ -67,4 +67,13 @@ assert.deepEqual(lines, [[200, 100], [240, 100]], 'mounted gun produces a visibl
 assert.deepEqual(numbers, [], 'damage quantities stay hidden as in the original game');
 assert.equal(context.ctx.strokeStyle, '#ff5964');
 assert.ok(!source.includes('drone-loadout'), 'mount selection is no longer in inventory');
+context.worldFromScreen = (x, y) => ({x, y}); context.firingPointer = null;
+for (const name of ['startFiring', 'updateFiringAim', 'fireOnce']) vm.runInContext(extract(name), context);
+me.selectedBuild = 'drone'; commands.length = 0;
+run('startFiring(1, 200, 100); fireOnce(200, 100)');
+assert.equal(commands.length, 0, 'mouse and touch cannot shoot the previous weapon while drone is selected');
+context.firingPointer = {id: 1}; run('updateFiringAim(200, 100)');
+assert.equal(context.firingPointer, null); assert.equal(commands.length, 0);
+me.selectedBuild = null;
+run('startFiring(2, 200, 100)'); assert.equal(commands.pop(), 'FIRE:200.0:100.0:1', 'piloting still allows drone fire');
 console.log('Drone loadout UI passed: preflight selection, repair affordability, facility priority, nearby recovery, trajectory without damage quantities');

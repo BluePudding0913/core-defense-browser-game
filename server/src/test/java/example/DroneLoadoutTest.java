@@ -161,4 +161,20 @@ class DroneLoadoutTest {
         command("DRONE_LAUNCH:none"); assertTrue(player.drone.active); assertEquals("", player.drone.weapon);
         assertEquals(0, player.ore); assertEquals(0, player.copper);
     }
+
+    @Test void selectedDroneBlocksPreviousGunAndStopsHeldFireButDeployedDroneCanShoot() {
+        grant("smg", 5); command("WEAPON:smg"); Enemy target = enemy(1, 1200);
+        command("FIRE:1400:1900:1"); assertEquals(4, player.weapons.ammo("smg"));
+        command("EQUIP_BUILD:drone"); assertFalse(player.firing);
+        double hp = target.hp; effects.clear();
+        command("FIRE:1400:1900:1"); command("ATTACK"); game.update(.5);
+        game.combat.attackAt(player, 1400, 1900);
+        assertFalse(player.firing); assertEquals(hp, target.hp); assertEquals(4, player.weapons.ammo("smg"));
+        assertEquals(0, player.cooldown);
+        assertTrue(effects.stream().noneMatch(s -> s.contains("\"effect\":\"shot\"") || s.contains("\"effect\":\"hit\"")));
+        command("EQUIP_BUILD:none"); command("FIRE:1400:1900:1");
+        assertEquals(3, player.weapons.ammo("smg")); assertTrue(target.hp < hp);
+        command("EQUIP_BUILD:drone"); command("DRONE_LAUNCH:smg");
+        command("FIRE:1400:1900:1"); assertEquals(2, player.weapons.ammo("smg"));
+    }
 }
