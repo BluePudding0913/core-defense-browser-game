@@ -29,7 +29,8 @@
   render(me);
   check(container.querySelector('.inventory-health').textContent==='HP 42 / 100','Inventory health missing');
   check(container.querySelector('[data-resource="silver"] .resource-count').textContent==='×1','New material missing');
-  check(!!container.querySelector('[data-key="item:medkit"]'),'Healing item missing');
+  check(!!container.querySelector('[data-item="medkit"]'),'Healing item missing');
+  check(!container.querySelector('[data-key="item:medkit"]'),'Healing item appears in equipment');
   const one=container.querySelector('[data-drop="wood"][data-amount="1"]');
   const all=container.querySelector('[data-drop="wood"][data-amount="all"]');
   one.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
@@ -53,6 +54,20 @@
   check(container.querySelector('.equipment-grid').firstElementChild===shotgun,'Reordering must move existing nodes');
   for(let i=0;i<20;i++)render(me);
   check(container.querySelector('.equipment-grid').firstElementChild===shotgun,'Snapshots must preserve reordered nodes');
+  const kitOne=container.querySelector('[data-drop-item="medkit"][data-amount="1"]');
+  const kitAll=container.querySelector('[data-drop-item="medkit"][data-amount="all"]');
+  me.medkits=3;render(me);kitOne.click();
+  check(sent.at(-1)==='DROP_ITEM:medkit:1','Single medkit drop failed');
+  me.medkits=2;render(me);kitAll.click();
+  check(sent.at(-1)==='DROP_ITEM:medkit:2','Drop all medkits used stale quantity');
+  container.querySelector('[data-use="medkit"]').click();
+  check(sent.at(-1)==='USE:medkit','Medkit use failed');
+  me.hp=100;render(me);
+  check(container.querySelector('[data-use="medkit"]').disabled && !kitOne.disabled,'Full HP should prevent use but allow dropping');
+  me.medkits=0;render(me);
+  check(kitOne.disabled && kitAll.disabled,'Empty medkit drop enabled');
+  me.medkits=1;me.down=true;render(me);
+  check(kitOne.disabled && kitAll.disabled,'Downed medkit drop enabled');
   container.addEventListener('pointerup',()=>{output.textContent='Order: '+entries(me).map(e=>e.label).join(' → ')+'; selections: '+selected.length;});
   output.textContent='PASS '+checks+' checks: stable press, latest quantities, focus, no duplicate sends, empty/down guards, equipment selection';
  } catch(error){output.textContent='FAIL '+error.stack;}

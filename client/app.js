@@ -719,7 +719,6 @@ function reorderEquipment(sourceKey, targetKey) {
 
 function equipmentEntries(me) {
     const entries = WeaponUI.entries(me, WEAPON_FIELDS);
-    if (me.medkits > 0) entries.push({ key: "item:medkit", kind: "item", value: "medkit", label: "回復キット" });
     for (const [type, info] of Object.entries(BUILD_INFO)) {
         if ((me.buildItems?.[type] || 0) > 0) entries.push({ key: `build:${type}`, kind: "build", value: type, label: info.name });
     }
@@ -902,6 +901,16 @@ function updateInventory(me) {
         inventoryItems.innerHTML = `
             <div class="inventory-health" role="status"></div>
             <div class="inventory-section"><h3>EQUIPMENT</h3><div class="inventory-grid equipment-grid"></div></div>
+            <div class="inventory-section"><h3>ITEMS</h3><div class="inventory-grid">
+                <div class="inventory-resource" data-item="medkit">
+                    <strong>回復キット</strong><span class="item-count"></span>
+                    <div class="resource-actions">
+                        <button type="button" data-use="medkit">使用</button>
+                        <button type="button" data-drop-item="medkit" data-amount="1">1個落とす</button>
+                        <button type="button" data-drop-item="medkit" data-amount="all">全部落とす</button>
+                    </div>
+                </div>
+            </div></div>
             <div class="inventory-section"><h3>MATERIALS</h3><div class="inventory-grid materials-grid">
                 ${resourceInventoryCard("wood")}
                 ${resourceInventoryCard("ore")}
@@ -910,6 +919,12 @@ function updateInventory(me) {
             </div></div>`;
     }
     inventoryItems.querySelector(".inventory-health").textContent = `HP ${Math.ceil(me.hp)} / ${me.maxHp || 100}${me.down ? "（ダウン中）" : ""}`;
+    const medkitCard = inventoryItems.querySelector('[data-item="medkit"]');
+    medkitCard.querySelector(".item-count").textContent = `×${me.medkits || 0}`;
+    medkitCard.querySelectorAll("button").forEach(button => {
+        button.disabled = me.down || !(me.medkits > 0)
+            || Boolean(button.dataset.use && me.hp >= (me.maxHp || 100));
+    });
     const entries = equipmentEntries(me);
     const selectedKey = me.movingCore ? "core"
         : me.selectedBuild ? `build:${me.selectedBuild}` : `weapon:${me.weapon}`;
@@ -953,6 +968,11 @@ inventoryItems.addEventListener("click", event => {
     if (button.dataset.key) {
         const entry = equipmentEntries(me).find(candidate => candidate.key === button.dataset.key);
         if (entry) selectEquipment(entry);
+    } else if (button.dataset.use) {
+        if (me.medkits > 0 && me.hp < (me.maxHp || 100)) send("USE:medkit");
+    } else if (button.dataset.dropItem) {
+        const amount = button.dataset.amount === "all" ? me.medkits : 1;
+        if (me.medkits > 0) send(`DROP_ITEM:medkit:${amount}`);
     } else if (button.dataset.drop) {
         const type = button.dataset.drop;
         const amount = button.dataset.amount === "all" ? me[type] : 1;
@@ -2153,7 +2173,14 @@ function drawDroppedResources() {
         ctx.fillStyle = drop.type === "wood" ? "#b8b8b8" : drop.type === "copper" ? "#aa754d" : drop.type === "silver" ? "#eee" : "#777";
         ctx.strokeStyle = "#fff";
         ctx.lineWidth = 1.5;
-        if (drop.type === "wood") {
+        if (drop.type === "medkit") {
+            ctx.fillStyle = "#eee";
+            ctx.fillRect(-10, -8, 20, 16);
+            ctx.strokeRect(-10, -8, 20, 16);
+            ctx.fillStyle = "#e45151";
+            ctx.fillRect(-2, -6, 4, 12);
+            ctx.fillRect(-6, -2, 12, 4);
+        } else if (drop.type === "wood") {
             ctx.fillRect(-8, -6, 16, 12);
             ctx.strokeRect(-8, -6, 16, 12);
         } else {
@@ -2494,7 +2521,7 @@ function drawHitEffects() {
             ctx.fillStyle = "#000";
             ctx.font = "900 11px ui-monospace, monospace";
             ctx.textAlign = "center";
-            ctx.fillText(`+${RESOURCE_NAMES[effect.resource] || effect.resource}${effect.amount > 1 ? ` ×${effect.amount}` : ""}`,
+            ctx.fillText(`+${effect.resource === "medkit" ? "回復キット" : RESOURCE_NAMES[effect.resource] || effect.resource}${effect.amount > 1 ? ` ×${effect.amount}` : ""}`,
                 effect.x, effect.y - 18 - progress * 22);
             ctx.restore();
             continue;

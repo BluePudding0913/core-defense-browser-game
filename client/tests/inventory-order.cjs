@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const WeaponUI = require('../weapon-ui.js');
 const source = fs.readFileSync('client/app.js', 'utf8');
 let saved = '[]';
-const me = { ownsShotgun: true, buildItems: { block: 2 } };
+const me = { ownsShotgun: true, medkits: 3, buildItems: { block: 2 } };
 const context = vm.createContext({ WeaponUI, WEAPON_FIELDS: { bat: { capacity: 0 }, pistol: { capacity: 0 }, shotgun: { capacity: 50, owned: "ownsShotgun" }, lmg: { capacity: 600, owned: "ownsLmg" } }, equipmentOrder: [], BUILD_INFO: { block: { name: 'BLOCK' } },
     getMe: () => me, me, localStorage: { getItem: () => saved, setItem: (_, value) => { saved = value; } } });
 for (const name of ['loadEquipmentOrder', 'reorderEquipment', 'equipmentEntries']) {
@@ -14,6 +14,7 @@ for (const name of ['loadEquipmentOrder', 'reorderEquipment', 'equipmentEntries'
 }
 const run = code => vm.runInContext(code, context);
 const order = () => JSON.parse(run('JSON.stringify(equipmentEntries(me).map(e => e.key))'));
+assert(!order().includes('item:medkit'), 'medkits must not appear in the equipment popup');
 assert(run('reorderEquipment("build:block", "weapon:bat")'));
 assert.deepEqual(order(), ['build:block', 'weapon:bat', 'weapon:pistol', 'weapon:shotgun']);
 assert(run('reorderEquipment("weapon:bat", "weapon:shotgun")'));
