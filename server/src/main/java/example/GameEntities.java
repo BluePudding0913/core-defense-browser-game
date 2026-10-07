@@ -25,6 +25,11 @@ final class Player {
     boolean dashing;
     boolean dashExhausted;
     double stamina;
+    String job = JobRules.DEFAULT;
+    double spyRemaining;
+    double jobCooldown;
+    double teleportCooldown;
+    final java.util.List<MapPoint> teleportPads = new java.util.ArrayList<>();
     String weapon = "pistol";
     double cooldown;
     double cooldownMax;

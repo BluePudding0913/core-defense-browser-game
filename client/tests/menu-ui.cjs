@@ -31,7 +31,7 @@ vm.runInNewContext(fs.readFileSync('client/pointer-settings.js', 'utf8'), contex
 vm.runInNewContext(fs.readFileSync('client/key-settings.js', 'utf8'), context);
 vm.runInNewContext(fs.readFileSync('client/menu-ui.js', 'utf8'), context);
 const submit = (form, data = {}) => handlers.submit({ preventDefault() {}, target: { dataset: { form }, data } });
-const click = (action, slot) => handlers.click({ target: { closest: () => ({ dataset: { action, slot } }) } });
+const click = (action, slot) => handlers.click({ target: { closest: () => ({ dataset: { action, slot, job: slot } }) } });
 function edit(value) { input.value = value; handlers.input({ target: input }); }
 function assertEmptyGating(label, valid = '入力') {
     for (const value of ['', '　 ']) {
@@ -85,14 +85,22 @@ assert(matchButton.disabled, 'disable matching while the request is pending');
 submit('create', { password: 'duplicate' });
 assert.deepEqual(calls, [['create', '合言葉<&>', '<Host>']]);
 assert.doesNotMatch(root.innerHTML, /ui-members/, 'must wait for server response');
+context.window.coreJobs = { healer: { name: "ヒーラー", detail: "蘇生 2秒" }, spy: { name: "スパイ", detail: "偽装 8秒" }, tp: { name: "TP", detail: "装置 1組" }, scout: { name: "スカウト", detail: "ダッシュ UP" } };
 const state = { phase: 'lobby', privateRoom: true, roomOwnerId: 'p1', allReady: true,
     players: [1, 2, 3, 4].map(i => ({ id: 'p' + i, name: i === 1 ? '<Host>' : 'CPU', human: i === 1, ready: false })) };
 context.window.coreMenu.snapshot(state, 'p1');
-assert.match(root.innerHTML, /&lt;Host&gt;<\/strong><span>host<\/span>/);
+assert.match(root.innerHTML, /&lt;Host&gt; · ヒーラー<\/strong><span>host<\/span>/);
 assert.doesNotMatch(root.innerHTML, / · HOST/);
 assert.doesNotMatch(root.innerHTML, /CORE DEFENSE|クイックマッチ|合言葉|ホスト設定|data-action="cpu"|空席|CPU/);
 assert.equal((root.innerHTML.match(/class="room-member/g) || []).length, 1);
 assert.doesNotMatch(root.innerHTML, /data-action="start" disabled/, 'host can start with automatic CPU fill');
+assert.equal((root.innerHTML.match(/data-action="job"/g) || []).length, 4);
+assert.match(root.innerHTML, /data-job="healer" aria-pressed="true"/);
+click('job', 'scout'); assert.equal(calls.at(-1), 'JOB:scout');
+state.players[0].job = 'scout';
+context.window.coreMenu.snapshot(state, 'p1');
+assert.match(root.innerHTML, /data-job="scout" aria-pressed="true"/);
+assert.match(root.innerHTML, /&lt;Host&gt; · スカウト/);
 click('start'); assert.equal(calls.at(-1), 'START');
 const appSource = fs.readFileSync('client/app.js', 'utf8');
 const sendStart = appSource.indexOf('function send(message)');
@@ -128,7 +136,7 @@ context.window.coreMenu.snapshot(state, 'p1');
 assert.match(root.innerHTML, /room-member ready[\s\S]*準備完了/);
 state.roomOwnerId = 'p2';
 context.window.coreMenu.snapshot(state, 'p2');
-assert.match(root.innerHTML, /Guest<\/strong><span>host<\/span>/);
+assert.match(root.innerHTML, /Guest · ヒーラー<\/strong><span>host<\/span>/);
 assert.match(root.innerHTML, /data-action="start"/);
 context.window.coreMenu.disconnected('切断されました');
 assert.match(root.innerHTML, /data-action="start" disabled/);

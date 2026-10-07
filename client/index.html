@@ -35,6 +35,8 @@
         <div id="feedback" class="feedback"></div>
         <div id="slot-popup" class="slot-popup hidden" aria-live="polite"></div>
         <div class="controls-right">
+            <button id="job-ability" class="control-button hidden" type="button"></button>
+            <button id="teleport-use" class="control-button hidden" type="button">TP移動</button>
             <button id="interact" class="control-button interact hidden" type="button"><span>R</span><small>INTERACT</small></button>
             <button id="weapon" class="control-button weapon" type="button">
                 <span id="weapon-icon" class="weapon-icon pistol" aria-hidden="true"></span>
@@ -86,6 +88,7 @@
         <section id="room-lobby" class="room-panel hidden">
             <div class="room-heading"><strong id="room-code">ROOM</strong><span id="room-owner"></span></div>
             <div id="room-members" class="room-members"></div>
+            <div id="job-select" class="job-select" aria-label="ジョブ"></div>
             <button id="ready-room" type="button" disabled>準備OK</button>
             <button id="start" class="primary-button hidden" type="button" disabled>開始</button>
             <button id="leave-room" class="secondary-button" type="button">戻る</button>
@@ -114,7 +117,8 @@
                         <div><dt>所持品</dt><dd>EでHP、武器、素材、設置物を確認・選択。回復キットは奥のMEDKITショップで購入し、回復キー（初期H・設定で変更）または所持品から使用</dd></div>
                         <div><dt>回復部屋</dt><dd>MED BAYで準備中は毎秒100HP回復。戦闘中は毎秒4HP、被弾後5秒間停止</dd></div>
                         <div><dt>切り替え</dt><dd>マウスホイール、または右下の武器表示を押す</dd></div>
-                        <div><dt>蘇生</dt><dd>ラウンドクリアでダウンした味方が自動復帰。近くに4秒いても復帰。蘇生中も攻撃・移動できます</dd></div>
+                        <div><dt>蘇生</dt><dd>ラウンドクリアでダウンした味方が自動復帰。近くに4秒（ヒーラーは2秒）いても復帰。蘇生中も攻撃・移動できます</dd></div>
+                        <div><dt>ジョブ</dt><dd>待機画面で選択。スパイは偽装ボタンで8秒間敵に認識されず、通常攻撃を回避（爆発は被弾）。TPは正面に2台設置して1組にし、近くでTP移動。TP回収で設置し直せます</dd></div>
                         <div><dt>ダッシュ</dt><dd>移動しながらShift</dd></div>
                     </dl>
                 </section>

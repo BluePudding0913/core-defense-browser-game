@@ -354,6 +354,7 @@ class GameplayRevisionTest {
     }
 
     @Test void leavingReviveRangeResetsProgressAndWallsPreventRevives() {
+        player.job = "scout";
         Player downed = game.players.get(1);
         player.x = 1020; player.y = 1900;
         downed.x = 1060; downed.y = 1900; downed.hp = 0; downed.down = true;

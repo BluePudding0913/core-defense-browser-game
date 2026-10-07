@@ -10,6 +10,22 @@ const roomBrowser = document.querySelector("#room-browser");
 const roomLobby = document.querySelector("#room-lobby");
 const roomList = document.querySelector("#room-list");
 const roomMembers = document.querySelector("#room-members");
+const JOBS = Object.freeze({
+    healer: { name: "ヒーラー", detail: "蘇生 2秒" },
+    spy: { name: "スパイ", detail: "偽装 8秒 / 再使用 30秒" },
+    tp: { name: "TP", detail: "テレポート装置 1組" },
+    scout: { name: "スカウト", detail: "ダッシュ速度・持続時間 UP" }
+});
+window.coreJobs = JOBS;
+const jobSelect = document.querySelector("#job-select");
+const jobAbilityButton = document.querySelector("#job-ability");
+const teleportUseButton = document.querySelector("#teleport-use");
+jobSelect.addEventListener("click", event => {
+    const job = event.target.closest("[data-job]")?.dataset.job;
+    if (job) send(`JOB:${job}`);
+});
+jobAbilityButton.addEventListener("click", () => send("JOB_ABILITY"));
+teleportUseButton.addEventListener("click", () => send("TELEPORT"));
 const roomCode = document.querySelector("#room-code");
 const roomOwner = document.querySelector("#room-owner");
 const createRoomButton = document.querySelector("#create-room");
@@ -560,10 +576,11 @@ function updateRoomLobby(snapshot) {
     roomOwner.textContent = `作成者: ${owner?.name || "接続待ち"}`;
     const humans = snapshot.players.filter(player => player.human);
     roomMembers.innerHTML = humans.map(player => `<div class="room-member ${player.id === snapshot.roomOwnerId || player.ready ? "ready" : ""}">
-        <strong>${escapeHtml(player.name)}</strong>
+        <strong>${escapeHtml(player.name)} · ${JOBS[player.job]?.name || "ヒーラー"}</strong>
         <span>${player.id === snapshot.roomOwnerId ? "host" : player.ready ? "準備完了" : "準備中"}</span>
     </div>`).join("");
     const me = snapshot.players.find(player => player.id === myPlayerId);
+    jobSelect.innerHTML = Object.entries(JOBS).map(([job, info]) => `<button type="button" data-job="${job}" aria-pressed="${job === (me?.job || "healer")}"><strong>${info.name}</strong><small>${info.detail}</small></button>`).join("");
     const isOwner = myPlayerId === snapshot.roomOwnerId;
     readyRoomButton.classList.toggle("hidden", isOwner);
     readyRoomButton.disabled = !me || isOwner;
@@ -817,6 +834,15 @@ function updateHud() {
         : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}`
             : "";
     const me = getMe();
+    jobAbilityButton.classList.toggle("hidden", !me || !["spy", "tp"].includes(me.job));
+    jobAbilityButton.textContent = me?.job === "spy"
+        ? me.spyRemaining > 0 ? `偽装 ${Math.ceil(me.spyRemaining)}s` : me.jobCooldown > 0 ? `偽装 ${Math.ceil(me.jobCooldown)}s` : "偽装"
+        : me?.teleportPads?.length === 2 ? "TP回収" : `TP設置 ${(me?.teleportPads?.length || 0) + 1}/2`;
+    jobAbilityButton.disabled = !me || me.down || me.movingCore || Boolean(me.selectedBuild) || (me.job === "spy" && me.jobCooldown > 0);
+    const nearPad = me && state.players.some(owner => owner.teleportPads?.length === 2
+        && owner.teleportPads.some(pad => Math.hypot(me.x - pad.x, me.y - pad.y) <= 45));
+    teleportUseButton.classList.toggle("hidden", !nearPad);
+    teleportUseButton.disabled = !me || me.down || me.movingCore || me.teleportCooldown > 0;
     teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">
             <div class="teammate-label">
@@ -1647,7 +1673,7 @@ function updateLocalPrediction(dt) {
     predictedLocal.dashing = !(serverMe.railgunRemaining > 0 || serverMe.railgunCharge > 0) && !serverMe.down && !serverMe.movingCore
         && dashRequested && !predictedLocal.exhausted && input > .12 && predictedLocal.stamina > 0;
     if (predictedLocal.dashing) {
-        predictedLocal.stamina = Math.max(0, predictedLocal.stamina - 38 * dt);
+        predictedLocal.stamina = Math.max(0, predictedLocal.stamina - (serverMe.staminaDrain ?? 38) * dt);
         if (predictedLocal.stamina <= 0) {
             predictedLocal.exhausted = true;
             predictedLocal.dashing = false;
@@ -1656,7 +1682,7 @@ function updateLocalPrediction(dt) {
         predictedLocal.stamina = Math.min(100, predictedLocal.stamina + 24 * dt);
     }
 
-    const speed = serverMe.railgunRemaining > 0 ? 155 * .3 : serverMe.railgunCharge > 0 ? 155 * .6 : serverMe.down ? 45 : serverMe.movingCore ? 82 : predictedLocal.dashing ? 265 : 155;
+    const speed = serverMe.railgunRemaining > 0 ? 155 * .3 : serverMe.railgunCharge > 0 ? 155 * .6 : serverMe.down ? 45 : serverMe.movingCore ? 82 : predictedLocal.dashing ? (serverMe.dashSpeed ?? 265) : 155;
     const nextX = clamp(predictedLocal.x + localMove.x * speed * dt, 25, WORLD.width - 25);
     const nextY = clamp(predictedLocal.y + localMove.y * speed * dt, 25, WORLD.height - 25);
     if (canPredictOccupy(nextX, predictedLocal.y, 5)) predictedLocal.x = nextX;
@@ -1720,6 +1746,7 @@ function draw() {
         drawResources();
         drawDroppedResources();
         drawTrapSlots();
+        drawTeleportPads();
         drawArtilleryShells();
         drawEnemies();
         drawRailguns();
@@ -2269,12 +2296,25 @@ function drawRailguns() {
     }
 }
 
+function drawTeleportPads() {
+    for (const owner of state.players) {
+        for (const [index, pad] of (owner.teleportPads || []).entries()) {
+            ctx.save(); ctx.translate(pad.x, pad.y);
+            ctx.strokeStyle = owner.teleportPads.length === 2 ? "#aa83ff" : "#666";
+            ctx.fillStyle = "#211a36"; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = "#eee"; ctx.font = "800 10px system-ui"; ctx.textAlign = "center";
+            ctx.fillText(`TP${index + 1}`, 0, 4); ctx.restore();
+        }
+    }
+}
+
 function drawPlayers() {
     for (const player of state.players) {
         const isLocal = player.id === myPlayerId && predictedLocal;
         const p = isLocal ? predictedLocal : smoothEntity("player", player);
         const rescuers = state.players.filter(worker => worker.action === player.id);
-        if (player.down && rescuers.length && (player.id === myPlayerId || rescuers.some(worker => worker.id === myPlayerId))) drawReviveEffect(p.x, p.y, Math.max(...rescuers.map(worker => worker.actionProgress / 4)));
+        if (player.down && rescuers.length && (player.id === myPlayerId || rescuers.some(worker => worker.id === myPlayerId))) drawReviveEffect(p.x, p.y, Math.max(...rescuers.map(worker => worker.actionProgress / (worker.reviveSeconds ?? 4))));
         ctx.save();
         if (player.down) { ctx.translate(p.x, p.y + 8); ctx.scale(1.35, .65); }
         else ctx.translate(p.x, p.y);
@@ -2291,7 +2331,13 @@ function drawPlayers() {
         }
         ctx.fillStyle = hit || player.down ? "#ff5964" : player.id === myPlayerId ? "#79d8ff" : "#454545";
         const playerSize = 10;
-        ctx.fillRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize);
+        if (player.spyRemaining > 0 && !player.down) {
+            ctx.fillStyle = "#707070"; ctx.strokeStyle = "#c8c8c8"; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(-6, -5, 3, 3); ctx.fillRect(3, -5, 3, 3);
+            ctx.fillStyle = "#79d8ff"; ctx.fillRect(-2, 6, 4, 2);
+        } else ctx.fillRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize);
         if (player.id === myPlayerId) { ctx.strokeStyle = "white"; ctx.lineWidth = 1.5; ctx.strokeRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize); }
         if (player.selectedBuild?.endsWith("Factory") && player.buildItems?.[player.selectedBuild] > 0) {
             ctx.fillStyle = "#70bfff";

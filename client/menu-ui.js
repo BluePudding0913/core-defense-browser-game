@@ -43,8 +43,9 @@ function mountMenu() {
             const me = snapshot.players.find(p => p.id === selfId);
             content = '<ol class="ui-members" aria-label="参加者">' + snapshot.players.filter(p => p.human).map(p => {
                 const host = p.id === snapshot.roomOwnerId;
-                return `<li class="room-member ${host || p.ready ? "ready" : ""}"><strong>${escape(p.name)}</strong><span>${host ? "host" : p.ready ? "準備完了" : "準備中"}</span></li>`;
+                return `<li class="room-member ${host || p.ready ? "ready" : ""}"><strong>${escape(p.name)} · ${window.coreJobs?.[p.job]?.name || "ヒーラー"}</strong><span>${host ? "host" : p.ready ? "準備完了" : "準備中"}</span></li>`;
             }).join("") + '</ol>';
+            content += '<div class="ui-jobs" aria-label="ジョブ">' + Object.entries(window.coreJobs || {}).map(([job, info]) => `<button type="button" data-action="job" data-job="${job}" aria-pressed="${job === (me?.job || "healer")}" ${disabled()}><strong>${info.name}</strong><small>${info.detail}</small></button>`).join("") + '</div>';
             content += owner ? `<button data-action="start" ${!snapshot.allReady || !connected ? "disabled" : ""}>${snapshot.phase === "lobby" ? "開始" : "もう一度プレイ"}</button>` : `<button data-action="ready" ${disabled()}>${me?.ready ? "準備を取り消す" : "準備OK"}</button>`;
             content += button("leave", "戻る");
         }
@@ -110,7 +111,7 @@ function mountMenu() {
             document.body.classList.toggle("menu-preview", !playing);
             if (playing) { lastLobby = ""; return; }
             const signature = JSON.stringify([id, next.roomId, next.privateRoom, next.phase, next.roomOwnerId, next.allReady,
-                next.players.map(p => [p.id, p.name, p.human, p.ready])]);
+                next.players.map(p => [p.id, p.name, p.human, p.ready, p.job])]);
             if (signature === lastLobby && view === "lobby") return;
             lastLobby = signature; view = "lobby";
             render();
@@ -165,6 +166,7 @@ function mountMenu() {
         if (action === "quick") {
             try { match("quick"); } catch (error) { status(error.message); }
         }
+        if (action === "job") window.coreGame.send(`JOB:${target.dataset.job}`);
         if (action === "start") window.coreGame.send("START");
         if (action === "ready") window.coreGame.send(`ROOM_READY:${snapshot.players.find(p => p.id === selfId)?.ready ? 0 : 1}`);
         if (action === "leave") {

@@ -149,6 +149,9 @@ final class GameSession {
             assigned.roomReady = false;
             assigned.reconnectGrace = 0;
             if (!rejoining) {
+                assigned.job = JobRules.DEFAULT;
+                assigned.spyRemaining = assigned.jobCooldown = 0;
+                assigned.teleportPads.clear();
                 assigned.sessionId = reconnectId;
                 assigned.lastProcessedInput = 0;
                 assigned.name = "Player " + assigned.slot;
@@ -205,6 +208,9 @@ final class GameSession {
                     }
                 }
             }
+            case "JOB" -> { if (parts.length >= 2) selectJob(player, parts[1]); }
+            case "JOB_ABILITY" -> useJobAbility(player);
+            case "TELEPORT" -> useTeleport(player);
             case "ROOM_READY" -> setRoomReady(player, parts);
             case "MOVE" -> handleMove(player, parts);
             case "DASH" -> handleDash(player, parts);
@@ -238,6 +244,9 @@ final class GameSession {
     void update(double dt) {
         updateReconnectReservations(dt);
         for (Player player : players) {
+            player.spyRemaining = Math.max(0, player.spyRemaining - dt);
+            player.jobCooldown = Math.max(0, player.jobCooldown - dt);
+            player.teleportCooldown = Math.max(0, player.teleportCooldown - dt);
             player.weaponCooldowns.replaceAll((weapon, remaining) -> Math.max(0, remaining - dt));
             player.cooldown = Math.max(0, player.cooldown - dt);
             player.gatherCooldown = Math.max(0, player.gatherCooldown - dt);
@@ -337,6 +346,63 @@ final class GameSession {
         }
         player.facingX = facingX;
         player.facingY = facingY;
+    }
+
+    private void selectJob(Player player, String job) {
+        if (!player.human || !JobRules.valid(job)
+                || !(phase == GamePhase.LOBBY || phase == GamePhase.WON || phase == GamePhase.LOST)) return;
+        if (player.job.equals(job)) return;
+        player.job = job;
+        player.roomReady = false;
+        player.spyRemaining = player.jobCooldown = 0;
+        player.teleportPads.clear();
+    }
+
+    private void useJobAbility(Player player) {
+        if (!canMove() || player.down || player.movingCore || player.selectedBuild != null) return;
+        if (player.job.equals("spy")) {
+            if (player.jobCooldown > 0) return;
+            player.spyRemaining = JobRules.SPY_DURATION;
+            player.jobCooldown = JobRules.SPY_COOLDOWN;
+        } else if (player.job.equals("tp")) {
+            if (player.teleportPads.size() == 2) {
+                player.teleportPads.clear();
+                return;
+            }
+            MapPoint origin = GameMap.snapToTile(player.x, player.y);
+            MapPoint point = GameMap.snapToTile(origin.x() + player.facingX * GameMap.TILE_SIZE,
+                    origin.y() + player.facingY * GameMap.TILE_SIZE);
+            if (!canPlaceDefenseAt(point, null)) {
+                gameEffects.feedback(player, "ここには設置できません");
+                return;
+            }
+            player.teleportPads.add(point);
+        }
+    }
+
+    private void useTeleport(Player player) {
+        if (!canMove() || player.down || player.movingCore || player.teleportCooldown > 0) return;
+        MapPoint destination = null;
+        double nearest = 45;
+        for (Player owner : players) {
+            if (owner.teleportPads.size() != 2) continue;
+            for (int i = 0; i < 2; i++) {
+                MapPoint from = owner.teleportPads.get(i);
+                double range = distance(player.x, player.y, from.x(), from.y());
+                if (range > nearest || !GameMap.hasClearLine(player.x, player.y, from.x(), from.y())) continue;
+                nearest = range;
+                destination = owner.teleportPads.get(1 - i);
+            }
+        }
+        if (destination == null) return;
+        if (!JobRules.canTeleportTo(destination, canOccupy(destination.x(), destination.y(), 5),
+                player, players, enemies, coreX, coreY)) {
+            gameEffects.feedback(player, "移動先が塞がっています");
+            return;
+        }
+        player.x = destination.x(); player.y = destination.y();
+        player.teleportCooldown = 1.5;
+        cancelAction(player);
     }
 
     private void handleDash(Player player, String[] parts) {
@@ -513,7 +579,7 @@ final class GameSession {
                     && player.dashHeld && !player.dashExhausted
                     && input > 0.12 && player.stamina > 0;
             if (player.dashing) {
-                player.stamina = Math.max(0, player.stamina - 38 * dt);
+                player.stamina = Math.max(0, player.stamina - JobRules.staminaDrain(player.job) * dt);
                 if (player.stamina <= 0) {
                     player.dashExhausted = true;
                     player.dashing = false;
@@ -521,7 +587,7 @@ final class GameSession {
             } else {
                 player.stamina = Math.min(100, player.stamina + 24 * dt);
             }
-            double speed = player.down ? 45 : player.movingCore ? 82 : player.dashing ? 265 : 155;
+            double speed = player.down ? 45 : player.movingCore ? 82 : player.dashing ? JobRules.dashSpeed(player.job) : 155;
             if (player.railgunRemaining > 0) speed = 155 * .3;
             else if (player.railgunCharge > 0) speed = 155 * .6;
             double nextX = clamp(player.x + player.moveX * speed * dt, 7, WORLD_W - 7);
@@ -569,7 +635,7 @@ final class GameSession {
                 player.actionProgress = 0;
             }
             player.actionProgress += dt;
-            if (player.actionProgress >= 4) {
+            if (player.actionProgress >= JobRules.reviveSeconds(player.job)) {
                 target.down = false;
                 target.hp = 45;
                 target.moveX = 0;
@@ -998,7 +1064,7 @@ final class GameSession {
                 double targetDistance = distance(enemy.x, enemy.y, playerTarget.x, playerTarget.y);
                 if (targetDistance <= 36) {
                     if (enemy.attackCooldown <= 0) {
-                        damagePlayer(playerTarget, enemy.damage);
+                        if (!JobRules.disguised(playerTarget)) damagePlayer(playerTarget, enemy.damage);
                         enemy.attackCooldown = 0.9;
                     }
                 } else {
@@ -1095,7 +1161,7 @@ final class GameSession {
     private boolean updateArtillery(Enemy enemy, double dt) {
         enemy.specialCooldown = Math.max(0, enemy.specialCooldown - dt);
         Player target = players.stream()
-                .filter(player -> !player.down && canArtilleryAim(enemy, player.x, player.y))
+                .filter(player -> !player.down && !JobRules.disguised(player) && canArtilleryAim(enemy, player.x, player.y))
                 .min(Comparator.comparingDouble(player -> distance(enemy.x, enemy.y, player.x, player.y)))
                 .orElse(null);
         TrapSlot defense = target == null ? trapSlots.stream()
@@ -1191,7 +1257,7 @@ final class GameSession {
 
     private Player nearestPlayer(Enemy enemy, double range) {
         return players.stream()
-                .filter(player -> !player.down
+                .filter(player -> !player.down && !JobRules.disguised(player)
                         && distance(enemy.x, enemy.y, player.x, player.y) <= range)
                 .min(Comparator.comparingDouble(player -> distance(enemy.x, enemy.y, player.x, player.y)))
                 .orElse(null);
@@ -2182,7 +2248,7 @@ final class GameSession {
             gameEffects.feedback(player, "もう少し近づいてください");
             return;
         }
-        if (!BuildingRules.canPlaceCore(point,
+        if (BuildingRules.teleportPadOccupied(point, players, 45) || !BuildingRules.canPlaceCore(point,
                 GameMap.canPlaceCore(point.x(), point.y(), unlockedAreas), buildingPlacementState(), player)) {
             gameEffects.feedback(player, "ここにはコアを置けません");
             return;
@@ -2313,7 +2379,8 @@ final class GameSession {
     }
 
     private boolean canPlaceDefenseAt(MapPoint point, TrapSlot ignored) {
-        return BuildingRules.canPlaceDefense(point,
+        return !BuildingRules.teleportPadOccupied(point, players, 36)
+                && BuildingRules.canPlaceDefense(point,
                 GameMap.canPlaceDefense(point.x(), point.y(), unlockedAreas), buildingPlacementState(), ignored);
     }
 
@@ -2584,6 +2651,10 @@ final class GameSession {
             player.dashing = false;
             player.dashExhausted = false;
             player.stamina = 100;
+            player.spyRemaining = 0;
+            player.jobCooldown = 0;
+            player.teleportCooldown = 0;
+            player.teleportPads.clear();
             player.equipWeapon("pistol");
             player.weaponCooldowns.clear();
             player.weaponCooldownMaxima.clear();

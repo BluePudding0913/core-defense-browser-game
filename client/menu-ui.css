@@ -41,3 +41,8 @@
 @media (max-height: 520px) { #menu-ui h1 { margin-bottom: 24px; } }
 
 #menu-ui .ui-pointer-settings select { margin-left: auto; min-width: 3rem; color: #fff; background: #181818; border: 1px solid #666; padding: .25rem; }
+
+#menu-ui .ui-jobs { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; margin: .8rem 0; }
+#menu-ui .ui-jobs button { margin: 0; padding: .6rem; }
+#menu-ui .ui-jobs small { display: block; font-size: .7rem; opacity: .7; margin-top: .25rem; }
+#menu-ui .ui-jobs [aria-pressed="true"] { border-color: #79d8ff; background: #18323e; }

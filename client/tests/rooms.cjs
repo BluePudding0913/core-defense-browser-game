@@ -50,8 +50,9 @@ const context = {
 };
 for (const name of ['nameInput', 'createRoomButton', 'joinRoomsButton', 'refreshRoomsButton',
     'startButton', 'readyRoomButton', 'leaveRoomButton', 'menu', 'menuStatus', 'hud',
-    'roomBrowser', 'roomLobby', 'roomCode', 'roomMembers', 'roomOwner']) context[name] = element();
+    'roomBrowser', 'roomLobby', 'roomCode', 'roomMembers', 'roomOwner', 'jobSelect']) context[name] = element();
 context.document = { querySelector: () => element() };
+context.JOBS = { healer: { name: "ヒーラー", detail: "蘇生 2秒" }, scout: { name: "スカウト", detail: "ダッシュ UP" } };
 vm.createContext(context);
 for (const name of ['connect', 'switchConnection', 'enterRoom', 'leaveRoom', 'updateRoomLobby', 'hideScreenIntro']) {
     vm.runInContext(extract(name), context);
@@ -110,7 +111,7 @@ run('updateRoomLobby(snapshot)');
 assert(!context.readyRoomButton.classList.contains('hidden'));
 assert(!context.readyRoomButton.disabled);
 assert.equal(context.readyRoomButton.textContent, '準備OK');
-assert.match(context.roomMembers.innerHTML, /room-member ready[\s\S]*あ<\/strong>\s*<span>host<\/span>[\s\S]*?<\/div>/);
+assert.match(context.roomMembers.innerHTML, /room-member ready[\s\S]*あ · ヒーラー<\/strong>\s*<span>host<\/span>[\s\S]*?<\/div>/);
 assert.equal((context.roomMembers.innerHTML.match(/<span>/g) || []).length, 2,
     'host and guest each have a status label, including when viewed by a guest');
 assert(context.roomMembers.innerHTML.includes('準備中'));
