@@ -6,5 +6,5 @@ interface CombatEvents {
             double x, double y, double damage, boolean defeated, int credits, boolean headshot);
     void sound(Player player, String effect, String item);
     void explosion(double x, double y, double radius);
-    void feedback(Player player, String message);
+    void outOfAmmo(Player player);
 }

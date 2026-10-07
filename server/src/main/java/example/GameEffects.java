@@ -34,4 +34,6 @@ final class GameEffects implements CombatEvents {
         if (player.human) sink.send(player, "{\"type\":\"feedback\",\"message\":\""
                 + escapeJson(message) + "\"}");
     }
+
+    public void outOfAmmo(Player player) { feedback(player, "弾薬がありません"); }
 }

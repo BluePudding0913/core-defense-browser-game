@@ -40,7 +40,7 @@ final class CombatSystem {
         }
         WeaponStats weapon = WeaponCatalog.stats(player.weapon);
         if (!player.weapons.consume(player.weapon)) {
-            events.feedback(player, "弾薬がありません");
+            events.outOfAmmo(player);
             player.firing = false;
             return;
         }

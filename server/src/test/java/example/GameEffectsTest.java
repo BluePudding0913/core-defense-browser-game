@@ -6,6 +6,22 @@ import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
 
 class GameEffectsTest {
+    @Test void outOfAmmoProducesPrivateHumanFeedbackWithoutExposingTextToCombat() throws Exception {
+        var messages = new ArrayList<String>();
+        var effects = new GameEffects(new GameEventSink() {
+            public void broadcast(String message) { fail("Empty ammo feedback must stay private"); }
+            public void send(Player player, String message) { messages.add(message); }
+        });
+        var player = new Player(1);
+        effects.outOfAmmo(player);
+        assertTrue(messages.isEmpty());
+        player.human = true;
+        effects.outOfAmmo(player);
+        var message = new ObjectMapper().readTree(messages.get(0));
+        assertEquals("feedback", message.path("type").asText());
+        assertEquals("弾薬がありません", message.path("message").asText());
+    }
+
     @Test void adapterPreservesBrowserFieldsRoundingAndPrivateFeedback() throws Exception {
         var broadcasts = new ArrayList<String>();
         var privateMessages = new ArrayList<String>();

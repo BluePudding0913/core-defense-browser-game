@@ -22,7 +22,7 @@ class CombatSystemTest {
                 double x, double y, double damage, boolean defeated, int credits, boolean headshot) { }
         public void sound(Player player, String effect, String item) { shots++; }
         public void explosion(double x, double y, double radius) { }
-        public void feedback(Player player, String message) { feedback++; }
+        public void outOfAmmo(Player player) { feedback++; }
     }
 
     @Test void damageRewardsAndDeathCallbackWorkWithoutGameSessionOrTransport() {
