@@ -882,14 +882,10 @@ function updateHud() {
         : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}`
             : "";
     const me = getMe();
-    jobAbilityButton.classList.toggle("hidden", me?.job !== "spy" && !(me?.job === "drone" && me.drone?.active));
+    jobAbilityButton.classList.toggle("hidden", me?.job !== "spy");
     jobAbilityButton.textContent = me?.spyRemaining > 0 ? `偽装 ${Math.ceil(me.spyRemaining)}s`
         : me?.jobCooldown > 0 ? `偽装 ${Math.ceil(me.jobCooldown)}s` : "偽装";
     jobAbilityButton.disabled = !me || me.down || me.movingCore || Boolean(me.selectedBuild) || me.jobCooldown > 0;
-    if (me?.job === "drone") {
-        jobAbilityButton.textContent = me.drone?.controlled ? "PLAYER VIEW" : "DRONE VIEW";
-        jobAbilityButton.disabled = !me.drone?.active || me.down || me.movingCore;
-    }
     teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">
             <div class="teammate-label">
