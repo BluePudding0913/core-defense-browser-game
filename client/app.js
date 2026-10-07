@@ -1161,7 +1161,8 @@ function openActionMenu(title, options, layout = "default") {
         const button = document.createElement("button");
         button.disabled = Boolean(option.disabled);
         button.innerHTML = `${escapeHtml(option.label)}${option.detail ? `<small>${escapeHtml(option.detail)}</small>` : ""}`;
-        if (option.command) button.addEventListener("click", () => { send(option.command); closeActionMenu(); });
+        if (option.onSelect) button.addEventListener("click", option.onSelect);
+        else if (option.command) button.addEventListener("click", () => { send(option.command); closeActionMenu(); });
         actionOptions.append(button);
     }
     actionMenu.classList.remove("hidden");
@@ -1297,7 +1298,7 @@ function openPrepConsoleMenu() {
     }], PREP_CONSOLE, 95, "single");
 }
 
-function openShopPurchase(shop) {
+function openShopPurchase(shop, chooseExchange = false) {
     const me = getMe();
     if (shop.item === "medkit") {
         openNearbyActionMenu(shop.label, [{
@@ -1328,7 +1329,7 @@ function openShopPurchase(shop) {
     const unavailable = shop.item === "ammo" && ownedWeapons.length === 0;
     const weaponLimitReached = weaponFields && !alreadyOwned
         && WeaponUI.atLimit(me, WEAPON_FIELDS, state.rules.weaponLimit);
-    if (weaponLimitReached) {
+    if (weaponLimitReached && chooseExchange) {
         openNearbyActionMenu(shop.label, WeaponUI.entries(me, WEAPON_FIELDS)
             .filter(entry => entry.value !== "bat").map(entry => ({
                 label: `交換: ${entry.label}`,
@@ -1342,7 +1343,8 @@ function openShopPurchase(shop) {
         label: ammoFull ? "FULL" : alreadyOwned || shop.item === "ammo" && !unavailable ? "REFILL"
             : unavailable ? "LOCKED" : "BUY",
         detail: `${price}G`,
-        command: `BUY:${shop.item}`,
+        command: weaponLimitReached ? undefined : `BUY:${shop.item}`,
+        onSelect: weaponLimitReached ? () => openShopPurchase(shop, true) : undefined,
         disabled: ammoFull || unavailable || me.credits < price,
     }], shop, INTERACTION_RANGE.shop, "single");
 }

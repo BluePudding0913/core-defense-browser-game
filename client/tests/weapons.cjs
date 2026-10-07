@@ -86,12 +86,62 @@ me.ownsPistol = true; me.ownsSmg = true; me.ownsRevolver = true; me.credits = 10
 vm.runInContext('applyRules({rules})', context);
 context.shop = map.shopUnits.find(shop => shop.item === 'rifle');
 vm.runInContext('openShopPurchase(shop)', context);
+assert.equal(options.length, 1);
+assert.equal(options[0].label, 'BUY');
+assert.equal(options[0].detail, context.shop.cost + 'G');
+assert.equal(options[0].command, undefined);
+assert(!options[0].disabled);
+options[0].onSelect();
 assert.equal(options.length, 3);
 assert.deepEqual(Array.from(options, option => option.command).sort(), ['BUY:rifle:pistol', 'BUY:rifle:revolver', 'BUY:rifle:smg']);
 assert(options.every(option => !option.disabled));
 me.credits = 0;
 vm.runInContext('openShopPurchase(shop)', context);
 assert(options.every(option => option.disabled));
+me.credits = 100000;
+vm.runInContext('openShopPurchase(shop)', context);
+const purchase = options[0];
+me.ownsRevolver = false;
+purchase.onSelect();
+assert.equal(options.length, 1);
+assert.equal(options[0].command, 'BUY:rifle');
 me.ownsPistol = false;
 assert(!vm.runInContext('equipmentEntries(me).some(entry => entry.value === "pistol")', context));
 console.log('Weapon exchange UI passed: selection, bat exclusion, cost and removed pistol');
+
+// Exercise the real button handlers: BUY opens selection without sending or closing.
+const sent = [];
+let buttons = [], closed = 0;
+const classes = new Set(['hidden']);
+Object.assign(context, {
+    actionTitle: {}, actionOptions: {
+        replaceChildren() { buttons = []; }, append(button) { buttons.push(button); },
+    },
+    actionMenu: { classList: {
+        toggle(name, enabled) { if (enabled) classes.add(name); else classes.delete(name); },
+        remove(name) { classes.delete(name); },
+    } },
+    document: { querySelector: () => ({}), createElement: () => ({
+        addEventListener(name, callback) { this[name] = callback; },
+    }) },
+    updateWorkbenchMaterials() {}, escapeHtml: value => value,
+    canUseNearby: () => true, send: command => sent.push(command),
+    closeActionMenu() { closed++; classes.add('hidden'); },
+});
+vm.runInContext(extract('openActionMenu') + extract('openNearbyActionMenu'), context);
+me.ownsPistol = true; me.ownsRevolver = true;
+vm.runInContext('openShopPurchase(shop)', context);
+assert.equal(buttons.length, 1);
+assert(buttons[0].innerHTML.startsWith('BUY'));
+assert(classes.has('single-action'));
+buttons[0].click();
+assert.equal(buttons.length, 3);
+assert.equal(sent.length, 0);
+assert.equal(closed, 0);
+assert(!classes.has('hidden'));
+assert(!classes.has('single-action'));
+buttons[0].click();
+assert.equal(sent.length, 1);
+assert(sent[0].startsWith('BUY:rifle:'));
+assert.equal(closed, 1);
+console.log('Weapon purchase flow passed: BUY click, exchange selection, then purchase');
