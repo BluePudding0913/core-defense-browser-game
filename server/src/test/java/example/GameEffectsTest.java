@@ -30,12 +30,13 @@ class GameEffectsTest {
             public void send(Player player, String message) { privateMessages.add(message); }
         });
         var mapper = new ObjectMapper();
-        effects.hit("player-1", "smg", 1.26, 2.24, 3, 4, 5.1236, true, 6, true);
+        effects.hit("player-1", "smg", 1.26, 2.24, 3, 4, 5.1236, true, 6, true, 9800);
         var hit = mapper.readTree(broadcasts.get(0));
         assertEquals("effect", hit.path("type").asText());
         assertEquals("hit", hit.path("effect").asText());
         assertEquals("player-1", hit.path("playerId").asText());
         assertEquals("smg", hit.path("weapon").asText());
+        assertEquals(9800, hit.path("enemyId").asInt());
         assertEquals(1.3, hit.path("fromX").asDouble());
         assertEquals(2.2, hit.path("fromY").asDouble());
         assertEquals(3, hit.path("x").asInt());

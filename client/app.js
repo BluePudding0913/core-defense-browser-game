@@ -2196,7 +2196,7 @@ function drawEnemies() {
         const p = smoothEntity("enemy", enemy), radius = enemyRadius(enemy);
         const recentHit = hitEffects.find(effect => effect.effect === "hit" && effect.damage > 0
             && performance.now() - effect.started < 260
-            && Math.hypot(effect.x - p.x, effect.y - p.y) < radius + 18);
+            && effect.enemyId === enemy.id);
         if (recentHit) {
             ctx.save();
             ctx.globalAlpha = 1 - (performance.now() - recentHit.started) / 260;

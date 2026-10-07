@@ -113,7 +113,7 @@ final class CombatSystem {
                 int before = player.credits;
                 double dealt = damageEnemy(enemy, stats.damage() * GameConfig.RAILGUN_TICK, player);
                 events.hit(player.id, "railgun", player.x, player.y, enemy.x, enemy.y,
-                        dealt, enemy.hp <= 0, player.credits - before, false);
+                        dealt, enemy.hp <= 0, player.credits - before, false, enemy.id);
             }
         }
         if (player.railgunRemaining < 1e-9) {
@@ -138,7 +138,7 @@ final class CombatSystem {
             if (entry < impactDistance) impactDistance = entry;
         }
         double x = player.x + dx * impactDistance, y = player.y + dy * impactDistance;
-        events.hit(player.id, "rocket", player.x, player.y, x, y, 0, false, 0, false);
+        events.hit(player.id, "rocket", player.x, player.y, x, y, 0, false, 0, false, null);
         events.explosion(x, y, GameConfig.ROCKET_BLAST_RADIUS);
         for (Enemy enemy : world.enemies()) {
             double blastDistance = distance(x, y, enemy.x, enemy.y);
@@ -150,7 +150,7 @@ final class CombatSystem {
             double dealt = damageEnemy(enemy, damage, player);
             knockbackEnemy(x, y, enemy, weapon.knockback());
             events.hit(player.id, "rocket", x, y, enemy.x, enemy.y, dealt,
-                    enemy.hp <= 0, player.credits - creditsBefore, false);
+                    enemy.hp <= 0, player.credits - creditsBefore, false, enemy.id);
         }
     }
 
@@ -196,7 +196,7 @@ final class CombatSystem {
             endX = originX + directionX * entry; endY = originY + directionY * entry;
         }
         // A trajectory event is separate from impact and reward events.
-        events.hit(player.id, player.weapon, originX, originY, endX, endY, 0, false, 0, false);
+        events.hit(player.id, player.weapon, originX, originY, endX, endY, 0, false, 0, false, null);
         for (Enemy hit : targets) {
             int creditsBeforeHit = player.credits;
             boolean headshot = isHeadshot(hit, player, originX, originY, directionX, directionY, weapon, shotDistance);
@@ -206,7 +206,7 @@ final class CombatSystem {
             if (headshot) player.credits += 3;
             knockbackEnemy(originX, originY, hit, weapon.knockback());
             events.hit(player.id, player.weapon, player.x, player.y, hit.x, hit.y,
-                    dealt, hit.hp <= 0, player.credits - creditsBeforeHit, headshot);
+                    dealt, hit.hp <= 0, player.credits - creditsBeforeHit, headshot, hit.id);
         }
         return !targets.isEmpty();
     }

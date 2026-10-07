@@ -10,13 +10,13 @@ final class GameEffects implements CombatEvents {
     GameEffects(GameEventSink sink) { this.sink = sink; }
 
     public void hit(String playerId, String weapon, double fromX, double fromY,
-            double x, double y, double damage, boolean defeated, int credits, boolean headshot) {
+            double x, double y, double damage, boolean defeated, int credits, boolean headshot, Integer enemyId) {
         sink.broadcast("{\"type\":\"effect\",\"effect\":\"hit\",\"playerId\":\"" + escapeJson(playerId)
                 + "\",\"weapon\":\"" + escapeJson(weapon) + "\",\"fromX\":" + roundOne(fromX)
                 + ",\"fromY\":" + roundOne(fromY) + ",\"x\":" + roundOne(x)
                 + ",\"y\":" + roundOne(y) + ",\"damage\":" + (Math.round(damage * 1000) / 1000.0)
                 + ",\"defeated\":" + defeated + ",\"credits\":" + credits
-                + ",\"headshot\":" + headshot + "}");
+                + ",\"headshot\":" + headshot + ",\"enemyId\":" + enemyId + "}");
     }
 
     public void sound(Player player, String effect, String item) {

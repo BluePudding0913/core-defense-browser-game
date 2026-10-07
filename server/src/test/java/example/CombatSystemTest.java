@@ -19,7 +19,7 @@ class CombatSystemTest {
     private static final class Events implements CombatEvents {
         int shots, feedback;
         public void hit(String playerId, String weapon, double fromX, double fromY,
-                double x, double y, double damage, boolean defeated, int credits, boolean headshot) { }
+                double x, double y, double damage, boolean defeated, int credits, boolean headshot, Integer enemyId) { }
         public void sound(Player player, String effect, String item) { shots++; }
         public void explosion(double x, double y, double radius) { }
         public void outOfAmmo(Player player) { feedback++; }

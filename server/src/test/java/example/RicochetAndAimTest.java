@@ -31,6 +31,31 @@ class RicochetAndAimTest {
         e.x = x; e.y = y; game.enemies.add(e); return e;
     }
 
+    @Test void hitNotificationIdentifiesOnlyTheDamagedEnemy() throws Exception {
+        Enemy hit = enemy(1120, 1900);
+        Enemy neighbor = new Enemy(9801, "grunt", GameMap.SPAWN_POINTS.get(0), 2000, 0, 0, 0);
+        neighbor.x = 1120; neighbor.y = 1930; game.enemies.add(neighbor);
+        game.handleMessage(player, "FIRE:1200:1900:1");
+        assertEquals(1974, hit.hp);
+        assertEquals(2000, neighbor.hp);
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        int trajectories = 0, impacts = 0;
+        for (String effect : effects) {
+            var message = mapper.readTree(effect);
+            if (!message.path("effect").asText().equals("hit")) continue;
+            assertTrue(message.has("enemyId"));
+            if (message.path("damage").asDouble() > 0) {
+                impacts++;
+                assertEquals(hit.id, message.path("enemyId").asInt());
+            } else {
+                trajectories++;
+                assertTrue(message.path("enemyId").isNull());
+            }
+        }
+        assertEquals(1, impacts);
+        assertEquals(1, trajectories);
+    }
+
     @Test void reflectedBulletHitsEnemyBehindPlayerAndSpendsOneRound() {
         player.weapon = "ricochet"; player.weapons.setAmmo("ricochet", 1);
         Enemy behind = enemy(940, 1900);

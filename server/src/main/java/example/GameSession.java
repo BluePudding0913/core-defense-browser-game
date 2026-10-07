@@ -904,7 +904,7 @@ final class GameSession {
                     gameEffects.hit("trap", "turret", slot.x, slot.y,
                             target.x + (hit ? 0 : Math.cos(missAngle) * 16),
                             target.y + (hit ? 0 : Math.sin(missAngle) * 16),
-                            dealt, target.hp <= 0, 0, false);
+                            dealt, target.hp <= 0, 0, false, hit ? target.id : null);
                     defense.cooldown = defense.type.equals("silverTurret") ? .45 : .7;
                 }
             } else if (defense.type.equals("mine")) {
@@ -916,7 +916,7 @@ final class GameSession {
                         if (enemy.hp > 0 && distance(slot.x, slot.y, enemy.x, enemy.y) < 120) {
                             double dealt = combat.damageEnemy(enemy, 450, null);
                             gameEffects.hit("trap", "mine", slot.x, slot.y, enemy.x, enemy.y,
-                                    dealt, enemy.hp <= 0, 0, false);
+                                    dealt, enemy.hp <= 0, 0, false, enemy.id);
                         }
                     }
                     slot.defense = null;
