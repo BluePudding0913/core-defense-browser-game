@@ -243,7 +243,7 @@ button, input { font: inherit; }
 .weapon-icon { position: relative; width: 5.2rem; height: 2.6rem; transform: scale(2); transform-origin: center; image-rendering: pixelated; }
 .weapon-icon::before, .weapon-icon::after { content: ""; position: absolute; display: block; background: #e6e6e6; }
 .weapon-icon.drone::before, .weapon-icon.build-drone::before { left: 1.9rem; top: .9rem; width: 1.2rem; height: .8rem; background: #ddfbff; }
-.weapon-icon.drone::after, .weapon-icon.build-drone::after { left: .35rem; top: .15rem; width: 1.6rem; height: .65rem; border: .12rem solid #8be8f5; border-radius: 50%; background: transparent; box-shadow: 2.8rem 0 0 -.12rem #8be8f5, 0 1.55rem 0 -.12rem #8be8f5, 2.8rem 1.55rem 0 -.12rem #8be8f5; }
+.weapon-icon.drone::after, .weapon-icon.build-drone::after { left: .35rem; top: .15rem; width: 1.6rem; height: .65rem; border-radius: 50%; background: #8be8f5; box-shadow: 2.8rem 0 0 #8be8f5, 0 1.55rem 0 #8be8f5, 2.8rem 1.55rem 0 #8be8f5; }
 .weapon-icon.pistol::before { left: .45rem; top: .55rem; width: 3.2rem; height: .72rem; box-shadow: .45rem -.22rem 0 #aaa; }
 .weapon-icon.pistol::after { left: 2.45rem; top: 1.2rem; width: .78rem; height: 1.05rem; transform: skew(-10deg); background: #8b8b8b; }
 .weapon-icon.bat::before { left: .55rem; top: 1rem; width: 3.8rem; height: .55rem; transform: rotate(-18deg); background: #d0d0d0; }

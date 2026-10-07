@@ -196,7 +196,7 @@ final class SnapshotBuilder {
                     .append(",\"hp\":").append(roundOne(player.drone.hp))
                     .append(",\"maxHp\":").append(DroneRules.HP)
                     .append(",\"cooldown\":").append(roundOne(player.drone.cooldown))
-                    .append(",\"cooldownMax\":").append(WeaponCatalog.stats(player.drone.weapon).cooldown())
+                    .append(",\"cooldownMax\":").append(player.drone.weapon.isEmpty() ? 1 : WeaponCatalog.stats(player.drone.weapon).cooldown())
                     .append(",\"weapon\":\"").append(player.drone.weapon).append('"')
                     .append(",\"controlled\":").append(DroneRules.controlling(player))
                     .append(",\"active\":").append(player.drone.active).append('}');

@@ -767,7 +767,7 @@ function showEquipmentPopup(selectedKey) {
     if (!me) return;
     const entries = equipmentEntries(me);
     slotPopup.innerHTML = entries.map((entry, index) => {
-        const amount = entry.kind === "build" ? ` ×${me.buildItems?.[entry.value] || 0}` : "";
+        const amount = entry.kind === "build" && entry.value !== "drone" ? ` ×${me.buildItems?.[entry.value] || 0}` : "";
         return `<div class="${entry.key === selectedKey ? "selected" : ""}">${index + 1}. ${escapeHtml(entry.label)}${amount}</div>`;
     }).join("");
     slotPopup.classList.remove("hidden");
@@ -902,7 +902,7 @@ function updateHud() {
         const cooldownProgress = showingItem ? 1 : 1 - Math.min(1, me.cooldown / cooldownMax);
         weaponName.textContent = me.movingCore ? "CORE"
             : selectedBuild ? BUILD_INFO[selectedBuild].name : me.weapon.toUpperCase();
-        weaponAmmo.textContent = me.movingCore ? "" : selectedBuild
+        weaponAmmo.textContent = me.movingCore || selectedBuild === "drone" ? "" : selectedBuild
             ? `×${me.buildItems[selectedBuild]}` : ammoForWeapon(me, me.weapon);
         weaponIcon.className = `weapon-icon ${me.movingCore ? "core" : selectedBuild ? `build-${selectedBuild}` : me.weapon}`;
         weaponCooldown.textContent = showingItem ? "R TO PLACE"
@@ -912,10 +912,10 @@ function updateHud() {
         weaponButton.classList.toggle("locked", me.movingCore);
         weaponButton.disabled = me.movingCore;
         if (me.drone?.controlled) {
-            weaponName.textContent = `DRONE / ${me.drone.weapon.toUpperCase()}`;
-            weaponAmmo.textContent = ammoForWeapon(me, me.drone.weapon);
-            weaponIcon.className = `weapon-icon ${me.drone.weapon}`;
-            weaponCooldown.textContent = me.drone.cooldown > 0 ? `${me.drone.cooldown.toFixed(1)}s` : "READY";
+            weaponName.textContent = me.drone.weapon ? `DRONE / ${me.drone.weapon.toUpperCase()}` : "DRONE";
+            weaponAmmo.textContent = me.drone.weapon ? ammoForWeapon(me, me.drone.weapon) : "";
+            weaponIcon.className = `weapon-icon ${me.drone.weapon || "drone"}`;
+            weaponCooldown.textContent = !me.drone.weapon ? "UNARMED" : me.drone.cooldown > 0 ? `${me.drone.cooldown.toFixed(1)}s` : "READY";
             weaponButton.style.setProperty("--cooldown-progress", `${(1 - me.drone.cooldown / me.drone.cooldownMax) * 100}%`);
             weaponButton.classList.toggle("cooling", me.drone.cooldown > 0);
             weaponButton.disabled = true;
@@ -938,7 +938,7 @@ function updateInventory(me) {
     if (!inventoryItems.querySelector(".equipment-grid")) {
         inventoryItems.innerHTML = `
             <div class="inventory-health" role="status"></div>
-            <div class="drone-loadout hidden"><h3>DRONE</h3><div class="inventory-grid drone-mounts"></div></div>
+            <div class="drone-loadout hidden"><h3>搭載武器</h3><div class="inventory-grid drone-mounts"></div></div>
             <div class="inventory-section"><h3>EQUIPMENT</h3><div class="inventory-grid equipment-grid"></div></div>
             <div class="inventory-section"><h3>ITEMS</h3><div class="inventory-grid">
                 <div class="inventory-resource" data-item="medkit">
@@ -988,7 +988,8 @@ function updateInventory(me) {
         button.classList.toggle("selected", selectedKey === entry.key);
         button.disabled = entry.kind === "item" && (me.down || me.hp >= (me.maxHp || 100));
         button.querySelector("strong").textContent = `${index + 1}. ${entry.label}`;
-        button.querySelector("span").textContent = entry.kind === "build" ? `×${me.buildItems[entry.value]}`
+        button.querySelector("span").textContent = entry.value === "drone" ? ""
+            : entry.kind === "build" ? `×${me.buildItems[entry.value]}`
             : entry.kind === "item" ? `×${me.medkits} · 使用する`
             : entry.kind === "core" ? ""
                 : WEAPON_FIELDS[entry.value]?.capacity > 0 ? `${ammoForWeapon(me, entry.value)} / ${WEAPON_FIELDS[entry.value].capacity}`
@@ -1006,6 +1007,7 @@ function updateDroneLoadout(me) {
     section.classList.remove("hidden");
     const grid = section.querySelector(".drone-mounts");
     const entries = WeaponUI.entries(me, WEAPON_FIELDS).filter(e => WEAPON_FIELDS[e.value].droneMountable);
+    entries.unshift({ value: "none", label: "なし" });
     const buttons = new Map([...grid.querySelectorAll("button")].map(b => [b.dataset.mount, b]));
     for (const [id, button] of buttons) if (!entries.some(e => e.value === id)) button.remove();
     for (const entry of entries) {
@@ -1015,7 +1017,8 @@ function updateDroneLoadout(me) {
             button.dataset.mount = entry.value; grid.append(button);
         }
         button.textContent = entry.label;
-        button.classList.toggle("selected", entry.value === (me.drone?.weapon || "pistol"));
+        const mounted = me.drone ? me.drone.weapon || "none" : "pistol";
+        button.classList.toggle("selected", entry.value === mounted);
         button.disabled = me.down || Boolean(me.drone?.active);
     }
 }
@@ -2663,13 +2666,6 @@ function drawHitEffects() {
                 ctx.lineWidth = 1.35;
                 ctx.beginPath(); ctx.moveTo(effect.fromX, effect.fromY); ctx.lineTo(effect.x, effect.y); ctx.stroke();
             }
-            ctx.restore();
-        }
-        if (effect.damage > 0 && age < 360) {
-            ctx.save(); ctx.globalAlpha = 1 - age / 360;
-            ctx.fillStyle = "#ff5964"; ctx.font = "900 13px ui-monospace, monospace";
-            ctx.textAlign = "center";
-            ctx.fillText(String(Math.round(effect.damage * 10) / 10), effect.x, effect.y - 12 - age / 20);
             ctx.restore();
         }
         if (effect.credits > 0 && effect.playerId === myPlayerId && age < 900) {

@@ -120,4 +120,27 @@ class DroneLoadoutTest {
         game.combat.damageEnemy(bomber, 100, null);
         assertFalse(player.drone.active); assertEquals(1, player.moveX); assertTrue(player.firing);
     }
+
+    @Test void destructionLosesOnlyMountedWeaponAndAmmoAndRepairDoesNotRestoreIt() throws Exception {
+        grant("smg", 9); grant("rifle", 12); command("DRONE_MOUNT:smg"); launch();
+        player.drone.hp = 1; command("JOB_ABILITY"); command("WEAPON:smg");
+        Method damage = GameSession.class.getDeclaredMethod("damageDrone", Player.class, double.class);
+        damage.setAccessible(true); damage.invoke(game, player, 2);
+        assertFalse(player.weapons.owns("smg")); assertEquals(0, player.weapons.ammo("smg"));
+        assertEquals("bat", player.weapon); assertEquals("", player.drone.weapon);
+        assertTrue(player.weapons.owns("pistol")); assertTrue(player.weapons.owns("rifle"));
+        assertEquals(12, player.weapons.ammo("rifle"));
+        player.ore = DroneRules.REPAIR_ORE; player.copper = DroneRules.REPAIR_COPPER; launch();
+        assertTrue(player.drone.active); assertEquals("", player.drone.weapon);
+        assertFalse(player.weapons.owns("smg"));
+        command("FIRE:1400:1900:1"); assertEquals(12, player.weapons.ammo("rifle"));
+        assertDoesNotThrow(() -> new ObjectMapper().readTree(SnapshotBuilder.build(game)));
+    }
+
+    @Test void unmountingAndRecoveryKeepOwnedWeaponAndAmmo() {
+        grant("smg", 9); command("DRONE_MOUNT:smg"); launch(); command("DRONE_RECOVER");
+        assertTrue(player.weapons.owns("smg")); assertEquals(9, player.weapons.ammo("smg"));
+        command("DRONE_MOUNT:none"); assertEquals("", player.drone.weapon);
+        launch(); assertTrue(player.drone.active); assertEquals("", player.drone.weapon);
+    }
 }

@@ -38,10 +38,10 @@ assert.equal(run('placementSelection(me)'), null, 'drone does not draw a buildin
 assert.equal(run('placeSelectedInFront()'), true);
 assert.equal(commands.pop(), 'PLACE_FRONT', 'R uses same item command as TP');
 run('updateDroneLoadout(me)');
-assert.deepEqual(buttons.map(b => b.dataset.mount), ['pistol', 'smg']);
+assert.deepEqual(buttons.map(b => b.dataset.mount), ['none', 'pistol', 'smg']);
 const clickStart = source.indexOf('inventoryItems.addEventListener("click",');
 vm.runInContext(source.slice(clickStart, source.indexOf('\nfunction resourceInventoryCard', clickStart)), context);
-clickHandler({ target: { closest: () => buttons[1] } });
+clickHandler({ target: { closest: () => buttons[2] } });
 assert.equal(commands.pop(), 'DRONE_MOUNT:smg');
 me.drone = { active: true, controlled: true, weapon: 'smg', x: 200, y: 100 };
 me.selectedBuild = null; me.buildItems.drone = 0;
@@ -58,6 +58,6 @@ context.hitEffects = [
 ];
 run('drawHitEffects()');
 assert.deepEqual(lines, [[200, 100], [240, 100]], 'mounted gun produces a visible trajectory from the drone');
-assert.ok(numbers.includes('18'), 'impact damage number is visible');
+assert.deepEqual(numbers, [], 'damage quantities stay hidden as in the original game');
 assert.equal(context.ctx.strokeStyle, '#ff5964');
-console.log('Drone loadout UI passed: inventory, R launch, owned mountable weapons, flight locking, nearby recovery, trajectory and damage');
+console.log('Drone loadout UI passed: inventory, R launch, owned mountable weapons, flight locking, nearby recovery, trajectory without damage quantities');

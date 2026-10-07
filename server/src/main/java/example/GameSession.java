@@ -420,8 +420,7 @@ final class GameSession {
             drone.hp = DroneRules.HP;
         }
         if (!player.weapons.owns(drone.weapon)) {
-            drone.weapon = WeaponCatalog.ALL.stream().map(WeaponCatalog.Definition::id)
-                    .filter(id -> DroneRules.mountable(id) && player.weapons.owns(id)).findFirst().orElse("pistol");
+            drone.weapon = "";
         }
         drone.x = player.x; drone.y = player.y;
         drone.active = drone.controlled = true;
@@ -434,9 +433,9 @@ final class GameSession {
     private void mountDrone(Player player, String weapon) {
         if (!canMove() || player.down || !player.job.equals("drone")
                 || player.drone != null && player.drone.active
-                || !DroneRules.mountable(weapon) || !player.weapons.owns(weapon)) return;
+                || !weapon.equals("none") && (!DroneRules.mountable(weapon) || !player.weapons.owns(weapon))) return;
         if (player.drone == null) player.drone = new Drone();
-        player.drone.weapon = weapon;
+        player.drone.weapon = weapon.equals("none") ? "" : weapon;
     }
 
     private void releaseDroneControl(Player player) {
@@ -466,6 +465,12 @@ final class GameSession {
     private void damageDrone(Player owner, double damage) {
         owner.drone.hp = Math.max(0, owner.drone.hp - damage);
         if (owner.drone.hp <= 0) {
+            String weapon = owner.drone.weapon;
+            owner.weapons.remove(weapon);
+            if (owner.weapon.equals(weapon)) owner.equipWeapon("bat");
+            owner.weaponCooldowns.remove(weapon);
+            owner.weaponCooldownMaxima.remove(weapon);
+            owner.drone.weapon = "";
             recallDrone(owner);
             gameEffects.feedback(owner, "ドローン破壊 / 修復が必要");
         }
