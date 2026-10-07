@@ -28,6 +28,7 @@ final class Player {
     String job = JobRules.DEFAULT;
     double spyRemaining;
     double jobCooldown;
+    Drone drone;
     double teleportCooldown;
     final java.util.List<MapPoint> teleportPads = new java.util.ArrayList<>();
     String weapon = "pistol";
@@ -136,6 +137,12 @@ final class Player {
             default -> { if (type.endsWith("Factory")) quarryItems.merge(type, amount, Integer::sum); }
         }
     }
+}
+
+final class Drone {
+    double x, y, hp = DroneRules.HP, cooldown;
+    boolean active;
+    final java.util.Set<Integer> attackers = new java.util.HashSet<>();
 }
 
 final class DroppedResource {
@@ -272,10 +279,16 @@ final class Enemy {
 
 /** A fired acid shell survives its shooter and retains the original aim point. */
 final class ArtilleryShell {
+    final int enemyId;
     final double sourceX, sourceY, x, y, damage;
     double remaining = GameConfig.ARTILLERY_FLIGHT_SECONDS;
 
     ArtilleryShell(double sourceX, double sourceY, double x, double y, double damage) {
+        this(sourceX, sourceY, x, y, damage, -1);
+    }
+
+    ArtilleryShell(double sourceX, double sourceY, double x, double y, double damage, int enemyId) {
+        this.enemyId = enemyId;
         this.sourceX = sourceX;
         this.sourceY = sourceY;
         this.x = x;

@@ -188,6 +188,17 @@ final class SnapshotBuilder {
             }
             json.append(']');
             // Keep the existing wire fields for browser/reconnect compatibility.
+            json.append(",\"drone\":");
+            if (player.drone == null) json.append("null");
+            else json.append("{\"x\":").append(roundOne(player.drone.x))
+                    .append(",\"y\":").append(roundOne(player.drone.y))
+                    .append(",\"hp\":").append(roundOne(player.drone.hp))
+                    .append(",\"maxHp\":").append(DroneRules.HP)
+                    .append(",\"cooldown\":").append(roundOne(player.drone.cooldown))
+                    .append(",\"cooldownMax\":").append(DroneRules.COOLDOWN)
+                    .append(",\"active\":").append(player.drone.active).append('}');
+            json.append(",\"droneRepairOre\":").append(DroneRules.REPAIR_ORE)
+                    .append(",\"droneRepairCopper\":").append(DroneRules.REPAIR_COPPER);
             for (var definition : WeaponCatalog.ALL) {
                 if (!definition.usesAmmo()) continue;
                 json.append(",\"").append(definition.ownedField()).append("\":").append(player.weapons.owns(definition.id()));

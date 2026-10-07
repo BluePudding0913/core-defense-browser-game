@@ -6,7 +6,8 @@ window.JobUI = (() => {
         healer: { name: "ヒーラー", description: "ダウンした味方を素早くリバイブする。" },
         spy: { name: "スパイ", description: "敵に似た姿に偽装し、認識と通常攻撃を避ける。偽装中は味方の弾と範囲攻撃も受ける。" },
         tp: { name: "TP", description: "テレポーターを2台所持。Rで設置・移動、R長押しで自分の装置を回収。味方全員が利用可能。" },
-        scout: { name: "スカウト", description: "ダッシュが少し速くなり、スタミナも長持ちする。" }
+        scout: { name: "スカウト", description: "ダッシュが少し速くなり、スタミナも長持ちする。" },
+        drone: { name: "Drone Operator", description: "ドローンで偵察・射撃。命中した敵を誘導できる。操作中は本人が無防備。破壊後は資材で修復。" }
     });
     const escape = value => String(value).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 

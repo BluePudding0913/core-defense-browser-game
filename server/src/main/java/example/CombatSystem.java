@@ -26,6 +26,10 @@ final class CombatSystem {
     }
 
     void attackAt(Player player, double aimX, double aimY) {
+        if (player.drone != null && player.drone.active) {
+            attackDrone(player, aimX, aimY);
+            return;
+        }
         if (!world.canAttack() || player.down || player.movingCore || player.cooldown > 0) return;
 
         if (player.weapon.equals("railgun")) {
@@ -82,6 +86,29 @@ final class CombatSystem {
             double spreadAngle = shotgun ? (pellet - (rays - 1) / 2.0) * .14 : 0;
             fireRay(player, weapon, Math.cos(angle + spreadAngle), Math.sin(angle + spreadAngle));
         }
+    }
+
+    private void attackDrone(Player player, double aimX, double aimY) {
+        Drone drone = player.drone;
+        if (!world.canAttack() || player.down || drone.hp <= 0 || drone.cooldown > 0) return;
+        double dx = aimX - drone.x, dy = aimY - drone.y;
+        double length = Math.hypot(dx, dy);
+        if (length < .001) return;
+        dx /= length; dy /= length;
+        double range = GameMap.distanceToWall(drone.x, drone.y, dx, dy, DroneRules.RANGE);
+        Enemy hit = DroneRules.hit(world.enemies(), drone.x, drone.y, dx, dy, range);
+        double dealt = 0;
+        if (hit != null) {
+            // Record hostility before damage, including a bomber's death callback.
+            drone.attackers.add(hit.id);
+            dealt = damageEnemy(hit, hit.shieldedDamage(DroneRules.DAMAGE, drone.x, drone.y), player);
+        }
+        drone.cooldown = DroneRules.COOLDOWN;
+        events.sound(player, "shot", "pistol");
+        events.hit(player.id, "pistol", drone.x, drone.y,
+                hit == null ? drone.x + dx * range : hit.x,
+                hit == null ? drone.y + dy * range : hit.y,
+                dealt, hit != null && hit.hp <= 0, 0, false, hit == null ? null : hit.id);
     }
 
     void updateRailgun(Player player, double dt) {

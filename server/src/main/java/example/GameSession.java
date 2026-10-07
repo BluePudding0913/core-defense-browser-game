@@ -152,6 +152,7 @@ final class GameSession {
             assigned.roomReady = false;
             assigned.reconnectGrace = 0;
             if (!rejoining) {
+                assigned.drone = null;
                 assigned.job = JobRules.DEFAULT;
                 assigned.spyRemaining = assigned.jobCooldown = 0;
                 assigned.teleportPads.clear();
@@ -169,6 +170,7 @@ final class GameSession {
         if (!player.human) return;
         String displayName = player.name;
         player.human = false;
+        recallDrone(player);
         player.roomReady = false;
         player.reconnectGrace = player.sessionId == null ? 0 : RECONNECT_GRACE_SECONDS;
         refreshCpuNames();
@@ -198,6 +200,8 @@ final class GameSession {
 
     private void handleCommand(Player player, String message) {
         String[] parts = message.split(":", 4);
+        if (canMove() && player.drone != null && player.drone.active
+                && !Set.of("MOVE", "FIRE", "ATTACK", "JOB_ABILITY", "HELLO").contains(parts[0])) return;
         switch (parts[0]) {
             case "HELLO" -> updateName(player, parts);
             case "START" -> {
@@ -252,6 +256,8 @@ final class GameSession {
     void update(double dt) {
         updateReconnectReservations(dt);
         for (Player player : players) {
+            if (!canMove()) recallDrone(player);
+            if (player.drone != null) player.drone.cooldown = Math.max(0, player.drone.cooldown - dt);
             player.spyRemaining = Math.max(0, player.spyRemaining - dt);
             player.jobCooldown = Math.max(0, player.jobCooldown - dt);
             player.teleportCooldown = Math.max(0, player.teleportCooldown - dt);
@@ -261,7 +267,7 @@ final class GameSession {
             if (!player.firing || player.down || player.movingCore || player.selectedBuild != null || !canMove()) {
                 player.stopRailgun();
             }
-            if (player.firing && player.cooldown <= 0 && canMove()) {
+            if (player.firing && (player.cooldown <= 0 || player.drone != null && player.drone.active) && canMove()) {
                 combat.attackAt(player, player.aimX, player.aimY);
             }
         }
@@ -340,7 +346,7 @@ final class GameSession {
             player.moveX /= length;
             player.moveY /= length;
         }
-        if (length > 0.12) {
+        if (length > 0.12 && !(player.drone != null && player.drone.active)) {
             updateFacing(player, player.moveX, player.moveY);
         }
     }
@@ -361,6 +367,7 @@ final class GameSession {
                 || !(phase == GamePhase.LOBBY || phase == GamePhase.WON || phase == GamePhase.LOST)) return;
         if (player.job.equals(job)) return;
         player.job = job;
+        player.drone = null;
         player.roomReady = false;
         player.spyRemaining = player.jobCooldown = 0;
         player.teleportPads.clear();
@@ -368,6 +375,30 @@ final class GameSession {
 
     private void useJobAbility(Player player) {
         if (!canMove() || player.down || player.movingCore || player.selectedBuild != null) return;
+        if (player.job.equals("drone")) {
+            if (player.drone != null && player.drone.active) {
+                recallDrone(player);
+                return;
+            }
+            if (player.drone != null && player.drone.hp <= 0) {
+                if (!DroneRules.canRepair(player.ore, player.copper)) {
+                    gameEffects.feedback(player, "修復: 鉱石" + DroneRules.REPAIR_ORE + " / 銅" + DroneRules.REPAIR_COPPER);
+                    return;
+                }
+                player.ore -= DroneRules.REPAIR_ORE;
+                player.copper -= DroneRules.REPAIR_COPPER;
+                player.drone = null;
+            }
+            if (player.drone == null) player.drone = new Drone();
+            player.drone.x = player.x;
+            player.drone.y = player.y;
+            player.drone.active = true;
+            player.drone.attackers.clear();
+            player.firing = player.dashHeld = player.dashing = false;
+            player.stopRailgun();
+            cancelAction(player);
+            return;
+        }
         if (player.job.equals("spy")) {
             if (player.jobCooldown > 0) return;
             player.spyRemaining = JobRules.SPY_DURATION;
@@ -385,6 +416,22 @@ final class GameSession {
         player.teleportPads.add(point);
         if (player.buildItemCount("teleporter") == 0) player.selectedBuild = null;
         gameEffects.sound(player, "item-use", "build");
+    }
+
+    private void recallDrone(Player player) {
+        if (player.drone == null || !player.drone.active) return;
+        player.drone.active = false;
+        player.drone.attackers.clear();
+        player.moveX = player.moveY = 0;
+        player.firing = false;
+    }
+
+    private void damageDrone(Player owner, double damage) {
+        owner.drone.hp = Math.max(0, owner.drone.hp - damage);
+        if (owner.drone.hp <= 0) {
+            recallDrone(owner);
+            gameEffects.feedback(owner, "ドローン破壊 / 修復が必要");
+        }
     }
 
     private void pickupTeleport(Player player, MapPoint point) {
@@ -444,7 +491,7 @@ final class GameSession {
         player.aimY = clamp(y, 0, WORLD_H);
         player.firing = active;
         if (!active) player.stopRailgun();
-        if (beginsPress && player.cooldown <= 0) {
+        if (beginsPress && (player.cooldown <= 0 || player.drone != null && player.drone.active)) {
             combat.attackAt(player, player.aimX, player.aimY);
         }
     }
@@ -591,6 +638,16 @@ final class GameSession {
 
     private void updatePlayers(double dt) {
         for (Player player : players) {
+            if (player.drone != null && player.drone.active) {
+                Drone drone = player.drone;
+                double nextX = clamp(drone.x + player.moveX * DroneRules.SPEED * dt, 7, WORLD_W - 7);
+                double nextY = clamp(drone.y + player.moveY * DroneRules.SPEED * dt, 7, WORLD_H - 7);
+                // Flight ignores placed equipment, but respects walls and locked areas.
+                if (GameMap.canOccupy(nextX, drone.y, 5, unlockedAreas)) drone.x = nextX;
+                if (GameMap.canOccupy(drone.x, nextY, 5, unlockedAreas)) drone.y = nextY;
+                player.dashing = false;
+                continue;
+            }
             double input = Math.hypot(player.moveX, player.moveY);
             if (player.dashExhausted && player.stamina >= 28) player.dashExhausted = false;
             player.dashing = player.railgunRemaining <= 0 && player.railgunCharge <= 0 && !player.down && !player.movingCore
@@ -641,7 +698,7 @@ final class GameSession {
 
     private void updateRevives(double dt) {
         for (Player player : players) {
-            Player target = player.down ? null : players.stream()
+            Player target = player.down || player.drone != null && player.drone.active ? null : players.stream()
                     .filter(other -> other != player && other.down
                             && distance(player.x, player.y, other.x, other.y) <= 78
                             && GameMap.hasClearLine(player.x, player.y, other.x, other.y))
@@ -1049,6 +1106,21 @@ final class GameSession {
                 continue;
             }
 
+            Player droneTarget = DroneRules.target(enemy, players);
+            if (droneTarget != null) {
+                Drone drone = droneTarget.drone;
+                enemy.navigationTimer = 0;
+                enemy.faceToward(drone.x, drone.y);
+                if (distance(enemy.x, enemy.y, drone.x, drone.y) <= 36
+                        && GameMap.hasClearLine(enemy.x, enemy.y, drone.x, drone.y)) {
+                    if (enemy.attackCooldown <= 0) {
+                        damageDrone(droneTarget, enemy.damage);
+                        enemy.attackCooldown = .9;
+                    }
+                } else moveEnemyToward(enemy, drone.x, drone.y, enemy.speed * enemy.slow * dt);
+                continue;
+            }
+
             advanceEnemyRoute(enemy);
             if (enemy.isBoss()) {
                 enemy.specialCooldown = Math.max(0, enemy.specialCooldown - dt);
@@ -1137,6 +1209,9 @@ final class GameSession {
                 events.broadcast("{\"type\":\"effect\",\"effect\":\"explosion\",\"x\":" + roundOne(enemy.x)
                         + ",\"y\":" + roundOne(enemy.y) + ",\"radius\":" + radius + "}");
                 for (Player target : players) {
+                    if (target.drone != null && target.drone.active && target.drone.attackers.contains(enemy.id)
+                            && distance(enemy.x, enemy.y, target.drone.x, target.drone.y) <= radius)
+                        damageDrone(target, GameConfig.EXPLOSION_BOSS_DAMAGE);
                     if (!target.down && distance(enemy.x, enemy.y, target.x, target.y) <= radius) {
                         damagePlayer(target, GameConfig.EXPLOSION_BOSS_DAMAGE);
                     }
@@ -1145,6 +1220,12 @@ final class GameSession {
             }
         }
         Player target = nearestPlayer(enemy, WORLD_W + WORLD_H);
+        Player droneOwner = DroneRules.target(enemy, players);
+        if (droneOwner != null) {
+            enemy.faceToward(droneOwner.drone.x, droneOwner.drone.y);
+            moveEnemyToward(enemy, droneOwner.drone.x, droneOwner.drone.y, enemy.speed * enemy.slow * dt);
+            return;
+        }
         if (target != null) {
             enemy.faceToward(target.x, target.y);
             if (distance(enemy.x, enemy.y, target.x, target.y) > 36)
@@ -1165,6 +1246,8 @@ final class GameSession {
         events.broadcast("{\"type\":\"effect\",\"effect\":\"explosion\",\"x\":" + roundOne(bomber.x)
                 + ",\"y\":" + roundOne(bomber.y) + ",\"radius\":" + radius + "}");
         for (Player target : players) {
+            if (target.drone != null && target.drone.active && target.drone.attackers.contains(bomber.id)
+                    && inBomberBlast(bomber, target.drone.x, target.drone.y, radius)) damageDrone(target, bomber.damage);
             if (!target.down && inBomberBlast(bomber, target.x, target.y, radius)) damagePlayer(target, bomber.damage);
         }
         for (TrapSlot slot : trapSlots) {
@@ -1178,6 +1261,23 @@ final class GameSession {
 
     private boolean updateArtillery(Enemy enemy, double dt) {
         enemy.specialCooldown = Math.max(0, enemy.specialCooldown - dt);
+        Player droneOwner = DroneRules.target(enemy, players);
+        if (droneOwner != null) {
+            Drone drone = droneOwner.drone;
+            enemy.faceToward(drone.x, drone.y);
+            if (canArtilleryAim(enemy, drone.x, drone.y)) {
+                if (distance(enemy.x, enemy.y, drone.x, drone.y) < 110) {
+                    if (distance(enemy.x, enemy.y, drone.x, drone.y) <= 36 && enemy.attackCooldown <= 0) {
+                        damageDrone(droneOwner, enemy.damage);
+                        enemy.attackCooldown = .9;
+                    } else moveEnemyToward(enemy, drone.x, drone.y, enemy.speed * dt);
+                } else if (enemy.specialCooldown <= 0) {
+                    artilleryShells.add(new ArtilleryShell(enemy.x, enemy.y, drone.x, drone.y, enemy.damage * 3, enemy.id));
+                    enemy.specialCooldown = GameConfig.ARTILLERY_COOLDOWN;
+                }
+            } else moveEnemyToward(enemy, drone.x, drone.y, enemy.speed * dt);
+            return true;
+        }
         Player target = players.stream()
                 .filter(player -> !player.down && !JobRules.disguised(player) && canArtilleryAim(enemy, player.x, player.y))
                 .min(Comparator.comparingDouble(player -> distance(enemy.x, enemy.y, player.x, player.y)))
@@ -1195,7 +1295,7 @@ final class GameSession {
         if (distance(enemy.x, enemy.y, x, y) < 110) return false;
         enemy.faceToward(x, y);
         if (enemy.specialCooldown <= 0) {
-            artilleryShells.add(new ArtilleryShell(enemy.x, enemy.y, x, y, enemy.damage * 3));
+            artilleryShells.add(new ArtilleryShell(enemy.x, enemy.y, x, y, enemy.damage * 3, enemy.id));
             enemy.specialCooldown = GameConfig.ARTILLERY_COOLDOWN;
         }
         return true;
@@ -1214,6 +1314,8 @@ final class GameSession {
             if (shell.remaining > 1e-9) continue;
             iterator.remove();
             for (Player player : players) {
+                if (player.drone != null && player.drone.active && player.drone.attackers.contains(shell.enemyId)
+                        && inArtilleryBlast(shell, player.drone.x, player.drone.y)) damageDrone(player, shell.damage);
                 if (inArtilleryBlast(shell, player.x, player.y)) damagePlayer(player, shell.damage);
             }
             for (TrapSlot slot : trapSlots) {
@@ -2606,6 +2708,7 @@ final class GameSession {
         player.medbayDamageDelay = GameConfig.MEDBAY_DAMAGE_DELAY;
         player.hp = Math.max(0, player.hp - damage);
         if (player.hp <= 0) {
+            recallDrone(player);
             player.down = true;
             events.broadcast("{\"type\":\"effect\",\"effect\":\"player-down\",\"playerId\":\"" + player.id
                     + "\",\"x\":" + player.x + ",\"y\":" + player.y + "}");
@@ -2682,6 +2785,7 @@ final class GameSession {
             player.dashExhausted = false;
             player.stamina = 100;
             player.spyRemaining = 0;
+            player.drone = null;
             player.jobCooldown = 0;
             player.teleportCooldown = 0;
             player.teleportPads.clear();
