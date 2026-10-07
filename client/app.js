@@ -2325,15 +2325,6 @@ function drawBatReach() {
     const direction = length < .001 ? { x: 1, y: 0 } : { x: dx / length, y: dy / length };
     const range = attackDistanceToWall(origin, direction, stats.range);
     const target = batReachTarget(origin, direction, range, stats.width, state.enemies);
-    ctx.save();
-    ctx.translate(origin.x, origin.y);
-    ctx.rotate(Math.atan2(direction.y, direction.x));
-    ctx.fillStyle = target ? "rgb(121 216 255 / 18%)" : "rgb(255 255 255 / 6%)";
-    ctx.strokeStyle = target ? "#79d8ff" : "rgb(255 255 255 / 35%)";
-    ctx.lineWidth = target ? 2 : 1;
-    ctx.fillRect(0, -stats.width, range, stats.width * 2);
-    ctx.strokeRect(0, -stats.width, range, stats.width * 2);
-    ctx.restore();
     if (!target) return;
     const p = smoothEntity("enemy", target);
     ctx.save();

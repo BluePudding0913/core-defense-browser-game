@@ -12,7 +12,7 @@ const context = vm.createContext({
     weaponPointer: null, firingPointer: null, getMe: () => me,
     worldFromScreen: (x, y) => ({ x, y }), smoothEntity: (_, entity) => entity,
     ctx: { save() {}, restore() {}, translate() {}, rotate() {}, beginPath() {}, stroke() {},
-        fillRect(...args) { rectangles.push(args); }, strokeRect() {}, arc(...args) { rings.push(args); } },
+        fillRect(...args) { rectangles.push(args); }, strokeRect(...args) { rectangles.push(args); }, arc(...args) { rings.push(args); } },
 });
 for (const name of ['enemyRadius', 'attackDistanceToWall', 'batReachTarget', 'drawBatReach']) {
     const begin = source.indexOf('function ' + name + '(');
@@ -47,7 +47,7 @@ assert.equal(target([enemy(179, 140)]), null, 'enemy center behind lateral wall 
 context.TILE_MAP.rows[3] = '..........';
 context.state.enemies = [enemy(180, 100)];
 run('drawBatReach()');
-assert.deepEqual(rectangles.pop(), [0, -26, 115, 52]);
+assert.equal(rectangles.length, 0, 'reach indicator has no rectangular fill or frame');
 assert.equal(rings.pop()[2], 26, 'in-range enemy gets glow outline');
 context.state.enemies = [enemy(216, 100)];
 run('drawBatReach()');
@@ -55,15 +55,16 @@ assert.equal(rings.length, 0, 'out-of-range enemy has no glow');
 context.predictedLocal.x = 110;
 run('drawBatReach()');
 assert.equal(rings.length, 1, 'preview follows predicted player movement');
-rectangles.length = 0;
+rings.length = 0;
 for (const change of [{ down: true }, { movingCore: true }, { selectedBuild: 'block' }, { weapon: 'pistol' }]) {
     Object.assign(me, { weapon: 'bat', down: false, movingCore: false, selectedBuild: null }, change);
     run('drawBatReach()');
-    assert.equal(rectangles.length, 0, 'inactive weapon hides preview');
+    assert.equal(rings.length, 0, 'inactive weapon hides target glow');
 }
 Object.assign(me, { weapon: 'bat', selectedBuild: null });
 context.state.phase = 'lobby';
 run('drawBatReach()');
+assert.equal(rings.length, 0);
 assert.equal(rectangles.length, 0);
 console.log('Bat reach passed: boundaries, enemy size, walls, direction, target priority and drawing states');
 context.performance = { now: () => 50 };
