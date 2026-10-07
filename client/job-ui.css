@@ -7,17 +7,12 @@
 .job-detail { min-width: 0; min-height: 264px; padding: 18px 0 12px 28px; border-left: 1px solid #303030; }
 .job-detail h3 { margin: 0 0 16px; color: #f3f3f3; font-size: 1.5rem; font-weight: 750; }
 .job-detail p { min-height: 4.5em; margin: 0; color: #aaa; font-size: .88rem; line-height: 1.8; overflow-wrap: anywhere; }
-.job-detail dl { display: grid; gap: 12px; margin: 28px 0 0; font-size: .8rem; }
-.job-detail dl div { display: flex; justify-content: space-between; gap: 20px; }
-.job-detail dt { color: #777; }
-.job-detail dd { margin: 0; color: #ddd; }
 @media (max-width: 560px) {
     .job-picker { grid-template-columns: minmax(0, 1fr); gap: 18px; }
     .job-list { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 150px; }
     .job-detail { min-height: 0; padding: 20px 2px 0; border-left: 0; border-top: 1px solid #303030; }
     .job-detail h3 { font-size: 1.25rem; margin-bottom: 10px; }
     .job-detail p { min-height: 0; }
-    .job-detail dl { margin-top: 20px; }
 }
 
 .job-panel { position: absolute; z-index: 12; left: calc(100% + 24px); top: 0; width: 420px; max-height: min(480px, calc(100dvh - 48px)); overflow-y: auto; padding: 20px; border: 1px solid #383838; border-radius: .3rem; background: #151515; box-shadow: 0 16px 48px #0006; }
