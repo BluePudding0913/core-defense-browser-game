@@ -596,7 +596,7 @@ function updateRoomLobby(snapshot) {
         <span>${player.id === snapshot.roomOwnerId ? "host" : player.ready ? "準備完了" : "準備中"}</span>
     </div>`).join("");
     const me = snapshot.players.find(player => player.id === myPlayerId);
-    jobToggle.textContent = `ジョブ:${JOBS[me?.job]?.name || "ヒーラー"}`;
+    jobToggle.textContent = `ジョブ:${JOBS[me?.job]?.name || "Healer"}`;
     const jobScroll = jobSelect.querySelector(".job-list")?.scrollTop || 0;
     const focusedJob = document.activeElement?.dataset?.job;
     jobSelect.innerHTML = window.JobUI.render(me?.job, !me, JOBS, "legacy-job-detail");
@@ -927,7 +927,8 @@ function updateHud() {
         updateInventory(me);
         const placing = Boolean(placementSelection(me));
         const interaction = findNearestInteraction();
-        interactLabel.textContent = me.selectedBuild === "drone" ? "LAUNCH" : interaction?.kind === "drone" ? "RECOVER" : placing ? "PLACE" : interaction?.kind === "teleporter"
+        const launchingDrone = me.selectedBuild === "drone" && !(me.drone?.hp <= 0 && interaction);
+        interactLabel.textContent = launchingDrone ? "LAUNCH" : interaction?.kind === "drone" ? "RECOVER" : placing ? "PLACE" : interaction?.kind === "teleporter"
             ? interaction.owned ? "TP / 長押しで回収" : "TP" : ["core", "defense"].includes(interaction?.kind) ? "長押しで運搬" : "INTERACT";
         interactButton.classList.toggle("hidden", !placing && !interaction && me.selectedBuild !== "drone");
     }
@@ -938,7 +939,6 @@ function updateInventory(me) {
     if (!inventoryItems.querySelector(".equipment-grid")) {
         inventoryItems.innerHTML = `
             <div class="inventory-health" role="status"></div>
-            <div class="drone-loadout hidden"><h3>搭載武器</h3><div class="inventory-grid drone-mounts"></div></div>
             <div class="inventory-section"><h3>EQUIPMENT</h3><div class="inventory-grid equipment-grid"></div></div>
             <div class="inventory-section"><h3>ITEMS</h3><div class="inventory-grid">
                 <div class="inventory-resource" data-item="medkit">
@@ -958,8 +958,6 @@ function updateInventory(me) {
             </div></div>`;
     }
     inventoryItems.querySelector(".inventory-health").textContent = `HP ${Math.ceil(me.hp)} / ${me.maxHp || 100}${me.down ? "（ダウン中）" : ""}`;
-    if (me.job === "drone") updateDroneLoadout(me);
-    else inventoryItems.querySelector(".drone-loadout")?.classList.add("hidden");
     const medkitCard = inventoryItems.querySelector('[data-item="medkit"]');
     medkitCard.querySelector(".item-count").textContent = `×${me.medkits || 0}`;
     medkitCard.querySelectorAll("button").forEach(button => {
@@ -1002,35 +1000,12 @@ function updateInventory(me) {
     }
 }
 
-function updateDroneLoadout(me) {
-    const section = inventoryItems.querySelector(".drone-loadout");
-    section.classList.remove("hidden");
-    const grid = section.querySelector(".drone-mounts");
-    const entries = WeaponUI.entries(me, WEAPON_FIELDS).filter(e => WEAPON_FIELDS[e.value].droneMountable);
-    entries.unshift({ value: "none", label: "なし" });
-    const buttons = new Map([...grid.querySelectorAll("button")].map(b => [b.dataset.mount, b]));
-    for (const [id, button] of buttons) if (!entries.some(e => e.value === id)) button.remove();
-    for (const entry of entries) {
-        let button = buttons.get(entry.value);
-        if (!button) {
-            button = document.createElement("button"); button.type = "button";
-            button.dataset.mount = entry.value; grid.append(button);
-        }
-        button.textContent = entry.label;
-        const mounted = me.drone ? me.drone.weapon || "none" : "pistol";
-        button.classList.toggle("selected", entry.value === mounted);
-        button.disabled = me.down || Boolean(me.drone?.active);
-    }
-}
-
 inventoryItems.addEventListener("click", event => {
     if (performance.now() < inventorySuppressClickUntil) return;
     const button = event.target.closest("button");
     const me = getMe();
     if (!button || button.disabled || !me || me.down) return;
-    if (button.dataset.mount) {
-        send(`DRONE_MOUNT:${button.dataset.mount}`);
-    } else if (button.dataset.key) {
+    if (button.dataset.key) {
         const entry = equipmentEntries(me).find(candidate => candidate.key === button.dataset.key);
         if (entry) selectEquipment(entry);
     } else if (button.dataset.use) {
@@ -1750,6 +1725,11 @@ function toggleNearestInteraction() {
         return;
     }
     inventoryMenu.classList.add("hidden");
+    const me = getMe();
+    if (me?.selectedBuild === "drone" && me.drone?.hp <= 0 && findNearestInteraction()) {
+        useNearestInteraction();
+        return;
+    }
     if (placeSelectedInFront()) return;
     useNearestInteraction();
 }
@@ -1793,7 +1773,7 @@ function frontPlacementTile(player) {
 
 function placeSelectedInFront() {
     const me = getMe();
-    if (me?.selectedBuild === "drone" && !me.down) { send("PLACE_FRONT"); return true; }
+    if (me?.selectedBuild === "drone" && !me.down) { openDroneLaunch(); return true; }
     const selection = placementSelection(me);
     if (!selection) return false;
     // The preview is advisory; only the server has the current collision state.
@@ -1804,6 +1784,22 @@ function placeSelectedInFront() {
 function nearestAt(items, point) {
     return items.slice().sort((a, b) => distance(point, a) - distance(point, b))[0];
 }
+function openDroneLaunch() {
+    const me = getMe();
+    if (!me || me.down || me.selectedBuild !== "drone" || me.drone?.active || !(me.buildItems?.drone > 0)) {
+        closeActionMenu();
+        return;
+    }
+    const broken = me.drone && me.drone.hp <= 0;
+    const unavailable = broken && (me.ore < me.droneRepairOre || me.copper < me.droneRepairCopper);
+    const options = WeaponUI.entries(me, WEAPON_FIELDS)
+        .filter(entry => WEAPON_FIELDS[entry.value].droneMountable)
+        .map(entry => ({ label: entry.label, command: `DRONE_LAUNCH:${entry.value}`, disabled: unavailable }));
+    options.push({ label: "UNARMED", command: "DRONE_LAUNCH:none", disabled: unavailable });
+    const title = broken ? `DRONE / REPAIR ${me.droneRepairOre} ORE / ${me.droneRepairCopper} COPPER` : "DRONE";
+    openNearbyActionMenu(title, options, me, 45, "default", openDroneLaunch);
+}
+
 function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
 function updateLocalPrediction(dt) {

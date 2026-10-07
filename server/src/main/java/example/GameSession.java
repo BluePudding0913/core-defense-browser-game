@@ -219,6 +219,15 @@ final class GameSession {
             case "JOB_ABILITY" -> useJobAbility(player);
             case "DRONE_RECOVER" -> recoverDrone(player);
             case "DRONE_MOUNT" -> { if (parts.length > 1) mountDrone(player, parts[1]); }
+            case "DRONE_LAUNCH" -> {
+                if (parts.length > 1 && canMove() && !player.down && !player.movingCore
+                        && player.job.equals("drone") && "drone".equals(player.selectedBuild)
+                        && player.buildItemCount("drone") > 0
+                        && (parts[1].equals("none") || DroneRules.mountable(parts[1]) && player.weapons.owns(parts[1]))) {
+                    mountDrone(player, parts[1]);
+                    launchDrone(player);
+                }
+            }
             case "TELEPORT" -> useTeleport(player);
             case "PICKUP_TELEPORT" -> {
                 if (parts.length >= 3) pickupTeleport(player, new MapPoint(

@@ -3,11 +3,11 @@
 // Add jobs here once; both lobby layouts share the catalogue and detail view.
 window.JobUI = (() => {
     const catalog = Object.freeze({
-        healer: { name: "ヒーラー", description: "ダウンした味方を素早くリバイブする。" },
-        spy: { name: "スパイ", description: "敵に似た姿に偽装し、認識と通常攻撃を避ける。偽装中は味方の弾と範囲攻撃も受ける。" },
+        healer: { name: "Healer", description: "ダウンした味方を素早くリバイブする。" },
+        spy: { name: "Spy", description: "敵に似た姿に偽装し、認識と通常攻撃を避ける。偽装中は味方の弾と範囲攻撃も受ける。" },
         tp: { name: "TP", description: "テレポーターを2台所持。Rで設置・移動、R長押しで自分の装置を回収。味方全員が利用可能。" },
-        scout: { name: "スカウト", description: "ダッシュが少し速くなり、スタミナも長持ちする。" },
-        drone: { name: "Drone Operator", description: "所持品で搭載武器を選び、ドローンを選んでRで出撃。視点を切り替えて偵察・攻撃。本人の近くでRで回収。破壊時は搭載武器を失い、修復には資材が必要。" }
+        scout: { name: "Scout", description: "ダッシュが少し速くなり、スタミナも長持ちする。" },
+        drone: { name: "Drone Operator", description: "ドローンを選んでRを押し、搭載武器を選んで出撃。視点を切り替えて偵察・攻撃。本人の近くでRで回収。破壊時は搭載武器を失い、修復には資材が必要。" }
     });
     const escape = value => String(value).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 

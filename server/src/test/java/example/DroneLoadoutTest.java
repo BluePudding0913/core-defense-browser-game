@@ -143,4 +143,22 @@ class DroneLoadoutTest {
         command("DRONE_MOUNT:none"); assertEquals("", player.drone.weapon);
         launch(); assertTrue(player.drone.active); assertEquals("", player.drone.weapon);
     }
+
+    @Test void preflightChoiceAtomicallyMountsAndLaunchesOnlyAnOwnedAllowedGun() {
+        grant("smg", 9); command("DRONE_LAUNCH:smg"); assertNull(player.drone);
+        command("EQUIP_BUILD:drone");
+        command("DRONE_LAUNCH:rifle"); command("DRONE_LAUNCH:rocket"); assertNull(player.drone);
+        command("DRONE_LAUNCH:smg");
+        assertTrue(player.drone.controlled); assertEquals("smg", player.drone.weapon);
+        assertEquals(9, player.weapons.ammo("smg")); assertNull(player.selectedBuild);
+        command("DRONE_LAUNCH:pistol"); assertEquals("smg", player.drone.weapon);
+    }
+
+    @Test void preflightRepairNeedsMaterialsAndHonorsUnarmedChoice() {
+        player.drone = new Drone(); player.drone.hp = 0;
+        command("EQUIP_BUILD:drone"); command("DRONE_LAUNCH:none"); assertFalse(player.drone.active);
+        player.ore = DroneRules.REPAIR_ORE; player.copper = DroneRules.REPAIR_COPPER;
+        command("DRONE_LAUNCH:none"); assertTrue(player.drone.active); assertEquals("", player.drone.weapon);
+        assertEquals(0, player.ore); assertEquals(0, player.copper);
+    }
 }
