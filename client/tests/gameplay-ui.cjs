@@ -116,3 +116,9 @@ run('beginInteractionHold(); endInteractionHold(true)'); assert.equal(commands.l
 me.drone.controlled = false;
 run('beginInteractionHold(); endInteractionHold()'); assert.equal(commands.at(-1), 'JOB_ABILITY', 'R can return to drone view');
 console.log('Drone R input passed: view taps, nearby holds, no remote recovery, canceled holds and no extra view switch after recovery');
+context.findNearestInteraction = () => ({kind: 'defense', target: {id: 'trap-123'}});
+const beforeFacilityTap = commands.length, beforeFacilityMenu = menuOpens;
+run('beginInteractionHold(); endInteractionHold()');
+assert.equal(commands.length, beforeFacilityTap); assert.equal(menuOpens, beforeFacilityMenu + 1);
+run('beginInteractionHold()'); timer(); run('endInteractionHold()');
+assert.equal(commands.at(-1), 'CARRY_NEAREST:trap-123', 'body view keeps the facility long-press action');

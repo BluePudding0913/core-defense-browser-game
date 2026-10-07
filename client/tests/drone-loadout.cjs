@@ -82,4 +82,20 @@ context.firingPointer = {id: 1}; run('updateFiringAim(200, 100)');
 assert.equal(context.firingPointer, null); assert.equal(commands.length, 0);
 me.selectedBuild = null;
 run('startFiring(2, 200, 100)'); assert.equal(commands.pop(), 'FIRE:200.0:100.0:1', 'piloting still allows drone fire');
+Object.assign(context, {
+    SHOP_UNITS: [], WORKBENCHES: [{x: 110, y: 100}], PREP_CONSOLE: null, BREAKER_TERMINALS: [], AREAS: [],
+    INTERACTION_RANGE: {workbench: 70, core: 70}, hasInteractionPath: () => true,
+    openWorkbenchMenu: () => commands.push('WORKBENCH'),
+    openCoreMenu() {},
+});
+context.state.slots = []; context.state.areas = {}; context.state.core = {x: 1000, y: 1000};
+me.drone.controlled = false;
+assert.equal(run('findNearestInteraction().kind'), 'craft', 'facility wins even when deployed drone is within recovery range');
+run('toggleNearestInteraction()'); assert.equal(commands.pop(), 'WORKBENCH');
+me.drone.controlled = true;
+assert.equal(run('findNearestInteraction().kind'), 'drone', 'piloting still uses drone controls');
+run('toggleNearestInteraction()'); assert.equal(commands.pop(), 'JOB_ABILITY');
+me.drone.active = me.drone.controlled = false; me.drone.hp = 45;
+me.selectedBuild = 'drone'; me.buildItems.drone = 1;
+run('toggleNearestInteraction()'); assert.equal(commands.pop(), 'WORKBENCH', 'healthy drone item does not intercept facilities either');
 console.log('Drone loadout UI passed: preflight selection, repair affordability, facility priority, nearby recovery, trajectory without damage quantities');
