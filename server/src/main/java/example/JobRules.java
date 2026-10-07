@@ -19,6 +19,10 @@ final class JobRules {
         return player.job.equals("spy") && !player.down && player.spyRemaining > 0;
     }
 
+    static boolean canHitDisguisedAlly(Player shooter, Player target) {
+        return shooter != target && disguised(target);
+    }
+
     static boolean canRecoverTeleport(String job, boolean owned, double range, boolean clearLine) {
         return job.equals("tp") && owned && range <= 45 && clearLine;
     }

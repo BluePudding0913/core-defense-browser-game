@@ -13,6 +13,8 @@ final class CombatSystem {
     interface World {
         boolean canAttack();
         List<Enemy> enemies();
+        List<Player> players();
+        void damagePlayer(Player player, double damage);
         boolean canOccupy(double x, double y, double radius);
         void onEnemyDefeated(Enemy enemy);
     }
@@ -113,6 +115,10 @@ final class CombatSystem {
         while (player.railgunTick + 1e-9 >= GameConfig.RAILGUN_TICK) {
             player.railgunTick -= GameConfig.RAILGUN_TICK;
             double range = GameMap.distanceToWall(player.x, player.y, player.railgunDx, player.railgunDy, stats.range());
+            for (Player target : friendlyRayTargets(player, player.x, player.y,
+                    player.railgunDx, player.railgunDy, stats, range)) {
+                world.damagePlayer(target, stats.damage() * GameConfig.RAILGUN_TICK);
+            }
             // Copy: damage can spawn world.enemies(), so newly spawned world.enemies() enter on the next tick.
             for (Enemy enemy : List.copyOf(world.enemies())) {
                 if (enemy.hp <= 0 || !isInsideAttack(enemy, player.x, player.y, player.railgunDx, player.railgunDy, stats, range)
@@ -144,9 +150,25 @@ final class CombatSystem {
             double entry = Math.max(0, projection - Math.sqrt(radius * radius - perpendicular * perpendicular));
             if (entry < impactDistance) impactDistance = entry;
         }
+        for (Player target : world.players()) {
+            if (!JobRules.canHitDisguisedAlly(player, target)) continue;
+            double projection = (target.x - player.x) * dx + (target.y - player.y) * dy;
+            double perpendicular = Math.abs((target.x - player.x) * dy - (target.y - player.y) * dx);
+            double radius = 12 + weapon.width();
+            if (projection < 0 || perpendicular > radius) continue;
+            double entry = Math.max(0, projection - Math.sqrt(radius * radius - perpendicular * perpendicular));
+            impactDistance = Math.min(impactDistance, entry);
+        }
         double x = player.x + dx * impactDistance, y = player.y + dy * impactDistance;
         events.hit(player.id, "rocket", player.x, player.y, x, y, 0, false, 0, false, null);
         events.explosion(x, y, GameConfig.ROCKET_BLAST_RADIUS);
+        for (Player target : world.players()) {
+            double blastDistance = distance(x, y, target.x, target.y);
+            if (JobRules.canHitDisguisedAlly(player, target) && blastDistance <= GameConfig.ROCKET_BLAST_RADIUS
+                    && GameMap.hasClearLine(x, y, target.x, target.y)) {
+                world.damagePlayer(target, weapon.damage() * (1 - .5 * blastDistance / GameConfig.ROCKET_BLAST_RADIUS));
+            }
+        }
         for (Enemy enemy : world.enemies()) {
             double blastDistance = distance(x, y, enemy.x, enemy.y);
             if (enemy.hp <= 0 || blastDistance > GameConfig.ROCKET_BLAST_RADIUS
@@ -195,6 +217,21 @@ final class CombatSystem {
                         (enemy.x - originX) * directionX + (enemy.y - originY) * directionY)).toList();
         boolean piercing = WeaponCatalog.find(player.weapon).piercing();
         List<Enemy> targets = piercing ? candidates : candidates.stream().limit(1).toList();
+        List<Player> allies = WeaponCatalog.find(player.weapon).mode() == WeaponCatalog.AttackMode.MELEE
+                ? List.of() : friendlyRayTargets(player, originX, originY, directionX, directionY, weapon, shotDistance);
+        double firstEnemy = targets.isEmpty() ? Double.POSITIVE_INFINITY
+                : (targets.get(0).x - originX) * directionX + (targets.get(0).y - originY) * directionY;
+        if (!piercing) allies = allies.stream().filter(target ->
+                (target.x - originX) * directionX + (target.y - originY) * directionY < firstEnemy).limit(1).toList();
+        if (!piercing && !allies.isEmpty()) {
+            targets = List.of();
+            Player first = allies.get(0);
+            double projection = (first.x - originX) * directionX + (first.y - originY) * directionY;
+            double perpendicular = Math.abs((first.x - originX) * directionY - (first.y - originY) * directionX);
+            double radius = 12 + weapon.width();
+            double entry = Math.max(0, projection - Math.sqrt(Math.max(0, radius * radius - perpendicular * perpendicular)));
+            endX = originX + directionX * entry; endY = originY + directionY * entry;
+        }
         if (!piercing && !targets.isEmpty() && WeaponCatalog.find(player.weapon).mode() != WeaponCatalog.AttackMode.MELEE) {
             Enemy first = targets.get(0);
             double projection = (first.x - originX) * directionX + (first.y - originY) * directionY;
@@ -218,19 +255,32 @@ final class CombatSystem {
             events.hit(player.id, player.weapon, player.x, player.y, hit.x, hit.y,
                     dealt, hit.hp <= 0, player.credits - creditsBeforeHit, headshot, hit.id);
         }
-        return !targets.isEmpty();
+        for (Player target : allies) world.damagePlayer(target, weapon.damage());
+        return !targets.isEmpty() || !allies.isEmpty();
+    }
+
+    private List<Player> friendlyRayTargets(Player shooter, double originX, double originY,
+            double dx, double dy, WeaponStats weapon, double range) {
+        return world.players().stream().filter(target -> JobRules.canHitDisguisedAlly(shooter, target))
+                .filter(target -> isInsideAttack(target.x, target.y, 12, originX, originY, dx, dy, weapon, range))
+                .filter(target -> GameMap.hasClearLine(originX, originY, target.x, target.y))
+                .sorted(Comparator.comparingDouble(target -> (target.x - originX) * dx + (target.y - originY) * dy)).toList();
     }
 
     static boolean isInsideAttack(Enemy enemy, double originX, double originY, double directionX,
             double directionY, WeaponStats weapon, double shotDistance) {
-        double toEnemyX = enemy.x - originX;
-        double toEnemyY = enemy.y - originY;
+        return isInsideAttack(enemy.x, enemy.y, enemyRadius(enemy), originX, originY,
+                directionX, directionY, weapon, shotDistance);
+    }
+
+    private static boolean isInsideAttack(double x, double y, double radius, double originX, double originY,
+            double directionX, double directionY, WeaponStats weapon, double shotDistance) {
+        double toEnemyX = x - originX;
+        double toEnemyY = y - originY;
         double projection = toEnemyX * directionX + toEnemyY * directionY;
         if (projection < 0 || projection > shotDistance) return false;
         double perpendicular = Math.abs(toEnemyX * directionY - toEnemyY * directionX);
-        double enemyRadius = enemyRadius(enemy);
-        double spread = weapon.width();
-        return perpendicular <= spread + enemyRadius;
+        return perpendicular <= weapon.width() + radius;
     }
 
     private boolean isHeadshot(Enemy enemy, Player player, double originX, double originY, double directionX,

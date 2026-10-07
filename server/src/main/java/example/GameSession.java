@@ -118,6 +118,8 @@ final class GameSession {
         this.combat = new CombatSystem(new CombatSystem.World() {
             public boolean canAttack() { return canMove(); }
             public List<Enemy> enemies() { return enemies; }
+            public List<Player> players() { return players; }
+            public void damagePlayer(Player player, double damage) { GameSession.this.damagePlayer(player, damage); }
             public boolean canOccupy(double x, double y, double radius) { return GameSession.this.canOccupy(x, y, radius); }
             public void onEnemyDefeated(Enemy enemy) {
                 if (enemy.type.equals("bomber")) explodeBomber(enemy);
