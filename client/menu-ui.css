@@ -5,7 +5,7 @@
 #menu-ui { position: fixed; inset: 0; z-index: 9; overflow-y: auto; background: #101010; padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); }
 #menu-ui .ui-shell { min-height: 100%; display: grid; align-content: start; justify-items: center; padding-top: max(200px, calc(50dvh - 48px)); }
 /* Settings need room for the full form above the fold. */
-#menu-ui .ui-shell.ui-settings { padding-top: 8px; }
+#menu-ui .ui-shell.ui-settings { padding-top: clamp(8px, calc(100dvh - 660px), 64px); }
 #menu-ui .ui-settings form > input { position: static; }
 /* Other pages start their actions at the home navigation's first row. */
 #menu-ui .ui-content { position: relative; width: min(22rem, 100%); text-align: center; display: grid; gap: .55rem; }
