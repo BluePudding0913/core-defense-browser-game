@@ -79,27 +79,10 @@ final class GameConfig {
     static final double ARTILLERY_COOLDOWN = 4;
     static final int SHOTGUN_PELLETS = 4;
     static final int SHOTGUN_MAX_TARGETS = 4;
-    static final Map<String, Integer> AMMO_CAPACITIES = Map.of(
-            "shotgun", 50, "smg", 240, "rifle", 30, "sniper", 15,
-            "revolver", 30, "lmg", 600, "ricochet", 240, "rocket", 8, "railgun", 8);
-    static final Map<String, WeaponStats> WEAPONS = Map.ofEntries(
-            Map.entry("pistol", new WeaponStats(5 * GameMap.TILE_SIZE, 26, .38, 0, 2)),
-            Map.entry("bat", new WeaponStats(96, 20, 1, 115, 26)),
-            Map.entry("shotgun", new WeaponStats(220, 24, 1.25, 45, 2)),
-            Map.entry("smg", new WeaponStats(270, 18, .14, 0, 2)),
-            Map.entry("rifle", new WeaponStats(430, 120, 1.15, 0, 2)),
-            Map.entry("sniper", new WeaponStats(2400, 280, 1.8, 0, 2)),
-            Map.entry("revolver", new WeaponStats(360, 320, 1.6, 10, 2)),
-            Map.entry("ricochet", new WeaponStats(1000, 30, .30, 0, 2)),
-            Map.entry("rocket", new WeaponStats(1200, 3000, 5, 100, 2)),
-            Map.entry("lmg", new WeaponStats(360, 18, .18, 0, 2)),
-            Map.entry("railgun", new WeaponStats(2400, 3000, 2, 0, GameMap.TILE_SIZE / 2.0)));
-
     static final double RAILGUN_CHARGE = 1.2;
     static final double RAILGUN_DURATION = 3;
     static final double RAILGUN_TICK = .1;
 
-    record WeaponStats(double range, double damage, double cooldown, double knockback, double width) { }
 
     private GameConfig() { }
 }
