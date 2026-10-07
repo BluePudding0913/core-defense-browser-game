@@ -12,8 +12,8 @@ final class JobRules {
         return java.util.Set.of("spy", "tp", "healer", "scout").contains(job);
     }
 
-    static double dashSpeed(String job) { return job.equals("scout") ? 292 : 265; }
-    static double staminaDrain(String job) { return job.equals("scout") ? 26 : 38; }
+    static double dashSpeed(String job) { return job.equals("scout") ? 305 : 265; }
+    static double staminaDrain(String job) { return job.equals("scout") ? 23.75 : 38; }
     static double reviveSeconds(String job) { return job.equals("healer") ? 2 : 4; }
     static boolean disguised(Player player) {
         return player.job.equals("spy") && !player.down && player.spyRemaining > 0;

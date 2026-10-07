@@ -52,6 +52,8 @@ for (const name of ['nameInput', 'createRoomButton', 'joinRoomsButton', 'refresh
     'startButton', 'readyRoomButton', 'leaveRoomButton', 'menu', 'menuStatus', 'hud',
     'roomBrowser', 'roomLobby', 'roomCode', 'roomMembers', 'roomOwner', 'jobSelect']) context[name] = element();
 context.document = { querySelector: () => element() };
+context.window.JobUI = { render: () => "" };
+context.jobSelect.querySelector = () => element();
 context.JOBS = { healer: { name: "ヒーラー", detail: "蘇生 2秒" }, scout: { name: "スカウト", detail: "ダッシュ UP" } };
 vm.createContext(context);
 for (const name of ['connect', 'switchConnection', 'enterRoom', 'leaveRoom', 'updateRoomLobby', 'hideScreenIntro']) {

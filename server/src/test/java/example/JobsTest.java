@@ -73,16 +73,16 @@ class JobsTest {
         start("scout");
         player.moveX = 1; player.dashHeld = true;
         call("updatePlayers", new Class<?>[]{double.class}, .1);
-        assertEquals(1169.2, player.x, 1e-6);
-        assertEquals(97.4, player.stamina, 1e-6);
+        assertEquals(1170.5, player.x, 1e-6);
+        assertEquals(97.625, player.stamina, 1e-6);
         player.human = false;
         call("updatePlayers", new Class<?>[]{double.class}, .1);
-        assertEquals(1198.4, player.x, 1e-6);
-        assertEquals(94.8, player.stamina, 1e-6);
+        assertEquals(1201, player.x, 1e-6);
+        assertEquals(95.25, player.stamina, 1e-6);
         player.job = "healer";
         call("updatePlayers", new Class<?>[]{double.class}, .1);
-        assertEquals(1224.9, player.x, 1e-6);
-        assertEquals(91, player.stamina, 1e-6);
+        assertEquals(1227.5, player.x, 1e-6);
+        assertEquals(91.45, player.stamina, 1e-6);
     }
 
     @Test void spyAvoidsRecognitionAndMeleeUntilExpiryButExplosionsStillHurt() throws Exception {

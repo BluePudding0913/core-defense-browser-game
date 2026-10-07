@@ -10,13 +10,7 @@ const roomBrowser = document.querySelector("#room-browser");
 const roomLobby = document.querySelector("#room-lobby");
 const roomList = document.querySelector("#room-list");
 const roomMembers = document.querySelector("#room-members");
-const JOBS = Object.freeze({
-    healer: { name: "ヒーラー", detail: "蘇生 2秒" },
-    spy: { name: "スパイ", detail: "偽装 8秒 / 再使用 30秒" },
-    tp: { name: "TP", detail: "テレポート装置 1組" },
-    scout: { name: "スカウト", detail: "ダッシュ速度・持続時間 UP" }
-});
-window.coreJobs = JOBS;
+const JOBS = window.JobUI.catalog;
 const jobSelect = document.querySelector("#job-select");
 const jobAbilityButton = document.querySelector("#job-ability");
 const teleportUseButton = document.querySelector("#teleport-use");
@@ -580,7 +574,11 @@ function updateRoomLobby(snapshot) {
         <span>${player.id === snapshot.roomOwnerId ? "host" : player.ready ? "準備完了" : "準備中"}</span>
     </div>`).join("");
     const me = snapshot.players.find(player => player.id === myPlayerId);
-    jobSelect.innerHTML = Object.entries(JOBS).map(([job, info]) => `<button type="button" data-job="${job}" aria-pressed="${job === (me?.job || "healer")}"><strong>${info.name}</strong><small>${info.detail}</small></button>`).join("");
+    const jobScroll = jobSelect.querySelector(".job-list")?.scrollTop || 0;
+    const focusedJob = document.activeElement?.dataset?.job;
+    jobSelect.innerHTML = window.JobUI.render(me?.job, !me, JOBS, "legacy-job-detail");
+    jobSelect.querySelector(".job-list").scrollTop = jobScroll;
+    if (focusedJob && JOBS[focusedJob]) jobSelect.querySelector(`[data-job="${focusedJob}"]`)?.focus();
     const isOwner = myPlayerId === snapshot.roomOwnerId;
     readyRoomButton.classList.toggle("hidden", isOwner);
     readyRoomButton.disabled = !me || isOwner;

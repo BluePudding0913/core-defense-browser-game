@@ -45,11 +45,17 @@ function mountMenu() {
                 const host = p.id === snapshot.roomOwnerId;
                 return `<li class="room-member ${host || p.ready ? "ready" : ""}"><strong>${escape(p.name)} · ${window.coreJobs?.[p.job]?.name || "ヒーラー"}</strong><span>${host ? "host" : p.ready ? "準備完了" : "準備中"}</span></li>`;
             }).join("") + '</ol>';
-            content += '<div class="ui-jobs" aria-label="ジョブ">' + Object.entries(window.coreJobs || {}).map(([job, info]) => `<button type="button" data-action="job" data-job="${job}" aria-pressed="${job === (me?.job || "healer")}" ${disabled()}><strong>${info.name}</strong><small>${info.detail}</small></button>`).join("") + '</div>';
+            content += window.JobUI.render(me?.job, busy || !connected);
+            content += '<div class="ui-lobby-actions">';
             content += owner ? `<button data-action="start" ${!snapshot.allReady || !connected ? "disabled" : ""}>${snapshot.phase === "lobby" ? "開始" : "もう一度プレイ"}</button>` : `<button data-action="ready" ${disabled()}>${me?.ready ? "準備を取り消す" : "準備OK"}</button>`;
-            content += button("leave", "戻る");
+            content += button("leave", "戻る") + "</div>";
         }
-        root.innerHTML = `<div class="ui-shell"><section class="ui-content">${content}</section></div>`;
+        const jobScroll = root.querySelector(".job-list")?.scrollTop || 0;
+        const focusedJob = document.activeElement?.dataset?.job;
+        root.innerHTML = `<div class="ui-shell ${view === "lobby" ? "ui-lobby-shell" : ""}"><section class="ui-content ${view === "lobby" ? "ui-lobby" : ""}">${content}</section></div>`;
+        const jobList = root.querySelector(".job-list");
+        if (jobList) jobList.scrollTop = jobScroll;
+        if (focusedJob && window.coreJobs?.[focusedJob]) root.querySelector(`[data-job="${focusedJob}"]`)?.focus();
         renderedView = view;
         updateMatchButtons();
         updateMatchResult();

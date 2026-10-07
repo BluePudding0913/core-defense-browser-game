@@ -42,7 +42,15 @@
 
 #menu-ui .ui-pointer-settings select { margin-left: auto; min-width: 3rem; color: #fff; background: #181818; border: 1px solid #666; padding: .25rem; }
 
-#menu-ui .ui-jobs { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; margin: .8rem 0; }
-#menu-ui .ui-jobs button { margin: 0; padding: .6rem; }
-#menu-ui .ui-jobs small { display: block; font-size: .7rem; opacity: .7; margin-top: .25rem; }
-#menu-ui .ui-jobs [aria-pressed="true"] { border-color: #79d8ff; background: #18323e; }
+#menu-ui .ui-lobby-shell { padding-top: clamp(24px, 12vh, 100px); }
+#menu-ui .ui-content.ui-lobby { width: min(680px, 100%); gap: 28px; }
+#menu-ui .ui-lobby .ui-members { position: static; max-height: 150px; margin: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(48px, auto); gap: 8px; }
+#menu-ui .ui-lobby .room-member { border: 0; border-radius: .25rem; background: #191919; }
+#menu-ui .ui-lobby .room-member.ready { box-shadow: inset 2px 0 #456b7b; }
+#menu-ui .ui-lobby-actions { display: flex; justify-content: space-between; gap: 12px; padding-top: 24px; border-top: 1px solid #303030; }
+#menu-ui .ui-lobby-actions button { width: auto; min-width: 120px; }
+#menu-ui .ui-lobby-actions [data-action="leave"] { order: -1; color: #aaa; border-color: transparent; background: transparent; }
+@media (max-width: 560px) {
+    #menu-ui .ui-lobby .ui-members { grid-template-columns: minmax(0, 1fr); max-height: 112px; }
+    #menu-ui .ui-content.ui-lobby { gap: 24px; }
+}

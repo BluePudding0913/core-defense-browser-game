@@ -674,7 +674,6 @@ button, input { font: inherit; }
 .health-heart.full .heart-fill { clip-path: none; }
 .health-heart.full .heart-base { color: var(--accent-red); }
 
-.job-select { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; margin: .8rem 0; }
-.job-select small { display: block; font-size: .7rem; margin-top: .25rem; }
-.job-select [aria-pressed="true"] { border-color: #79d8ff; background: #18323e; }
+.job-select { margin: 1rem 0; }
+#room-lobby { width: min(680px, 100%); }
 #job-ability, #teleport-use { padding: .6rem; min-width: 64px; font-size: .8rem; }
