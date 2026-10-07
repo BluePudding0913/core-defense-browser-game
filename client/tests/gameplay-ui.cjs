@@ -102,20 +102,18 @@ console.log('Teleporter input passed: tap, owner hold, ally access and cancellat
 
 me.drone = { active: true, controlled: true };
 context.getMe = () => me;
-context.findNearestInteraction = () => ({ kind: 'drone' });
-run('beginInteractionHold(); endInteractionHold()'); assert.equal(commands.at(-1), 'JOB_ABILITY');
-const beforeRecovery = commands.length;
-run('beginInteractionHold()'); timer(); run('endInteractionHold()');
-assert.equal(commands.at(-1), 'DRONE_RECOVER'); assert.equal(commands.length, beforeRecovery + 1);
+context.findNearestInteraction = () => ({ kind: 'drone', action: () => commands.push('DRONE_RECOVER') });
+run('beginInteractionHold()'); assert.equal(timer, null, 'drone recovery has no hold timer'); run('endInteractionHold()');
+assert.equal(commands.at(-1), 'DRONE_RECOVER');
 context.findNearestInteraction = () => null;
 run('beginInteractionHold(); endInteractionHold()'); assert.equal(commands.at(-1), 'JOB_ABILITY', 'remote R taps switch views');
 const beforeRemoteHold = commands.length;
-run('beginInteractionHold()'); timer(); run('endInteractionHold()');
-assert.equal(commands.length, beforeRemoteHold, 'remote holds cannot recover or toggle on release');
-run('beginInteractionHold(); endInteractionHold(true)'); assert.equal(commands.length, beforeRemoteHold);
+run('beginInteractionHold()'); assert.equal(timer, null); run('endInteractionHold()');
+assert.equal(commands.at(-1), 'JOB_ABILITY'); assert.equal(commands.length, beforeRemoteHold + 1);
+run('beginInteractionHold(); endInteractionHold(true)'); assert.equal(commands.length, beforeRemoteHold + 1);
 me.drone.controlled = false;
 run('beginInteractionHold(); endInteractionHold()'); assert.equal(commands.at(-1), 'JOB_ABILITY', 'R can return to drone view');
-console.log('Drone R input passed: view taps, nearby holds, no remote recovery, canceled holds and no extra view switch after recovery');
+console.log('Drone R input passed: nearby tap recovery, no drone hold timers, remote view switching and canceled input');
 context.findNearestInteraction = () => ({kind: 'defense', target: {id: 'trap-123'}});
 const beforeFacilityTap = commands.length, beforeFacilityMenu = menuOpens;
 run('beginInteractionHold(); endInteractionHold()');

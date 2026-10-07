@@ -61,7 +61,7 @@ assert.ok(run('equipmentEntries(me)').some(e => e.key === 'weapon:smg'), 'recove
 me.drone.active = me.drone.controlled = true;
 assert.equal(run('findNearestInteraction()'), null, 'no remote recovery');
 me.drone.x = 145;
-run('findNearestInteraction().action()'); assert.equal(commands.pop(), 'JOB_ABILITY');
+run('findNearestInteraction().action()'); assert.equal(commands.pop(), 'DRONE_RECOVER');
 context.hasInteractionPath = () => false;
 assert.equal(run('findNearestInteraction()'), null, 'wall blocks recovery');
 context.hitEffects = [
@@ -90,10 +90,13 @@ Object.assign(context, {
 });
 context.state.slots = []; context.state.areas = {}; context.state.core = {x: 1000, y: 1000};
 me.drone.controlled = false;
-assert.equal(run('findNearestInteraction().kind'), 'craft', 'facility wins even when deployed drone is within recovery range');
+assert.equal(run('findNearestInteraction().kind'), 'drone', 'nearby drone recovery wins over facilities');
+run('toggleNearestInteraction()'); assert.equal(commands.pop(), 'DRONE_RECOVER');
+me.drone.x = 200;
+assert.equal(run('findNearestInteraction().kind'), 'craft', 'facility wins over remote drone view switching');
 run('toggleNearestInteraction()'); assert.equal(commands.pop(), 'WORKBENCH');
 me.drone.controlled = true;
-assert.equal(run('findNearestInteraction().kind'), 'drone', 'piloting still uses drone controls');
+assert.equal(run('findNearestInteraction()'), null, 'remote piloting still uses drone controls');
 run('toggleNearestInteraction()'); assert.equal(commands.pop(), 'JOB_ABILITY');
 me.drone.active = me.drone.controlled = false; me.drone.hp = 45;
 me.selectedBuild = 'drone'; me.buildItems.drone = 1;
