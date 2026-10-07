@@ -1333,7 +1333,6 @@ function openShopPurchase(shop, chooseExchange = false) {
         openNearbyActionMenu(shop.label, WeaponUI.entries(me, WEAPON_FIELDS)
             .filter(entry => entry.value !== "bat").map(entry => ({
                 label: `交換: ${entry.label}`,
-                detail: `${price}G`,
                 command: `BUY:${shop.item}:${entry.value}`,
                 disabled: me.credits < price,
             })), shop, INTERACTION_RANGE.shop);
