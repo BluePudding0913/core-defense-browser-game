@@ -13,7 +13,10 @@ class WeaponCatalogTest {
             public void send(Player player, String message) { }
         });
         var player = game.players.get(0);
-        WeaponCatalog.ALL.forEach(weapon -> player.weapons.grant(weapon.id()));
+        WeaponCatalog.ALL.forEach(weapon -> {
+            player.weapons.setOwned(weapon.id(), true);
+            player.weapons.setAmmo(weapon.id(), weapon.capacity());
+        });
         var snapshot = new ObjectMapper().readTree(SnapshotBuilder.build(game));
         var rules = snapshot.path("rules").path("weapons");
         var state = snapshot.path("players").get(0);
@@ -38,6 +41,7 @@ class WeaponCatalogTest {
     @Test void allInventoriesClampConsumeAndResetWithoutWeaponSpecificFields() {
         var inventory = new WeaponInventory();
         for (var weapon : WeaponCatalog.ALL) {
+            inventory.clear();
             inventory.grant(weapon.id());
             assertTrue(inventory.owns(weapon.id()));
             inventory.setAmmo(weapon.id(), Integer.MAX_VALUE);

@@ -1326,6 +1326,18 @@ function openShopPurchase(shop) {
         : alreadyOwned && ammo >= weaponFields.capacity;
     const price = alreadyOwned ? weaponFields.refillCost ?? WEAPON_AMMO_REFILL_COST : shop.cost;
     const unavailable = shop.item === "ammo" && ownedWeapons.length === 0;
+    const weaponLimitReached = weaponFields && !alreadyOwned
+        && WeaponUI.atLimit(me, WEAPON_FIELDS, state.rules.weaponLimit);
+    if (weaponLimitReached) {
+        openNearbyActionMenu(shop.label, WeaponUI.entries(me, WEAPON_FIELDS)
+            .filter(entry => entry.value !== "bat").map(entry => ({
+                label: `交換: ${entry.label}`,
+                detail: `${price}G`,
+                command: `BUY:${shop.item}:${entry.value}`,
+                disabled: me.credits < price,
+            })), shop, INTERACTION_RANGE.shop);
+        return;
+    }
     openNearbyActionMenu(shop.label, [{
         label: ammoFull ? "FULL" : alreadyOwned || shop.item === "ammo" && !unavailable ? "REFILL"
             : unavailable ? "LOCKED" : "BUY",
