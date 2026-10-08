@@ -11,8 +11,8 @@ const context=vm.createContext({state:{resources:[node]}, getMe:()=>({}),
 });
 vm.runInContext(extract('drawResources')+'\n'+extract('drawPlacementPreview'),context);
 vm.runInContext('drawResources()',context);assert.equal(rectangles.length,0);
-placing=true;vm.runInContext('drawResources(); drawPlacementPreview()',context);
-assert.deepEqual(rectangles[0],[1652,614,16,12]);assert.equal(labels.pop(),'RESOURCE');
+placing=true;vm.runInContext('drawResources()',context);assert.equal(rectangles.length,0);vm.runInContext('drawPlacementPreview()',context);
+assert.equal(labels.pop(),'BLOCKED');
 context.frontPlacementTile=()=>({x:1700,y:620});
 vm.runInContext('drawPlacementPreview()',context);assert.equal(labels.pop(),'BLOCKED');
-console.log('Hidden resource placement positions are visible while building');
+console.log('Hidden resources do not show reserved placement markers');
