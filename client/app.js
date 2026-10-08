@@ -955,6 +955,10 @@ function updateHud() {
             weaponButton.classList.toggle("cooling", me.drone.cooldown > 0);
             weaponButton.disabled = true;
         }
+        if (!showingItem || me.drone?.controlled) {
+            const silverLabel = WeaponUI.silverAmmoLabel(me, me.drone?.controlled ? me.drone.weapon : me.weapon, WEAPON_FIELDS);
+            if (silverLabel) weaponCooldown.textContent += ` · ${silverLabel}`;
+        }
         if (selectedBuild === "drone") {
             weaponCooldown.textContent = me.drone && me.drone.hp <= 0
                 ? `REPAIR ${me.droneRepairOre}鉱石 / ${me.droneRepairCopper}銅 · R` : "R TO LAUNCH";
@@ -1463,7 +1467,7 @@ function openShopPurchase(shop, chooseExchange = false) {
             })), shop, INTERACTION_RANGE.shop, "default", () => openShopPurchase(shop, true));
         return;
     }
-    openNearbyActionMenu(shop.label, [{
+    const options = [{
         label: mounted ? "DRONE" : ammoFull ? "FULL" : alreadyOwned || shop.item === "ammo" && !unavailable ? "REFILL"
             : unavailable ? "LOCKED" : "BUY",
         detail: `${price}G`,
@@ -1472,7 +1476,18 @@ function openShopPurchase(shop, chooseExchange = false) {
         command: weaponLimitReached ? undefined : `BUY:${shop.item}`,
         onSelect: weaponLimitReached ? () => openShopPurchase(shop, true) : undefined,
         disabled: mounted || ammoFull || unavailable || me.credits < price,
-    }], shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
+    }];
+    if (shop.item === "ammo" && state.rules.silverAmmo) {
+        const silver = state.rules.silverAmmo;
+        options.push({
+            label: `銀弾 +${silver.amount}`,
+            detail: `銀 ${silver.cost}`,
+            stock: `所持 ${me.silverAmmo ?? 0}発 · 火力 ×${silver.damageMultiplier}`,
+            command: "BUY:silverAmmo",
+            disabled: (me.silver ?? 0) < silver.cost,
+        });
+    }
+    openNearbyActionMenu(shop.label, options, shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
 }
 
 function openWoodcutterMenu() {

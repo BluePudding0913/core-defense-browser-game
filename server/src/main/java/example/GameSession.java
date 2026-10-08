@@ -2402,7 +2402,7 @@ final class GameSession {
             else gameEffects.feedback(player,"お金が足りません");
             return;
         }
-        ShopUnit shop = GameMap.shopByItem(item);
+        ShopUnit shop = GameMap.shopByItem(item.equals("silverAmmo") ? "ammo" : item);
         if (shop == null || !isPointUnlocked(shop.x(), shop.y())
                 || !canInteract(player, shop.x(), shop.y(), 70)) {
             gameEffects.feedback(player, "ショップに近づいてください");
@@ -2422,6 +2422,15 @@ final class GameSession {
             return;
         }
         switch (item) {
+            case "silverAmmo" -> {
+                if (!player.weapons.buySilverAmmo(player.silver)) {
+                    gameEffects.feedback(player, "銀が足りません");
+                    return;
+                }
+                player.silver -= SilverAmmoRules.COST;
+                gameEffects.purchased(player, item, false);
+                gameEffects.feedback(player, "銀弾を" + SilverAmmoRules.PACK_SIZE + "発購入しました");
+            }
             case "ammo" -> {
                 List<String> owned = WeaponCatalog.ALL.stream().filter(WeaponCatalog.Definition::usesAmmo)
                         .map(WeaponCatalog.Definition::id).filter(player.weapons::owns)

@@ -113,6 +113,7 @@ final class SnapshotBuilder {
                 .append(",\"pellets\":").append(definition.pellets()).append(",\"maxTargets\":").append(definition.maxTargets())
                 .append(",\"blastRadius\":").append(definition.blastRadius())
                 .append(",\"droneMountable\":").append(DroneRules.mountable(key))
+                .append(",\"silverAmmoEligible\":").append(SilverAmmoRules.eligible(key))
                 .append(",\"owned\":\"").append(definition.ownedField())
                 .append("\",\"ammo\":\"").append(definition.ammoField())
                 .append("\",\"name\":\"").append(key).append("\"}");
@@ -138,7 +139,10 @@ final class SnapshotBuilder {
             json.append('}');
         }
         ShopUnit ammo = GameMap.shopByItem("ammo");
-        json.append("},\"shop\":{\"medkit\":").append(GameConfig.MEDKIT_PRICE).append(",\"ammo\":").append(ammo.cost())
+        json.append("},\"silverAmmo\":{\"cost\":").append(SilverAmmoRules.COST)
+            .append(",\"amount\":").append(SilverAmmoRules.PACK_SIZE)
+            .append(",\"damageMultiplier\":").append(SilverAmmoRules.DAMAGE_MULTIPLIER)
+            .append("},\"shop\":{\"medkit\":").append(GameConfig.MEDKIT_PRICE).append(",\"ammo\":").append(ammo.cost())
             .append("},\"medkitHeal\":").append(GameConfig.MEDKIT_HEAL).append(",\"medkitCapacity\":").append(GameConfig.MEDKIT_CAPACITY).append(",\"unlockCost\":").append(game.unlockCost())
             .append(",\"areaUnlockCosts\":{");
         for (int i = 0; i < GameMap.AREAS.size(); i++) {
@@ -247,6 +251,7 @@ final class SnapshotBuilder {
                     .append(",\"ore\":").append(player.ore)
                     .append(",\"copper\":").append(player.copper)
                     .append(",\"silver\":").append(player.silver)
+                    .append(",\"silverAmmo\":").append(player.weapons.silverAmmo())
                     .append(",\"medkits\":").append(player.medkits)
                     .append(",\"credits\":").append(player.credits)
                     .append(",\"gatherCooldown\":").append(roundOne(player.gatherCooldown));
