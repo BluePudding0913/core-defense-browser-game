@@ -45,7 +45,7 @@ class SilverAmmoPurchaseTest {
         assertEquals(20, snapshot.path("players").get(player.slot - 1).path("silverAmmo").asInt());
         assertEquals(1, snapshot.path("rules").path("silverAmmo").path("cost").asInt());
         assertEquals(10, snapshot.path("rules").path("silverAmmo").path("amount").asInt());
-        assertEquals(1.3, snapshot.path("rules").path("silverAmmo").path("damageMultiplier").asDouble());
+        assertEquals(2.0, snapshot.path("rules").path("silverAmmo").path("damageMultiplier").asDouble());
         for (var definition : WeaponCatalog.ALL) {
             assertEquals(SilverAmmoRules.eligible(definition.id()), snapshot.path("rules").path("weapons")
                     .path(definition.id()).path("silverAmmoEligible").asBoolean());

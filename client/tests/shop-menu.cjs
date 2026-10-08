@@ -33,7 +33,7 @@ const context = vm.createContext({
         turret: { name: 'TURRET', description: 'Defense', ore: 3 },
         woodFactory: { name: 'FACTORY', shopOnly: true },
     },
-    state: { rules: { medkitCapacity: 3, silverAmmo: { cost: 1, amount: 10, damageMultiplier: 1.3 } } },
+    state: { rules: { medkitCapacity: 3, silverAmmo: { cost: 1, amount: 10, damageMultiplier: 2.0 } } },
     applyRules() {}, keepEndArea: () => false, hideScreenIntro() {}, window: {},
     previousPhase: 'preparing', previousRound: 1, lastCoreHp: 100,
     performance: { now: () => 0 }, reconcileEnemySmoothing() {}, reconcileDroneSmoothing() {}, endInteractionHold() {}, endJobHold() {},
@@ -48,7 +48,7 @@ for (const name of ['openActionMenu', 'openNearbyActionMenu', 'closeActionMenu',
 const run = code => vm.runInContext(code, context);
 const snapshot = () => {
     context.next = { phase: 'preparing', round: 1, players: [], core: { hp: 100 }, rules: {
-        medkitCapacity: 3, weaponLimit: 3, silverAmmo: { cost: 1, amount: 10, damageMultiplier: 1.3 },
+        medkitCapacity: 3, weaponLimit: 3, silverAmmo: { cost: 1, amount: 10, damageMultiplier: 2.0 },
     } };
     run('receiveState(next)');
 };
@@ -237,7 +237,7 @@ assert.equal(actionOptions.children.length, 1, 'AMMO only refills ordinary ammun
 run('openWorkbenchMenu(workbench)');
 const silverButton = actionOptions.children.at(-1);
 assert.equal(silverButton.innerHTML,
-    '銀弾 +10<small>銀 1</small><span class="action-stock">所持 0発 · 火力 ×1.3</span>');
+    '銀弾 +10<small>銀 1</small><span class="action-stock">所持 0発 · 火力 ×2</span>');
 assert(!silverButton.disabled, 'silver ammo can be crafted with silver and no gold');
 silverButton.click();
 assert.equal(commands.at(-1), 'CRAFT:silverAmmo');
