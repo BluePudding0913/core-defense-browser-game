@@ -97,7 +97,8 @@ class LateRoundEnemiesTest {
             game.queuedEnemies = 0; game.queuedBosses = round / 4;
             invoke("updateSpawning", new Class<?>[]{double.class}, 10.0);
             Enemy boss = game.enemies.get(0);
-            assertEquals(round >= 40 ? "titan" : round >= 24 ? "warlord" : "boss", boss.type);
+            assertEquals(WardenRules.appearsInRound(round) ? "warden"
+                    : round >= 40 ? "titan" : round >= 24 ? "warlord" : "boss", boss.type);
             assertTrue(boss.isBoss());
             assertEquals(round / 4 - game.enemies.size(), game.queuedBosses);
         }

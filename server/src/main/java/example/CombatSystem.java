@@ -442,6 +442,7 @@ final class CombatSystem {
             case "tiny" -> 3;
             case "boss" -> 42;
             case "warlord" -> 44;
+            case "warden" -> 44;
             case "titan" -> 48;
             case "armored" -> 30;
             case "shield" -> 24;

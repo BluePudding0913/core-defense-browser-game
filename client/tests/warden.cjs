@@ -1,0 +1,16 @@
+const assert = require('node:assert/strict');
+const ui = require('../warden-ui.js');
+const calls = [];
+const ctx = new Proxy({}, { get: (_, name) => (...args) => calls.push([name, ...args]), set: (_, name, value) => { calls.push([name,value]); return true; } });
+const enemy = {type:'warden',x:1020,y:1900,targetX:1380,targetY:1900,bossAction:'CHARGE_WARNING'};
+ui.draw(ctx, enemy);
+assert(calls.some(c => c[0] === 'lineTo' && c[1] === 1380 && c[2] === 1900));
+assert(calls.some(c => c[0] === 'lineWidth' && c[1] === 84));
+calls.length = 0;
+ui.draw(ctx, {...enemy,bossAction:'PULSE_WARNING',pulseRadius:160,actionRemaining:.6,actionDuration:1.2});
+assert(calls.some(c => c[0] === 'arc' && c[3] === 160));
+assert.equal(calls.filter(c => c[0] === 'arc').length, 2);
+assert.equal(calls[0][0], 'save'); assert.equal(calls.at(-1)[0], 'restore');
+calls.length = 0; ui.draw(ctx, {...enemy,bossAction:'IDLE'}); assert.equal(calls.length,0);
+ui.draw(ctx, {...enemy,type:'boss'}); assert.equal(calls.length,0);
+console.log('Warden UI passed: charge path, pulse radius/progress, inactive warnings');
