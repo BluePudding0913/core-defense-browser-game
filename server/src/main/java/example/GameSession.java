@@ -188,7 +188,7 @@ final class GameSession {
         player.dashHeld = false;
         player.dashing = false;
         player.scoutDashRemaining = 0;
-        player.firing = false;
+        player.firing = player.secondaryFiring = false;
         releaseCarriedCore(player);
         cancelAction(player);
         setNotice(displayName + "の接続が切れました");
@@ -261,6 +261,7 @@ final class GameSession {
             case "DASH" -> handleDash(player, parts);
             case "ATTACK" -> combat.attackAt(player, player.aimX, player.aimY);
             case "FIRE" -> handleFire(player, parts);
+            case "SECONDARY_FIRE" -> handleSecondaryFire(player, parts);
             case "INTERACT" -> { if (parts.length >= 2) interact(player, parts[1]); }
             case "WEAPON" -> { if (parts.length >= 2) switchWeapon(player, parts[1]); }
             case "BUY" -> { if (parts.length >= 2) buy(player, parts[1], parts.length >= 3 ? parts[2] : null); }
@@ -297,11 +298,13 @@ final class GameSession {
             player.spyRemaining = Math.max(0, player.spyRemaining - dt);
             double previousJobCooldown = player.jobCooldown;
             player.jobCooldown = Math.max(0, player.jobCooldown - dt);
-            if (player.job.equals("spy") && previousJobCooldown > 0 && player.jobCooldown == 0 && canMove())
+            if ((player.job.equals("spy") || player.job.equals("healer")) && previousJobCooldown > 0 && player.jobCooldown == 0 && canMove())
                 gameEffects.abilityReady(player);
             player.teleportCooldown = Math.max(0, player.teleportCooldown - dt);
             player.weaponCooldowns.replaceAll((weapon, remaining) -> Math.max(0, remaining - dt));
             player.cooldown = Math.max(0, player.cooldown - dt);
+            player.secondaryCooldown = Math.max(0, player.secondaryCooldown - dt);
+            if (player.secondaryFiring && canMove()) combat.attackSecondary(player, player.secondaryAimX, player.secondaryAimY);
             player.gatherCooldown = Math.max(0, player.gatherCooldown - dt);
             if (!player.firing || player.down || player.movingCore || player.selectedBuild != null || !canMove()) {
                 player.stopRailgun();
@@ -317,6 +320,7 @@ final class GameSession {
         players.forEach(player -> combat.updateRailgun(player, dt));
         updateMissiles(dt);
         updateMedbay(dt);
+        updateHealingAreas(dt);
         updateRevives(dt);
         updateResources(dt);
         updateFactories(dt);
@@ -408,6 +412,7 @@ final class GameSession {
         if (player.job.equals(job)) return;
         player.firing = player.dashing = player.dashHeld = player.missileControl = false;
         player.stopRailgun(); cancelAction(player);
+        player.secondaryFiring = false; player.secondaryCooldown = player.healRemaining = 0;
         player.job = job;
         player.stamina = Math.min(player.stamina, JobRules.staminaMax(job));
         player.drone = null;
@@ -448,6 +453,13 @@ final class GameSession {
             player.selectedBuild = null;
             cancelAction(player);
             return;
+        }
+        if (player.job.equals("healer") && player.selectedBuild == null && player.jobCooldown <= 0) {
+            MapPoint center = GameMap.snapToTile(player.x, player.y);
+            player.healX = center.x(); player.healY = center.y();
+            player.healRemaining = JobRules.HEAL_DURATION;
+            player.jobCooldown = JobRules.HEAL_COOLDOWN;
+            gameEffects.sound(player, "item-use", "heal");
         }
         if (player.job.equals("spy")) {
             if (player.selectedBuild != null) return;
@@ -604,6 +616,31 @@ final class GameSession {
         if (!player.dashHeld) player.dashing = false;
     }
 
+    private void updateHealingAreas(double dt) {
+        for (Player owner : players) {
+            double activeTime = Math.min(dt, owner.healRemaining);
+            owner.healRemaining = Math.max(0, owner.healRemaining - dt);
+            if (activeTime <= 0) continue;
+            for (Player target : players) {
+                if (!target.down && JobRules.insideHealingArea(target.x, target.y, owner.healX, owner.healY)
+                        && GameMap.hasClearLine(owner.healX, owner.healY, target.x, target.y, unlockedAreas))
+                    target.hp = Math.min(100, target.hp + JobRules.HEAL_PER_SECOND * activeTime);
+            }
+        }
+    }
+
+    private void handleSecondaryFire(Player player, String[] parts) {
+        if (parts.length < 4) return;
+        if (parts[3].equals("0")) { player.secondaryFiring = false; return; }
+        if (!canMove() || !player.job.equals("attacker") || player.down || player.movingCore || player.selectedBuild != null) return;
+        double x = Double.parseDouble(parts[1]), y = Double.parseDouble(parts[2]);
+        if (!Double.isFinite(x) || !Double.isFinite(y)) return;
+        player.secondaryAimX = clamp(x, 0, WORLD_W); player.secondaryAimY = clamp(y, 0, WORLD_H);
+        boolean begins = !player.secondaryFiring;
+        player.secondaryFiring = true;
+        if (begins) combat.attackSecondary(player, player.secondaryAimX, player.secondaryAimY);
+    }
+
     private void handleFire(Player player, String[] parts) {
         if (parts.length < 4 || !canMove() || player.down) return;
         double x = Double.parseDouble(parts[1]);
@@ -611,7 +648,7 @@ final class GameSession {
         if (!Double.isFinite(x) || !Double.isFinite(y)) return;
         boolean active = parts[3].equals("1") || parts[3].equalsIgnoreCase("true");
         if (player.movingCore || player.selectedBuild != null) {
-            player.firing = false;
+            player.firing = player.secondaryFiring = false;
             return;
         }
         boolean beginsPress = active && !player.firing;
@@ -2257,7 +2294,7 @@ final class GameSession {
             player.equipWeapon(weapon);
             player.selectedBuild = null;
             player.movingCore = false;
-            player.firing = false;
+            player.firing = player.secondaryFiring = false;
         }
     }
 
@@ -2275,7 +2312,7 @@ final class GameSession {
             if (!isPointUnlocked(kitShop.x(), kitShop.y())
                     || !canInteract(player, kitShop.x(), kitShop.y(), 70)) return;
             if(player.medkits >= GameConfig.MEDKIT_CAPACITY) { gameEffects.feedback(player,"回復キットは5個まで持てます"); return; }
-            if(spend(player,GameConfig.MEDKIT_PRICE)) { player.medkits++; gameEffects.feedback(player,"回復キットを購入しました"); }
+            if(spend(player,GameConfig.MEDKIT_PRICE)) { player.medkits++; gameEffects.purchased(player, item, false); gameEffects.feedback(player,"回復キットを購入しました"); }
             else gameEffects.feedback(player,"お金が足りません");
             return;
         }
@@ -2288,6 +2325,7 @@ final class GameSession {
         if (item.endsWith("Factory")) {
             if (!spend(player, shop.cost())) { gameEffects.feedback(player, "お金が足りません"); return; }
             player.addBuildItem(item, 1);
+            gameEffects.purchased(player, item, false);
             player.selectedBuild = item;
             releaseCarriedCore(player);
             gameEffects.feedback(player, shop.label() + "を購入しました。Rで設置できます");
@@ -2344,6 +2382,7 @@ final class GameSession {
             releaseCarriedCore(player);
             if (exchange) player.weapons.exchange(item, outgoing);
             grantWeapon(player, item);
+            gameEffects.purchased(player, item, true);
             gameEffects.feedback(player, "購入しました");
         } else {
             gameEffects.feedback(player, "お金が足りません");
@@ -2443,7 +2482,7 @@ final class GameSession {
         } else if ((type.equals("teleporter") || type.equals("drone") || BUILD_RECIPES.containsKey(type) || type.endsWith("Factory")) && player.buildItemCount(type) > 0) {
             releaseCarriedCore(player);
             player.selectedBuild = type;
-            player.firing = false;
+            player.firing = player.secondaryFiring = false;
             player.stopRailgun();
         }
     }
@@ -2522,7 +2561,7 @@ final class GameSession {
         player.dashing = false;
         player.scoutDashRemaining = 0;
         player.selectedBuild = null;
-        player.firing = false;
+        player.firing = player.secondaryFiring = false;
         coreX = player.x;
         coreY = player.y;
     }
@@ -2878,7 +2917,7 @@ final class GameSession {
             player.dashHeld = false;
             player.dashing = false;
             player.scoutDashRemaining = 0;
-            player.firing = false;
+            player.firing = player.secondaryFiring = false;
             releaseCarriedCore(player);
             setNotice(player.name + "がダウンしました");
         }
@@ -2951,6 +2990,7 @@ final class GameSession {
             player.spyCheckedEnemies.clear(); player.spyHostileEnemies.clear();
             player.spyRemaining = 0;
             player.drone = null;
+            player.secondaryFiring = false; player.secondaryCooldown = player.healRemaining = 0;
             player.jobCooldown = 0;
             player.teleportCooldown = 0;
             player.teleportPads.clear();
@@ -2959,7 +2999,7 @@ final class GameSession {
             player.weaponCooldownMaxima.clear();
             player.cooldown = 0;
             player.cooldownMax = 0;
-            player.firing = false;
+            player.firing = player.secondaryFiring = false;
             player.aimX = player.x + 100;
             player.aimY = player.y;
             player.stopRailgun();

@@ -9,6 +9,11 @@ final class GameEffects implements CombatEvents {
 
     GameEffects(GameEventSink sink) { this.sink = sink; }
 
+    void purchased(Player player, String item, boolean closeMenu) {
+        if (player.human) sink.send(player, "{\"type\":\"purchase-complete\",\"item\":\""
+                + escapeJson(item) + "\",\"closeMenu\":" + closeMenu + "}");
+    }
+
     void abilityReady(Player player) {
         if (player.human) sink.send(player, "{\"type\":\"effect\",\"effect\":\"ability-ready\",\"playerId\":\""
                 + escapeJson(player.id) + "\"}");
@@ -26,7 +31,7 @@ final class GameEffects implements CombatEvents {
 
     public void sound(Player player, String effect, String item) {
         sink.broadcast("{\"type\":\"effect\",\"effect\":\"" + escapeJson(effect)
-                + "\",\"playerId\":\"" + escapeJson(player.id) + "\",\"weapon\":\"" + escapeJson(effect.equals("shot") && DroneRules.controlling(player) ? item : player.weapon)
+                + "\",\"playerId\":\"" + escapeJson(player.id) + "\",\"weapon\":\"" + escapeJson(effect.equals("shot") && (DroneRules.controlling(player) || WeaponCatalog.find(item) != null) ? item : player.weapon)
                 + "\",\"item\":\"" + escapeJson(item) + "\"}");
     }
 
