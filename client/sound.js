@@ -21,6 +21,7 @@
         "ability-ready": { notes: [659, 880, 1175], duration: .3 },
         build: { notes: [180, 270, 360], duration: .18, noise: .12 },
         purchase: { notes: [659, 988, 1318], duration: .18 },
+        refill: { notes: [330, 440, 660], duration: .2, noise: .12 },
         damage: { pitch: 110, end: 35, duration: .16, noise: .65 },
         pickup: { notes: [880, 1320], duration: .12 },
         item: { notes: [660, 880], duration: .16 },
