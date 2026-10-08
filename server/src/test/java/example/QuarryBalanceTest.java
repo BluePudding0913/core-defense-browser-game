@@ -6,7 +6,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class QuarryBalanceTest {
-    @Test void openingRoomsProduceEqualCountsAtEqualIntervals() throws Exception {
+    @Test void openingRoomsKeepEqualPickupCountsWithSlowerWoodRespawns() throws Exception {
         GameSession game = new GameSession(new GameEventSink() {
             public void broadcast(String message) { }
             public void send(Player player, String message) { }
@@ -23,9 +23,10 @@ class QuarryBalanceTest {
             player.x = node.x; player.y = node.y;
             update.invoke(game, .05);
             assertFalse(node.available);
-            assertEquals(3, node.respawnTimer);
+            double interval = node.type.equals("wood") ? 6 : 3;
+            assertEquals(interval, node.respawnTimer);
             player.x = 0; player.y = 0;
-            update.invoke(game, 2.9);
+            update.invoke(game, interval - .1);
             assertFalse(node.available);
             update.invoke(game, .11);
             assertTrue(node.available);
