@@ -12,7 +12,7 @@ const commands = [], lines = [], numbers = [], menus = [];
 const context = vm.createContext({
     MISSILE_COMPUTER: null, JOB_STATION: null,
     me, getMe: () => me, myPlayerId: 'me', send: c => commands.push(c), performance: { now: () => 50 },
-    equipmentOrder: [], BUILD_INFO: { drone: { name: 'DRONE' }, teleporter: { name: 'TP' } },
+    equipmentOrder: [], BUILD_INFO: { drone: { name: 'DRONE' }, controller: { name: 'コントローラー' }, teleporter: { name: 'TP' } },
     WEAPON_FIELDS: {
         pistol: { owned: 'ownsPistol', capacity: 0, droneMountable: true },
         smg: { owned: 'ownsSmg', capacity: 240, droneMountable: true },
@@ -22,7 +22,9 @@ const context = vm.createContext({
     openNearbyActionMenu: (title, options, target, range, layout, refresh) => menus.push({title, options, refresh}),
     closeActionMenu() {}, actionMenu: { classList: { contains: () => true } },
     inventoryMenu: { classList: { add() {} } },
-    state: { phase: 'wave', players: [me] },
+    state: { phase: 'wave', players: [me], slots: [], areas: {}, core: {x: 1000, y: 1000} },
+    SHOP_UNITS: [], WORKBENCHES: [], PREP_CONSOLE: null, BREAKER_TERMINALS: [], AREAS: [],
+    INTERACTION_RANGE: {core: 70}, openCoreMenu() {},
     distance: (a, b) => Math.hypot(a.x - b.x, a.y - b.y), hasInteractionPath: () => true,
     hitEffects: [], ctx: { save() {}, restore() {}, beginPath() {}, stroke() {},
         moveTo(x, y) { lines.push([x, y]); }, lineTo(x, y) { lines.push([x, y]); },
@@ -47,7 +49,9 @@ assert.equal(run('findNearestInteraction().kind'), 'drone-launch');
 run('toggleNearestInteraction()');
 assert.equal(menus.length, menuCount + 1, 'broken selected drone opens repair preflight');
 me.drone = { active: true, controlled: true, weapon: 'smg', x: 200, y: 100 };
-me.selectedBuild = null; me.buildItems.drone = 0;
+me.selectedBuild = 'controller'; me.buildItems.drone = 0; me.buildItems.controller = 1;
+assert.ok(run('equipmentEntries(me)').some(e => e.key === 'build:controller'));
+assert.equal(run('placementSelection(me)'), null, 'controller cannot be placed');
 assert.ok(!run('equipmentEntries(me)').some(e => e.key === 'build:drone'));
 assert.ok(!run('equipmentEntries(me)').some(e => e.key === 'weapon:smg'), 'mounted gun is unavailable in player equipment');
 me.drone.controlled = false;
@@ -55,6 +59,8 @@ assert.ok(!run('equipmentEntries(me)').some(e => e.key === 'weapon:smg'), 'switc
 me.drone.active = false;
 assert.ok(run('equipmentEntries(me)').some(e => e.key === 'weapon:smg'), 'recovery returns the gun to player equipment');
 me.drone.active = me.drone.controlled = true;
+me.selectedBuild = null;
+me.drone.controlled = false;
 assert.equal(run('findNearestInteraction()'), null, 'no remote recovery');
 me.drone.x = 145;
 run('findNearestInteraction().action()'); assert.equal(commands.pop(), 'DRONE_RECOVER');
@@ -76,7 +82,7 @@ run('startFiring(1, 200, 100); fireOnce(200, 100)');
 assert.equal(commands.length, 0, 'mouse and touch cannot shoot the previous weapon while drone is selected');
 context.firingPointer = {id: 1}; run('updateFiringAim(200, 100)');
 assert.equal(context.firingPointer, null); assert.equal(commands.length, 0);
-me.selectedBuild = null;
+me.selectedBuild = 'controller'; me.drone.controlled = true;
 run('startFiring(2, 200, 100)'); assert.equal(commands.pop(), 'FIRE:200.0:100.0:1', 'piloting still allows drone fire');
 Object.assign(context, {
     SHOP_UNITS: [], WORKBENCHES: [{x: 110, y: 100}], PREP_CONSOLE: null, BREAKER_TERMINALS: [], AREAS: [],
@@ -86,13 +92,17 @@ Object.assign(context, {
 });
 context.state.slots = []; context.state.areas = {}; context.state.core = {x: 1000, y: 1000};
 me.drone.controlled = false;
+assert.equal(run('findNearestInteraction().kind'), 'drone-view', 'controller R switches views even near the drone and facilities');
+run('toggleNearestInteraction()'); assert.equal(commands.pop(), 'JOB_ABILITY');
+me.selectedBuild = null;
 assert.equal(run('findNearestInteraction().kind'), 'drone', 'nearby drone recovery wins over facilities');
 run('toggleNearestInteraction()'); assert.equal(commands.pop(), 'DRONE_RECOVER');
 me.drone.x = 200;
 assert.equal(run('findNearestInteraction().kind'), 'craft', 'facility wins over remote drone view switching');
 run('toggleNearestInteraction()'); assert.equal(commands.pop(), 'WORKBENCH');
 me.drone.controlled = true;
-assert.equal(run('findNearestInteraction()'), null, 'remote piloting still uses drone controls');
+me.selectedBuild = 'controller';
+assert.equal(run('findNearestInteraction().kind'), 'drone-view', 'remote piloting uses the controller');
 run('toggleNearestInteraction()'); assert.equal(commands.pop(), 'JOB_ABILITY');
 me.drone.active = me.drone.controlled = false; me.drone.hp = 45;
 me.selectedBuild = 'drone'; me.buildItems.drone = 1;
