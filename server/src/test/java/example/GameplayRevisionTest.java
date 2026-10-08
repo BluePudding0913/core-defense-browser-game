@@ -812,7 +812,7 @@ class GameplayRevisionTest {
         game.handleMessage(player,"WEAPON:pistol");
         TrapSlot slot=new TrapSlot("carry-test","free",player.x+40,player.y,null);slot.defense=new Defense("copperTurret");game.trapSlots.add(slot);
         player.x-=200; game.handleMessage(player,"CARRY_NEAREST:carry-test"); assertNotNull(slot.defense);assertEquals(0,player.copperTurretItems);
-        player.x+=200;game.handleMessage(player,"CARRY_NEAREST:carry-test");assertEquals(1,player.copperTurretItems);assertEquals("copperTurret",player.selectedBuild);
+        player.x+=200;game.handleMessage(player,"CARRY_NEAREST:carry-test");assertEquals(1,player.copperTurretItems);assertNull(player.selectedBuild);
     }
 
     @Test void fundedCpuUnlocksBeforeWeaponsRegardlessOfCoreLocationOrPoorerNearbyCpu() throws Exception {

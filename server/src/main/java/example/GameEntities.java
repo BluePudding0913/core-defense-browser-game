@@ -34,6 +34,7 @@ final class Player {
     double decoyCooldown;
     Drone drone;
     boolean missileControl;
+    String breakerControl;
     double missileCooldown;
     double teleportCooldown;
     final java.util.List<MapPoint> teleportPads = new java.util.ArrayList<>();
