@@ -708,3 +708,7 @@ button, input { font: inherit; }
 #self-job { position: absolute; top: 100%; left: 0; white-space: nowrap; color: #cbd3d8; font-size: .75rem; }
 .shop-ammo { color: #9ca6ad; font-size: .8em; font-weight: normal; margin-left: .45em; }
 .ammo-refill-row { display: block; margin-top: .25rem; font-size: .85rem; }
+
+.attacker-loadout { display: flex; gap: .6rem; padding: .7rem 0; }
+.attacker-loadout label { flex: 1; min-width: 0; color: #a7b3bd; font-size: .8rem; }
+.attacker-loadout select { display: block; width: 100%; margin-top: .3rem; padding: .5rem; }

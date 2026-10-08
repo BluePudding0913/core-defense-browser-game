@@ -197,6 +197,17 @@ final class SnapshotBuilder {
                     .append(",\"railgunRange\":").append(player.railgunRemaining > 0
                         ? GameMap.distanceToWall(player.x, player.y, player.railgunDx, player.railgunDy,
                             GameSession.weaponStats("railgun").range(), game.unlockedAreas) : 0);
+            json.append(",\"secondaryWeapon\":\"").append(player.secondaryWeapon).append('"')
+                    .append(",\"secondaryCooldown\":").append(roundOne(player.secondaryCooldown))
+                    .append(",\"secondaryCooldownMax\":").append(roundOne(player.secondaryCooldownMax))
+                    .append(",\"secondaryFiring\":").append(player.secondaryFiring)
+                    .append(",\"secondaryRailgunCharge\":").append(roundOne(player.secondaryRailgunCharge))
+                    .append(",\"secondaryRailgunRemaining\":").append(roundOne(player.secondaryRailgunRemaining))
+                    .append(",\"secondaryRailgunDx\":").append(player.secondaryRailgunDx)
+                    .append(",\"secondaryRailgunDy\":").append(player.secondaryRailgunDy)
+                    .append(",\"secondaryRailgunRange\":").append(player.secondaryRailgunRemaining > 0
+                        ? GameMap.distanceToWall(player.x, player.y, player.secondaryRailgunDx, player.secondaryRailgunDy,
+                            GameSession.weaponStats("railgun").range(), game.unlockedAreas) : 0);
             json.append(",\"stamina\":").append(roundOne(player.stamina))
                     .append(",\"dashing\":").append(player.dashing);
             json.append(",\"job\":\"").append(player.job).append('"')
