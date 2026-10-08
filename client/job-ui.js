@@ -10,7 +10,7 @@ window.JobUI = (() => {
         tp: { name: "TP", description: "所持品でTPを選びRで設置。移動はR、自分のTPはR長押しで回収。ジョブ効果キーで5秒間無敵（攻撃不可・再使用20秒）。" },
         scout: { name: "Scout", description: "味方の位置とジョブを確認できる。右クリックした方向へ高速移動。ダッシュが少し速くなり、スタミナも長持ちし、素早く回復する。" },
         hacker: { name: "Hacker", description: "重火器エリアのコンピュータからミサイルを発射。暗視マップで着弾地点を指定する。" },
-        drone: { name: "Drone Operator", description: "ジョブ効果キーの短押しで視点切替、長押しで出撃・回収。ドローンからブレーカー修理も可能。操作中は本人が無防備。破壊時は搭載武器を失い、修復には資材が必要。" }
+        drone: { name: "Drone Operator", description: "ジョブ効果キーの短押しで視点切替、長押しで出撃・回収。ドローンからブレーカー修理も可能。自爆キー（初期G）で爆発。操作中は本人が無防備。破壊時は搭載武器を失い、修復には資材が必要。" }
     });
     const escape = value => String(value).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 

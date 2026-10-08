@@ -1888,6 +1888,13 @@ window.addEventListener("keydown", event => {
         }
         return;
     }
+    if (key === window.coreKeySettings.getDroneSelfDestruct?.() && state && ["preparing", "wave"].includes(state.phase)) {
+        event.preventDefault();
+        const me = getMe();
+        if (!event.repeat && me?.job === "drone" && !me.down && !me.movingCore && me.drone?.active && me.drone.hp > 0)
+            send("DRONE_SELF_DESTRUCT");
+        return;
+    }
     if (key === window.coreKeySettings.getJobEffect()) {
         event.preventDefault();
         if (!event.repeat) beginJobHold();
