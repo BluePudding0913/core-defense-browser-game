@@ -23,7 +23,7 @@
         purchase: { notes: [659, 988, 1318], duration: .18 },
         refill: { notes: [330, 440, 660], duration: .2, noise: .12 },
         damage: { pitch: 220, end: 55, duration: .1, noise: .35, rumble: true },
-        "round-start": { pitch: 110, end: 32, duration: .75, noise: .5, rumble: true },
+        "round-start": { notes: [95, 145], duration: .6, noise: .15, rumble: true },
         pickup: { notes: [880, 1320], duration: .12 },
         item: { notes: [660, 880], duration: .16 },
         railgun: { pitch: 220, end: 220, duration: .4, noise: .35, sustain: true },

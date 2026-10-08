@@ -1316,6 +1316,14 @@ function reconcileLocalPrediction(snapshot) {
         predictedLocal = { x: serverMe.x, y: serverMe.y, stamina: serverMe.stamina, dashing: serverMe.dashing, exhausted: false };
         localFacing = { x: serverMe.facingX, y: serverMe.facingY };
     }
+    if (predictedLocal.down && !serverMe.down) {
+        predictedLocal.x = serverMe.x; predictedLocal.y = serverMe.y;
+        predictedLocal.stamina = serverMe.stamina;
+        predictedLocal.dashing = false;
+        predictedLocal.revivePauseUntil = performance.now() + 120;
+        sendMovement(true);
+    }
+    predictedLocal.down = Boolean(serverMe.down);
     const errorX = serverMe.x - predictedLocal.x;
     const errorY = serverMe.y - predictedLocal.y;
     const error = Math.hypot(errorX, errorY);
@@ -1859,6 +1867,7 @@ function sendMovement(force = false) {
     if (keys.has("s") || keys.has("arrowdown")) y += 1;
     if (keys.has("a") || keys.has("arrowleft")) x -= 1;
     if (keys.has("d") || keys.has("arrowright")) x += 1;
+    if (predictedLocal?.revivePauseUntil && performance.now() < predictedLocal.revivePauseUntil) x = y = 0;
     const length = Math.hypot(x, y);
     if (length > 1) { x /= length; y /= length; }
     localMove.x = Number(x.toFixed(2));
@@ -2133,6 +2142,11 @@ function updateLocalPrediction(dt) {
         return;
     }
     if (!predictedLocal || !serverMe || !["preparing", "wave"].includes(state.phase)) return;
+    if (predictedLocal.revivePauseUntil) {
+        if (performance.now() < predictedLocal.revivePauseUntil) return;
+        predictedLocal.revivePauseUntil = 0;
+        sendMovement(true);
+    }
     if (predictedLocal.scoutDashRemaining > 0 && !serverMe.down && !serverMe.movingCore
             && !serverMe.selectedBuild && !(serverMe.railgunRemaining > 0 || serverMe.railgunCharge > 0 || serverMe.secondaryRailgunRemaining > 0 || serverMe.secondaryRailgunCharge > 0)) {
         const travel = serverMe.scoutDashSpeed * Math.min(dt, predictedLocal.scoutDashRemaining);
@@ -2909,10 +2923,12 @@ function drawPlayers() {
         }
         ctx.fillStyle = hit || player.down ? "#ff5964" : player.id === myPlayerId ? "#79d8ff" : "#454545";
         if (player.job === "attacker" && !player.down) {
+            ctx.save();
             ctx.fillStyle = "#b5b5b5";
             ctx.fillRect(-12, -3, 4, 12); ctx.fillRect(8, -3, 4, 12);
             ctx.fillStyle = "#454545";
             ctx.fillRect(-12, -3, 4, 4); ctx.fillRect(8, -3, 4, 4);
+            ctx.restore();
         }
         const playerSize = 10;
         const disguised = player.spyRemaining > 0 && !player.down;

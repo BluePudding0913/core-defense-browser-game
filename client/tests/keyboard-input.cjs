@@ -9,7 +9,7 @@ const context = vm.createContext({
     window: { addEventListener: (type, handler) => { handlers[type] = handler; } },
     HTMLInputElement, HTMLTextAreaElement,
     exitDialog: { open: false }, howToMenu: { classList: { contains: () => true } },
-    state: { phase: 'wave' }, keys: new Set(), joystick: null,
+    state: { phase: 'wave' }, keys: new Set(), joystick: null, predictedLocal: null,
     localMove: {}, localFacing: 0, quantizeFacing: () => 0,
     send: command => commands.push(command),
 });
