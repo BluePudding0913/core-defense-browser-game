@@ -58,6 +58,11 @@ class DroneOperatorTest {
             Player ally = new Player(2); ally.hp = 100; ally.x = 1140; ally.y = 1900; game.players.add(ally);
             int credits = player.credits;
             game.handleMessage(player, "DRONE_SELF_DESTRUCT");
+            String cue = messages.stream().filter(m -> m.contains("\"effect\":\"drone-self-destruct\""))
+                    .reduce((a, b) -> b).orElseThrow();
+            assertTrue(cue.contains("\"playerId\":\"" + player.id + "\""));
+            assertTrue(cue.contains("\"piloted\":" + controlled));
+            assertTrue(cue.contains("\"x\":1140.0") && cue.contains("\"y\":1900.0"));
             assertEquals(0, player.drone.hp); assertFalse(player.drone.active); assertFalse(player.drone.controlled);
             assertFalse(player.weapons.owns("pistol")); assertEquals(0, target.hp);
             assertEquals(credits + 50, player.credits, "Drone rewards stay halved");

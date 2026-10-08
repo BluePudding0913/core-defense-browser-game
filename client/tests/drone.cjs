@@ -11,7 +11,7 @@ function extract(name) {
 const me = { id: 'self', x: 1140, y: 1900, droneRecoveryRange: 45, drone: { active: true, controlled: true, x: 1300, y: 1900, hp: 45, maxHp: 45 } };
 let cameraUsesDrone = false, droneBodies = 0;
 const context = vm.createContext({
-    window: {}, placementSelection: () => null, BREAKER_TERMINALS: [], getMe: () => me, state: { phase: 'wave', players: [me] }, myPlayerId: 'self',
+    window: {}, droneAftermath: null, placementSelection: () => null, BREAKER_TERMINALS: [], getMe: () => me, state: { phase: 'wave', players: [me] }, myPlayerId: 'self',
     predictedLocal: { x: 1200, y: 1900, dashing: true }, smoothed: new Map(),
     smoothEntity: (kind, p) => { cameraUsesDrone ||= kind === 'drone'; return p; },
     camera: { x: 1140, y: 1900 }, scale: 1, WORLD: { width: 4000, height: 4000 },
@@ -21,7 +21,7 @@ const context = vm.createContext({
     drawBar() {},
     distance: (a, b) => Math.hypot(a.x - b.x, a.y - b.y), hasInteractionPath: () => true,
 });
-for (const name of ['updateLocalPrediction', 'findNearestInteraction', 'canUseNearby', 'reconcileDroneSmoothing', 'droneRecoveryAvailable', 'drawDrones']) {
+for (const name of ['updateLocalPrediction', 'findNearestInteraction', 'canUseNearby', 'reconcileDroneSmoothing', 'droneRecoveryAvailable', 'drawKeyPrompt', 'receiveDroneSelfDestruct', 'droneCameraView', 'drawDrones']) {
     vm.runInContext(extract(name), context);
 }
 vm.runInContext(fs.readFileSync('client/job-ui.js', 'utf8'), context);
@@ -86,7 +86,7 @@ me.job = 'drone'; me.drone = { active: true, hp: 35, maxHp: 45, x: me.x + 45, y:
 for (const controlled of [false, true]) {
     me.drone.controlled = controlled; hints.length = 0;
     vm.runInContext('drawDrones()', context);
-    assert.deepEqual(hints, ['V：回収'], 'Both views show the configured job key at the recovery boundary');
+    assert.deepEqual(hints, ['V'], 'Both views show only the configured key, in the shared round prompt');
 }
 for (const change of [
     () => { me.drone.x = me.x + 46; },
@@ -99,3 +99,29 @@ for (const change of [
     assert.equal(hints.length, 0, 'Unavailable recovery hides its prompt');
 }
 console.log('Drone recovery hint passed: both views, custom key, distance boundary, walls, down, other jobs and inactive drone');
+
+let now = 100;
+context.performance = { now: () => now };
+me.job = 'drone'; me.drone = { active: true, controlled: true, hp: 45, x: 1300, y: 1900 };
+context.state.phase = 'wave'; context.camera = { x: 1290, y: 1900 };
+context.event = { playerId: 'self', piloted: true, x: 1300, y: 1900 };
+vm.runInContext('receiveDroneSelfDestruct(event)', context);
+me.drone.active = me.drone.controlled = false; me.drone.hp = 0;
+now = 1599;
+assert.equal(vm.runInContext('droneCameraView().x', context), 1290, 'Holds the last camera frame after the server destroys the drone');
+context.ctx = { save() {}, restore() {}, fillRect() {} };
+vm.runInContext('drawBlackout()', context);
+assert.equal(context.ctx.fillStyle, 'rgba(60, 255, 110, .12)', 'Night vision stays for the held drone view');
+now = 1600;
+assert.equal(vm.runInContext('droneCameraView()', context), null, 'Returns to the player after 1500ms');
+for (const event of [ {playerId:'ally',piloted:true,x:1,y:2}, {playerId:'self',piloted:false,x:1,y:2} ]) {
+    context.event = event; vm.runInContext('receiveDroneSelfDestruct(event)', context);
+    assert.equal(context.droneAftermath, null, 'Other players and body-view detonation do not move the camera');
+}
+for (const interrupt of [() => {me.down=true;}, () => {me.job='healer';}, () => {context.state.phase='lost';}, () => {me.drone=null;}]) {
+    me.down=false; me.job='drone'; me.drone={hp:0}; context.state.phase='wave';
+    context.event={playerId:'self',piloted:true,x:1300,y:1900};
+    vm.runInContext('receiveDroneSelfDestruct(event)', context); interrupt();
+    assert.equal(vm.runInContext('droneCameraView()', context), null, 'Down, job changes, match end and restart cancel the held view');
+}
+console.log('Drone aftermath camera passed: 1500ms, night vision, owner-only, body view and interruption');
