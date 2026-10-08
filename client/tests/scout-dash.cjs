@@ -13,19 +13,26 @@ const context = vm.createContext({ window: {}, getMe: () => me, state: { phase: 
     canPredictOccupy: () => true,
 });
 vm.runInContext(fs.readFileSync('client/scout-movement.js', 'utf8'), context);
-const start = source.indexOf('function requestScoutDash(');
+const start = source.indexOf('function requestDecoy(');
 vm.runInContext(source.slice(start, source.indexOf('canvas.addEventListener("pointerdown",', start)), context);
 const rightClick = () => handlers.mousedown({ button: 2, clientX: 1500, clientY: 1900, preventDefault() {} });
 rightClick(); assert.equal(commands.at(-1), 'SCOUT_DASH:1500.0:1900.0');
 const count = commands.length;
 handlers.mousedown({ button: 0 }); assert.equal(commands.length, count, 'left click does not dash');
-for (const blocked of [{ job: 'spy' }, { down: true }, { movingCore: true }, { selectedBuild: 'block' },
+for (const blocked of [{ job: 'healer' }, { down: true }, { movingCore: true }, { selectedBuild: 'block' },
     { jobCooldown: 1 }, { stamina: 19 }, { railgunCharge: 1 }]) {
     const before = { ...me }; Object.assign(me, blocked); rightClick();
     assert.equal(commands.length, count); Object.keys(me).forEach(key => delete me[key]); Object.assign(me, before);
 }
 context.state.phase = 'lobby'; rightClick(); assert.equal(commands.length, count); context.state.phase = 'wave';
 context.exitDialog.open = true; rightClick(); assert.equal(commands.length, count); context.exitDialog.open = false;
+me.job = 'spy'; rightClick(); assert.equal(commands.at(-1), 'DECOY:1500.0:1900.0');
+const decoyCount = commands.length;
+for (const blocked of [{ decoyCooldown: 1 }, { down: true }, { movingCore: true }, { selectedBuild: 'block' }, { railgunCharge: 1 }]) {
+    const before = { ...me }; Object.assign(me, blocked); rightClick();
+    assert.equal(commands.length, decoyCount); Object.keys(me).forEach(key => delete me[key]); Object.assign(me, before);
+}
+me.job = 'scout';
 const predictionStart = source.indexOf('function updateLocalPrediction(');
 vm.runInContext(source.slice(predictionStart, source.indexOf('\nfunction ', predictionStart + 1)), context);
 vm.runInContext('updateLocalPrediction(.05)', context);

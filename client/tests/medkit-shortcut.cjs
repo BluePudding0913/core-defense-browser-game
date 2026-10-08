@@ -36,4 +36,7 @@ commands.length = 0;
 assert(context.window.coreKeySettings.setMedkit('Q'));
 press(); press({ key: 'q' }); press({ key: 'Q' });
 assert.deepEqual(commands, ['USE:medkit', 'USE:medkit']);
+commands.length = 0; me.maxHp = 150; me.hp = 120;
+press({ key: 'q' }); assert.deepEqual(commands, ['USE:medkit']);
+me.hp = 150; press({ key: 'q' }); assert.equal(commands.length, 1);
 console.log('Medkit shortcut checks passed');

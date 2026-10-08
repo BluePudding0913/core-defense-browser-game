@@ -31,6 +31,7 @@ final class Player {
     final java.util.Set<Integer> spyHostileEnemies = new java.util.HashSet<>();
     double scoutDashRemaining, scoutDashDx, scoutDashDy;
     double jobCooldown;
+    double decoyCooldown;
     Drone drone;
     boolean missileControl;
     double missileCooldown;
@@ -335,6 +336,7 @@ final class TrapSlot {
     final String requiredArea;
     Defense defense;
     String ownerId;
+    double temporaryRemaining;
 
     TrapSlot(String id, String lane, double x, double y, String requiredArea) {
         this.id = id;

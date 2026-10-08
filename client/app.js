@@ -29,7 +29,11 @@ jobSelect.addEventListener("click", event => {
     const job = event.target.closest("[data-job]")?.dataset.job;
     if (job) send(`JOB:${job}`);
 });
-jobAbilityButton.addEventListener("click", () => send("JOB_ABILITY"));
+jobAbilityButton.addEventListener("click", () => {
+    const me = getMe();
+    if (me?.job === "spy") requestDecoy({ x: me.x + me.facingX * 260, y: me.y + me.facingY * 260 });
+    else send("JOB_ABILITY");
+});
 const roomCode = document.querySelector("#room-code");
 const roomOwner = document.querySelector("#room-owner");
 const createRoomButton = document.querySelector("#create-room");
@@ -899,22 +903,21 @@ function updateHud() {
         : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}`
             : "";
     const me = getMe();
-    jobAbilityButton.classList.toggle("hidden", true);
-    jobAbilityButton.textContent = me?.spyRemaining > 0 ? `偽装 ${Math.ceil(me.spyRemaining)}s`
-        : me?.jobCooldown > 0 ? `偽装 ${Math.ceil(me.jobCooldown)}s` : "偽装";
-    jobAbilityButton.disabled = !me || me.down || me.movingCore || Boolean(me.selectedBuild) || me.jobCooldown > 0;
+    jobAbilityButton.classList.toggle("hidden", me?.job !== "spy");
+    jobAbilityButton.textContent = me?.decoyCooldown > 0 ? `DECOY ${Math.ceil(me.decoyCooldown)}s` : "DECOY";
+    jobAbilityButton.disabled = !me || me.down || me.movingCore || Boolean(me.selectedBuild) || me.decoyCooldown > 0;
     teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">
             <div class="teammate-label">
                 <span>${player.id === myPlayerId ? "YOU" : escapeHtml(player.name)}</span>
                 <span class="player-stats">${player.down ? "DOWN" : ""}<b>${player.credits}G</b></span>
             </div>
-            <div class="hp-line"><span style="width:${player.hp}%"></span></div>
+            <div class="hp-line"><span style="width:${100 * player.hp / (player.maxHp || 100)}%"></span></div>
             ${me?.job === "scout" ? window.JobUI.renderAllyIntel(player, AREAS, areaContains, STARTING_AREA) : ""}
         </div>`).join("");
     selfVitals.classList.toggle("hidden", !me);
     if (me) {
-        const health = clamp(me.hp, 0, 100);
+        const health = clamp(100 * me.hp / (me.maxHp || 100), 0, 100);
         healthHeart.style.setProperty("--health", `${health}%`);
         healthHeart.classList.toggle("full", health === 100);
         healthHeart.setAttribute("aria-label", `体力 ${Math.ceil(health)}%`);
@@ -1342,6 +1345,7 @@ function openSlotMenu(slot) {
             label: "PICK UP",
             detail: "耐久値を保ったまま回収。R長押しでも運搬できます",
             command: `REMOVE:${slot.id}`,
+            disabled: slot.temporaryRemaining > 0,
         }], slot, INTERACTION_RANGE.trapSlot);
     }
 }
@@ -1532,6 +1536,16 @@ function worldFromScreen(clientX, clientY) {
     return { x: camera.x + (px - canvas.width / 2) / scale, y: camera.y + (py - canvas.height / 2) / scale };
 }
 
+function requestDecoy(point) {
+    const me = getMe();
+    if (!me || me.job !== "spy" || !["preparing", "wave"].includes(state.phase)
+            || me.down || me.movingCore || me.selectedBuild || me.decoyCooldown > 0
+            || me.railgunRemaining > 0 || me.railgunCharge > 0 || exitDialog.open
+            || !howToMenu.classList.contains("hidden") || !inventoryMenu.classList.contains("hidden")
+            || !actionMenu.classList.contains("hidden")) return;
+    send(`DECOY:${point.x.toFixed(1)}:${point.y.toFixed(1)}`);
+}
+
 function requestScoutDash(point) {
     const me = getMe();
     if (!me || me.job !== "scout" || !["preparing", "wave"].includes(state.phase)
@@ -1548,6 +1562,7 @@ canvas.addEventListener("mousedown", event => {
     event.preventDefault();
     canvas.focus({ preventScroll: true });
     requestScoutDash(worldFromScreen(event.clientX, event.clientY));
+    requestDecoy(worldFromScreen(event.clientX, event.clientY));
 });
 
 canvas.addEventListener("pointerdown", event => {
@@ -1699,7 +1714,7 @@ window.addEventListener("keydown", event => {
     if (key === window.coreKeySettings.getMedkit() && state && ["preparing", "wave"].includes(state.phase)) {
         event.preventDefault();
         const me = getMe();
-        if (!event.repeat && me && !me.down && me.medkits > 0 && me.hp < 100) send("USE:medkit");
+        if (!event.repeat && me && !me.down && me.medkits > 0 && me.hp < (me.maxHp || 100)) send("USE:medkit");
         return;
     }
     if (key === "e") {
@@ -1798,6 +1813,11 @@ function findNearestInteraction() {
     }
     const nearest = choices.sort((a, b) => a.separation - b.separation)[0];
     if (nearest) return nearest;
+    if (me.job === "tank" && !me.movingCore && !placementSelection(me)) return {
+        kind: "tank", target: me,
+        label: me.jobCooldown > 0 ? Math.ceil(me.jobCooldown) + "s" : "WALL",
+        action: () => send("JOB_ABILITY")
+    };
     if (me.job === "spy" && !me.movingCore && !placementSelection(me)) return {
         kind: "spy", target: me,
         label: me.spyRemaining > 0 ? "偽装中" : me.jobCooldown > 0 ? Math.ceil(me.jobCooldown) + "s" : "偽装",
@@ -2603,9 +2623,27 @@ function drawTeleportPads() {
 }
 
 function drawPlayers() {
+    for (const decoy of state.decoys || []) {
+        if (decoy.hp <= 0) continue;
+        ctx.save();
+        ctx.globalAlpha = .65;
+        ctx.fillStyle = "#eecb65";
+        ctx.fillRect(decoy.x - 9, decoy.y - 9, 18, 18);
+        ctx.strokeStyle = "#fff0b1";
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.arc(decoy.x, decoy.y, 18, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+        drawBar(decoy.x - 15, decoy.y - 23, 30, 3, decoy.hp / decoy.maxHp, "#eecb65");
+    }
     for (const player of state.players) {
         const isLocal = player.id === myPlayerId && predictedLocal;
         const p = isLocal ? predictedLocal : smoothEntity("player", player);
+        if (player.job === "tank" && !player.down) {
+            ctx.save();
+            ctx.strokeStyle = "#7acba855";
+            ctx.beginPath(); ctx.arc(p.x, p.y, player.tankAuraRadius, 0, Math.PI * 2); ctx.stroke();
+            ctx.restore();
+        }
         const rescuers = state.players.filter(worker => worker.action === player.id);
         if (player.down && rescuers.length && (player.id === myPlayerId || rescuers.some(worker => worker.id === myPlayerId))) drawReviveEffect(p.x, p.y, Math.max(...rescuers.map(worker => worker.actionProgress / (worker.reviveSeconds ?? 4))));
         ctx.save();
@@ -2670,7 +2708,7 @@ function drawDrones() {
 }
 
 function drawMedbayParticles(player, position) {
-    if (!player.medbayHealing || player.down || player.hp >= 100) return;
+    if (!player.medbayHealing || player.down || player.hp >= (player.maxHp || 100)) return;
     const time = performance.now() / 1200;
     for (let index = 0; index < 4; index++) {
         const progress = (time + index * .25) % 1;

@@ -54,6 +54,15 @@ final class SnapshotBuilder {
         appendRules(json, game);
         appendAreas(json, game);
         appendPlayers(json, game);
+        json.append(",\"decoys\":[");
+        for (int i = 0; i < game.decoys.size(); i++) {
+            if (i > 0) json.append(',');
+            Decoy decoy = game.decoys.get(i);
+            json.append("{\"x\":").append(roundOne(decoy.x)).append(",\"y\":").append(roundOne(decoy.y))
+                    .append(",\"hp\":").append(roundOne(decoy.hp)).append(",\"maxHp\":").append(DecoyRules.HP)
+                    .append(",\"remaining\":").append(roundOne(decoy.remaining)).append('}');
+        }
+        json.append(']');
         appendEnemies(json, game.enemies);
         appendArtilleryShells(json, game);
         json.append(",\"missiles\":[");
@@ -167,6 +176,9 @@ final class SnapshotBuilder {
                     .append(",\"x\":").append(roundOne(player.x));
             json.append(",\"y\":").append(roundOne(player.y))
                     .append(",\"hp\":").append(roundOne(player.hp))
+                    .append(",\"maxHp\":").append(JobRules.maxHp(player.job))
+                    .append(",\"tankAuraRadius\":").append(JobRules.TANK_AURA_RADIUS)
+                    .append(",\"decoyCooldown\":").append(roundOne(player.decoyCooldown))
                     .append(",\"medbayHealing\":").append(game.isMedbayHealing(player))
                     .append(",\"facingX\":").append(player.facingX)
                     .append(",\"facingY\":").append(player.facingY);
@@ -337,6 +349,7 @@ final class SnapshotBuilder {
                     .append("\",\"lane\":\"").append(slot.lane);
             json.append("\",\"x\":").append(slot.x)
                     .append(",\"y\":").append(slot.y).append(",\"locked\":").append(locked);
+            json.append(",\"temporaryRemaining\":").append(roundOne(slot.temporaryRemaining));
             json.append(",\"defense\":");
             if (slot.defense == null) {
                 json.append("null");

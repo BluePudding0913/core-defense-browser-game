@@ -68,6 +68,7 @@ final class GameSession {
     final List<Player> players = new ArrayList<>();
     final List<Enemy> enemies = new ArrayList<>();
     final List<MissileStrike> missiles = new ArrayList<>();
+    final List<Decoy> decoys = new ArrayList<>();
     final List<ArtilleryShell> artilleryShells = new ArrayList<>();
     final List<TrapSlot> trapSlots = GameMap.createTrapSlots();
     final List<ResourceNode> resourceNodes = GameMap.createResourceNodes();
@@ -156,6 +157,10 @@ final class GameSession {
             if (!rejoining) {
                 assigned.drone = null;
                 assigned.job = JobRules.DEFAULT;
+                assigned.hp = Math.min(assigned.hp, JobRules.maxHp(assigned.job));
+                assigned.decoyCooldown = 0;
+                String assignedId = assigned.id;
+                decoys.removeIf(decoy -> decoy.ownerId.equals(assignedId));
                 assigned.stamina = Math.min(assigned.stamina, JobRules.staminaMax(assigned.job));
                 assigned.spyRemaining = assigned.jobCooldown = assigned.scoutDashRemaining = 0;
                 assigned.teleportPads.clear();
@@ -238,6 +243,7 @@ final class GameSession {
             case "MISSILE" -> { if (parts.length >= 3) launchMissile(player, Double.parseDouble(parts[1]), Double.parseDouble(parts[2])); }
             case "JOB" -> { if (parts.length >= 2) selectJob(player, parts[1]); }
             case "JOB_ABILITY" -> useJobAbility(player);
+            case "DECOY" -> { if (parts.length >= 3) launchDecoy(player, Double.parseDouble(parts[1]), Double.parseDouble(parts[2])); }
             case "DRONE_RECOVER" -> recoverDrone(player);
             case "DRONE_MOUNT" -> { if (parts.length > 1) mountDrone(player, parts[1]); }
             case "DRONE_LAUNCH" -> {
@@ -295,6 +301,7 @@ final class GameSession {
             player.missileCooldown = Math.max(0, player.missileCooldown - dt);
             if (!canOperate(player, GameMap.MISSILE_COMPUTER) || !player.job.equals("hacker")) player.missileControl = false;
             player.spyRemaining = Math.max(0, player.spyRemaining - dt);
+            player.decoyCooldown = Math.max(0, player.decoyCooldown - dt);
             double previousJobCooldown = player.jobCooldown;
             player.jobCooldown = Math.max(0, player.jobCooldown - dt);
             if (player.job.equals("spy") && previousJobCooldown > 0 && player.jobCooldown == 0 && canMove())
@@ -316,6 +323,7 @@ final class GameSession {
         updatePlayers(dt);
         players.forEach(player -> combat.updateRailgun(player, dt));
         updateMissiles(dt);
+        updateJobEquipment(dt);
         updateMedbay(dt);
         updateRevives(dt);
         updateResources(dt);
@@ -408,7 +416,11 @@ final class GameSession {
         if (player.job.equals(job)) return;
         player.firing = player.dashing = player.dashHeld = player.missileControl = false;
         player.stopRailgun(); cancelAction(player);
+        double previousMaxHp = JobRules.maxHp(player.job);
         player.job = job;
+        player.hp = player.down ? 0 : Math.min(JobRules.maxHp(job), player.hp * JobRules.maxHp(job) / previousMaxHp);
+        player.decoyCooldown = 0;
+        decoys.removeIf(decoy -> decoy.ownerId.equals(player.id));
         player.stamina = Math.min(player.stamina, JobRules.staminaMax(job));
         player.drone = null;
         player.roomReady = false;
@@ -440,6 +452,24 @@ final class GameSession {
 
     private void useJobAbility(Player player) {
         if (!canMove() || player.down || player.movingCore) return;
+        if (player.job.equals("tank")) {
+            if (player.selectedBuild != null || player.jobCooldown > 0) return;
+            MapPoint origin = GameMap.snapToTile(player.x, player.y);
+            MapPoint point = GameMap.snapToTile(origin.x() + player.facingX * GameMap.TILE_SIZE,
+                    origin.y() + player.facingY * GameMap.TILE_SIZE);
+            if (!canPlaceDefenseAt(point, null)) {
+                gameEffects.feedback(player, "ここには設置できません");
+                return;
+            }
+            TrapSlot wall = new TrapSlot("tank-wall-" + nextDefenseId++, "free", point.x(), point.y(), null);
+            wall.ownerId = player.id;
+            wall.defense = new Defense("barricade");
+            wall.temporaryRemaining = JobRules.TANK_WALL_DURATION;
+            trapSlots.add(wall);
+            player.jobCooldown = JobRules.TANK_WALL_COOLDOWN;
+            gameEffects.sound(player, "item-use", "build");
+            return;
+        }
         if (player.job.equals("drone")) {
             if (player.drone == null || !player.drone.active) return;
             boolean next = !player.drone.controlled;
@@ -456,6 +486,28 @@ final class GameSession {
             player.spyRemaining = JobRules.SPY_DURATION;
             player.jobCooldown = JobRules.SPY_COOLDOWN;
         }
+    }
+
+    private void launchDecoy(Player player, double x, double y) {
+        if (!canMove() || !DecoyRules.canLaunch(player)) return;
+        MapPoint direction = JobRules.scoutDashDirection(player.x, player.y, x, y);
+        if (direction == null) return;
+        decoys.removeIf(decoy -> decoy.ownerId.equals(player.id));
+        decoys.add(new Decoy(player, direction));
+        player.decoyCooldown = DecoyRules.COOLDOWN;
+        gameEffects.sound(player, "item-use", "build");
+    }
+
+    private void updateJobEquipment(double dt) {
+        for (Decoy decoy : decoys) {
+            DecoyRules.advance(decoy, dt, (x, y) -> canOccupy(x, y, 8));
+        }
+        decoys.removeIf(decoy -> decoy.remaining <= 0 || decoy.hp <= 0);
+        trapSlots.removeIf(slot -> {
+            if (slot.temporaryRemaining <= 0) return false;
+            slot.temporaryRemaining -= dt;
+            return slot.temporaryRemaining <= 0 || slot.defense == null || slot.defense.hp <= 0;
+        });
     }
 
     private void useScoutDash(Player player, double targetX, double targetY) {
@@ -827,13 +879,13 @@ final class GameSession {
             double healingTime = preparing ? dt : Math.max(0, dt - player.medbayDamageDelay);
             player.medbayDamageDelay = Math.max(0, player.medbayDamageDelay - dt);
             if (healingTime > 0 && isMedbayHealing(player)) {
-                player.hp = Math.min(100, player.hp + healPerSecond * healingTime);
+                player.hp = Math.min(JobRules.maxHp(player.job), player.hp + healPerSecond * healingTime);
             }
         }
     }
 
     boolean isMedbayHealing(Player player) {
-        return canUseFacilities() && !player.down && player.hp < 100
+        return canUseFacilities() && !player.down && player.hp < JobRules.maxHp(player.job)
                 && (phase == GamePhase.PREPARING || player.medbayDamageDelay <= 0)
                 && GameMap.MEDBAYS.stream().anyMatch(station -> isPointUnlocked(station.x(), station.y())
                         && canInteract(player, station.x(), station.y(), GameConfig.MEDBAY_RANGE));
@@ -1242,8 +1294,22 @@ final class GameSession {
                 continue;
             }
 
+            Decoy decoyTarget = DecoyRules.target(enemy, decoys,
+                    (x, y) -> GameMap.hasClearLine(enemy.x, enemy.y, x, y, unlockedAreas));
+            if (decoyTarget != null) {
+                enemy.navigationTimer = 0;
+                enemy.faceToward(decoyTarget.x, decoyTarget.y);
+                if (distance(enemy.x, enemy.y, decoyTarget.x, decoyTarget.y) <= 36) {
+                    if (enemy.attackCooldown <= 0) {
+                        decoyTarget.hp -= enemy.damage;
+                        enemy.attackCooldown = .9;
+                    }
+                } else moveEnemyToward(enemy, decoyTarget.x, decoyTarget.y, enemy.speed * enemy.slow * dt);
+                continue;
+            }
+            Player playerTarget = enemyNavigation.visiblePlayer(enemy, players, dt);
             Player droneTarget = DroneRules.target(enemy, players);
-            if (droneTarget != null) {
+            if (droneTarget != null && (playerTarget == null || !playerTarget.job.equals("tank"))) {
                 Drone drone = droneTarget.drone;
                 enemy.navigationTimer = 0;
                 enemy.faceToward(drone.x, drone.y);
@@ -1272,8 +1338,8 @@ final class GameSession {
                 default -> 50;
             };
             TrapSlot defenseTarget = nearestDefense(enemy, defenseRange);
-            Player playerTarget = enemyNavigation.visiblePlayer(enemy, players, dt);
-            boolean preferDefense = enemy.targetPriority.equals("defenses");
+            boolean preferDefense = enemy.targetPriority.equals("defenses")
+                    && (playerTarget == null || !playerTarget.job.equals("tank"));
             if (preferDefense && defenseTarget != null || playerTarget == null) {
                 playerTarget = null;
             } else if (playerTarget != null) {
@@ -1352,12 +1418,22 @@ final class GameSession {
                         damagePlayer(target, GameConfig.EXPLOSION_BOSS_DAMAGE);
                     }
                 }
+                for (Decoy decoy : decoys)
+                    if (distance(enemy.x, enemy.y, decoy.x, decoy.y) <= radius)
+                        decoy.hp -= GameConfig.EXPLOSION_BOSS_DAMAGE;
                 return;
             }
         }
         Player target = nearestPlayer(enemy, WORLD_W + WORLD_H);
+        Decoy decoyTarget = DecoyRules.target(enemy, decoys,
+                (x, y) -> GameMap.hasClearLine(enemy.x, enemy.y, x, y, unlockedAreas));
+        if (decoyTarget != null) {
+            enemy.faceToward(decoyTarget.x, decoyTarget.y);
+            moveEnemyToward(enemy, decoyTarget.x, decoyTarget.y, enemy.speed * enemy.slow * dt);
+            return;
+        }
         Player droneOwner = DroneRules.target(enemy, players);
-        if (droneOwner != null) {
+        if (droneOwner != null && (target == null || !target.job.equals("tank"))) {
             enemy.faceToward(droneOwner.drone.x, droneOwner.drone.y);
             moveEnemyToward(enemy, droneOwner.drone.x, droneOwner.drone.y, enemy.speed * enemy.slow * dt);
             return;
@@ -1393,12 +1469,29 @@ final class GameSession {
             }
         }
         if (inBomberBlast(bomber, coreX, coreY, radius)) damageCore(bomber.damage);
+        for (Decoy decoy : decoys)
+            if (inBomberBlast(bomber, decoy.x, decoy.y, radius)) decoy.hp -= bomber.damage;
     }
 
     private boolean updateArtillery(Enemy enemy, double dt) {
         enemy.specialCooldown = Math.max(0, enemy.specialCooldown - dt);
+        Decoy decoyTarget = DecoyRules.target(enemy, decoys, (x, y) -> canArtilleryAim(enemy, x, y));
+        if (decoyTarget != null) {
+            if (distance(enemy.x, enemy.y, decoyTarget.x, decoyTarget.y) < 110) return false;
+            enemy.faceToward(decoyTarget.x, decoyTarget.y);
+            if (enemy.specialCooldown <= 0) {
+                artilleryShells.add(new ArtilleryShell(enemy.x, enemy.y, decoyTarget.x, decoyTarget.y, enemy.damage * 3, enemy.id));
+                enemy.specialCooldown = GameConfig.ARTILLERY_COOLDOWN;
+            }
+            return true;
+        }
+        Player target = players.stream()
+                .filter(player -> !player.down && !JobRules.concealedFrom(player, enemy) && canArtilleryAim(enemy, player.x, player.y))
+                .min(Comparator.comparingInt(JobRules::targetPriority)
+                        .thenComparingDouble(player -> distance(enemy.x, enemy.y, player.x, player.y)))
+                .orElse(null);
         Player droneOwner = DroneRules.target(enemy, players);
-        if (droneOwner != null) {
+        if (droneOwner != null && (target == null || !target.job.equals("tank"))) {
             Drone drone = droneOwner.drone;
             enemy.faceToward(drone.x, drone.y);
             if (canArtilleryAim(enemy, drone.x, drone.y)) {
@@ -1414,10 +1507,6 @@ final class GameSession {
             } else moveEnemyToward(enemy, drone.x, drone.y, enemy.speed * dt);
             return true;
         }
-        Player target = players.stream()
-                .filter(player -> !player.down && !JobRules.concealedFrom(player, enemy) && canArtilleryAim(enemy, player.x, player.y))
-                .min(Comparator.comparingDouble(player -> distance(enemy.x, enemy.y, player.x, player.y)))
-                .orElse(null);
         TrapSlot defense = target == null ? trapSlots.stream()
                 .filter(slot -> slot.defense != null && !slot.defense.type.equals("mine")
                         && !Set.of("turret", "copperTurret", "silverTurret").contains(slot.defense.type)
@@ -1463,6 +1552,8 @@ final class GameSession {
                 }
             }
             if (inArtilleryBlast(shell, coreX, coreY)) damageCore(shell.damage);
+            for (Decoy decoy : decoys)
+                if (inArtilleryBlast(shell, decoy.x, decoy.y)) decoy.hp -= shell.damage;
             events.broadcast("{\"type\":\"effect\",\"effect\":\"acid-impact\",\"x\":"
                     + roundOne(shell.x) + ",\"y\":" + roundOne(shell.y)
                     + ",\"radius\":" + GameConfig.ARTILLERY_BLAST_RADIUS + "}");
@@ -1515,7 +1606,8 @@ final class GameSession {
         return players.stream()
                 .filter(player -> !player.down && !JobRules.concealedFrom(player, enemy)
                         && distance(enemy.x, enemy.y, player.x, player.y) <= range)
-                .min(Comparator.comparingDouble(player -> distance(enemy.x, enemy.y, player.x, player.y)))
+                .min(Comparator.comparingInt(JobRules::targetPriority)
+                        .thenComparingDouble(player -> distance(enemy.x, enemy.y, player.x, player.y)))
                 .orElse(null);
     }
 
@@ -2021,7 +2113,7 @@ final class GameSession {
         if (bot.medkits > 0 && (bot.hp <= 40 || personalDanger && bot.hp <= 60)) {
             useItem(bot, "medkit");
         }
-        double targetHp = phase == GamePhase.PREPARING ? 100 : 90;
+        double targetHp = JobRules.maxHp(bot.job) * (phase == GamePhase.PREPARING ? 1 : .9);
         if (bot.hp >= targetHp) {
             bot.botSeekingMedbay = false;
             return false;
@@ -2495,9 +2587,9 @@ final class GameSession {
 
     private void useItem(Player player, String item) {
         if (!canUseFacilities() || player.down || !item.equals("medkit")
-                || player.medkits <= 0 || player.hp >= 100) return;
+                || player.medkits <= 0 || player.hp >= JobRules.maxHp(player.job)) return;
         player.medkits--;
-        player.hp = Math.min(100, player.hp + GameConfig.MEDKIT_HEAL);
+        player.hp = Math.min(JobRules.maxHp(player.job), player.hp + GameConfig.MEDKIT_HEAL);
         gameEffects.sound(player, "item-use", item);
         gameEffects.feedback(player, "回復キットを使いました");
     }
@@ -2677,7 +2769,7 @@ final class GameSession {
     private void removeDefense(Player player, String slotId) {
         if (!canUseFacilities() || player.down) return;
         TrapSlot slot = slotById(slotId);
-        if (slot == null || slot.defense == null
+        if (slot == null || slot.defense == null || slot.temporaryRemaining > 0
                 || !canInteract(player, slot.x, slot.y, 100)) return;
         String type = slot.defense.type;
         trapSlots.remove(slot);
@@ -2861,6 +2953,9 @@ final class GameSession {
 
     private void damagePlayer(Player player, double damage) {
         if (player.down || damage <= 0) return;
+        if (JobRules.protectedByTank(player, players,
+                (target, tank) -> GameMap.hasClearLine(target.x, target.y, tank.x, tank.y, unlockedAreas)))
+            damage *= JobRules.TANK_DAMAGE_FACTOR;
         events.broadcast("{\"type\":\"effect\",\"effect\":\"player-hit\",\"playerId\":\"" + player.id + "\"}");
         if (player.movingCore) damageCore(damage);
         player.medbayDamageDelay = GameConfig.MEDBAY_DAMAGE_DELAY;
@@ -2914,6 +3009,7 @@ final class GameSession {
         enemies.clear();
         artilleryShells.clear();
         missiles.clear();
+        decoys.clear();
         droppedResources.clear();
         activeLanes.clear();
         activeSpawnIds.clear();
@@ -2936,7 +3032,8 @@ final class GameSession {
             player.moveY = 0;
             player.facingX = 0;
             player.facingY = -1;
-            player.hp = 100;
+            player.hp = JobRules.maxHp(player.job);
+            player.decoyCooldown = 0;
             player.medbayDamageDelay = 0;
             player.roomReady = false;
             player.down = false;
