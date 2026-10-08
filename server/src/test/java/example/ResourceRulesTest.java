@@ -7,15 +7,18 @@ import org.junit.jupiter.api.Test;
 
 class ResourceRulesTest {
     @Test
-    void everyForestWoodNodeRespawnsFasterThanOpeningRoomWood() {
-        double openingInterval = ResourceRules.respawnSeconds("wood", "wood-room", "early-wood-1");
-        assertEquals(3, openingInterval);
+    void woodNodesShareASlowerIntervalAndForestHasMoreSpawnLocations() {
+        int forestCount = 0;
+        int openingCount = 0;
         for (ResourceNode node : GameMap.createResourceNodes()) {
-            if (!"wood".equals(node.type) || !"forest".equals(node.requiredArea)) continue;
-            double interval = ResourceRules.respawnSeconds(node.type, node.requiredArea, node.id);
-            assertEquals(2, interval);
-            assertTrue(interval < openingInterval);
+            if (!"wood".equals(node.type)) continue;
+            assertEquals(6, ResourceRules.respawnSeconds(node.type, node.requiredArea, node.id));
+            if ("forest".equals(node.requiredArea)) forestCount++;
+            if ("wood-room".equals(node.requiredArea)) openingCount++;
         }
+        assertEquals(4, forestCount);
+        assertEquals(2, openingCount);
+        assertTrue(forestCount > openingCount);
     }
 
     @Test

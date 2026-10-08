@@ -517,7 +517,7 @@ class GameSessionTest {
     }
 
     @Test
-    void forestWoodRespawnsBeforeOpeningRoomWood() {
+    void forestAndOpeningWoodRespawnTogetherAfterSixSeconds() {
         startPreparing();
         game.players.forEach(candidate -> candidate.human = true);
         game.unlockedAreas.addAll(Set.of("forest", "wood-room"));
@@ -534,19 +534,21 @@ class GameSessionTest {
         game.update(0.05);
         assertEquals(1, player.wood);
         assertEquals(1, other.wood);
-        game.update(1.9);
+        game.update(5.9);
         assertFalse(forest.available);
         assertFalse(opening.available);
         game.update(0.11);
+        assertTrue(forest.available);
+        assertTrue(opening.available);
         game.update(0.05);
         assertEquals(2, player.wood);
-        assertEquals(1, other.wood);
+        assertEquals(2, other.wood);
+        assertFalse(forest.available);
         assertFalse(opening.available);
+        assertEquals(6, forest.respawnTimer);
+        assertEquals(6, opening.respawnTimer);
         assertTrue(events.broadcasts.stream().anyMatch(message -> message.contains("\"effect\":\"pickup\"")
                 && message.contains("\"playerId\":\"" + player.id + "\"")));
-        game.update(1);
-        game.update(0.05);
-        assertEquals(2, other.wood);
     }
 
     @Test
