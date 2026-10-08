@@ -12,6 +12,8 @@
         revolver: { pitch: 320, end: 50, duration: .19, noise: .6 },
         lmg: { pitch: 220, end: 55, duration: .095, noise: .7 },
         rocket: { pitch: 140, end: 28, duration: .42, noise: .8 },
+        "missile-launch": { pitch: 1100, end: 220, duration: 1.6, noise: .72, whoosh: true },
+        "missile-impact": { pitch: 55, end: 18, duration: 1.05, noise: .88, rumble: true },
         flamethrower: { pitch: 100, end: 65, duration: .12, noise: .9 },
         bat: { pitch: 150, end: 40, duration: .14, noise: .4 },
         medkit: { notes: [440, 554, 659, 880], duration: .36 },
@@ -64,7 +66,7 @@
         const effect = effects[name];
         const buffer = audio.createBuffer(1, Math.ceil(audio.sampleRate * effect.duration), audio.sampleRate);
         const samples = buffer.getChannelData(0);
-        let phase = 0, noise = 0, seed = 123456789;
+        let phase = 0, noise = 0, filteredNoise = 0, seed = 123456789;
         for (let i = 0; i < samples.length; i++) {
             const t = i / audio.sampleRate, progress = i / samples.length;
             const frequency = effect.notes
@@ -76,13 +78,16 @@
                 seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5;
                 noise = (seed >>> 0) / 2147483648 - 1;
             }
-            const pulse = phase % 1 < .25 ? 1 : -1;
+            filteredNoise += (noise - filteredNoise) * (effect.rumble ? .035 : .12);
+            const pulse = effect.whoosh || effect.rumble ? Math.sin(phase * Math.PI * 2) : phase % 1 < .25 ? 1 : -1;
             const mix = effect.noise || 0;
-            const attack = effect.sustain ? 1 : Math.min(1, t / .003);
+            const attack = effect.sustain ? 1 : Math.min(1, t / (effect.whoosh ? .08 : .003));
             const release = effect.sustain ? 1 : Math.min(1, (effect.duration - t) / .012);
-            const envelope = effect.charge ? .25 + progress * .75
+            const envelope = effect.whoosh ? Math.pow(Math.sin(progress * Math.PI), .7)
+                : effect.rumble ? Math.pow(1 - progress, 1.3) : effect.charge ? .25 + progress * .75
                 : effect.notes ? .7 : effect.sustain ? .8 : Math.pow(1 - progress, 2);
-            samples[i] = (pulse * (1 - mix) + noise * mix) * attack * release * envelope * .16;
+            const air = effect.whoosh || effect.rumble ? Math.max(-1, Math.min(1, filteredNoise * (effect.rumble ? 3 : 1.7))) : noise;
+            samples[i] = (pulse * (1 - mix) + air * mix) * attack * release * envelope * .16;
         }
         buffers.set(name, buffer);
         return buffer;

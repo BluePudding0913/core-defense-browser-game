@@ -23,7 +23,7 @@ const localStorage = { getItem: key => saved.get(key) ?? null, setItem: (key, va
 vm.runInNewContext(fs.readFileSync('client/sound.js', 'utf8'), { window, localStorage });
 window.coreAudio.play('pistol'); assert.equal(contexts, 0);
 listeners.pointerdown(); assert.equal(contexts, 1);
-const names = ['pistol', 'ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket', 'bat', 'medkit', 'heal', 'build', 'pickup', 'item', 'damage', 'ability-ready', 'railgun', 'railgun-charge'];
+const names = ['pistol', 'ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket', 'missile-launch', 'missile-impact', 'bat', 'medkit', 'heal', 'build', 'pickup', 'item', 'damage', 'ability-ready', 'railgun', 'railgun-charge'];
 const demo = [];
 for (const name of names) {
     window.coreAudio.play(name);
@@ -77,15 +77,23 @@ sources.at(-1).onended();
 const app = fs.readFileSync('client/app.js', 'utf8');
 const start = app.indexOf('function playSoundEffect(');
 const played = [];
+const shakes = [];
 const me = { id: 'me', x: 0, y: 0 }, other = { id: 'other', x: 300, y: 0 };
 const game = vm.createContext({
     getMe: () => me, myPlayerId: 'me', state: { players: [me, other] },
     predictedLocal: null, BUILD_INFO: { wall: {} },
+    document: {body:{animate:(frames,options)=>shakes.push({frames,options})}},
     distance: (a, b) => Math.hypot(a.x - b.x, a.y - b.y),
     window: { coreAudio: { play: (...args) => played.push(args) } }
 });
 vm.runInContext(app.slice(start, app.indexOf('\nfunction ', start + 1)), game);
 function effect(message) { game.message = message; vm.runInContext('playSoundEffect(message)', game); }
+effect({effect:'missile-launch', playerId:'other'});
+assert.deepEqual(played.pop(),['missile-launch',0]);
+effect({effect:'missile-impact', x:2000, y:2000});
+assert.deepEqual(played.pop(),['missile-impact',0]);
+assert.equal(shakes.length,1); assert.equal(shakes[0].options.duration,220);
+assert(shakes[0].frames.some(f=>f.transform.includes('2px')));
 effect({ effect: 'player-hit', playerId: 'me' });
 assert.deepEqual(played.pop(), ['damage', 0]);
 effect({ effect: 'player-hit', playerId: 'other' });

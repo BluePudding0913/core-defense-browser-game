@@ -6,11 +6,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class HackerArsenalTest {
+    final java.util.List<String> broadcasts = new java.util.ArrayList<>();
     GameSession game;
     Player player;
     @BeforeEach void setup() {
         game = new GameSession(new GameEventSink() {
-            public void broadcast(String message) { }
+            public void broadcast(String message) { broadcasts.add(message); }
             public void send(Player player, String message) { }
         });
         player = game.connectPlayer("hacker-test");
@@ -26,6 +27,18 @@ class HackerArsenalTest {
         e.x = x; e.y = y; game.enemies.add(e); return e;
     }
     void advance(double seconds) { for (int i = 0; i < Math.round(seconds / .05); i++) game.update(.05); }
+    @Test void launchAndImpactBroadcastSeparateSoundsWithOneImpactForAllPlayers() {
+        game.handleMessage(player, "COMPUTER");
+        game.handleMessage(player, "MISSILE:1020:1900");
+        assertEquals(1, broadcasts.stream().filter(m -> m.contains("\"effect\":\"missile-launch\"")).count());
+        assertEquals(0, broadcasts.stream().filter(m -> m.contains("\"effect\":\"missile-impact\"")).count());
+        advance(1.95);
+        assertEquals(0, broadcasts.stream().filter(m -> m.contains("\"effect\":\"missile-impact\"")).count());
+        advance(.05);
+        assertEquals(1, broadcasts.stream().filter(m -> m.contains("\"effect\":\"missile-impact\"")).count());
+        advance(1);
+        assertEquals(1, broadcasts.stream().filter(m -> m.contains("\"effect\":\"missile-impact\"")).count());
+    }
     @Test void mountedFlameUsesDroneOriginAndHitsMultipleEnemies() {
         player.job = "drone"; player.x = 1140; player.y = 1900;
         player.weapons.grant("flamethrower");
