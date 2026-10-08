@@ -29,7 +29,7 @@ final class JobRules {
         return java.util.Set.of("spy", "tp", "healer", "scout", "drone", "hacker", "tank", "attacker").contains(job);
     }
 
-    static double maxHp(String job) { return job.equals("tank") ? 150 : 100; }
+    static double maxHp(String job) { return job.equals("tank") ? 200 : 100; }
 
     /** Two adjacent tiles across the facing direction, with either side as a placement option. */
     static java.util.List<java.util.List<MapPoint>> tankWallPlacements(double x, double y,

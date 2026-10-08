@@ -31,24 +31,24 @@ class TankDecoyTest {
         Enemy enemy = new Enemy(1, type, GameMap.SPAWN_POINTS.get(0), 500, 60, 20, 0);
         enemy.x = x; enemy.y = 1900; game.enemies.add(enemy); return enemy;
     }
-    @Test void tankStartsAt150AndBothRecoveryPathsReachItsCap() throws Exception {
-        start("tank"); assertEquals(150, player.hp);
-        player.hp = 130; player.medkits = 2; game.handleMessage(player, "USE:medkit");
-        assertEquals(150, player.hp); assertEquals(1, player.medkits);
+    @Test void tankStartsAt200AndBothRecoveryPathsReachItsCap() throws Exception {
+        start("tank"); assertEquals(200, player.hp);
+        player.hp = 180; player.medkits = 2; game.handleMessage(player, "USE:medkit");
+        assertEquals(200, player.hp); assertEquals(1, player.medkits);
         game.handleMessage(player, "USE:medkit"); assertEquals(1, player.medkits);
-        player.x = GameMap.MED_X; player.y = GameMap.MED_Y; player.hp = 149;
-        call("updateMedbay", new Class<?>[]{double.class}, 1.0); assertEquals(150, player.hp);
+        player.x = GameMap.MED_X; player.y = GameMap.MED_Y; player.hp = 199;
+        call("updateMedbay", new Class<?>[]{double.class}, 1.0); assertEquals(200, player.hp);
         var snapshot = new ObjectMapper().readTree(SnapshotBuilder.build(game));
-        assertEquals(150, snapshot.get("players").get(0).get("maxHp").asDouble());
+        assertEquals(200, snapshot.get("players").get(0).get("maxHp").asDouble());
         player.x = GameMap.JOB_STATION.x(); player.y = GameMap.JOB_STATION.y();
         game.handleMessage(player, "JOB:healer"); assertEquals(100, player.hp);
     }
-    @Test void healerAreaRecoversTankAbove100AndCapsAt150() throws Exception {
-        start("tank"); player.hp = 145;
+    @Test void healerAreaRecoversTankAbove100AndCapsAt200() throws Exception {
+        start("tank"); player.hp = 195;
         Player healer = new Player(1); healer.healX = player.x; healer.healY = player.y;
         healer.healRemaining = JobRules.HEAL_DURATION; game.players.add(healer);
         call("updateHealingAreas", new Class<?>[]{double.class}, 2.0);
-        assertEquals(150, player.hp);
+        assertEquals(200, player.hp);
         player.down = true; player.hp = 0;
         call("updateHealingAreas", new Class<?>[]{double.class}, 1.0);
         assertEquals(0, player.hp);
@@ -58,7 +58,7 @@ class TankDecoyTest {
         start("tank"); Player ally = new Player(1); ally.x = player.x + 50; ally.y = player.y; ally.hp = 100;
         game.players.add(ally);
         call("damagePlayer", new Class<?>[]{Player.class, double.class}, ally, 20.0); assertEquals(85, ally.hp);
-        call("damagePlayer", new Class<?>[]{Player.class, double.class}, player, 20.0); assertEquals(135, player.hp);
+        call("damagePlayer", new Class<?>[]{Player.class, double.class}, player, 20.0); assertEquals(185, player.hp);
         ally.job = "tank";
         assertTrue(JobRules.protectedByTank(ally, game.players, (a, b) -> true));
         ally.job = "healer"; player.down = true;
