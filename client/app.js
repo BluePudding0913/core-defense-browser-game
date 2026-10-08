@@ -2378,7 +2378,8 @@ function drawPlacementPreview() {
     ctx.fillStyle = valid ? "#111" : "#fff";
     ctx.font = "950 9px ui-monospace, monospace";
     ctx.textAlign = "center";
-    ctx.fillText(valid ? "R PLACE" : "BLOCKED", point.x, point.y + 3);
+    const reservedResource = (state.resources || []).some(node => distance(point, node) < 36);
+    ctx.fillText(valid ? "R PLACE" : reservedResource ? "RESOURCE" : "BLOCKED", point.x, point.y + 3);
     ctx.restore();
 }
 
@@ -2474,7 +2475,16 @@ function drawStation(station, label, color, labelColor = "#111") {
 
 function drawResources() {
     for (const node of state.resources || []) {
-        if (!node.available) continue;
+        if (!node.available) {
+            if (placementSelection(getMe())) {
+                ctx.save();
+                ctx.strokeStyle = "rgb(150 150 150 / 55%)";
+                ctx.lineWidth = 1;
+                ctx.strokeRect(node.x - 8, node.y - 6, 16, 12);
+                ctx.restore();
+            }
+            continue;
+        }
         const bob = Math.sin(performance.now() / 260 + node.x * .01) * 3;
         ctx.save();
         ctx.translate(node.x, node.y + bob);

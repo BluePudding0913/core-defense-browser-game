@@ -14,6 +14,14 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class GameMapTest {
+    @Test void forestEntryFloorIsBuildableButResourceRespawnTilesRemainReserved() {
+        var allAreas = GameMap.AREAS.stream().map(UnlockArea::id).collect(Collectors.toSet());
+        assertTrue(GameMap.canPlaceDefense(1660, 700, allAreas));
+        for (var node : GameMap.RESOURCE_NODES.stream().filter(unit -> unit.requiredArea() != null
+                && unit.requiredArea().equals("forest")).toList()) {
+            assertFalse(GameMap.canPlaceDefense(node.x(), node.y(), allAreas));
+        }
+    }
     @Test
     void heavyArmsHasMoreRoomLeftEntranceAndShopsAlongTopWall() {
         var area = GameMap.AREAS.stream().filter(unit -> unit.id().equals("heavy-arms-area")).findFirst().orElseThrow();
