@@ -1537,16 +1537,6 @@ function openShopPurchase(shop, chooseExchange = false) {
         onSelect: weaponLimitReached ? () => openShopPurchase(shop, true) : undefined,
         disabled: mounted || ammoFull || unavailable || me.credits < price,
     }];
-    if (shop.item === "ammo" && state.rules.silverAmmo) {
-        const silver = state.rules.silverAmmo;
-        options.push({
-            label: `銀弾 +${silver.amount}`,
-            detail: `銀 ${silver.cost}`,
-            stock: `所持 ${me.silverAmmo ?? 0}発 · 火力 ×${silver.damageMultiplier}`,
-            command: "BUY:silverAmmo",
-            disabled: (me.silver ?? 0) < silver.cost,
-        });
-    }
     openNearbyActionMenu(shop.label, options, shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
 }
 
@@ -1577,13 +1567,25 @@ function openQuarryMenu() {
 function openWorkbenchMenu(workbench) {
     const me = getMe();
     const order = { block: 0, barricade: 1, copperBarricade: 2, silverBarricade: 3, wire: 4, mine: 5, turret: 6, copperTurret: 7, silverTurret: 8 };
-    openNearbyActionMenu("WORKBENCH", Object.entries(BUILD_INFO).filter(([, info]) => !info.shopOnly)
+    const options = Object.entries(BUILD_INFO).filter(([, info]) => !info.shopOnly)
         .sort(([a], [b]) => (order[a] ?? 7) - (order[b] ?? 7)).map(([type, info]) => ({
         label: info.name,
         detail: `${info.description} — ${Object.entries(RESOURCE_NAMES).filter(([key]) => info[key] > 0).map(([key, name]) => `${name} ${info[key]}`).join(" / ")}`,
         command: `CRAFT:${type}`,
         disabled: Object.keys(RESOURCE_NAMES).some(key => (me[key] || 0) < (info[key] || 0)),
-    })), workbench, INTERACTION_RANGE.workbench, "workbench", () => openWorkbenchMenu(workbench));
+    }));
+    if (state.rules.silverAmmo) {
+        const silver = state.rules.silverAmmo;
+        options.push({
+            label: `銀弾 +${silver.amount}`,
+            detail: `銀 ${silver.cost}`,
+            stock: `所持 ${me.silverAmmo ?? 0}発 · 火力 ×${silver.damageMultiplier}`,
+            command: "CRAFT:silverAmmo",
+            disabled: (me.silver ?? 0) < silver.cost,
+        });
+    }
+    openNearbyActionMenu("WORKBENCH", options, workbench, INTERACTION_RANGE.workbench,
+        "workbench", () => openWorkbenchMenu(workbench));
 }
 
 function updateWorkbenchMaterials() {
