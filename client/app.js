@@ -888,7 +888,8 @@ interactButton.addEventListener("lostpointercapture", () => endInteractionHold(t
 interactButton.addEventListener("click", event => { if (event.detail === 0) toggleNearestInteraction(); });
 window.addEventListener("wheel", event => {
     if (!state || !["preparing", "wave"].includes(state.phase)) return;
-    if (!inventoryMenu.classList.contains("hidden")) return;
+    if (!actionMenu.classList.contains("hidden") || !inventoryMenu.classList.contains("hidden")
+            || !howToMenu.classList.contains("hidden") || getMe()?.missileControl) return;
     event.preventDefault();
     cycleEquipment(event.deltaY > 0 ? 1 : -1);
 }, { passive: false });
