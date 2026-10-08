@@ -1236,7 +1236,8 @@ function openActionMenu(title, options, layout = "default") {
     options.forEach((option, index) => {
         const button = reuseButtons ? buttons[index] : document.createElement("button");
         button.disabled = Boolean(option.disabled);
-        const content = `${escapeHtml(option.label)}${option.detail ? `<small>${escapeHtml(option.detail)}</small>` : ""}`;
+        const content = `${escapeHtml(option.label)}${option.detail ? `<small>${escapeHtml(option.detail)}</small>` : ""}`
+            + (option.stock ? `<span class="action-stock">${escapeHtml(option.stock)}</span>` : "");
         if (button.innerHTML !== content) button.innerHTML = content;
         button.onclick = option.onSelect || (option.command ? () => {
             send(option.command);
@@ -1411,6 +1412,7 @@ function openShopPurchase(shop, chooseExchange = false) {
         openNearbyActionMenu(shop.label, [{
             label: "回復キット",
             detail: `${shop.cost}G`,
+            stock: `所持 ${me.medkits} / ${state.rules.medkitCapacity}`,
             command: "BUY:medkit",
             disabled: me.medkits >= state.rules.medkitCapacity || me.credits < shop.cost,
         }], shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
@@ -1449,6 +1451,8 @@ function openShopPurchase(shop, chooseExchange = false) {
         label: ammoFull ? "FULL" : alreadyOwned || shop.item === "ammo" && !unavailable ? "REFILL"
             : unavailable ? "LOCKED" : "BUY",
         detail: `${price}G`,
+        stock: shop.item === "ammo" ? WeaponUI.ammoStock(me, WEAPON_FIELDS)
+            : weaponFields?.capacity > 0 ? `弾薬 ${ammo} / ${weaponFields.capacity}` : "",
         command: weaponLimitReached ? undefined : `BUY:${shop.item}`,
         onSelect: weaponLimitReached ? () => openShopPurchase(shop, true) : undefined,
         disabled: ammoFull || unavailable || me.credits < price,

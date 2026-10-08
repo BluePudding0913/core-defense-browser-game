@@ -436,6 +436,19 @@ button, input { font: inherit; }
 .action-menu.single-action .action-options button:hover:not(:disabled),
 .action-menu.single-action .action-options button:active:not(:disabled) { background: #fff; color: #111; }
 .action-menu.single-action .action-options button:hover:not(:disabled) small { color: #111; }
+.action-options button:has(.action-stock) { flex-wrap: wrap; gap: .55rem; }
+.action-options .action-stock {
+    flex-basis: 100%;
+    color: #fff;
+    font-size: .95rem;
+    font-weight: 650;
+    letter-spacing: .02em;
+    line-height: 1.5;
+    text-align: left;
+    white-space: pre-line;
+}
+.action-options button:hover:not(:disabled) .action-stock,
+.action-options button:active:not(:disabled) .action-stock { color: #111; }
 
 .round-intro {
     position: fixed;
