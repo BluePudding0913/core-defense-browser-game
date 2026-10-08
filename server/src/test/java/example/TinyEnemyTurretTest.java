@@ -81,7 +81,7 @@ class TinyEnemyTurretTest {
     @Test void otherEnemyTypesStillAlwaysTakeTurretDamage() throws Exception {
         for (String turretType : List.of("turret", "copperTurret", "silverTurret")) {
             TrapSlot slot = turret(turretType);
-            for (String enemyType : List.of("grunt", "runner", "brute", "armored", "hunter",
+            for (String enemyType : List.of("grunt", "runner", "brute", "armored", "hunter", "ghost",
                     "siege", "champion", "boss", "warlord", "titan")) {
                 random.setSeed(20261006L);
                 for (int shot = 0; shot < 20; shot++) {

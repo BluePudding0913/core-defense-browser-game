@@ -40,7 +40,7 @@ class BomberEnemyTest {
         Player edge = player; edge.x = x + GameConfig.BOMBER_BLAST_RADIUS; edge.y = y;
         Player outside = game.players.get(1); outside.x = x + GameConfig.BOMBER_BLAST_RADIUS + 1; outside.y = y;
         game.combat.damageEnemy(bomber, 100., player);
-        assertEquals(40, edge.hp); assertEquals(100, outside.hp);
+        assertEquals(50, edge.hp); assertEquals(100, outside.hp);
         assertEquals(100, player.credits); assertEquals(1, player.kills);
         assertEquals(1, effects.stream().filter(e -> e.contains("\"effect\":\"explosion\"")).count());
         assertEquals(4 * GameMap.TILE_SIZE, GameConfig.BOMBER_BLAST_RADIUS);
@@ -54,6 +54,29 @@ class BomberEnemyTest {
         assertEquals(100, player.credits); assertEquals(1, player.kills);
         assertEquals(1, effects.stream().filter(e -> e.contains("\"effect\":\"explosion\"")).count());
     }
+    @Test void lateRoundBlastCostsHalfMaxHpForHumansAndCpu() throws Exception {
+        game.round = 50;
+        invoke("spawnEnemy", new Class<?>[]{String.class, SpawnPoint.class}, "bomber", GameMap.SPAWN_POINTS.get(0));
+        Enemy bomber = game.enemies.get(0);
+        bomber.x = x; bomber.y = y;
+        assertTrue(bomber.damage >= 100);
+        player.x = x + 30; player.y = y;
+        Player cpu = game.players.get(1);
+        cpu.human = false; cpu.x = x + 60; cpu.y = y;
+        game.combat.damageEnemy(bomber, bomber.hp, null);
+        assertEquals(50, player.hp);
+        assertEquals(50, cpu.hp);
+        assertFalse(player.down); assertFalse(cpu.down);
+    }
+    @Test void tankBlastUsesItsMaxHpAndKeepsDamageReduction() {
+        Enemy bomber = new Enemy(9000, "bomber", GameMap.SPAWN_POINTS.get(0), 100, 0, 500, 100);
+        bomber.x = x; bomber.y = y; game.enemies.add(bomber);
+        player.job = "tank"; player.hp = JobRules.maxHp(player.job);
+        player.x = x + 30; player.y = y;
+        game.combat.damageEnemy(bomber, bomber.hp, null);
+        assertEquals(150 - 75 * JobRules.TANK_DAMAGE_FACTOR, player.hp);
+        assertFalse(player.down);
+    }
     @Test void deathBlastDamagesPlayersDefensesAndCoreWithoutCountdown() throws Exception {
         Enemy bomber = enemy("bomber", 0, 100);
         player.x = x + 30; player.y = y;
@@ -64,7 +87,7 @@ class BomberEnemyTest {
         var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
         assertFalse(snapshot.path("enemies").get(0).has("fuse"));
         game.combat.damageEnemy(bomber, 100., null);
-        assertEquals(40, player.hp);
+        assertEquals(50, player.hp);
         assertEquals(200, slot.defense.hp);
         assertTrue(game.coreHp + game.coreShield < oldCore);
     }

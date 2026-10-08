@@ -1142,6 +1142,7 @@ final class GameSession {
         if (round >= 34 && eliteRoll < (eliteChance += 0.12)) return "champion";
         if (round >= 26 && eliteRoll < (eliteChance += 0.14)) return "siege";
         if (round >= 18 && eliteRoll < (eliteChance += 0.16)) return "hunter";
+        if (round >= 18 && eliteRoll < (eliteChance += 0.16)) return "ghost";
         if (round >= 10 && eliteRoll < (eliteChance += 0.18)) return "armored";
         if (round >= 12 && eliteRoll < (eliteChance += round <= 25 ? 0.04 : 0.08)) return "artillery";
         if (round >= 7 && eliteRoll < (eliteChance += Math.min(0.10, 0.04 + (round - 7) * 0.03))) return "shield";
@@ -1265,7 +1266,7 @@ final class GameSession {
                 damage = 24 + round * 1.5;
                 reward = 65;
             }
-            case "hunter" -> {
+            case "hunter", "ghost" -> {
                 hp = 90 + round * 8;
                 speed = 170 + round * 3;
                 damage = 16 + round * 1.2;
@@ -1585,7 +1586,8 @@ final class GameSession {
         for (Player target : players) {
             if (target.drone != null && target.drone.active && target.drone.attackers.contains(bomber.id)
                     && inBomberBlast(bomber, target.drone.x, target.drone.y, radius)) damageDrone(target, bomber.damage);
-            if (!target.down && inBomberBlast(bomber, target.x, target.y, radius)) damagePlayer(target, bomber.damage);
+            if (!target.down && inBomberBlast(bomber, target.x, target.y, radius))
+                damagePlayer(target, JobRules.maxHp(target.job) * GameConfig.BOMBER_PLAYER_DAMAGE_FRACTION);
         }
         for (TrapSlot slot : trapSlots) {
             if (slot.defense != null && inBomberBlast(bomber, slot.x, slot.y, radius)) {
@@ -1993,7 +1995,7 @@ final class GameSession {
             case "artillery" -> 250;
             case "armored" -> 200;
             case "shield" -> 170;
-            case "hunter" -> 190;
+            case "hunter", "ghost" -> 190;
             case "brute" -> 180;
             case "runner" -> 125;
             default -> 70;

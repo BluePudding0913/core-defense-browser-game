@@ -70,6 +70,7 @@ final class GameConfig {
     static final double MEDBAY_DAMAGE_DELAY = 5;
     static final double MEDBAY_RANGE = 95;
     static final double BOMBER_BLAST_RADIUS = 4 * GameMap.TILE_SIZE;
+    static final double BOMBER_PLAYER_DAMAGE_FRACTION = .5;
     static final double EXPLOSION_BOSS_BLAST_RADIUS = 12 * GameMap.TILE_SIZE;
     static final double EXPLOSION_BOSS_FUSE_SECONDS = 30;
     static final double EXPLOSION_BOSS_DAMAGE = 100 * 1.10;

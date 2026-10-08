@@ -296,7 +296,7 @@ final class Enemy {
             }
         }
         this.targetPriority = switch (type) {
-            case "hunter" -> "players";
+            case "hunter", "ghost" -> "players";
             case "siege" -> "defenses";
             case "warlord", "titan" -> "core";
             default -> spawn.targetPriority();
