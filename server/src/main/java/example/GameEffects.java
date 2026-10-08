@@ -35,6 +35,12 @@ final class GameEffects implements CombatEvents {
                 + ",\"y\":" + roundOne(y) + ",\"radius\":" + radius + "}");
     }
 
+    void droneSelfDestruct(Player player, Drone drone) {
+        sink.broadcast("{\"type\":\"effect\",\"effect\":\"drone-self-destruct\",\"playerId\":\""
+                + escapeJson(player.id) + "\",\"x\":" + roundOne(drone.x) + ",\"y\":" + roundOne(drone.y)
+                + ",\"piloted\":" + drone.controlled + "}");
+    }
+
     void missileImpact(double x, double y) {
         sink.broadcast("{\"type\":\"effect\",\"effect\":\"missile-impact\",\"x\":" + roundOne(x)
                 + ",\"y\":" + roundOne(y) + "}");

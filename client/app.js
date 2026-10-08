@@ -139,6 +139,7 @@ let firingPointer = null;
 let activeMenuAccess = null;
 let dashKey = false;
 let hitEffects = [];
+let droneAftermath = null;
 let predictedLocal = null;
 let localMove = { x: 0, y: 0 };
 let localFacing = { x: 0, y: -1 };
@@ -388,6 +389,7 @@ function connect() {
         if (message.type === "state") receiveState(message);
         if (message.type === "log") receiveLog(message.version, message.message);
         if (message.type === "effect") {
+            if (message.effect === "drone-self-destruct") receiveDroneSelfDestruct(message);
             playSoundEffect(message);
         }
         if (message.type === "effect" && ["hit", "core-pulse", "pickup", "player-hit", "player-down", "explosion", "acid-impact"].includes(message.effect)) {
@@ -404,6 +406,7 @@ function connect() {
     });
     socket.addEventListener("close", event => {
         if (socket !== connectingSocket) return;
+        droneAftermath = null;
         window.coreAudio?.stopRailguns?.();
         if (event?.code === 4000) {
             // A newer tab now owns this player. Do not reconnect and steal it back.
@@ -471,6 +474,7 @@ function enterRoom(roomId, options = {}) {
 }
 
 function leaveRoom(forget = true) {
+    droneAftermath = null;
     if (forget) window.coreReconnect?.forget(clientSessionId, connectionTarget.roomId);
     keepEndArea({ phase: "lobby" });
     hideScreenIntro();
@@ -1273,6 +1277,7 @@ function playSoundEffect(message) {
     else if (message.effect === "item-use") name = BUILD_INFO[message.item] ? "build" : message.item || "item";
     else if (message.effect === "pickup") name = "pickup";
     else if (message.effect === "player-hit" && own) name = "damage";
+    else if (message.effect === "drone-self-destruct") name = "drone-self-destruct";
     else return;
     const actor = state?.players.find(player => player.id === message.playerId);
     const origin = Number.isFinite(message.x) && Number.isFinite(message.y) ? message : actor;
@@ -2194,11 +2199,27 @@ function animate(now = performance.now()) {
     requestAnimationFrame(animate);
 }
 
+function receiveDroneSelfDestruct(message) {
+    if (message.playerId !== myPlayerId || !message.piloted
+            || !Number.isFinite(message.x) || !Number.isFinite(message.y)) return;
+    droneAftermath = { x: camera.x, y: camera.y, until: performance.now() + 1500 };
+}
+
+function droneCameraView() {
+    const me = getMe();
+    if (droneAftermath) {
+        if (performance.now() < droneAftermath.until && me?.job === "drone" && !me.down && me.drone
+                && ["preparing", "wave"].includes(state?.phase)) return droneAftermath;
+        droneAftermath = null;
+    }
+    return me?.drone?.controlled ? smoothEntity("drone", { ...me.drone, id: me.id }) : null;
+}
+
 function draw() {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const me = getMe();
-    const cameraTarget = me?.drone?.controlled ? smoothEntity("drone", { ...me.drone, id: me.id }) : predictedLocal || me;
+    const cameraTarget = droneCameraView() || predictedLocal || me;
     if (cameraTarget) {
         camera.x += (cameraTarget.x - camera.x) * .12;
         camera.y += (cameraTarget.y - camera.y) * .12;
@@ -2287,7 +2308,7 @@ function drawBlackoutSignals() {
 function drawBlackout() {
     const local = getMe();
     if (local?.missileControl) return;
-    if (local?.drone?.controlled) {
+    if (droneCameraView()) {
         ctx.save();
         ctx.fillStyle = "rgba(60, 255, 110, .12)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -2963,10 +2984,7 @@ function drawDrones() {
         if (owner.id === myPlayerId && droneRecoveryAvailable(owner)
                 && actionMenu.classList.contains("hidden") && inventoryMenu.classList.contains("hidden")
                 && howToMenu.classList.contains("hidden")) {
-            ctx.font = "800 11px ui-monospace, monospace"; ctx.textAlign = "center";
-            ctx.fillStyle = "#ddfbff"; ctx.strokeStyle = "#111"; ctx.lineWidth = 3;
-            const label = `${window.coreKeySettings.getJobEffect().toUpperCase()}：回収`;
-            ctx.strokeText(label, 0, -32); ctx.fillText(label, 0, -32);
+            drawKeyPrompt(window.coreKeySettings.getJobEffect().toUpperCase(), 0, -34);
         }
         ctx.restore();
     }
@@ -2997,6 +3015,10 @@ function drawInteractionPrompt() {
     if (!interaction || interaction.kind === "spy" || !actionMenu.classList.contains("hidden")) return;
     const x = interaction.target.x;
     const y = interaction.target.y - 34;
+    drawKeyPrompt("R", x, y);
+}
+
+function drawKeyPrompt(key, x, y) {
     ctx.save();
     ctx.fillStyle = "white";
     ctx.strokeStyle = "#111";
@@ -3009,7 +3031,7 @@ function drawInteractionPrompt() {
     ctx.font = "900 10px ui-monospace, monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("R", x, y + 1);
+    ctx.fillText(key, x, y + 1);
     ctx.restore();
 }
 

@@ -698,6 +698,7 @@ final class GameSession {
     private void selfDestructDrone(Player player) {
         if (!canMove() || !DroneRules.canSelfDestruct(player)) return;
         Drone drone = player.drone;
+        gameEffects.droneSelfDestruct(player, drone);
         damageDrone(player, drone.hp);
         combat.droneExplosion(player, drone);
     }

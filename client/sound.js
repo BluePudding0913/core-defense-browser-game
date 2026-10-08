@@ -14,6 +14,7 @@
         rocket: { pitch: 140, end: 28, duration: .42, noise: .8 },
         "missile-launch": { pitch: 1100, end: 220, duration: 1.6, noise: .72, whoosh: true },
         "missile-impact": { pitch: 55, end: 18, duration: 1.05, noise: .88, rumble: true },
+        "drone-self-destruct": { pitch: 95, end: 22, duration: .7, noise: .7, rumble: true, amplitude: .24 },
         flamethrower: { pitch: 80, end: 60, duration: .18, noise: .2, rumble: true, amplitude: .24 },
         bat: { pitch: 150, end: 40, duration: .14, noise: .4 },
         medkit: { notes: [440, 554, 659, 880], duration: .36 },
@@ -133,8 +134,8 @@
             const audio = context();
             if (!audio || audio.state !== "running") return;
             if (active.size >= 8) {
-                if (name !== "round-start") return;
-                // Make room for the round cue, preferring a one-shot over a sustained beam.
+                if (!["round-start", "drone-self-destruct"].includes(name)) return;
+                // Make room for important cues, preferring a one-shot over a sustained beam.
                 const oldest = [...active].find(voice => !voice.loop) || active.values().next().value;
                 active.delete(oldest);
                 oldest.stop();
