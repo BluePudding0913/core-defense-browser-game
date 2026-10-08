@@ -15,6 +15,12 @@ const WeaponUI = Object.freeze({
     ownedAmmoWeapons(player, definitions) {
         return Object.values(definitions).filter(definition => definition.capacity > 0 && this.owns(player, definition));
     },
+    ammoStock(player, definitions) {
+        return Object.entries(definitions)
+            .filter(([, definition]) => definition.capacity > 0 && this.owns(player, definition))
+            .map(([id, definition]) => `${(definition.name || id).toUpperCase()} ${player[definition.ammo] ?? 0} / ${definition.capacity}`)
+            .join("\n");
+    },
     atLimit(player, definitions, limit) {
         return Object.entries(definitions).filter(([id, definition]) => id !== "bat" && this.owns(player, definition)).length >= limit;
     },
