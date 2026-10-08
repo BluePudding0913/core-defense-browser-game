@@ -152,6 +152,14 @@ assert.equal(vm.runInContext('findNearestInteraction()', spyContext), null);
 spy.down = false; spy.job = 'healer';
 assert.equal(vm.runInContext('findNearestInteraction()', spyContext), null);
 console.log('Spy interaction passed: R facility interactions, nearby facility priority, down and other jobs');
+spyContext.state.slots = [{id:'tank-wall-1',x:spy.x,y:spy.y,temporary:true,temporaryRemaining:0,defense:{type:'barricade'}}];
+assert.equal(vm.runInContext('findNearestInteraction()',spyContext),null,'temporary wall remains excluded when displayed time rounds to zero');
+spyContext.state.slots[0].temporary = false;
+spyContext.state.slots[0].temporaryRemaining = 20;
+assert.equal(vm.runInContext('findNearestInteraction()',spyContext),null);
+spyContext.state.slots[0].temporaryRemaining = 0;
+assert.equal(vm.runInContext('findNearestInteraction().kind',spyContext),'defense','ordinary walls still expose R controls');
+spyContext.state.slots = [];
 
 context.findNearestInteraction = () => null;
 const beforeEmpty = commands.length;

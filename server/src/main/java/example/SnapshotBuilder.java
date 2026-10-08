@@ -388,7 +388,8 @@ final class SnapshotBuilder {
                     .append("\",\"lane\":\"").append(slot.lane);
             json.append("\",\"x\":").append(slot.x)
                     .append(",\"y\":").append(slot.y).append(",\"locked\":").append(locked);
-            json.append(",\"temporaryRemaining\":").append(roundOne(slot.temporaryRemaining));
+            json.append(",\"temporaryRemaining\":").append(roundOne(slot.temporaryRemaining))
+                    .append(",\"temporary\":").append(slot.temporaryRemaining > 0);
             json.append(",\"defense\":");
             if (slot.defense == null) {
                 json.append("null");

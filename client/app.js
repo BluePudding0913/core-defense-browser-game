@@ -1706,13 +1706,13 @@ function requestScoutDash(point) {
     send(`SCOUT_DASH:${point.x.toFixed(1)}:${point.y.toFixed(1)}`);
 }
 
-function requestTankWall() {
+function requestTankWall(point) {
     const me = getMe();
     if (!me || me.job !== "tank" || !["preparing", "wave"].includes(state?.phase)
             || me.down || me.movingCore || me.selectedBuild || me.jobCooldown > 0 || exitDialog.open
             || !howToMenu.classList.contains("hidden") || !inventoryMenu.classList.contains("hidden")
             || !actionMenu.classList.contains("hidden")) return;
-    send("TANK_WALL");
+    send(point ? `TANK_WALL:${point.x.toFixed(1)}:${point.y.toFixed(1)}` : "TANK_WALL");
 }
 
 // Mouse down also fires when the left button is held, allowing a dash while shooting.
@@ -1733,7 +1733,7 @@ canvas.addEventListener("mousedown", event => {
         secondaryHeld = true;
         send(`SECONDARY_FIRE:${p.x.toFixed(1)}:${p.y.toFixed(1)}:1`);
     } else {
-        requestTankWall();
+        requestTankWall(worldFromScreen(event.clientX, event.clientY));
         requestScoutDash(worldFromScreen(event.clientX, event.clientY));
         requestDecoy(worldFromScreen(event.clientX, event.clientY));
     }
@@ -2010,7 +2010,7 @@ function findNearestInteraction() {
         add("factory", unit, 70, "PICK UP", () => openNearbyActionMenu("QUARRY", [{
             label: "PICK UP", detail: "回収して持ち運ぶ", command: "PICKUP_FACTORY:" + unit.id,
         }], unit, 70)));
-    state.slots.filter(slot => slot.defense)
+    state.slots.filter(slot => slot.defense && !slot.temporary && !(slot.temporaryRemaining > 0))
         .forEach(slot => add("defense", slot, INTERACTION_RANGE.trapSlot, "MANAGE", () => openSlotMenu(slot)));
     SHOP_UNITS.forEach(shop => add("shop", shop, INTERACTION_RANGE.shop,
         shop.label, () => openShopPurchase(shop)));

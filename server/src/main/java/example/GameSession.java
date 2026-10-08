@@ -266,7 +266,14 @@ final class GameSession {
             case "MISSILE" -> { if (parts.length >= 3) launchMissile(player, Double.parseDouble(parts[1]), Double.parseDouble(parts[2])); }
             case "JOB" -> { if (parts.length >= 2) selectJob(player, parts[1]); }
             case "JOB_ABILITY" -> { if (!player.job.equals("tank")) useJobAbility(player); }
-            case "TANK_WALL" -> { if (player.job.equals("tank")) useJobAbility(player); }
+            case "TANK_WALL" -> {
+                if (!player.job.equals("tank")) break;
+                if (parts.length >= 3) {
+                    MapPoint direction = JobRules.scoutDashDirection(player.x, player.y,
+                            Double.parseDouble(parts[1]), Double.parseDouble(parts[2]));
+                    if (direction != null) useJobAbility(player, direction);
+                } else useJobAbility(player);
+            }
             case "DECOY" -> { if (parts.length >= 3) launchDecoy(player, Double.parseDouble(parts[1]), Double.parseDouble(parts[2])); }
             case "DRONE_RECOVER" -> recoverDrone(player);
             case "DRONE_SELF_DESTRUCT" -> selfDestructDrone(player);
@@ -517,6 +524,10 @@ final class GameSession {
     }
 
     private void useJobAbility(Player player) {
+        useJobAbility(player, null);
+    }
+
+    private void useJobAbility(Player player, MapPoint wallDirection) {
         if (!canMove() || player.down || player.movingCore) return;
         if (player.job.equals("tp")) {
             if (player.jobCooldown > 0) return;
@@ -529,7 +540,9 @@ final class GameSession {
         }
         if (player.job.equals("tank")) {
             if (player.selectedBuild != null || player.jobCooldown > 0) return;
-            List<MapPoint> points = JobRules.tankWallPlacements(player.x, player.y, player.facingX, player.facingY)
+            List<MapPoint> points = JobRules.tankWallPlacements(player.x, player.y,
+                    wallDirection == null ? player.facingX : wallDirection.x(),
+                    wallDirection == null ? player.facingY : wallDirection.y())
                     .stream().filter(candidate -> candidate.stream().allMatch(point -> canPlaceDefenseAt(point, null)))
                     .findFirst().orElse(null);
             if (points == null) {
@@ -2803,7 +2816,7 @@ final class GameSession {
                 .orElse(null);
         if (quarry != null && target != null) { pickupFactory(player, quarry.id); return; }
         TrapSlot slot = trapSlots.stream()
-                .filter(unit -> unit.defense != null && canInteract(player, unit.x, unit.y, 100))
+                .filter(unit -> unit.defense != null && unit.temporaryRemaining <= 0 && canInteract(player, unit.x, unit.y, 100))
                 .filter(unit -> target == null || unit.id.equals(target))
                 .min(Comparator.comparingDouble(unit -> distance(player.x, player.y, unit.x, unit.y)))
                 .orElse(null);
@@ -3023,7 +3036,7 @@ final class GameSession {
     private void repair(Player player, String slotId) {
         if (!canUseFacilities() || player.down) return;
         TrapSlot slot = slotById(slotId);
-        if (slot == null || slot.defense == null
+        if (slot == null || slot.defense == null || slot.temporaryRemaining > 0
                 || !canInteract(player, slot.x, slot.y, 100)) return;
         var plan = BuildingRules.repair(slot.defense.type, slot.defense.hp, slot.defense.maxHp, materials(player));
         if (plan.status() == BuildingRules.RepairStatus.FULL) {
