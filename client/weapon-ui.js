@@ -33,10 +33,15 @@ const WeaponUI = Object.freeze({
         const add = (label, remaining) => {
             if (remaining > 0) timers.push({label, seconds: Math.max(.1, remaining).toFixed(1)});
         };
-        add("ジョブ能力", player.jobCooldown);
+        const activeEffect = {
+            tp: {label: "TP無敵", remaining: player.tpInvulnerableRemaining},
+            healer: {label: "回復エリア", remaining: player.healRemaining},
+            spy: {label: "偽装", remaining: player.spyRemaining}
+        }[player.job];
+        if (activeEffect?.remaining > 0) add(activeEffect.label, activeEffect.remaining);
+        else add("ジョブ能力の再使用", player.jobCooldown);
         if (player.job === "spy") add("デコイ", player.decoyCooldown);
         add("TP移動", player.teleportCooldown);
-        add("TP無敵", player.tpInvulnerableRemaining);
         add("蘇生後の無敵", player.reviveInvulnerableRemaining);
         add("ミサイル", player.missileCooldown);
         return timers;

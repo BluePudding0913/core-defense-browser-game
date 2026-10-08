@@ -45,7 +45,16 @@ assert.deepEqual(WeaponUI.jobCooldowns({job:'spy',jobCooldown:18,decoyCooldown:2
 assert.deepEqual(WeaponUI.jobCooldowns({job:'healer',jobCooldown:0}), []);
 assert.deepEqual(WeaponUI.jobCooldowns({job:'scout',jobCooldown:0,scoutDashRemaining:.2}), [], 'active burst is not a cooldown');
 assert.deepEqual(WeaponUI.jobCooldowns({job:'tank',jobCooldown:4,down:true}), []);
-assert.deepEqual(WeaponUI.jobCooldowns({job:'tp',jobCooldown:19,tpInvulnerableRemaining:4}).map(timer=>timer.seconds), ['19.0','4.0']);
+for (const [job, field, label] of [['tp','tpInvulnerableRemaining','TP無敵'],['healer','healRemaining','回復エリア'],['spy','spyRemaining','偽装']]) {
+    const player = {job,jobCooldown:19,[field]:4};
+    assert.deepEqual(WeaponUI.jobCooldowns(player), [{label,seconds:'4.0'}], 'active effect replaces cooldown in the same orb');
+    player[field]=0; player.jobCooldown=15;
+    assert.deepEqual(WeaponUI.jobCooldowns(player), [{label:'ジョブ能力の再使用',seconds:'15.0'}]);
+    player.jobCooldown=0;
+    assert.deepEqual(WeaponUI.jobCooldowns(player), []);
+}
+assert.equal(WeaponUI.jobCooldowns({job:'tp',jobCooldown:19,tpInvulnerableRemaining:4,teleportCooldown:2}).length,2,'independent TP travel keeps its own timer');
+assert.equal(WeaponUI.jobCooldowns({job:'spy',jobCooldown:25,spyRemaining:3,decoyCooldown:.3}).length,2,'decoy is independent of disguise');
 assert.equal(WeaponUI.cooldownLabel(0, 1.2), 'CHARGE 1.2s');
 assert.equal(WeaponUI.cooldownLabel(0, 0, .7), 'FIRE 0.7s');
 console.log('HUD status passed: sub weapon stock, equipment visibility, cooldown seconds and silver ammo eligibility');
