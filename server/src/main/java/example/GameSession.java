@@ -1829,7 +1829,7 @@ final class GameSession {
                 updateDownedBot(bot);
                 continue;
             }
-            if (phase == GamePhase.WAVE && dodgeArtillery(bot)) continue;
+            if (phase == GamePhase.WAVE && (dodgeWarden(bot) || dodgeArtillery(bot))) continue;
 
             Player downed = bestBotRescueTarget(bot);
             if (downed != null && shouldBotRescue(bot, downed)) {
@@ -1917,6 +1917,33 @@ final class GameSession {
             updateFacing(bot, bot.moveX, bot.moveY);
             return;
         }
+    }
+
+    private boolean dodgeWarden(Player bot) {
+        List<Enemy> threats = enemies.stream().filter(enemy -> enemy.hp > 0 && enemy.warden != null
+                && enemy.warden.action != WardenRules.Action.IDLE
+                && GameMap.hasClearLine(enemy.x, enemy.y, bot.x, bot.y, unlockedAreas)).toList();
+        if (threats.isEmpty()) return false;
+        double current = wardenClearance(threats, bot.x, bot.y);
+        if (current >= 0) return false;
+        double best = current, bestX = bot.x, bestY = bot.y;
+        for (double range : new double[]{100, 180}) for (int direction = 0; direction < 16; direction++) {
+            double angle = direction * Math.PI / 8;
+            double x = bot.x + Math.cos(angle) * range, y = bot.y + Math.sin(angle) * range;
+            if (!canOccupy(x, y, 12) || !canEnemyTravel(bot.x, bot.y, x, y)) continue;
+            if (wardenClearance(threats, bot.x + Math.cos(angle) * 30, bot.y + Math.sin(angle) * 30) <= current + 1) continue;
+            double score = wardenClearance(threats, x, y);
+            if (score > best + 1) { best = score; bestX = x; bestY = y; }
+        }
+        if (best <= current + 1) return false;
+        double length = distance(bot.x, bot.y, bestX, bestY);
+        steerBot(bot, (bestX - bot.x) / length, (bestY - bot.y) / length);
+        return true;
+    }
+
+    private double wardenClearance(List<Enemy> threats, double x, double y) {
+        return threats.stream().mapToDouble(enemy -> WardenRules.clearance(enemy.warden.action,
+                enemy.x, enemy.y, enemy.warden.targetX, enemy.warden.targetY, x, y)).min().orElse(Double.POSITIVE_INFINITY);
     }
 
     private Player bestBotRescueTarget(Player bot) {
