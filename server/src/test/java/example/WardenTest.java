@@ -106,4 +106,30 @@ class WardenTest {
             assertTrue(game.enemies.stream().allMatch(Enemy::isBoss));
         }
     }
+    @Test void knockbackInterruptsChargeWarningInsteadOfChangingTheAnnouncedPath() throws Exception {
+        boss.hp = 600; update(.05); boss.y += 30; update(.05);
+        assertEquals(WardenRules.Action.IDLE, boss.warden.action);
+        assertEquals(2, boss.specialCooldown); assertEquals(100, player.hp);
+    }
+    @Test void knockbackAlsoInterruptsAnActiveCharge() throws Exception {
+        boss.hp = 600; update(.05); update(1); update(.1);
+        boss.y += 30; double x = boss.x; update(.05);
+        assertEquals(x, boss.x); assertEquals(WardenRules.Action.IDLE, boss.warden.action);
+    }
+    @Test void warningClearanceIncludesChargeWidthAndPulseSafetyMargin() {
+        assertTrue(WardenRules.clearance(WardenRules.Action.CHARGE_WARNING, 0,0,360,0,180,0) < 0);
+        assertTrue(WardenRules.clearance(WardenRules.Action.CHARGE_WARNING, 0,0,360,0,180,100) > 0);
+        assertTrue(WardenRules.clearance(WardenRules.Action.CHARGING, 0,0,360,0,420,0) < 0);
+        assertTrue(WardenRules.clearance(WardenRules.Action.PULSE_WARNING, 0,0,0,0,170,0) < 0);
+        assertTrue(WardenRules.clearance(WardenRules.Action.PULSE_WARNING, 0,0,0,0,200,0) > 0);
+        assertEquals(Double.POSITIVE_INFINITY, WardenRules.clearance(WardenRules.Action.IDLE,0,0,0,0,0,0));
+    }
+    @Test void cpuPrioritizesEscapingAPulseBeforeShooting() throws Exception {
+        boss.hp = 300; boss.warden.nextPulse = true; player.x = 1120; update(.05);
+        player.human = false; player.botTargetEnemyId = boss.id;
+        invoke("updateBots", .05);
+        assertTrue(Math.hypot(player.x + player.moveX * 30 - boss.x, player.y + player.moveY * 30 - boss.y) > 100,
+                "moves away from the pulse origin: " + player.moveX + "," + player.moveY);
+        assertFalse(player.firing); assertEquals(0, player.cooldown);
+    }
 }

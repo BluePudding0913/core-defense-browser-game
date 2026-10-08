@@ -23,6 +23,13 @@ final class WardenCombatSystem {
         var state = enemy.warden;
         int phase = WardenRules.phase(enemy.hp, enemy.maxHp);
         enemy.specialCooldown = Math.max(0, enemy.specialCooldown - dt);
+        if ((state.action == WardenRules.Action.CHARGE_WARNING || state.action == WardenRules.Action.CHARGING)
+                && distance(enemy.x, enemy.y, state.chargeX, state.chargeY) > 1) {
+            // A displaced boss must not bend its charge into an unannounced path.
+            finish(enemy, phase);
+            enemy.specialCooldown = 2;
+            return true;
+        }
         if (state.action == WardenRules.Action.CHARGE_WARNING || state.action == WardenRules.Action.PULSE_WARNING) {
             state.remaining = Math.max(0, state.remaining - dt);
             if (state.remaining <= 1e-9) {
@@ -50,7 +57,8 @@ final class WardenCombatSystem {
                     break;
                 }
                 enemy.x = x; enemy.y = y;
-                impact(enemy, 42, enemy.damage * 1.1, world);
+                state.chargeX = x; state.chargeY = y;
+                impact(enemy, WardenRules.CHARGE_RADIUS, enemy.damage * 1.1, world);
                 amount -= step;
             }
             state.remaining = Math.max(0, state.remaining - dt);
@@ -67,6 +75,7 @@ final class WardenCombatSystem {
             if (length < 60 || length > 520 || !world.clearLine(enemy.x, enemy.y, target.x(), target.y())) return false;
             state.action = WardenRules.Action.CHARGE_WARNING;
             state.remaining = WardenRules.CHARGE_WARNING;
+            state.chargeX = enemy.x; state.chargeY = enemy.y;
             state.targetX = enemy.x + (target.x() - enemy.x) / length * WardenRules.CHARGE_DISTANCE;
             state.targetY = enemy.y + (target.y() - enemy.y) / length * WardenRules.CHARGE_DISTANCE;
             enemy.faceToward(state.targetX, state.targetY);
