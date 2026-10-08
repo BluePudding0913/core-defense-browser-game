@@ -1,5 +1,7 @@
 # 機能変更に合わせた責務分離
 
+蘇生後は`reviveInvulnerableRemaining`で1.5秒の保護を管理する。手動・回復エリア・ラウンド終了時の蘇生に適用し、再開始で解除する。`JobRules.invulnerable`は被ダメージの無効化、`attackBlocked`はTP能力中だけの攻撃禁止を担当する。`SnapshotBuilder`が残り時間を送り、クライアントは蘇生・TPの無敵中の本体を点滅させる。能力などの残り時間はハート右の半透明の円に数字だけで表示する。右下HUDは操作ボタンだけがポインター入力を受け、SUB周辺の空白はゲームへ通す。
+
 戦闘のゴールド表示は`client/combat-feedback.js`で敵ごとにまとめ、表示が消える前の追加命中では同じ表示を更新する。重なり回避の縦方向オフセットは表示ごとに保持し、周囲の表示の消滅で位置が跳ねないようにする。購入したQUARRYのR長押しは`CARRY_NEAREST:ID`で既存の製造装置回収処理を呼び、短押しは従来の操作メニューを開く。
 
 Scoutのゴールド補正1.3倍は`GoldRewardRules`が武器・ドローンの倍率と組み合わせ、端数を保持する。`CombatSystem`と`GameSession`が戦闘報酬・ラウンド報酬に適用する。Tankの右クリックは`TANK_WALL`で既存の共通設置処理を呼ぶ。`GameSession.elapsedSeconds`は準備・戦闘中だけ進み、試合終了で停止、再開始でリセットする。`SnapshotBuilder`が送り、`client/match-time.js`が終了表示の時刻を整形する。AttackerのSUB HUDはメインと共通の武器アイコン・パネル・クールタイム表示を縮小して隣に置く。ラウンド開始音はクライアントのラウンド遷移時に一度だけ再生する。

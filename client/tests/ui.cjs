@@ -91,3 +91,7 @@ Object.assign(context, {
 vm.runInContext('updateHud()', context);
 assert.equal(context.selfJob.textContent, 'Healer');
 assert.equal(context.selfCredits.textContent, '25G');
+self.jobCooldown = 2.5;
+vm.runInContext('updateHud()', context);
+assert.match(context.jobCooldownLabel.innerHTML, /class="cooldown-orb"[^>]*>2.5<\/span>/);
+assert.doesNotMatch(context.jobCooldownLabel.innerHTML, />[^<]*s<\/span>/);

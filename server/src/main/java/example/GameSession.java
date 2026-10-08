@@ -334,6 +334,8 @@ final class GameSession {
             }
             player.spyRemaining = Math.max(0, player.spyRemaining - dt);
             player.tpInvulnerableRemaining = Math.max(0, player.tpInvulnerableRemaining - dt);
+            player.reviveInvulnerableRemaining = Math.max(0, player.reviveInvulnerableRemaining - dt);
+            if (player.reviveInvulnerableRemaining < 1e-9) player.reviveInvulnerableRemaining = 0;
             player.decoyCooldown = Math.max(0, player.decoyCooldown - dt);
             double previousJobCooldown = player.jobCooldown;
             player.jobCooldown = Math.max(0, player.jobCooldown - dt);
@@ -774,7 +776,7 @@ final class GameSession {
         double y = Double.parseDouble(parts[2]);
         if (!Double.isFinite(x) || !Double.isFinite(y)) return;
         boolean active = parts[3].equals("1") || parts[3].equalsIgnoreCase("true");
-        if (JobRules.invulnerable(player) || player.movingCore || player.selectedBuild != null && !DroneRules.controlling(player)) {
+        if (JobRules.attackBlocked(player) || player.movingCore || player.selectedBuild != null && !DroneRules.controlling(player)) {
             player.firing = player.secondaryFiring = false;
             return;
         }
@@ -860,6 +862,7 @@ final class GameSession {
             if (player.down) {
                 player.down = false;
                 player.hp = 45;
+                player.reviveInvulnerableRemaining = JobRules.REVIVE_INVULNERABLE_DURATION;
                 player.moveX = player.moveY = 0;
             }
             cancelAction(player);
@@ -1032,6 +1035,7 @@ final class GameSession {
     private void revivePlayer(Player target) {
         target.down = false;
         target.hp = 45;
+        target.reviveInvulnerableRemaining = JobRules.REVIVE_INVULNERABLE_DURATION;
         target.moveX = target.moveY = 0;
         cancelAction(target);
         for (Player rescuer : players) {
@@ -3308,6 +3312,7 @@ final class GameSession {
             player.jobCooldown = 0;
             player.teleportCooldown = 0;
             player.tpInvulnerableRemaining = 0;
+            player.reviveInvulnerableRemaining = 0;
             player.teleportPads.clear();
             player.equipWeapon("pistol");
             player.weaponCooldowns.clear();

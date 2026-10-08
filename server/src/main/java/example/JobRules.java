@@ -4,7 +4,11 @@ package example;
 final class JobRules {
     static final String DEFAULT = "healer";
     static final double TP_INVULNERABLE_DURATION = 5, TP_INVULNERABLE_COOLDOWN = 20;
+    static final double REVIVE_INVULNERABLE_DURATION = 1.5;
     static boolean invulnerable(Player player) {
+        return !player.down && (player.reviveInvulnerableRemaining > 0 || attackBlocked(player));
+    }
+    static boolean attackBlocked(Player player) {
         return player.job.equals("tp") && !player.down && player.tpInvulnerableRemaining > 0;
     }
     static final double TANK_AURA_RADIUS = 160;

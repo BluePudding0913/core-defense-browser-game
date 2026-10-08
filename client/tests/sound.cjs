@@ -23,7 +23,7 @@ const localStorage = { getItem: key => saved.get(key) ?? null, setItem: (key, va
 vm.runInNewContext(fs.readFileSync('client/sound.js', 'utf8'), { window, localStorage });
 window.coreAudio.play('pistol'); assert.equal(contexts, 0);
 listeners.pointerdown(); assert.equal(contexts, 1);
-const names = ['pistol', 'ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket', 'missile-launch', 'missile-impact', 'bat', 'medkit', 'heal', 'build', 'pickup', 'item', 'damage', 'ability-ready', 'railgun', 'railgun-charge', 'refill'];
+const names = ['pistol', 'ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket', 'missile-launch', 'missile-impact', 'bat', 'medkit', 'heal', 'build', 'pickup', 'item', 'damage', 'ability-ready', 'railgun', 'railgun-charge', 'refill', 'round-start'];
 const demo = [];
 for (const name of names) {
     window.coreAudio.play(name);

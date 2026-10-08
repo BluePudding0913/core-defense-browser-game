@@ -38,6 +38,7 @@ final class Player {
     double missileCooldown;
     double teleportCooldown;
     double tpInvulnerableRemaining;
+    double reviveInvulnerableRemaining;
     final java.util.List<MapPoint> teleportPads = new java.util.ArrayList<>();
     String weapon = "pistol";
     double cooldown;

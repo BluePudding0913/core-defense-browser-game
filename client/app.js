@@ -957,7 +957,8 @@ function updateHud() {
         healthHeart.classList.toggle("full", health === 100);
         healthHeart.setAttribute("aria-label", `体力 ${Math.ceil(health)}%`);
         selfJob.textContent = JOBS[me.job]?.name || me.job;
-        jobCooldownLabel.textContent = WeaponUI.jobCooldownLabel(me);
+        jobCooldownLabel.innerHTML = WeaponUI.jobCooldowns(me).map(timer =>
+            `<span class="cooldown-orb" title="${timer.label}" aria-label="${timer.label} ${timer.seconds}秒">${timer.seconds}</span>`).join("");
         selfCredits.textContent = `${me.credits}G`;
         const selectedBuild = me.selectedBuild && (me.buildItems?.[me.selectedBuild] || 0) > 0
             ? me.selectedBuild : null;
@@ -2892,6 +2893,9 @@ function drawPlayers() {
         ctx.save();
         if (player.down) { ctx.translate(p.x, p.y + 8); ctx.scale(1.35, .65); }
         else ctx.translate(p.x, p.y);
+        if (!player.down && (player.tpInvulnerableRemaining > 0 || player.reviveInvulnerableRemaining > 0)) {
+            ctx.globalAlpha = Math.floor(performance.now() / 100) % 2 ? .25 : 1;
+        }
         const hit = hitEffects.findLast(effect => effect.effect === "player-hit"
             && effect.playerId === player.id && performance.now() - effect.started < 300);
         if (hit) {
