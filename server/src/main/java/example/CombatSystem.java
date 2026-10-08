@@ -33,6 +33,7 @@ final class CombatSystem {
     }
 
     void attackAt(Player player, double aimX, double aimY) {
+        if (JobRules.invulnerable(player)) return;
         if (DroneRules.controlling(player)) {
             attackDrone(player, aimX, aimY);
             return;
@@ -52,7 +53,7 @@ final class CombatSystem {
             }
             return;
         }
-        WeaponStats weapon = WeaponCatalog.stats(player.weapon);
+        WeaponStats weapon = JobRules.weaponStats(player.job, player.weapon);
         if (!player.weapons.consume(player.weapon)) {
             events.outOfAmmo(player);
             player.firing = false;
@@ -151,6 +152,23 @@ final class CombatSystem {
         }
     }
 
+    void droneExplosion(Player player, Drone drone) {
+        events.explosion(drone.x, drone.y, DroneRules.SELF_DESTRUCT_RADIUS);
+        droneShot = new DroneShot(player, "droneExplosion", drone.x, drone.y, drone);
+        try {
+            for (Enemy enemy : List.copyOf(world.enemies())) {
+                double separation = distance(drone.x, drone.y, enemy.x, enemy.y);
+                if (enemy.hp <= 0 || separation > DroneRules.SELF_DESTRUCT_RADIUS
+                        || !GameMap.hasClearLine(drone.x, drone.y, enemy.x, enemy.y, world.unlockedAreas())) continue;
+                double damage = DroneRules.SELF_DESTRUCT_DAMAGE * (1 - .5 * separation / DroneRules.SELF_DESTRUCT_RADIUS);
+                int before = player.credits;
+                double dealt = damageEnemy(enemy, damage, player, "droneExplosion");
+                events.hit(player.id, "droneExplosion", drone.x, drone.y, enemy.x, enemy.y, dealt,
+                        enemy.hp <= 0, player.credits - before, false, enemy.id);
+            }
+        } finally { droneShot = null; }
+    }
+
     void missileImpact(Player player, double x, double y) {
         events.explosion(x, y, MissileRules.radius());
         for (Enemy enemy : List.copyOf(world.enemies())) {
@@ -219,6 +237,7 @@ final class CombatSystem {
     }
 
     void updateRailgun(Player player, double dt) {
+        if (JobRules.invulnerable(player)) { player.stopRailgun(); return; }
         if (DroneRules.controlling(player) || DroneRules.mounted(player, player.weapon) || !player.weapon.equals("railgun") || !player.firing || player.down
                 || player.movingCore || player.selectedBuild != null || !world.canAttack()) {
             player.stopRailgun();

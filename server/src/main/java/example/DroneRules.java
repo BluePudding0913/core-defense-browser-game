@@ -7,6 +7,11 @@ import java.util.List;
 final class DroneRules {
     static final double HP = 45, SPEED = 210, RECOVERY_RANGE = 45;
     static final int REPAIR_ORE = 5, REPAIR_COPPER = 2;
+    static final double SELF_DESTRUCT_RADIUS = 120, SELF_DESTRUCT_DAMAGE = 300;
+    static boolean canSelfDestruct(Player player) {
+        return player.job.equals("drone") && !player.down && !player.movingCore
+                && player.drone != null && player.drone.active && player.drone.hp > 0;
+    }
 
     static boolean canRepair(int ore, int copper) {
         return ore >= REPAIR_ORE && copper >= REPAIR_COPPER;

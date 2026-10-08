@@ -6,7 +6,7 @@ import java.util.function.BiPredicate;
 
 /** Spy projectile and enemy distraction rules, independent of transport and UI. */
 final class DecoyRules {
-    static final double COOLDOWN = 3, DURATION = 8, HP = 45;
+    static final double COOLDOWN = .5, DURATION = 8, HP = 45;
     static final double SPEED = 500, RANGE = 260, ATTRACT_RANGE = 340;
 
     static boolean canLaunch(Player player) {

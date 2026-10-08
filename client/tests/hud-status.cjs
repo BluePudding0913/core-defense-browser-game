@@ -42,6 +42,7 @@ assert(field('#secondary-hud').hidden);
 assert.equal(WeaponUI.jobCooldownLabel({job:'spy',jobCooldown:18,decoyCooldown:2}), '18.0s · DECOY 2.0s');
 assert.equal(WeaponUI.jobCooldownLabel({job:'healer',jobCooldown:0}), '');
 assert.equal(WeaponUI.jobCooldownLabel({job:'tank',jobCooldown:4,down:true}), '');
+assert.equal(WeaponUI.jobCooldownLabel({job:'tp',jobCooldown:19,tpInvulnerableRemaining:4}), 'INVINCIBLE 4.0s · 19.0s');
 assert.equal(WeaponUI.cooldownLabel(0, 1.2), 'CHARGE 1.2s');
 assert.equal(WeaponUI.cooldownLabel(0, 0, .7), 'FIRE 0.7s');
 console.log('HUD status passed: sub weapon stock, equipment visibility, cooldown seconds and silver ammo eligibility');

@@ -11,6 +11,11 @@ final class WeaponInventory {
     private final Set<String> owned = new HashSet<>(Set.of("pistol"));
     private final Map<String, Integer> ammunition = new HashMap<>();
     private int silverAmmo;
+    private final java.util.function.Supplier<String> job;
+    WeaponInventory() { this(() -> JobRules.DEFAULT); }
+    WeaponInventory(java.util.function.Supplier<String> job) { this.job = job; }
+    int capacity(String id) { return WeaponCatalog.capacity(id) * JobRules.ammoCapacityMultiplier(job.get()); }
+    void clampAmmoToCapacity() { ammunition.replaceAll((id, amount) -> Math.min(amount, capacity(id))); }
     int silverAmmo() { return silverAmmo; }
     boolean buySilverAmmo(int silver) {
         if (silver < SilverAmmoRules.COST || silverAmmo > Integer.MAX_VALUE - SilverAmmoRules.PACK_SIZE) return false;
@@ -33,7 +38,7 @@ final class WeaponInventory {
     }
     int ammo(String id) { return ammunition.getOrDefault(id, 0); }
     void setAmmo(String id, int amount) {
-        if (WeaponCatalog.capacity(id) > 0) ammunition.put(id, Math.max(0, Math.min(amount, WeaponCatalog.capacity(id))));
+        if (capacity(id) > 0) ammunition.put(id, Math.max(0, Math.min(amount, capacity(id))));
     }
     boolean consume(String id) {
         var definition = WeaponCatalog.find(id);
@@ -53,7 +58,7 @@ final class WeaponInventory {
     boolean grant(String id) {
         if (!canAcquire(id)) return false;
         setOwned(id, true);
-        setAmmo(id, WeaponCatalog.capacity(id));
+        setAmmo(id, capacity(id));
         return true;
     }
     boolean canExchange(String incoming, String outgoing) {

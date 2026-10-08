@@ -74,7 +74,7 @@ class BomberEnemyTest {
         player.job = "tank"; player.hp = JobRules.maxHp(player.job);
         player.x = x + 30; player.y = y;
         game.combat.damageEnemy(bomber, bomber.hp, null);
-        assertEquals(150 - 75 * JobRules.TANK_DAMAGE_FACTOR, player.hp);
+        assertEquals(JobRules.maxHp("tank") * (1 - GameConfig.BOMBER_PLAYER_DAMAGE_FRACTION * JobRules.TANK_DAMAGE_FACTOR), player.hp);
         assertFalse(player.down);
     }
     @Test void deathBlastDamagesPlayersDefensesAndCoreWithoutCountdown() throws Exception {

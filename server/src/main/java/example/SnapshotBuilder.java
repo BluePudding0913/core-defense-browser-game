@@ -184,8 +184,10 @@ final class SnapshotBuilder {
             json.append(",\"y\":").append(roundOne(player.y))
                     .append(",\"hp\":").append(roundOne(player.hp))
                     .append(",\"maxHp\":").append(JobRules.maxHp(player.job))
+                    .append(",\"ammoCapacityMultiplier\":").append(JobRules.ammoCapacityMultiplier(player.job))
                     .append(",\"tankAuraRadius\":").append(JobRules.TANK_AURA_RADIUS)
                     .append(",\"decoyCooldown\":").append(roundOne(player.decoyCooldown))
+                    .append(",\"tpInvulnerableRemaining\":").append(roundOne(player.tpInvulnerableRemaining))
                     .append(",\"medbayHealing\":").append(game.isMedbayHealing(player))
                     .append(",\"facingX\":").append(player.facingX)
                     .append(",\"facingY\":").append(player.facingY);
