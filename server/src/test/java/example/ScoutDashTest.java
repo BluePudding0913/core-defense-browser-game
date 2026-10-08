@@ -5,6 +5,23 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 class ScoutDashTest extends JobsTest {
+    @Test void downMovementAndRegenerationUseSharedScoutRules() throws Exception {
+        for (boolean human : new boolean[]{true, false}) {
+            scout(); player.human = human; player.down = true;
+            player.moveX = 1; player.stamina = 0;
+            move(.5);
+            assertEquals(970, player.x, 1e-6);
+            assertEquals(30, player.stamina, 1e-6);
+            assertFalse(player.dashing);
+            player.job = "healer";
+            move(.5);
+            assertEquals(992.5, player.x, 1e-6);
+            assertEquals(42, player.stamina, 1e-6);
+        }
+        scout(); player.stamina = 0;
+        move(5);
+        assertEquals(300, player.stamina, 1e-6);
+    }
     @Test void fullStaminaSupportsFifteenBurstsWithoutWaitingBeyondMovement() throws Exception {
         scout();
         for (int i = 0; i < 15; i++) {
@@ -122,6 +139,8 @@ class ScoutDashTest extends JobsTest {
         assertEquals(.2, me.get("scoutDashRemaining").asDouble());
         assertEquals(800, me.get("scoutDashSpeed").asDouble());
         assertEquals(4, me.get("scoutDashStep").asDouble());
+        assertEquals(60, me.get("downSpeed").asDouble());
+        assertEquals(60, me.get("staminaRecovery").asDouble());
         game.disconnectPlayer(player);
         assertEquals(0, player.scoutDashRemaining);
     }

@@ -1313,14 +1313,14 @@ function reconcileLocalPrediction(snapshot) {
     if (!serverMe) return;
     acknowledgeInputs(serverMe.ackInput);
     if (!predictedLocal) {
-        predictedLocal = { x: serverMe.x, y: serverMe.y, stamina: serverMe.stamina, dashing: serverMe.dashing, exhausted: false };
+        predictedLocal = { x: serverMe.x, y: serverMe.y, stamina: serverMe.stamina, dashing: serverMe.dashing, down: Boolean(serverMe.down), exhausted: false };
         localFacing = { x: serverMe.facingX, y: serverMe.facingY };
     }
-    if (predictedLocal.down && !serverMe.down) {
+    if (predictedLocal.down !== undefined && predictedLocal.down !== Boolean(serverMe.down)) {
         predictedLocal.x = serverMe.x; predictedLocal.y = serverMe.y;
         predictedLocal.stamina = serverMe.stamina;
         predictedLocal.dashing = false;
-        predictedLocal.revivePauseUntil = performance.now() + 120;
+        predictedLocal.movementPauseUntil = performance.now() + 120;
         sendMovement(true);
     }
     predictedLocal.down = Boolean(serverMe.down);
@@ -1867,7 +1867,7 @@ function sendMovement(force = false) {
     if (keys.has("s") || keys.has("arrowdown")) y += 1;
     if (keys.has("a") || keys.has("arrowleft")) x -= 1;
     if (keys.has("d") || keys.has("arrowright")) x += 1;
-    if (predictedLocal?.revivePauseUntil && performance.now() < predictedLocal.revivePauseUntil) x = y = 0;
+    if (predictedLocal?.movementPauseUntil && performance.now() < predictedLocal.movementPauseUntil) x = y = 0;
     const length = Math.hypot(x, y);
     if (length > 1) { x /= length; y /= length; }
     localMove.x = Number(x.toFixed(2));
@@ -2142,9 +2142,9 @@ function updateLocalPrediction(dt) {
         return;
     }
     if (!predictedLocal || !serverMe || !["preparing", "wave"].includes(state.phase)) return;
-    if (predictedLocal.revivePauseUntil) {
-        if (performance.now() < predictedLocal.revivePauseUntil) return;
-        predictedLocal.revivePauseUntil = 0;
+    if (predictedLocal.movementPauseUntil) {
+        if (performance.now() < predictedLocal.movementPauseUntil) return;
+        predictedLocal.movementPauseUntil = 0;
         sendMovement(true);
     }
     if (predictedLocal.scoutDashRemaining > 0 && !serverMe.down && !serverMe.movingCore
@@ -2173,7 +2173,7 @@ function updateLocalPrediction(dt) {
         predictedLocal.stamina = Math.min(serverMe.staminaMax ?? 100, predictedLocal.stamina + (serverMe.staminaRecovery ?? 24) * dt);
     }
 
-    const speed = serverMe.railgunRemaining > 0 || serverMe.secondaryRailgunRemaining > 0 ? 155 * .3 : serverMe.railgunCharge > 0 || serverMe.secondaryRailgunCharge > 0 ? 155 * .6 : serverMe.down ? 45 : serverMe.movingCore ? 82 : predictedLocal.dashing ? (serverMe.dashSpeed ?? 265) : 155;
+    const speed = serverMe.railgunRemaining > 0 || serverMe.secondaryRailgunRemaining > 0 ? 155 * .3 : serverMe.railgunCharge > 0 || serverMe.secondaryRailgunCharge > 0 ? 155 * .6 : serverMe.down ? (serverMe.downSpeed ?? 45) : serverMe.movingCore ? 82 : predictedLocal.dashing ? (serverMe.dashSpeed ?? 265) : 155;
     const nextX = clamp(predictedLocal.x + localMove.x * speed * dt, 25, WORLD.width - 25);
     const nextY = clamp(predictedLocal.y + localMove.y * speed * dt, 25, WORLD.height - 25);
     if (canPredictOccupy(nextX, predictedLocal.y, 5)) predictedLocal.x = nextX;

@@ -72,7 +72,8 @@ final class JobRules {
 
     static double dashSpeed(String job) { return job.equals("scout") ? 305 : 265; }
     static double staminaDrain(String job) { return job.equals("scout") ? 23.75 : 38; }
-    static double staminaRecovery(String job) { return job.equals("scout") ? 40 : 24; }
+    static double staminaRecovery(String job) { return job.equals("scout") ? 60 : 24; }
+    static double downSpeed(String job) { return job.equals("scout") ? 60 : 45; }
     static double staminaMax(String job) { return job.equals("scout") ? 300 : 100; }
     static double reviveSeconds(String job) { return job.equals("healer") ? 2 : 4; }
     static boolean canScoutDash(String job, boolean down, boolean carrying, boolean placing,

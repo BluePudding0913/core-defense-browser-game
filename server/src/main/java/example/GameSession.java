@@ -989,7 +989,7 @@ final class GameSession {
             } else {
                 player.stamina = Math.min(JobRules.staminaMax(player.job), player.stamina + JobRules.staminaRecovery(player.job) * dt);
             }
-            double speed = player.down ? 45 : player.movingCore ? 82 : player.dashing ? JobRules.dashSpeed(player.job) : 155;
+            double speed = player.down ? JobRules.downSpeed(player.job) : player.movingCore ? 82 : player.dashing ? JobRules.dashSpeed(player.job) : 155;
             if (player.railgunRemaining > 0 || player.secondaryRailgunRemaining > 0) speed = 155 * .3;
             else if (player.railgunCharge > 0 || player.secondaryRailgunCharge > 0) speed = 155 * .6;
             double nextX = clamp(player.x + player.moveX * speed * dt, 7, WORLD_W - 7);
