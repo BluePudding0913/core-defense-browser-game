@@ -9,6 +9,11 @@ final class GameEffects implements CombatEvents {
 
     GameEffects(GameEventSink sink) { this.sink = sink; }
 
+    void abilityReady(Player player) {
+        if (player.human) sink.send(player, "{\"type\":\"effect\",\"effect\":\"ability-ready\",\"playerId\":\""
+                + escapeJson(player.id) + "\"}");
+    }
+
     public void hit(String playerId, String weapon, double fromX, double fromY,
             double x, double y, double damage, boolean defeated, int credits, boolean headshot, Integer enemyId) {
         sink.broadcast("{\"type\":\"effect\",\"effect\":\"hit\",\"playerId\":\"" + escapeJson(playerId)

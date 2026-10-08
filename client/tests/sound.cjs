@@ -13,7 +13,7 @@ class AudioContext {
         buffers.push(buffer); return buffer;
     }
     createBufferSource() {
-        const source = { connect(node) { this.output = node; }, disconnect() { this.disconnected = true; }, start() { this.started = true; } };
+        const source = { connect(node) { this.output = node; }, disconnect() { this.disconnected = true; }, start() { this.started = true; }, stop() { this.stopped = true; this.onended?.(); } };
         sources.push(source); return source;
     }
 }
@@ -23,7 +23,7 @@ const localStorage = { getItem: key => saved.get(key) ?? null, setItem: (key, va
 vm.runInNewContext(fs.readFileSync('client/sound.js', 'utf8'), { window, localStorage });
 window.coreAudio.play('pistol'); assert.equal(contexts, 0);
 listeners.pointerdown(); assert.equal(contexts, 1);
-const names = ['pistol', 'ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket', 'bat', 'medkit', 'heal', 'build', 'pickup', 'item', 'railgun', 'railgun-charge'];
+const names = ['pistol', 'ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket', 'bat', 'medkit', 'heal', 'build', 'pickup', 'item', 'ability-ready', 'railgun', 'railgun-charge'];
 const demo = [];
 for (const name of names) {
     window.coreAudio.play(name);
@@ -90,6 +90,10 @@ effect({ effect: 'pickup', playerId: 'other', x: 10, y: 0 });
 assert.equal(played.length, 0, 'other players cannot trigger pickup SE');
 effect({ effect: 'pickup', playerId: 'me', x: 10, y: 0 });
 assert.deepEqual(played.pop(), ['pickup', 0]);
+effect({ effect: 'ability-ready', playerId: 'me' });
+assert.deepEqual(played.pop(), ['ability-ready', 0]);
+effect({ effect: 'ability-ready', playerId: 'other' });
+assert.equal(played.length, 0, 'cooldown readiness only sounds for its owner');
 effect({ effect: 'shot', playerId: 'other', weapon: 'rifle' });
 assert.deepEqual(played.pop(), ['rifle', 300]);
 game.predictedLocal = { x: 100, y: 0 };
@@ -98,7 +102,7 @@ assert.deepEqual(played.pop(), ['build', 300]);
 effect({ effect: 'item-use', playerId: 'other', item: 'medkit' });
 assert.deepEqual(played.pop(), ['medkit', 200]);
 effect({ effect: 'shot', playerId: 'me', weapon: 'railgun', item: 'railgun-charge' });
-assert.deepEqual(played.pop(), ['railgun-charge', 0]);
+assert.equal(played.length, 0, 'railgun sounds follow continuous state instead of one-shot events');
 effect({ effect: 'shot', playerId: 'missing', weapon: 'pistol' });
 assert.equal(played.length, 0, 'unknown source cannot trigger full-volume audio');
 vm.runInNewContext(fs.readFileSync('client/sound.js', 'utf8'), { window: { addEventListener() {} } });
@@ -114,4 +118,29 @@ if (process.argv[2]) {
     for (const data of demo) for (const value of data) { wav.writeInt16LE(Math.round(value * 32767), offset); offset += 2; }
     fs.writeFileSync(process.argv[2], wav);
 }
+// Charge cancellation, loop lifetime, transitions and multiple shooters.
+window.coreAudio.setVolume(1);
+const railPlayer = { id: 'rail', x: 0, y: 0, weapon: 'railgun', railgunCharge: .2, railgunRemaining: 0 };
+window.coreAudio.syncRailguns([railPlayer], railPlayer, 'rail');
+const charging = sources.at(-1);
+assert.equal(charging.loop, false);
+window.coreAudio.syncRailguns([railPlayer], railPlayer, 'rail');
+assert.equal(sources.at(-1), charging, 'charge does not restart every frame');
+railPlayer.railgunCharge = 0;
+window.coreAudio.syncRailguns([railPlayer], railPlayer, 'rail');
+assert(charging.stopped, 'cancelled charge stops immediately');
+railPlayer.railgunRemaining = 3;
+window.coreAudio.syncRailguns([railPlayer], railPlayer, 'rail');
+const beam = sources.at(-1);
+assert.equal(beam.loop, true, 'beam loops throughout irradiation');
+window.coreAudio.syncRailguns([railPlayer], railPlayer, 'rail');
+assert.equal(sources.at(-1), beam);
+railPlayer.down = true;
+window.coreAudio.syncRailguns([railPlayer], railPlayer, 'rail');
+assert(beam.stopped, 'down state stops beam');
+railPlayer.down = false;
+window.coreAudio.syncRailguns([railPlayer], railPlayer, 'rail');
+const disconnected = sources.at(-1);
+window.coreAudio.stopRailguns();
+assert(disconnected.stopped, 'disconnect stops all tracked sounds');
 console.log('Synthesized SE passed: all effects, gesture unlock, cached buffers, bounded volume and voice limit');

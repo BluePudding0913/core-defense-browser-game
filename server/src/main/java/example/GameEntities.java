@@ -27,9 +27,13 @@ final class Player {
     double stamina;
     String job = JobRules.DEFAULT;
     double spyRemaining;
+    final java.util.Set<Integer> spyCheckedEnemies = new java.util.HashSet<>();
+    final java.util.Set<Integer> spyHostileEnemies = new java.util.HashSet<>();
     double scoutDashRemaining, scoutDashDx, scoutDashDy;
     double jobCooldown;
     Drone drone;
+    boolean missileControl;
+    double missileCooldown;
     double teleportCooldown;
     final java.util.List<MapPoint> teleportPads = new java.util.ArrayList<>();
     String weapon = "pistol";

@@ -56,6 +56,14 @@ final class SnapshotBuilder {
         appendPlayers(json, game);
         appendEnemies(json, game.enemies);
         appendArtilleryShells(json, game);
+        json.append(",\"missiles\":[");
+        for (int i = 0; i < game.missiles.size(); i++) {
+            if (i > 0) json.append(',');
+            MissileStrike strike = game.missiles.get(i);
+            json.append("{\"x\":").append(strike.x).append(",\"y\":").append(strike.y)
+                .append(",\"remaining\":").append(strike.remaining).append(",\"radius\":").append(MissileRules.radius()).append('}');
+        }
+        json.append(']');
         appendSlots(json, game);
         appendResources(json, game);
         appendFactories(json, game);
@@ -186,6 +194,8 @@ final class SnapshotBuilder {
                     .append(",\"jobCooldown\":").append(roundOne(player.jobCooldown))
                     .append(",\"teleportCooldown\":").append(roundOne(player.teleportCooldown))
                     .append(",\"dashSpeed\":").append(JobRules.dashSpeed(player.job))
+                    .append(",\"staminaRecovery\":").append(JobRules.staminaRecovery(player.job))
+                    .append(",\"staminaMax\":").append(JobRules.staminaMax(player.job))
                     .append(",\"staminaDrain\":").append(JobRules.staminaDrain(player.job))
                     .append(",\"reviveSeconds\":").append(JobRules.reviveSeconds(player.job))
                     .append(",\"teleportPads\":[");
@@ -196,6 +206,9 @@ final class SnapshotBuilder {
             }
             json.append(']');
             // Keep the existing wire fields for browser/reconnect compatibility.
+            json.append(",\"missileControl\":").append(player.missileControl)
+                .append(",\"missileCooldown\":").append(roundOne(player.missileCooldown))
+                .append(",\"missileDelay\":").append(MissileRules.DELAY);
             json.append(",\"drone\":");
             if (player.drone == null) json.append("null");
             else json.append("{\"x\":").append(roundOne(player.drone.x))

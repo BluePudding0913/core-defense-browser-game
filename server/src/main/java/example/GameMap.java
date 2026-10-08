@@ -36,6 +36,8 @@ final class GameMap {
     static final List<ShopUnit> SHOP_UNITS = List.copyOf(DEFINITION.shopUnits());
     static final List<ResourceNodeDefinition> RESOURCE_NODES = List.copyOf(DEFINITION.resourceNodes());
     static final List<WorkbenchUnit> WORKBENCH_UNITS = List.copyOf(DEFINITION.workbenchUnits());
+    static final WorkbenchUnit MISSILE_COMPUTER = DEFINITION.missileComputer();
+    static final WorkbenchUnit JOB_STATION = DEFINITION.jobStation();
     static final PrepConsole PREP_CONSOLE = DEFINITION.prepConsole();
     static final List<BreakerTerminal> BREAKER_TERMINALS = List.copyOf(DEFINITION.breakerTerminals());
     private static final List<MapPoint> FACILITY_POSITIONS = buildFacilityPositions();
@@ -147,6 +149,8 @@ final class GameMap {
                 new MapPoint(ARMORY_X, ARMORY_Y),
                 new MapPoint(WOODCUTTER_X, WOODCUTTER_Y), new MapPoint(QUARRY_X, QUARRY_Y),
                 new MapPoint(PREP_CONSOLE.x(), PREP_CONSOLE.y())));
+        for (WorkbenchUnit unit : java.util.Arrays.asList(MISSILE_COMPUTER, JOB_STATION))
+            if (unit != null) positions.add(new MapPoint(unit.x(), unit.y()));
         AREAS.forEach(area -> positions.add(new MapPoint(area.terminalX(), area.terminalY())));
         MEDBAYS.forEach(station -> positions.add(new MapPoint(station.x(), station.y())));
         WORKBENCH_UNITS.forEach(unit -> positions.add(new MapPoint(unit.x(), unit.y())));

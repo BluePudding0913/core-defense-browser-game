@@ -10,6 +10,7 @@ const me = { id: 'me', job: 'drone', x: 100, y: 100, selectedBuild: 'drone', bui
     ownsPistol: true, ownsSmg: true, ownsRocket: true, droneRecoveryRange: 45 };
 const commands = [], lines = [], numbers = [], menus = [];
 const context = vm.createContext({
+    MISSILE_COMPUTER: null, JOB_STATION: null,
     me, getMe: () => me, myPlayerId: 'me', send: c => commands.push(c), performance: { now: () => 50 },
     equipmentOrder: [], BUILD_INFO: { drone: { name: 'DRONE' }, teleporter: { name: 'TP' } },
     WEAPON_FIELDS: {

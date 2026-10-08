@@ -2,6 +2,7 @@
 .menu-preview { touch-action: auto; user-select: auto; }
 .menu-preview > #menu, .menu-preview > #game, .menu-preview > #hud, .menu-preview > #rotate-message { display: none; }
 #menu-ui[hidden] { display: none; }
+#menu-ui:has(form[data-form="game-settings"]) { z-index: 19; }
 #menu-ui { position: fixed; inset: 0; z-index: 9; overflow-y: auto; background: #101010; padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); }
 #menu-ui .ui-shell { min-height: 100%; display: grid; align-content: start; justify-items: center; padding-top: max(200px, calc(50dvh - 48px)); }
 /* Settings need room for the full form above the fold. */

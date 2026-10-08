@@ -238,7 +238,9 @@ class GameMapTest {
     void heavyArmsAreaBranchesOnlyBelowSniperAndRestoresOldRocketWalls() {
         assertTrue(GameMap.areaById("rocket-room") == null);
         UnlockArea area = GameMap.areaById("heavy-arms-area");
-        assertEquals(68, area.tiles().size());
+        assertTrue(area.tiles().size() > 68);
+        for (int col = 4; col <= 7; col++)
+            assertTrue(GameMap.canOccupy(col * 40 + 20, 700, 17, Set.of("sniper-room", area.id())));
         ShopUnit rocket = GameMap.shopByItem("rocket");
         assertTrue(area.contains(rocket.x(), rocket.y()));
         assertTrue(rocket.y() > GameMap.shopByItem("sniper").y());
@@ -313,11 +315,11 @@ class GameMapTest {
                 .findFirst().map(UnlockArea::id).orElse("outside"))
                 .collect(Collectors.toSet());
 
-        assertEquals(11, weaponShops.size());
-        assertEquals(weaponShops.size() - 1, shopAreas.size(),
+        assertEquals(WeaponCatalog.ALL.stream().filter(WeaponCatalog.Definition::usesAmmo).count() + 2, weaponShops.size());
+        assertEquals(weaponShops.size() - 2, shopAreas.size(),
                 "heavy weapons share HEAVY ARMS; other shops occupy different progression areas");
         UnlockArea heavy = GameMap.areaById("heavy-arms-area");
-        assertEquals(Set.of("rocket", "railgun"), weaponShops.stream()
+        assertEquals(Set.of("rocket", "railgun", "flamethrower"), weaponShops.stream()
                 .filter(shop -> heavy.contains(shop.x(), shop.y()))
                 .map(ShopUnit::item).collect(Collectors.toSet()));
     }

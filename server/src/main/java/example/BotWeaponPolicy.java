@@ -5,6 +5,9 @@ final class BotWeaponPolicy {
     static void select(Player bot, double targetDistance) {
         if (targetDistance <= 72 && (!hasRangedAmmo(bot) || bot.hp > 70)) {
             bot.equipWeapon("bat");
+        } else if (bot.weapons.owns("flamethrower") && bot.weapons.ammo("flamethrower") > 0
+                && targetDistance <= WeaponCatalog.stats("flamethrower").range()) {
+            bot.equipWeapon("flamethrower");
         } else if (bot.weapons.owns("revolver") && bot.weapons.ammo("revolver") > 0 && targetDistance <= 500) {
             bot.equipWeapon("revolver");
         } else if (bot.weapons.owns("rocket") && bot.weapons.ammo("rocket") > 0 && targetDistance > 160 && targetDistance <= WeaponCatalog.stats("rocket").range()) {

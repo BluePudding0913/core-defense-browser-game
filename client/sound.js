@@ -12,16 +12,19 @@
         revolver: { pitch: 320, end: 50, duration: .19, noise: .6 },
         lmg: { pitch: 220, end: 55, duration: .095, noise: .7 },
         rocket: { pitch: 140, end: 28, duration: .42, noise: .8 },
+        flamethrower: { pitch: 100, end: 65, duration: .12, noise: .9 },
         bat: { pitch: 150, end: 40, duration: .14, noise: .4 },
         medkit: { notes: [440, 554, 659, 880], duration: .36 },
         heal: { notes: [523, 659, 784], duration: .24 },
+        "ability-ready": { notes: [659, 880, 1175], duration: .3 },
         build: { notes: [180, 270, 360], duration: .18, noise: .12 },
         pickup: { notes: [880, 1320], duration: .12 },
         item: { notes: [660, 880], duration: .16 },
-        railgun: { pitch: 900, end: 45, duration: .45, noise: .35 },
+        railgun: { pitch: 220, end: 220, duration: .4, noise: .35, sustain: true },
         "railgun-charge": { pitch: 180, end: 650, duration: 1.2, charge: true }
     };
     const active = new Set();
+    const railguns = new Map();
     const buffers = new Map();
     let synth;
     let masterGain;
@@ -73,10 +76,10 @@
             }
             const pulse = phase % 1 < .25 ? 1 : -1;
             const mix = effect.noise || 0;
-            const attack = Math.min(1, t / .003);
-            const release = Math.min(1, (effect.duration - t) / .012);
+            const attack = effect.sustain ? 1 : Math.min(1, t / .003);
+            const release = effect.sustain ? 1 : Math.min(1, (effect.duration - t) / .012);
             const envelope = effect.charge ? .25 + progress * .75
-                : effect.notes ? .7 : Math.pow(1 - progress, 2);
+                : effect.notes ? .7 : effect.sustain ? .8 : Math.pow(1 - progress, 2);
             samples[i] = (pulse * (1 - mix) + noise * mix) * attack * release * envelope * .16;
         }
         buffers.set(name, buffer);
@@ -89,7 +92,26 @@
             if (masterGain) masterGain.gain.value = masterVolume;
             try { localStorage.setItem(storageKey, JSON.stringify(masterVolume)); } catch { /* Optional storage. */ }
         },
-        play(name, distance = 0) {
+        stopRailgun(id) { const current = railguns.get(id); current?.voice?.stop(); railguns.delete(id); },
+        stopRailguns() { for (const id of railguns.keys()) this.stopRailgun(id); },
+        syncRailguns(players, listener, localId, localFiring) {
+            const live = new Set();
+            for (const player of players) {
+                if (player.id === localId && localFiring === false) continue;
+                const name = !player.down && player.weapon === "railgun" ? player.railgunRemaining > 0 ? "railgun" : player.railgunCharge > 0 ? "railgun-charge" : null : null;
+                if (!name || !listener) continue;
+                live.add(player.id);
+                const distance = player.id === localId ? 0 : Math.hypot(listener.x - player.x, listener.y - player.y);
+                if (railguns.get(player.id)?.name !== name) {
+                    this.stopRailgun(player.id);
+                    const voice = this.play(name, distance, name === "railgun");
+                    if (voice) railguns.set(player.id, { name, voice });
+                }
+                railguns.get(player.id)?.voice?.setDistance(distance);
+            }
+            for (const id of railguns.keys()) if (!live.has(id)) this.stopRailgun(id);
+        },
+        play(name, distance = 0, loop = false) {
             if (!unlocked || masterVolume === 0 || !Object.hasOwn(effects, name) || active.size >= 8) return;
             if (!Number.isFinite(distance)) return;
             const volume = Math.pow(Math.max(0, 1 - Math.max(0, distance) / 600), 2);
@@ -100,11 +122,17 @@
             const gain = audio.createGain();
             gain.gain.value = volume;
             source.buffer = bufferFor(name, audio);
+            source.loop = loop;
             source.connect(gain);
             gain.connect(masterGain);
             active.add(source);
             source.onended = () => { active.delete(source); source.disconnect(); gain.disconnect(); };
             source.start();
+            let stopped = false;
+            return {
+                stop() { if (stopped) return; stopped = true; source.stop(); },
+                setDistance(value) { gain.gain.value = Math.pow(Math.max(0, 1 - value / 600), 2); }
+            };
         }
     };
 })();

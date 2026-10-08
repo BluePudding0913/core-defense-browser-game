@@ -22,9 +22,14 @@ final class CombatSystem {
     }
     private final World world;
     private final CombatEvents events;
+    private final java.util.function.DoubleSupplier random;
     CombatSystem(World world, CombatEvents events) {
+        this(world, events, Math::random);
+    }
+    CombatSystem(World world, CombatEvents events, java.util.function.DoubleSupplier random) {
         this.world = world;
         this.events = events;
+        this.random = random;
     }
 
     void attackAt(Player player, double aimX, double aimY) {
@@ -32,7 +37,7 @@ final class CombatSystem {
             attackDrone(player, aimX, aimY);
             return;
         }
-        if (!world.canAttack() || player.down || player.movingCore || player.selectedBuild != null || player.cooldown > 0
+        if (!world.canAttack() || player.missileControl || player.down || player.movingCore || player.selectedBuild != null || player.cooldown > 0
                 || DroneRules.mounted(player, player.weapon)) return;
 
         if (player.weapon.equals("railgun")) {
@@ -75,6 +80,10 @@ final class CombatSystem {
             fireRicochet(player, weapon, directionX, directionY);
             return;
         }
+        if (WeaponCatalog.find(player.weapon).mode() == WeaponCatalog.AttackMode.FLAME) {
+            fireFlame(player, weapon, directionX, directionY);
+            return;
+        }
         if (player.weapon.equals("bat")) {
             double effectDistance = GameMap.distanceToWall(player.x, player.y, directionX, directionY,
                     Math.min(Math.hypot(aimX - player.x, aimY - player.y), weapon.range()), world.unlockedAreas());
@@ -89,6 +98,33 @@ final class CombatSystem {
             double spreadAngle = shotgun ? (pellet - (rays - 1) / 2.0) * .14 : 0;
             fireRay(player, weapon, Math.cos(angle + spreadAngle), Math.sin(angle + spreadAngle));
         }
+    }
+
+    void missileImpact(Player player, double x, double y) {
+        events.explosion(x, y, MissileRules.radius());
+        for (Enemy enemy : List.copyOf(world.enemies())) {
+            double separation = distance(x, y, enemy.x, enemy.y);
+            if (enemy.hp <= 0 || separation > MissileRules.radius()
+                    || !GameMap.hasClearLine(x, y, enemy.x, enemy.y, world.unlockedAreas())) continue;
+            int credits = player.credits;
+            double dealt = damageEnemy(enemy, MissileRules.damage() * (1 - .5 * separation / MissileRules.radius()), player);
+            events.hit(player.id, "rocket", x, y, enemy.x, enemy.y, dealt, enemy.hp <= 0, player.credits - credits, false, enemy.id);
+        }
+    }
+
+    private void fireFlame(Player player, WeaponStats weapon, double dx, double dy) {
+        double x = shotX(player), y = shotY(player);
+        String weaponId = shotWeapon(player);
+        double range = GameMap.distanceToWall(x, y, dx, dy, weapon.range(), world.unlockedAreas());
+        events.hit(player.id, weaponId, x, y, x + dx * range, y + dy * range, 0, false, 0, false, null);
+        for (Enemy enemy : List.copyOf(world.enemies())) {
+            if (enemy.hp <= 0 || !isInsideAttack(enemy, x, y, dx, dy, weapon, range)
+                    || !GameMap.hasClearLine(x, y, enemy.x, enemy.y, world.unlockedAreas())) continue;
+            int credits = player.credits;
+            double dealt = damageEnemy(enemy, enemy.shieldedDamage(weapon.damage(), x, y), player);
+            events.hit(player.id, weaponId, x, y, enemy.x, enemy.y, dealt, enemy.hp <= 0, player.credits - credits, false, enemy.id);
+        }
+        for (Player target : friendlyRayTargets(player, x, y, dx, dy, weapon, range)) world.damagePlayer(target, weapon.damage());
     }
 
     private record DroneShot(Player owner, String weapon, double x, double y, Drone drone) { }
@@ -117,6 +153,8 @@ final class CombatSystem {
             double directionX = dx / length, directionY = dy / length;
             if (definition.mode() == WeaponCatalog.AttackMode.RICOCHET) {
                 fireRicochet(player, stats, directionX, directionY);
+            } else if (definition.mode() == WeaponCatalog.AttackMode.FLAME) {
+                fireFlame(player, stats, directionX, directionY);
             } else {
                 double angle = Math.atan2(directionY, directionX);
                 for (int pellet = 0; pellet < definition.pellets(); pellet++) {
@@ -372,6 +410,7 @@ final class CombatSystem {
         double dealt = Math.min(enemy.hp, damage);
         enemy.hp -= dealt;
         if (player != null && dealt > 0) {
+            JobRules.recordSpyAttack(player, enemy, random);
             enemy.creditProgress += enemy.reward * dealt / enemy.maxHp;
             int earnedCredits = Math.min(enemy.reward,
                     (int) Math.floor(enemy.creditProgress + 1e-9));
