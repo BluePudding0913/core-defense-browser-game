@@ -12,6 +12,10 @@ const WeaponUI = Object.freeze({
         const definition = definitions[id];
         return definition?.capacity > 0 ? String(player[definition.ammo] ?? 0) : "∞";
     },
+    silverAmmoLabel(player, id, definitions) {
+        return definitions[id]?.silverAmmoEligible && player.silverAmmo > 0
+            ? `銀弾 ${player.silverAmmo}` : "";
+    },
     ownedAmmoWeapons(player, definitions) {
         return Object.values(definitions).filter(definition => definition.capacity > 0 && this.owns(player, definition));
     },

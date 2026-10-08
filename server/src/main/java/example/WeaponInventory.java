@@ -10,6 +10,18 @@ final class WeaponInventory {
     static final int MAX_WEAPONS = 3;
     private final Set<String> owned = new HashSet<>(Set.of("pistol"));
     private final Map<String, Integer> ammunition = new HashMap<>();
+    private int silverAmmo;
+    int silverAmmo() { return silverAmmo; }
+    boolean buySilverAmmo(int silver) {
+        if (silver < SilverAmmoRules.COST || silverAmmo > Integer.MAX_VALUE - SilverAmmoRules.PACK_SIZE) return false;
+        silverAmmo += SilverAmmoRules.PACK_SIZE;
+        return true;
+    }
+    boolean consumeSilverAmmo(String weapon) {
+        if (silverAmmo <= 0 || !SilverAmmoRules.eligible(weapon)) return false;
+        silverAmmo--;
+        return true;
+    }
     boolean owns(String id) {
         var definition = WeaponCatalog.find(id);
         return definition != null && (id.equals("bat") || owned.contains(id));
@@ -54,7 +66,7 @@ final class WeaponInventory {
         ammunition.remove(outgoing);
         return grant(incoming);
     }
-    void clear() { owned.clear(); owned.add("pistol"); ammunition.clear(); }
+    void clear() { owned.clear(); owned.add("pistol"); ammunition.clear(); silverAmmo = 0; }
     void remove(String id) {
         if (id.equals("bat")) return;
         owned.remove(id);

@@ -33,7 +33,7 @@ const context = vm.createContext({
         turret: { name: 'TURRET', description: 'Defense', ore: 3 },
         woodFactory: { name: 'FACTORY', shopOnly: true },
     },
-    state: { rules: { medkitCapacity: 3 } },
+    state: { rules: { medkitCapacity: 3, silverAmmo: { cost: 1, amount: 10, damageMultiplier: 1.3 } } },
     applyRules() {}, keepEndArea: () => false, hideScreenIntro() {}, window: {},
     previousPhase: 'preparing', previousRound: 1, lastCoreHp: 100,
     performance: { now: () => 0 }, reconcileEnemySmoothing() {}, reconcileDroneSmoothing() {}, endInteractionHold() {},
@@ -47,7 +47,9 @@ for (const name of ['openActionMenu', 'openNearbyActionMenu', 'closeActionMenu',
 }
 const run = code => vm.runInContext(code, context);
 const snapshot = () => {
-    context.next = { phase: 'preparing', round: 1, players: [], core: { hp: 100 }, rules: { medkitCapacity: 3, weaponLimit: 3 } };
+    context.next = { phase: 'preparing', round: 1, players: [], core: { hp: 100 }, rules: {
+        medkitCapacity: 3, weaponLimit: 3, silverAmmo: { cost: 1, amount: 10, damageMultiplier: 1.3 },
+    } };
     run('receiveState(next)');
 };
 const click = () => { const button = actionOptions.children[0]; if (!button.disabled) button.click(); };
@@ -225,4 +227,28 @@ snapshot();
 assert.deepEqual(actionOptions.children, orderedButtons, 'refresh keeps the ordered buttons and focus');
 actionOptions.children[1].click();
 assert.equal(commands.at(-1), 'CRAFT:barricade', 'sorted buttons still craft the selected item');
-console.log('Shop/workbench menu passed: purchases/refills/crafts stay open, live availability, stable buttons, craft order and closing');
+context.shop = { label: 'AMMO', item: 'ammo', cost: 500, x: 0, y: 0 };
+me.credits = 0; me.silver = 1; me.silverAmmo = 0;
+run('openShopPurchase(shop)');
+assert.equal(actionOptions.children.length, 2);
+const silverButton = actionOptions.children[1];
+assert.equal(silverButton.innerHTML,
+    '銀弾 +10<small>銀 1</small><span class="action-stock">所持 0発 · 火力 ×1.3</span>');
+assert(!silverButton.disabled, 'silver ammo can be purchased with silver and no gold');
+silverButton.click();
+assert.equal(commands.at(-1), 'BUY:silverAmmo');
+assert(!classes.has('hidden'), 'silver ammo purchase keeps the shop open');
+me.silver = 0; me.silverAmmo = 10;
+snapshot();
+assert.equal(actionOptions.children[1], silverButton, 'silver purchase refresh preserves button focus');
+assert(silverButton.disabled);
+assert(silverButton.innerHTML.includes('所持 10発'), 'purchased silver stock updates');
+me.silverAmmo = 9; snapshot();
+assert(silverButton.innerHTML.includes('所持 9発'), 'firing updates remaining silver stock');
+const weaponUI = context.WeaponUI;
+const definitions = { pistol: { capacity: 0, silverAmmoEligible: true }, rocket: { capacity: 8, silverAmmoEligible: false } };
+assert.equal(weaponUI.silverAmmoLabel(me, 'pistol', definitions), '銀弾 9');
+assert.equal(weaponUI.silverAmmoLabel(me, 'rocket', definitions), '');
+me.silverAmmo = 0;
+assert.equal(weaponUI.silverAmmoLabel(me, 'pistol', definitions), '');
+console.log('Shop/workbench menu passed: purchases/refills/crafts stay open, live availability, stable buttons, craft order, silver ammo and closing');

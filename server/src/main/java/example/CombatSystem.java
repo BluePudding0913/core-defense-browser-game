@@ -58,6 +58,7 @@ final class CombatSystem {
             player.firing = false;
             return;
         }
+        if (player.weapons.consumeSilverAmmo(player.weapon)) weapon = SilverAmmoRules.boost(weapon);
 
         events.sound(player,"shot",player.weapon);
         player.cooldown = weapon.cooldown();
@@ -104,6 +105,7 @@ final class CombatSystem {
         if (!world.canAttack() || !player.job.equals("attacker") || player.down || player.movingCore
                 || player.selectedBuild != null || player.secondaryCooldown > 0) return;
         var stats = WeaponCatalog.stats("pistol");
+        if (player.weapons.consumeSilverAmmo("pistol")) stats = SilverAmmoRules.boost(stats);
         player.secondaryCooldown = stats.cooldown();
         secondaryShooter = player;
         try {
@@ -160,6 +162,7 @@ final class CombatSystem {
         }
         var definition = WeaponCatalog.find(drone.weapon);
         var stats = definition.stats();
+        if (player.weapons.consumeSilverAmmo(drone.weapon)) stats = SilverAmmoRules.boost(stats);
         drone.cooldown = stats.cooldown();
         // Freeze origin and weapon for the entire burst, even if a bomber destroys the drone.
         droneShot = new DroneShot(player, drone.weapon, drone.x, drone.y, drone);

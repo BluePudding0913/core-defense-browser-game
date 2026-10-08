@@ -6,6 +6,115 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class CombatSystemTest {
+    private static Player shooter(String weapon, boolean silver) {
+        var player = new Player(1);
+        player.x = 1020; player.y = 1900;
+        if (!weapon.equals("bat")) player.weapons.grant(weapon);
+        player.equipWeapon(weapon);
+        if (silver) assertTrue(player.weapons.buySilverAmmo(1));
+        return player;
+    }
+
+    private static Enemy target(World world, int id, double x) {
+        var enemy = new Enemy(id, "grunt", GameMap.SPAWN_POINTS.get(0), 100000, 0, 0, 0);
+        enemy.x = x; enemy.y = 1900;
+        world.enemies.add(enemy);
+        return enemy;
+    }
+
+    @Test void silverBoostsAllBulletWeaponsAndConsumesOnePerTriggerIncludingSpreadAndPiercing() {
+        for (String weapon : List.of("pistol", "shotgun", "smg", "rifle", "sniper", "ricochet", "revolver", "lmg")) {
+            double[] damage = new double[2];
+            for (int variant = 0; variant < 2; variant++) {
+                var world = new World(); world.active = true;
+                var combat = new CombatSystem(world, new Events());
+                var player = shooter(weapon, variant == 1);
+                var first = target(world, 1, 1100);
+                var second = target(world, 2, 1180);
+                int normalAmmo = player.weapons.ammo(weapon);
+                combat.attackAt(player, 1400, 1900);
+                damage[variant] = 200000 - first.hp - second.hp;
+                assertEquals(variant == 1 ? 9 : 0, player.weapons.silverAmmo(), weapon);
+                if (WeaponCatalog.capacity(weapon) > 0) assertEquals(normalAmmo - 1, player.weapons.ammo(weapon));
+                if (WeaponCatalog.find(weapon).piercing()) assertTrue(second.hp < second.maxHp, weapon);
+            }
+            assertTrue(damage[0] > 0, weapon);
+            assertEquals(damage[0] * 1.3, damage[1], 1e-7, weapon);
+        }
+    }
+
+    @Test void silverIsSpentOnMissesButNotBlockedOrEmptyShotsAndLastRoundKeepsItsBoost() {
+        var world = new World(); world.active = true;
+        var combat = new CombatSystem(world, new Events());
+        var player = shooter("smg", true);
+        player.cooldown = 1; combat.attackAt(player, 1400, 1900);
+        assertEquals(10, player.weapons.silverAmmo());
+        player.cooldown = 0; player.weapons.setAmmo("smg", 0);
+        combat.attackAt(player, 1400, 1900);
+        assertEquals(10, player.weapons.silverAmmo());
+        player.weapons.setAmmo("smg", 20);
+        for (int i = 0; i < 9; i++) {
+            player.cooldown = 0; combat.attackAt(player, 1400, 1900);
+        }
+        assertEquals(1, player.weapons.silverAmmo());
+        var enemy = target(world, 1, 1100);
+        player.cooldown = 0; combat.attackAt(player, 1400, 1900);
+        double boosted = enemy.maxHp - enemy.hp;
+        assertEquals(0, player.weapons.silverAmmo());
+        double before = enemy.hp;
+        player.cooldown = 0; combat.attackAt(player, 1400, 1900);
+        assertEquals((before - enemy.hp) * 1.3, boosted, 1e-7);
+    }
+
+    @Test void excludedWeaponsAndMissilesNeitherSpendSilverNorGainDamage() {
+        for (String weapon : List.of("bat", "rocket", "flamethrower", "railgun")) {
+            double[] damage = new double[2];
+            for (int variant = 0; variant < 2; variant++) {
+                var world = new World(); world.active = true;
+                var combat = new CombatSystem(world, new Events());
+                var player = shooter(weapon, variant == 1);
+                var enemy = target(world, 1, 1100);
+                player.firing = true; player.aimX = 1100; player.aimY = 1900;
+                combat.attackAt(player, 1100, 1900);
+                if (weapon.equals("railgun")) combat.updateRailgun(player, GameConfig.RAILGUN_CHARGE + .1);
+                damage[variant] = enemy.maxHp - enemy.hp;
+                assertEquals(variant == 1 ? 10 : 0, player.weapons.silverAmmo(), weapon);
+            }
+            assertTrue(damage[0] > 0, weapon);
+            assertEquals(damage[0], damage[1], 1e-7, weapon);
+        }
+        var world = new World(); world.active = true;
+        var combat = new CombatSystem(world, new Events());
+        var player = shooter("pistol", true);
+        var enemy = target(world, 1, 1100);
+        combat.missileImpact(player, 1100, 1900);
+        assertEquals(MissileRules.damage(), enemy.maxHp - enemy.hp, 1e-7);
+        assertEquals(10, player.weapons.silverAmmo());
+    }
+
+    @Test void secondaryPistolAndDroneShareSilverAmmoWithTheOwner() {
+        var world = new World(); world.active = true;
+        var combat = new CombatSystem(world, new Events());
+        var player = shooter("smg", true); player.job = "attacker";
+        var enemy = target(world, 1, 1100);
+        combat.attackSecondary(player, 1400, 1900);
+        assertEquals(9, player.weapons.silverAmmo());
+        double enhancedPistolDamage = enemy.maxHp - enemy.hp;
+        var ordinary = shooter("pistol", false);
+        double before = enemy.hp;
+        combat.attackAt(ordinary, 1400, 1900);
+        assertEquals((before - enemy.hp) * 1.3, enhancedPistolDamage, 1e-7);
+        player.drone = new Drone(); player.drone.active = true; player.drone.controlled = true;
+        player.drone.weapon = "smg"; player.drone.x = player.x; player.drone.y = player.y;
+        before = enemy.hp;
+        combat.attackAt(player, 1400, 1900);
+        assertEquals(8, player.weapons.silverAmmo());
+        ordinary.weapon = "smg"; ordinary.weapons.grant("smg"); ordinary.cooldown = 0;
+        double droneDamage = before - enemy.hp; before = enemy.hp;
+        combat.attackAt(ordinary, 1400, 1900);
+        assertEquals((before - enemy.hp) * 1.3, droneDamage, 1e-7);
+    }
+
     private static final class World implements CombatSystem.World {
         boolean active;
         int deaths;
@@ -82,6 +191,7 @@ class CombatSystemTest {
         var events = new Events();
         var combat = new CombatSystem(world, events);
         var player = new Player(1);
+        assertTrue(player.weapons.buySilverAmmo(1));
         player.weapons.grant("smg");
         player.equipWeapon("smg");
         combat.attackAt(player, 100, 100);
@@ -95,6 +205,7 @@ class CombatSystemTest {
         player.cooldown = 1;
         combat.attackAt(player, 100, 100);
         assertEquals(WeaponCatalog.capacity("smg"), player.weapons.ammo("smg"));
+        assertEquals(10, player.weapons.silverAmmo());
         assertEquals(0, events.shots);
         assertEquals(0, events.feedback);
         player.cooldown = 0;
@@ -106,5 +217,6 @@ class CombatSystemTest {
         assertFalse(player.firing);
         assertEquals(0, events.shots);
         assertEquals(1, events.feedback);
+        assertEquals(10, player.weapons.silverAmmo());
     }
 }
