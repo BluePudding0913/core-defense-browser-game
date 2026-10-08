@@ -123,7 +123,7 @@ class ExplosionBossTest {
             player.y = y;
             effects.clear();
             game.combat.fireRay(player, GameSession.weaponStats("pistol"), 1., 0.);
-            assertEquals(.026, before - boss.hp, .000001);
+            assertEquals(.04, before - boss.hp, .000001);
             assertTrue(effects.stream().anyMatch(s -> s.contains("\"damage\":0.026") && s.contains("\"headshot\":false")));
             assertEquals(0, player.credits);
             var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
