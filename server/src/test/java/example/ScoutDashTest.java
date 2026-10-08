@@ -5,6 +5,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 class ScoutDashTest extends JobsTest {
+    @Test void fullStaminaSupportsFifteenBurstsWithoutWaitingBeyondMovement() throws Exception {
+        scout();
+        for (int i = 0; i < 15; i++) {
+            player.x = 940; player.y = 1900;
+            game.handleMessage(player, "SCOUT_DASH:1500:1900");
+            assertEquals(300 - (i + 1) * 20, player.stamina, 1e-6);
+            assertEquals(.2, player.scoutDashRemaining);
+            game.update(.2);
+            assertEquals(0, player.jobCooldown, 1e-6);
+        }
+        game.handleMessage(player, "SCOUT_DASH:1500:1900");
+        assertEquals(0, player.scoutDashRemaining); assertEquals(0, player.stamina);
+    }
     private void scout() {
         setup();
         start("scout");
@@ -34,17 +47,17 @@ class ScoutDashTest extends JobsTest {
         assertTrue(player.x < 1100, "held movement resumes after burst");
     }
 
-    @Test void burstCanBeUsedAgainAfterEightTenthsOfASecond() {
+    @Test void burstCanBeUsedAgainAsSoonAsMovementEnds() {
         scout();
         game.handleMessage(player, "SCOUT_DASH:1500:1900");
-        assertEquals(.8, player.jobCooldown);
-        game.update(.79);
+        assertEquals(.2, player.jobCooldown);
+        game.update(.19);
         game.handleMessage(player, "SCOUT_DASH:1500:1900");
-        assertEquals(0, player.scoutDashRemaining);
+        assertEquals(.01, player.scoutDashRemaining, 1e-6);
         game.update(.02);
         game.handleMessage(player, "SCOUT_DASH:1500:1900");
         assertEquals(JobRules.SCOUT_DASH_DURATION, player.scoutDashRemaining);
-        assertEquals(.8, player.jobCooldown);
+        assertEquals(.2, player.jobCooldown);
     }
 
     @Test void diagonalIsNormalizedAndLargeTickCannotExtendDistance() throws Exception {

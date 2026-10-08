@@ -28,11 +28,11 @@ class JobsTest {
 
     @Test void scoutStartsWithHigherCapacityAndRecoversUpToIt() throws Exception {
         start("scout");
-        assertEquals(150, player.stamina);
-        player.stamina = 145;
+        assertEquals(300, player.stamina);
+        player.stamina = 295;
         call("updatePlayers", new Class<?>[]{double.class}, 1.0);
         assertEquals(JobRules.staminaMax("scout"), player.stamina);
-        assertTrue(SnapshotBuilder.build(game).contains("\"staminaMax\":150.0"));
+        assertTrue(SnapshotBuilder.build(game).contains("\"staminaMax\":300.0"));
         player.x = GameMap.JOB_STATION.x(); player.y = GameMap.JOB_STATION.y();
         game.unlockedAreas.add("recovery-room");
         game.handleMessage(player, "JOB:healer");
