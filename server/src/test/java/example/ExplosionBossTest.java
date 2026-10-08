@@ -64,13 +64,13 @@ class ExplosionBossTest {
         assertEquals(29.95, boss.fuse, .0001);
     }
 
-    @Test void survivesHeavyDamageAndNeverMeleesNearbyPlayer() throws Exception {
+    @Test void takesOrdinaryDamageAndNeverMeleesNearbyPlayer() throws Exception {
         player.x = boss.x; player.y = boss.y;
         game.queuedEnemies = 100;
         double hp = boss.hp;
-        game.combat.damageEnemy(boss, 1_000_000., player);
+        game.combat.damageEnemy(boss, 1000., player);
         assertEquals(hp - 1000, boss.hp);
-        assertEquals(1_000_000_000, boss.maxHp);
+        assertEquals((2200 + game.round * 60) * 2, boss.maxHp);
         assertTrue(boss.speed <= 24);
         update(10);
         assertEquals(100, player.hp);
@@ -115,7 +115,7 @@ class ExplosionBossTest {
         assertTrue(player.down); assertEquals(0, player.hp);
     }
 
-    @Test void headAndBodyBothTakeTinyDamageWithoutHeadshotMultiplierOrGold() throws Exception {
+    @Test void ordinaryShotsApplyFullDamageHeadshotsAndGold() throws Exception {
         player.x = 1020; player.y = 1900;
         boss.x = 1120; boss.y = 1900;
         double before = boss.hp;
@@ -123,12 +123,80 @@ class ExplosionBossTest {
             player.y = y;
             effects.clear();
             game.combat.fireRay(player, GameSession.weaponStats("pistol"), 1., 0.);
-            assertEquals(.026, before - boss.hp, .000001);
-            assertTrue(effects.stream().anyMatch(s -> s.contains("\"damage\":0.026") && s.contains("\"headshot\":false")));
-            assertEquals(0, player.credits);
+            boolean headshot = y == 1879;
+            double damage = headshot ? 52 : 26;
+            assertEquals(damage, before - boss.hp, .000001);
+            assertTrue(effects.stream().anyMatch(s -> s.contains("\"damage\":" + damage)
+                    && s.contains("\"headshot\":" + headshot)));
+            assertTrue(player.credits > 0);
             var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
             assertEquals(boss.hp, snapshot.path("enemies").get(0).path("hp").asDouble());
             before = boss.hp;
+        }
+    }
+
+    @Test void playerKillSpawnsFiveRunnersOnceWithoutExplodingAndKeepsRoundRunning() throws Exception {
+        game.phase = GamePhase.WAVE;
+        player.x = 1020; player.y = 1900;
+        boss.x = 1120; boss.y = 1900; boss.hp = 1; boss.fuse = .01;
+        double x = boss.x, y = boss.y;
+        game.combat.fireRay(player, GameSession.weaponStats("pistol"), 1., 0.);
+        assertEquals(0, boss.hp);
+        game.update(.05);
+        assertEquals(GamePhase.WAVE, game.phase);
+        assertEquals(5, game.enemies.size());
+        assertEquals(5, game.enemies.stream().map(e -> e.id).distinct().count());
+        for (Enemy runner : game.enemies) {
+            assertEquals("runner", runner.type);
+            assertEquals(x, runner.x); assertEquals(y, runner.y);
+            assertEquals(runner.maxHp, runner.hp, "Offspring must not receive the killing shot");
+        }
+        assertFalse(boss.exploded);
+        assertTrue(boss.offspringSpawned);
+        assertEquals(100, player.hp);
+        assertTrue(effects.stream().noneMatch(s -> s.contains("\"effect\":\"explosion\"")));
+        game.update(.05);
+        assertEquals(5, game.enemies.size());
+        game.enemies.forEach(e -> e.hp = 0);
+        game.update(.05);
+        assertEquals(GamePhase.PREPARING, game.phase);
+    }
+
+    @Test void uncreditedDamageAlsoSpawnsOffspringOnlyOnce() throws Exception {
+        game.combat.damageEnemy(boss, boss.hp, null);
+        update(.05);
+        update(.05);
+        assertEquals(5, game.enemies.stream().filter(e -> e.type.equals("runner")).count());
+        assertFalse(boss.exploded);
+    }
+
+    @Test void silverAmmoDoublesNormalDamageAgainstExplosionBoss() {
+        game.phase = GamePhase.WAVE;
+        player.x = 1020; player.y = 1900;
+        boss.x = 1120; boss.y = 1900;
+        assertTrue(player.weapons.buySilverAmmo(1));
+        double hp = boss.hp;
+        game.combat.attackAt(player, boss.x, boss.y);
+        assertEquals(52, hp - boss.hp, .000001);
+        assertEquals(9, player.weapons.silverAmmo());
+    }
+
+    @Test void areaAndSpreadKillsLeaveOneHealthyOffspringBatch() throws Exception {
+        for (String weapon : List.of("shotgun", "rocket", "flamethrower", "missile")) {
+            setup();
+            game.phase = GamePhase.WAVE;
+            player.x = 1020; player.y = 1900;
+            boss.x = 1120; boss.y = 1900; boss.hp = 1;
+            if (weapon.equals("missile")) game.combat.missileImpact(player, boss.x, boss.y);
+            else {
+                player.weapons.grant(weapon); player.equipWeapon(weapon);
+                game.combat.attackAt(player, boss.x, boss.y);
+            }
+            assertEquals(0, boss.hp, weapon);
+            game.update(.05);
+            assertEquals(5, game.enemies.size(), weapon);
+            game.enemies.forEach(e -> assertEquals(e.maxHp, e.hp, weapon));
+            assertFalse(boss.exploded, weapon);
         }
     }
 

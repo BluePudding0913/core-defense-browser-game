@@ -251,6 +251,7 @@ final class Enemy {
     double specialCooldown;
     final WardenRules.State warden;
     boolean exploded;
+    boolean offspringSpawned;
     double fuse = -1;
     double slow = 1;
     double facingX;
