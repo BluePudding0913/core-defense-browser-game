@@ -32,20 +32,20 @@ class DualWeaponsTest extends JobsTest {
         assertEquals(right - 2, player.weapons.ammo("shotgun"));
     }
 
-    @Test void bothHandsShareAmmoAndSilverAndCannotShootAnEmptyWeapon() {
-        start("attacker"); player.weapons.grant("smg"); player.weapons.setAmmo("smg", 3);
-        player.weapons.buySilverAmmo(1);
+    @Test void rejectsTheOtherHandsWeaponFromBothCommands() {
+        start("attacker"); player.weapons.grant("smg");
+        assertEquals("bat", player.secondaryWeapon);
         game.handleMessage(player, "WEAPON:smg");
         game.handleMessage(player, "SECONDARY_WEAPON:smg");
-        game.handleMessage(player, "FIRE:1240:1900:1");
+        assertEquals("bat", player.secondaryWeapon);
+        game.handleMessage(player, "SECONDARY_WEAPON:pistol");
+        game.handleMessage(player, "WEAPON:pistol");
+        assertEquals("smg", player.weapon); assertEquals("pistol", player.secondaryWeapon);
+        player.secondaryWeapon = "smg";
+        int ammo = player.weapons.ammo("smg");
         game.handleMessage(player, "SECONDARY_FIRE:1240:1900:1");
-        assertEquals(1, player.weapons.ammo("smg")); assertEquals(8, player.weapons.silverAmmo());
-        game.update(1);
-        assertEquals(0, player.weapons.ammo("smg")); assertEquals(7, player.weapons.silverAmmo());
-        game.update(1);
-        assertEquals(0, player.weapons.ammo("smg")); assertEquals(7, player.weapons.silverAmmo());
+        assertEquals(ammo, player.weapons.ammo("smg"), "invalid matching loadout cannot shoot");
     }
-
     @Test void switchingRightWeaponRetainsCooldownAndRejectsOtherJobsAndDownPlayers() {
         start("attacker"); player.weapons.grant("shotgun");
         game.handleMessage(player, "SECONDARY_WEAPON:shotgun");

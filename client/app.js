@@ -24,7 +24,6 @@ document.addEventListener("click", event => {
         jobToggle.setAttribute("aria-expanded", "false");
     }
 });
-const jobAbilityButton = document.querySelector("#job-ability");
 jobSelect.addEventListener("click", event => {
     const job = event.target.closest("[data-job]")?.dataset.job;
     if (job) send(`JOB:${job}`);
@@ -523,7 +522,7 @@ function acknowledgeInputs(value) {
 
 function applyRules(next) {
     if (next.rules) {
-        BUILD_INFO = { ...next.rules.recipes, teleporter: { name: "テレポーター", shopOnly: true } };
+        BUILD_INFO = { ...next.rules.recipes };
         SHOP_UNITS.filter(shop => shop.item.endsWith("Factory")).forEach(shop => {
             BUILD_INFO[shop.item] = { name: shop.label, description: "持ち運べる製造装置", shopOnly: true };
         });
@@ -767,8 +766,10 @@ function reorderEquipment(sourceKey, targetKey) {
 
 function equipmentEntries(me) {
     const entries = WeaponUI.entries(me, WEAPON_FIELDS)
+        .filter(entry => me.job !== "attacker" || entry.value !== me.secondaryWeapon)
         .filter(entry => !(me.drone?.active && entry.value === me.drone.weapon));
     for (const [type, info] of Object.entries(BUILD_INFO)) {
+        if (type === "teleporter") continue;
         if ((me.buildItems?.[type] || 0) > 0) entries.push({ key: `build:${type}`, kind: "build", value: type, label: info.name });
     }
     if (me.movingCore) entries.push({ key: "core", kind: "core", value: "core", label: "CORE" });
@@ -831,7 +832,7 @@ function beginJobHold() {
             if (getMe()?.drone?.active) send("DRONE_RECOVER");
             else openDroneLaunch();
         }, 500);
-    } else if (["healer", "tank", "spy"].includes(me.job)) {
+    } else if (["healer", "tank", "spy", "tp"].includes(me.job)) {
         hold.used = true;
         send("JOB_ABILITY");
     }
@@ -859,10 +860,6 @@ function beginInteractionHold() {
     interactionHold = hold;
     if (interaction?.kind === "teleporter" && actionMenu.classList.contains("hidden") && !placementSelection(getMe())) {
         hold.interaction = interaction;
-        if (interaction.owned) hold.timer = setTimeout(() => {
-            hold.used = true;
-            send(`PICKUP_TELEPORT:${interaction.target.x}:${interaction.target.y}`);
-        }, 500);
     } else if (target && actionMenu.classList.contains("hidden") && !placementSelection(getMe())) {
         hold.timer = setTimeout(() => {
             hold.used = true;
@@ -982,7 +979,7 @@ function updateHud() {
         const placing = Boolean(placementSelection(me));
         const interaction = findNearestInteraction();
         interactLabel.textContent = placing ? "PLACE" : interaction?.kind === "teleporter"
-            ? interaction.owned ? "TP / 長押しで回収" : "TP" : ["core", "defense"].includes(interaction?.kind) ? "長押しで運搬" : "INTERACT";
+            ? "TP" : ["core", "defense"].includes(interaction?.kind) ? "長押しで運搬" : "INTERACT";
         interactButton.classList.toggle("hidden", !placing && !interaction);
     }
 }
@@ -992,13 +989,16 @@ function updateAttackerLoadout(me) {
     panel.classList.toggle("hidden", me.job !== "attacker");
     if (me.job !== "attacker") return;
     const entries = WeaponUI.entries(me, WEAPON_FIELDS);
-    const options = entries.map(entry => '<option value="' + entry.value + '">' + escapeHtml(entry.label) + '</option>').join("");
     for (const select of panel.querySelectorAll("select")) {
+        const opposite = select.dataset.hand === "left" ? me.secondaryWeapon : me.weapon;
+        const options = entries.filter(entry => entry.value !== opposite)
+            .map(entry => '<option value="' + entry.value + '">' + escapeHtml(entry.label) + '</option>').join("")
+            || '<option value="none">—</option>';
         if (select.dataset.options !== options) {
             select.innerHTML = options;
             select.dataset.options = options;
         }
-        select.value = select.dataset.hand === "left" ? me.weapon : me.secondaryWeapon || "pistol";
+        select.value = select.dataset.hand === "left" ? me.weapon : me.secondaryWeapon || "bat";
         select.disabled = me.down || me.movingCore || me.missileControl;
     }
 }
@@ -1007,6 +1007,7 @@ document.querySelector("#attacker-loadout").addEventListener("change", event => 
     const select = event.target.closest("select[data-hand]");
     const me = getMe();
     if (!select || select.disabled || me?.job !== "attacker" || me.down || me.movingCore) return;
+    if (select.value === (select.dataset.hand === "left" ? me.secondaryWeapon : me.weapon)) return;
     if (!WeaponUI.entries(me, WEAPON_FIELDS).some(entry => entry.value === select.value)) return;
     if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
     stopSecondaryFiring();
@@ -1517,9 +1518,7 @@ function openShopPurchase(shop, chooseExchange = false) {
             : unavailable ? "LOCKED" : "BUY",
         detail: `${price}G`,
         titleAmmo: alreadyOwned && weaponFields.capacity > 0 ? `${ammo} / ${weaponFields.capacity}` : "",
-        ammoStock: shop.item === "ammo" ? Object.entries(WEAPON_FIELDS)
-            .filter(([, fields]) => ownedWeapons.includes(fields))
-            .map(([id, fields]) => ({ name: WeaponUI.name(id, WEAPON_FIELDS), count: `${me[fields.ammo]} / ${fields.capacity}` })) : [],
+        stock: shop.item === "ammo" ? WeaponUI.ammoStock(me, WEAPON_FIELDS) : "",
         command: weaponLimitReached ? undefined : `BUY:${shop.item}`,
         onSelect: weaponLimitReached ? () => openShopPurchase(shop, true) : undefined,
         disabled: mounted || ammoFull || unavailable || me.credits < price,
@@ -1538,11 +1537,7 @@ function openShopPurchase(shop, chooseExchange = false) {
 }
 
 function openBreakerMenu(breaker) {
-    const options = [{ label: "MAP", command: `BREAKER_MAP:${breaker.id}` }];
-    if (state.blackoutActive && (state.trippedBreakers || []).includes(breaker.id)) {
-        options.push({ label: "RESET", command: `BREAKER:${breaker.id}` });
-    }
-    openNearbyActionMenu("BREAKER", options, breaker, INTERACTION_RANGE.breaker);
+    send(`${state.blackoutActive && (state.trippedBreakers || []).includes(breaker.id) ? "BREAKER" : "BREAKER_MAP"}:${breaker.id}`);
 }
 
 function openWoodcutterMenu() {
@@ -1890,7 +1885,7 @@ function findNearestInteraction() {
         for (const pad of owner.teleportPads || []) {
             const separation = distance(me, pad);
             const owned = owner.id === me.id && me.job === "tp";
-            if ((!owned && owner.teleportPads.length !== 2) || separation > 45 || !hasInteractionPath(me, pad)) continue;
+            if (owner.teleportPads.length !== 2 || separation > 45 || !hasInteractionPath(me, pad)) continue;
             choices.push({ kind: "teleporter", target: pad, owned, separation,
                 action: () => { if (owner.teleportPads.length === 2) send("TELEPORT"); } });
         }
@@ -2099,7 +2094,7 @@ function animate(now = performance.now()) {
     lastFrameAt = now;
     updateLocalPrediction(dt);
     window.coreAudio?.syncRailguns?.(socket?.readyState === WebSocket.OPEN ? state?.players || [] : [], predictedLocal || getMe(), myPlayerId, Boolean(firingPointer), secondaryHeld);
-    window.TerminalUI?.update(state, getMe(), { map: { world: WORLD, tileMap: TILE_MAP, areas: AREAS, startingArea: STARTING_AREA }, send });
+    window.TerminalUI?.update(state, getMe(), { map: { world: WORLD, tileMap: TILE_MAP, areas: AREAS, startingArea: STARTING_AREA, breakerTerminals: BREAKER_TERMINALS }, send });
     draw();
     requestAnimationFrame(animate);
 }
