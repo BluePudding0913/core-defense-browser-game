@@ -116,7 +116,7 @@ class CombatSystemTest {
                 if (WeaponCatalog.find(weapon).piercing()) assertTrue(second.hp < second.maxHp, weapon);
             }
             assertTrue(damage[0] > 0, weapon);
-            assertEquals(damage[0] * 1.3, damage[1], 1e-7, weapon);
+            assertEquals(damage[0] * 2.0, damage[1], 1e-7, weapon);
         }
     }
 
@@ -140,7 +140,7 @@ class CombatSystemTest {
         assertEquals(0, player.weapons.silverAmmo());
         double before = enemy.hp;
         player.cooldown = 0; combat.attackAt(player, 1400, 1900);
-        assertEquals((before - enemy.hp) * 1.3, boosted, 1e-7);
+        assertEquals((before - enemy.hp) * 2.0, boosted, 1e-7);
     }
 
     @Test void excludedWeaponsAndMissilesNeitherSpendSilverNorGainDamage() {
@@ -180,7 +180,7 @@ class CombatSystemTest {
         var ordinary = shooter("pistol", false);
         double before = enemy.hp;
         combat.attackAt(ordinary, 1400, 1900);
-        assertEquals((before - enemy.hp) * 1.3, enhancedPistolDamage, 1e-7);
+        assertEquals((before - enemy.hp) * 2.0, enhancedPistolDamage, 1e-7);
         player.drone = new Drone(); player.drone.active = true; player.drone.controlled = true;
         player.drone.weapon = "smg"; player.drone.x = player.x; player.drone.y = player.y;
         before = enemy.hp;
@@ -189,7 +189,7 @@ class CombatSystemTest {
         ordinary.weapon = "smg"; ordinary.weapons.grant("smg"); ordinary.cooldown = 0;
         double droneDamage = before - enemy.hp; before = enemy.hp;
         combat.attackAt(ordinary, 1400, 1900);
-        assertEquals((before - enemy.hp) * 1.3, droneDamage, 1e-7);
+        assertEquals((before - enemy.hp) * 2.0, droneDamage, 1e-7);
     }
 
     private static final class World implements CombatSystem.World {
