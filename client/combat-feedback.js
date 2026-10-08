@@ -25,6 +25,7 @@ const CombatFeedback = (() => {
         for (const popup of popups) {
             const text = popup.credits > 0 ? `+${popup.credits}G` : "";
             const headshot = popup.headshot && now - popup.headshotAt < 650;
+            if (!text && !headshot) continue;
             const width = Math.max(text.length * 7, headshot ? 18 : 0);
             const age = now - popup.updated;
             let y = popup.y - 26 - Math.min(1, (now - popup.created) / 900) * 20;
