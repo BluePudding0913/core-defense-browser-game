@@ -60,11 +60,11 @@ assert(!classes.has('hidden'), 'purchase keeps the shop open');
 me.ownsShotgun = true; me.shotgunAmmo = 12; me.credits = 50;
 snapshot();
 assert.equal(actionOptions.children[0], weaponButton, 'snapshots preserve the button and its focus');
-assert.equal(weaponButton.innerHTML, 'FULL<small>120G</small>');
+assert.equal(weaponButton.innerHTML, 'FULL<small>120G</small><span class="action-stock">弾薬 12 / 12</span>');
 assert(weaponButton.disabled);
 me.shotgunAmmo = 0; me.credits = 120;
 snapshot();
-assert.equal(weaponButton.innerHTML, 'REFILL<small>120G</small>');
+assert.equal(weaponButton.innerHTML, 'REFILL<small>120G</small><span class="action-stock">弾薬 0 / 12</span>');
 assert(!weaponButton.disabled);
 click();
 const refillStart = source.indexOf('if (message.type === "ammo-refilled") {');
@@ -77,11 +77,46 @@ snapshot();
 assert(weaponButton.disabled);
 context.shop = { label: 'KIT', item: 'medkit', cost: 50, x: 0, y: 0 };
 run('openShopPurchase(shop)');
+assert.equal(actionOptions.children[0].innerHTML,
+    '回復キット<small>50G</small><span class="action-stock">所持 0 / 3</span>');
 click();
 assert(!classes.has('hidden'));
 me.medkits = 3;
 snapshot();
 assert(actionOptions.children[0].disabled, 'kit capacity updates while the menu stays open');
+assert.equal(actionOptions.children[0].innerHTML,
+    '回復キット<small>50G</small><span class="action-stock">所持 3 / 3</span>');
+me.medkits = 2;
+snapshot();
+assert(actionOptions.children[0].innerHTML.includes('所持 2 / 3'), 'using a kit updates the open menu');
+Object.assign(context.WEAPON_FIELDS, {
+    smg: { name: 'SMG', capacity: 300, owned: 'ownsSmg', ammo: 'smgAmmo' },
+    pistol: { name: 'Pistol', capacity: 0, owned: 'ownsPistol' },
+});
+Object.assign(me, { ownsSmg: true, smgAmmo: 25, ownsPistol: true, credits: 500 });
+context.shop = { label: 'AMMO', item: 'ammo', cost: 500, x: 0, y: 0 };
+run('openShopPurchase(shop)');
+const ammoButton = actionOptions.children[0];
+assert.equal(ammoButton.innerHTML,
+    'REFILL<small>500G</small><span class="action-stock">SHOTGUN 12 / 12\nSMG 25 / 300</span>');
+assert(!ammoButton.innerHTML.includes('PISTOL'), 'unlimited weapons do not appear in ammo stock');
+click();
+assert.equal(commands.at(-1), 'BUY:ammo');
+me.smgAmmo = 300;
+snapshot();
+assert.equal(actionOptions.children[0], ammoButton, 'ammo stock updates preserve the focused button');
+assert(ammoButton.disabled);
+assert(ammoButton.innerHTML.includes('SMG 300 / 300'), 'refilled ammo stays visible at full capacity');
+me.ownsSmg = false;
+me.shotgunAmmo = 4;
+me.credits = 0;
+snapshot();
+assert(!ammoButton.innerHTML.includes('SMG'), 'unowned weapons are omitted');
+assert(ammoButton.innerHTML.includes('SHOTGUN 4 / 12'), 'stock stays visible with insufficient funds');
+assert(ammoButton.disabled);
+me.credits = 50;
+delete context.WEAPON_FIELDS.smg;
+delete context.WEAPON_FIELDS.pistol;
 context.shop = { label: 'FACTORY', item: 'woodFactory', cost: 50, x: 0, y: 0 };
 run('openShopPurchase(shop)');
 click(); click();
@@ -176,6 +211,6 @@ assert(!classes.has('hidden'), 'exchange purchase keeps the shop open');
 Object.assign(me, { ownsShotgun: true, ownsPistol: false, shotgunAmmo: 12, credits: 50 });
 snapshot();
 assert.equal(actionOptions.children.length, 1, 'successful exchange returns to the owned weapon');
-assert.equal(actionOptions.children[0].innerHTML, 'FULL<small>120G</small>');
+assert.equal(actionOptions.children[0].innerHTML, 'FULL<small>120G</small><span class="action-stock">弾薬 12 / 12</span>');
 assert(actionOptions.children[0].disabled);
 console.log('Shop/workbench menu passed: purchases/refills/crafts stay open, live availability, stable buttons and closing');
