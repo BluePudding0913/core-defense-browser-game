@@ -1522,9 +1522,7 @@ function openShopPurchase(shop, chooseExchange = false) {
             : unavailable ? "LOCKED" : "BUY",
         detail: `${price}G`,
         titleAmmo: alreadyOwned && weaponFields.capacity > 0 ? `${ammo} / ${weaponFields.capacity}` : "",
-        ammoStock: shop.item === "ammo" ? Object.entries(WEAPON_FIELDS)
-            .filter(([, fields]) => ownedWeapons.includes(fields))
-            .map(([id, fields]) => ({ name: WeaponUI.name(id, WEAPON_FIELDS), count: `${me[fields.ammo]} / ${fields.capacity}` })) : [],
+        stock: shop.item === "ammo" ? WeaponUI.ammoStock(me, WEAPON_FIELDS) : "",
         command: weaponLimitReached ? undefined : `BUY:${shop.item}`,
         onSelect: weaponLimitReached ? () => openShopPurchase(shop, true) : undefined,
         disabled: mounted || ammoFull || unavailable || me.credits < price,
