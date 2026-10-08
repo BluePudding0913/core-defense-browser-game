@@ -527,7 +527,7 @@ function acknowledgeInputs(value) {
 
 function applyRules(next) {
     if (next.rules) {
-        BUILD_INFO = { ...next.rules.recipes, teleporter: { name: "テレポーター", shopOnly: true }, drone: { name: "DRONE", shopOnly: true } };
+        BUILD_INFO = { ...next.rules.recipes, teleporter: { name: "テレポーター", shopOnly: true }, drone: { name: "DRONE", shopOnly: true }, controller: { name: "コントローラー", shopOnly: true } };
         SHOP_UNITS.filter(shop => shop.item.endsWith("Factory")).forEach(shop => {
             BUILD_INFO[shop.item] = { name: shop.label, description: "持ち運べる製造装置", shopOnly: true };
         });
@@ -797,7 +797,7 @@ function showEquipmentPopup(selectedKey) {
     if (!me || me.drone?.controlled) return;
     const entries = equipmentEntries(me);
     slotPopup.innerHTML = entries.map((entry, index) => {
-        const amount = entry.kind === "build" && entry.value !== "drone" ? ` ×${me.buildItems?.[entry.value] || 0}` : "";
+        const amount = entry.kind === "build" && !["drone", "controller"].includes(entry.value) ? ` ×${me.buildItems?.[entry.value] || 0}` : "";
         return `<div class="${entry.key === selectedKey ? "selected" : ""}">${index + 1}. ${escapeHtml(entry.label)}${amount}</div>`;
     }).join("");
     slotPopup.classList.remove("hidden");
@@ -833,8 +833,8 @@ function beginInteractionHold() {
     const hold = { used: false, timer: null };
     interactionHold = hold;
     if (getMe()?.drone?.active && actionMenu.classList.contains("hidden")
-            && (getMe().drone.controlled || !interaction || interaction.kind === "drone")) {
-        hold.interaction = interaction?.kind === "drone" ? interaction : { action: () => send("JOB_ABILITY") };
+            && (getMe().drone.controlled || getMe().selectedBuild === "controller" || interaction?.kind === "drone")) {
+        hold.interaction = ["drone", "drone-view"].includes(interaction?.kind) ? interaction : { action: () => send("JOB_ABILITY") };
         return;
     }
     if (interaction?.kind === "teleporter" && actionMenu.classList.contains("hidden") && !placementSelection(getMe())) {
@@ -937,7 +937,7 @@ function updateHud() {
         const cooldownProgress = showingItem ? 1 : 1 - Math.min(1, me.cooldown / cooldownMax);
         weaponName.textContent = me.movingCore ? "CORE"
             : selectedBuild ? BUILD_INFO[selectedBuild].name : me.weapon.toUpperCase();
-        weaponAmmo.textContent = me.movingCore || selectedBuild === "drone" ? "" : selectedBuild
+        weaponAmmo.textContent = me.movingCore || ["drone", "controller"].includes(selectedBuild) ? "" : selectedBuild
             ? `×${me.buildItems[selectedBuild]}` : ammoForWeapon(me, me.weapon);
         weaponIcon.className = `weapon-icon ${me.movingCore ? "core" : selectedBuild ? `build-${selectedBuild}` : me.weapon}`;
         weaponCooldown.textContent = showingItem ? "R TO PLACE"
@@ -959,14 +959,15 @@ function updateHud() {
             weaponCooldown.textContent = me.drone && me.drone.hp <= 0
                 ? `REPAIR ${me.droneRepairOre}鉱石 / ${me.droneRepairCopper}銅 · R` : "R TO LAUNCH";
         }
+        if (selectedBuild === "controller" && !me.drone?.controlled) weaponCooldown.textContent = "R TO VIEW";
         updateInventory(me);
         const placing = Boolean(placementSelection(me));
         const interaction = findNearestInteraction();
         const launchingDrone = interaction?.kind === "drone-launch";
-        const droneViewAction = me.drone?.active && (me.drone.controlled || !interaction || interaction.kind === "drone");
+        const droneViewAction = ["drone", "drone-view"].includes(interaction?.kind);
         interactLabel.textContent = droneViewAction ? interaction?.kind === "drone" ? "RECOVER" : "VIEW" : launchingDrone ? "LAUNCH" : placing ? "PLACE" : interaction?.kind === "teleporter"
             ? interaction.owned ? "TP / 長押しで回収" : "TP" : ["core", "defense"].includes(interaction?.kind) ? "長押しで運搬" : "INTERACT";
-        interactButton.classList.toggle("hidden", !placing && (!interaction || interaction.kind === "spy") && me.selectedBuild !== "drone" && !me.drone?.active);
+        interactButton.classList.toggle("hidden", !placing && (!interaction || interaction.kind === "spy") && me.selectedBuild !== "drone");
     }
 }
 
@@ -1022,7 +1023,7 @@ function updateInventory(me) {
         button.classList.toggle("selected", selectedKey === entry.key);
         button.disabled = entry.kind === "item" && (me.down || me.hp >= (me.maxHp || 100));
         button.querySelector("strong").textContent = `${index + 1}. ${entry.label}`;
-        button.querySelector("span").textContent = entry.value === "drone" ? ""
+        button.querySelector("span").textContent = ["drone", "controller"].includes(entry.value) ? ""
             : entry.kind === "build" ? `×${me.buildItems[entry.value]}`
             : entry.kind === "item" ? `×${me.medkits} · 使用する`
             : entry.kind === "core" ? ""
@@ -1634,7 +1635,7 @@ canvas.addEventListener("mousemove", event => {
 canvas.addEventListener("contextmenu", event => event.preventDefault());
 
 function startFiring(pointerId, clientX, clientY) {
-    if (getMe()?.selectedBuild || getMe()?.missileControl) return;
+    if (getMe()?.selectedBuild && !(getMe().selectedBuild === "controller" && getMe().drone?.controlled) || getMe()?.missileControl) return;
     if (getMe()?.movingCore) {
         showFeedback("CORE運搬中は武器を使用できません");
         return;
@@ -1646,7 +1647,7 @@ function startFiring(pointerId, clientX, clientY) {
 
 function updateFiringAim(clientX, clientY) {
     if (!firingPointer) return;
-    if (getMe()?.movingCore || getMe()?.selectedBuild) {
+    if (getMe()?.movingCore || getMe()?.selectedBuild && !(getMe().selectedBuild === "controller" && getMe().drone?.controlled)) {
         firingPointer = null;
         return;
     }
@@ -1666,7 +1667,7 @@ function stopFiring(clientX, clientY) {
 }
 
 function fireOnce(clientX, clientY) {
-    if (getMe()?.selectedBuild) return;
+    if (getMe()?.selectedBuild && !(getMe().selectedBuild === "controller" && getMe().drone?.controlled)) return;
     if (getMe()?.movingCore) {
         showFeedback("CORE運搬中は武器を使用できません");
         return;
@@ -1787,6 +1788,9 @@ function findNearestInteraction() {
     if (me.selectedBuild === "drone" && !me.drone?.active && me.buildItems?.drone > 0) {
         return { kind: "drone-launch", target: me, label: "LAUNCH", action: openDroneLaunch };
     }
+    if (me.drone?.active && (me.selectedBuild === "controller" || me.drone.controlled)) {
+        return { kind: "drone-view", target: me, label: "VIEW", action: () => send("JOB_ABILITY") };
+    }
     if (me?.drone?.active) {
         const drone = me.drone;
         if (distance(me, drone) <= me.droneRecoveryRange && hasInteractionPath(me, drone)) {
@@ -1883,13 +1887,13 @@ function toggleNearestInteraction() {
         interaction.action();
         return;
     }
-    if (me?.drone?.active) { send("JOB_ABILITY"); return; }
+    if (me?.drone?.active && (me.selectedBuild === "controller" || me.drone.controlled)) { send("JOB_ABILITY"); return; }
     if (placeSelectedInFront()) return;
     useNearestInteraction();
 }
 
 function placementSelection(player) {
-    if (!player || player.down || player.selectedBuild === "drone") return null;
+    if (!player || player.down || ["drone", "controller"].includes(player.selectedBuild)) return null;
     if (player.movingCore) return { forCore: true, type: "core" };
     const type = player.selectedBuild;
     if (type && (player.buildItems?.[type] || 0) > 0) return { forCore: false, type };
@@ -2730,6 +2734,10 @@ function drawPlayers() {
             ctx.fillStyle = "#79d8ff"; ctx.fillRect(-2, 6, 4, 2);
         } else ctx.fillRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize);
         if (player.id === myPlayerId && !disguised) { ctx.strokeStyle = "white"; ctx.lineWidth = 1.5; ctx.strokeRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize); }
+        if (player.selectedBuild === "controller" && player.drone?.active && !player.down) {
+            ctx.fillStyle = "#b7c9d1"; ctx.fillRect(-8, 5, 16, 8);
+            ctx.fillStyle = "#253f49"; ctx.fillRect(-5, 7, 3, 3); ctx.fillRect(2, 7, 3, 3);
+        }
         if (player.selectedBuild?.endsWith("Factory") && player.buildItems?.[player.selectedBuild] > 0) {
             ctx.fillStyle = "#70bfff";
             ctx.fillRect(-9, -24, 18, 16);

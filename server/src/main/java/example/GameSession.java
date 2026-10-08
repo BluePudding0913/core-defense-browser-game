@@ -480,11 +480,11 @@ final class GameSession {
             return;
         }
         if (player.job.equals("drone")) {
-            if (player.drone == null || !player.drone.active) return;
+            if (player.drone == null || !player.drone.active || !"controller".equals(player.selectedBuild)) return;
             boolean next = !player.drone.controlled;
             releaseDroneControl(player);
             player.drone.controlled = next;
-            player.selectedBuild = null;
+            player.selectedBuild = "controller";
             cancelAction(player);
             return;
         }
@@ -578,7 +578,7 @@ final class GameSession {
             player.equipWeapon(available);
         }
         drone.attackers.clear();
-        player.selectedBuild = null;
+        player.selectedBuild = "controller";
         player.firing = player.dashHeld = player.dashing = false;
         player.stopRailgun(); cancelAction(player);
     }
@@ -613,6 +613,7 @@ final class GameSession {
         player.drone.active = false;
         player.drone.controlled = false;
         player.drone.attackers.clear();
+        if ("controller".equals(player.selectedBuild)) player.selectedBuild = null;
     }
 
     private void damageDrone(Player owner, double damage) {
@@ -703,7 +704,7 @@ final class GameSession {
         double y = Double.parseDouble(parts[2]);
         if (!Double.isFinite(x) || !Double.isFinite(y)) return;
         boolean active = parts[3].equals("1") || parts[3].equalsIgnoreCase("true");
-        if (player.movingCore || player.selectedBuild != null) {
+        if (player.movingCore || player.selectedBuild != null && !DroneRules.controlling(player)) {
             player.firing = player.secondaryFiring = false;
             return;
         }
@@ -2573,7 +2574,7 @@ final class GameSession {
         if (type.equals("none")) {
             releaseCarriedCore(player);
             player.selectedBuild = null;
-        } else if ((type.equals("teleporter") || type.equals("drone") || BUILD_RECIPES.containsKey(type) || type.endsWith("Factory")) && player.buildItemCount(type) > 0) {
+        } else if ((type.equals("teleporter") || type.equals("drone") || type.equals("controller") || BUILD_RECIPES.containsKey(type) || type.endsWith("Factory")) && player.buildItemCount(type) > 0) {
             releaseCarriedCore(player);
             player.selectedBuild = type;
             player.firing = player.secondaryFiring = false;

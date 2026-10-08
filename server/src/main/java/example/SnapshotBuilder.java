@@ -263,6 +263,7 @@ final class SnapshotBuilder {
                     .append(",\"silverTurret\":").append(player.silverTurretItems)
                     .append(",\"teleporter\":").append(player.buildItemCount("teleporter"));
             json.append(",\"drone\":").append(player.buildItemCount("drone"));
+            json.append(",\"controller\":").append(player.buildItemCount("controller"));
             for (String item : List.of("woodFactory", "oreFactory", "copperFactory", "silverFactory")) {
                 json.append(",\"").append(item).append("\":").append(player.buildItemCount(item));
             }
