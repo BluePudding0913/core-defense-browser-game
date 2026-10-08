@@ -50,13 +50,13 @@ class HackerArsenalTest {
         game.handleMessage(player, "MOVE:1:0"); advance(.2); assertEquals(GameMap.MISSILE_COMPUTER.x(), player.x);
         player.down = true; advance(.05); assertFalse(player.missileControl);
     }
-    @Test void missileHitsAfterTwoSecondsWithReducedDamageAndSharedCooldown() {
+    @Test void missileHitsAfterTwoSecondsWithReducedDamageAndThirtySecondCooldown() {
         Enemy center = enemy(1020, 1900), edge = enemy(1020 + MissileRules.radius() * .5, 1900);
         game.handleMessage(player, "COMPUTER"); game.handleMessage(player, "MISSILE:1020:1900");
         assertEquals(1, game.missiles.size()); assertEquals(MissileRules.cooldown(), player.missileCooldown);
-        assertEquals(1600, player.credits);
+        assertEquals(2000, player.credits);
         game.handleMessage(player, "MISSILE:1020:1900"); assertEquals(1, game.missiles.size());
-        assertEquals(1600, player.credits, "cooldown rejection must not charge again");
+        assertEquals(2000, player.credits, "missiles never charge gold");
         game.handleMessage(player, "COMPUTER"); advance(1.95);
         assertEquals(10000, center.hp); advance(.05);
         assertEquals(7600, center.hp, .001);
@@ -71,15 +71,20 @@ class HackerArsenalTest {
         assertTrue(game.missiles.isEmpty()); assertEquals(0, player.missileCooldown);
         assertEquals(2000, player.credits, "invalid targets must not charge");
     }
-    @Test void missileRequiresFourHundredGoldAndExitWorksWithoutFunds() {
+    @Test void missileIsFreeAndCanFireAgainOnlyAfterThirtySeconds() {
         game.handleMessage(player, "COMPUTER");
-        player.credits = 399;
+        player.credits = 0;
         game.handleMessage(player, "MISSILE:1020:1900");
-        assertTrue(game.missiles.isEmpty()); assertEquals(0, player.missileCooldown);
-        assertEquals(399, player.credits);
-        player.credits = 400;
+        assertEquals(1, game.missiles.size()); assertEquals(30, player.missileCooldown);
+        assertEquals(0, player.credits);
+        advance(29);
+        assertEquals(1, player.missileCooldown, 1e-9);
+        game.handleMessage(player, "MISSILE:1020:1900");
+        assertTrue(game.missiles.isEmpty(), "shot during cooldown must be rejected");
+        advance(1);
         game.handleMessage(player, "MISSILE:1020:1900");
         assertEquals(1, game.missiles.size()); assertEquals(0, player.credits);
+        assertEquals(30, player.missileCooldown);
         game.handleMessage(player, "COMPUTER"); assertFalse(player.missileControl);
     }
     @Test void recoveryStationAllowsChangingJobOnlyNearUnlockedDevice() {
@@ -109,7 +114,7 @@ class HackerArsenalTest {
         game.handleMessage(player, "COMPUTER"); game.handleMessage(player, "MISSILE:1020:1900");
         var state = new ObjectMapper().readTree(SnapshotBuilder.build(game));
         assertTrue(state.path("players").get(0).path("missileControl").asBoolean());
-        assertEquals(400, state.path("players").get(0).path("missileCost").asInt());
+        assertEquals(0, state.path("players").get(0).path("missileCost").asInt());
         assertEquals(1, state.path("missiles").size());
         assertEquals(MissileRules.DELAY, state.path("missiles").get(0).path("remaining").asDouble());
         assertEquals(WeaponCatalog.capacity("railgun"), state.path("rules").path("weapons").path("railgun").path("capacity").asInt());
