@@ -50,7 +50,7 @@ class HackerArsenalTest {
         game.handleMessage(player, "ATTACK:1120:1900");
         assertEquals(10000 - WeaponCatalog.stats("flamethrower").damage(), near.hp);
         assertEquals(near.hp, far.hp);
-        assertEquals(260, WeaponCatalog.stats("flamethrower").range());
+        assertEquals(220, WeaponCatalog.stats("flamethrower").range());
         assertEquals(fuel - 1, player.weapons.ammo("flamethrower"));
         assertTrue(player.drone.attackers.containsAll(java.util.List.of(near.id, far.id)));
     }
@@ -115,11 +115,12 @@ class HackerArsenalTest {
     @Test void flameDamagesMultipleEnemiesConsumesFuelAndStopsAtWalls() {
         player.weapons.grant("flamethrower"); player.equipWeapon("flamethrower");
         player.x = 220; player.y = 940;
-        Enemy near = enemy(player.x + 60, player.y), far = enemy(player.x + 240, player.y);
-        Enemy outside = enemy(player.x + 300, player.y);
+        Enemy near = enemy(player.x + 60, player.y), far = enemy(player.x + 220, player.y);
+        Enemy outside = enemy(player.x + 240, player.y);
         game.handleMessage(player, "FIRE:800:940:1");
         assertEquals(10000 - WeaponCatalog.stats("flamethrower").damage(), near.hp);
         assertEquals(near.hp, far.hp);
+        assertEquals(10000, outside.hp, "the shortened range excludes the old final tile");
         assertEquals(WeaponCatalog.capacity("flamethrower") - 1, player.weapons.ammo("flamethrower"));
         game.handleMessage(player, "FIRE:800:940:0"); advance(.1);
         player.x = 780; player.y = 940;
