@@ -45,3 +45,5 @@
 @media (max-height: 520px) { #menu-ui h1 { margin-bottom: 24px; } }
 
 #menu-ui .ui-pointer-settings select { margin-left: auto; min-width: 3rem; color: #fff; background: #181818; border: 1px solid #666; padding: .25rem; }
+.ui-defense-result { text-align: center; font-weight: 700; }
+.ui-defense-result small { display: block; margin-top: .35rem; font: .85rem ui-monospace, monospace; opacity: .7; }

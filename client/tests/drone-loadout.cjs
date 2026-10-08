@@ -64,9 +64,16 @@ context.hasInteractionPath = () => true; context.state.areas.room = false;
 assert.equal(run('findNearestInteraction()'), null, 'locked breakers remain inaccessible');
 me.drone.active = me.drone.controlled = false;
 assert.ok(run('equipmentEntries(getMe())').some(e => e.value === 'smg'));
-for (const job of ['healer', 'tank', 'spy', 'tp']) {
+for (const job of ['healer', 'spy', 'tp']) {
     me.job = job; run('beginJobHold(); endJobHold()'); assert.equal(commands.pop(), 'JOB_ABILITY');
 }
+me.job = 'tank'; run('beginJobHold(); endJobHold()'); assert.equal(commands.length, 0);
+context.exitDialog = {open:false};
+const wallSource = extract('requestTankWall');
+vm.runInContext(wallSource.slice(0, wallSource.indexOf('\n}') + 2), context);
+run('requestTankWall()'); assert.equal(commands.pop(), 'TANK_WALL');
+me.jobCooldown = 1; run('requestTankWall()'); assert.equal(commands.length, 0);
+me.jobCooldown = 0;
 me.down = true; run('beginJobHold(); endJobHold()'); assert.equal(commands.length, 0);
 me.down = false; me.job = 'tp'; me.buildItems.teleporter = 2;
 assert(run('equipmentEntries(getMe())').some(entry => entry.value === 'teleporter'));

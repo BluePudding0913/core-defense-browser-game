@@ -40,9 +40,11 @@
         <div class="controls-right">
             <button id="interact" class="control-button interact hidden" type="button"><span>R</span><small>INTERACT</small></button>
             <div class="weapon-stack">
-                <div id="secondary-hud" class="secondary-hud hidden" aria-label="サブ武器">
-                    <span>SUB</span><strong id="secondary-name"></strong><b id="secondary-ammo"></b>
-                    <small id="secondary-cooldown"></small><small id="secondary-silver" class="silver-ammo" hidden></small>
+                <div id="secondary-hud" class="weapon secondary-hud hidden" aria-label="サブ武器">
+                    <span id="secondary-icon" class="weapon-icon bat" aria-hidden="true"></span>
+                    <span class="weapon-meta"><small class="secondary-label">SUB</small><strong id="secondary-name"></strong>
+                    <small id="secondary-ammo"></small><span id="secondary-cooldown" class="weapon-cooldown"></span>
+                    <span id="secondary-silver" class="silver-ammo" hidden></span></span>
                 </div>
             <button id="weapon" class="control-button weapon" type="button">
                 <span id="weapon-icon" class="weapon-icon pistol" aria-hidden="true"></span>
@@ -158,6 +160,7 @@
     <script src="job-ui.js"></script>
     <script src="terminal-ui.js"></script>
     <script src="scout-movement.js"></script>
+    <script src="match-time.js"></script>
     <script src="menu-ui.js"></script>
 </body>
 </html>

@@ -95,7 +95,8 @@ class TankDecoyTest {
 
     @Test void wallOnlyConsumesCooldownOnValidPlacementCannotBeRecoveredAndExpires() throws Exception {
         start("tank"); player.facingX = 1; player.facingY = 0;
-        game.handleMessage(player, "JOB_ABILITY"); assertEquals(2, game.trapSlots.size());
+        game.handleMessage(player, "JOB_ABILITY"); assertTrue(game.trapSlots.isEmpty());
+        game.handleMessage(player, "TANK_WALL"); assertEquals(2, game.trapSlots.size());
         TrapSlot wall = game.trapSlots.get(0); assertEquals("barricade", wall.defense.type);
         for (TrapSlot segment : game.trapSlots) {
             assertEquals(2400, segment.defense.hp);
@@ -109,8 +110,8 @@ class TankDecoyTest {
         assertEquals(JobRules.TANK_WALL_COOLDOWN, player.jobCooldown);
         call("removeDefense", new Class<?>[]{Player.class, String.class}, player, wall.id);
         assertEquals(2, game.trapSlots.size()); assertEquals(0, player.barricadeItems);
-        game.handleMessage(player, "JOB_ABILITY"); assertEquals(2, game.trapSlots.size());
-        player.jobCooldown = 0; game.handleMessage(player, "JOB_ABILITY");
+        game.handleMessage(player, "TANK_WALL"); assertEquals(2, game.trapSlots.size());
+        player.jobCooldown = 0; game.handleMessage(player, "TANK_WALL");
         assertEquals(0, player.jobCooldown); assertEquals(2, game.trapSlots.size());
         call("updateJobEquipment", new Class<?>[]{double.class}, 15.0);
         assertEquals(2, game.trapSlots.size());
@@ -139,21 +140,21 @@ class TankDecoyTest {
         Player ally = new Player(1);
         ally.x = candidates.get(0).get(1).x(); ally.y = candidates.get(0).get(1).y();
         game.players.add(ally);
-        game.handleMessage(player, "JOB_ABILITY");
+        game.handleMessage(player, "TANK_WALL");
         assertEquals(2, game.trapSlots.size());
         assertEquals(candidates.get(1).get(1).y(), game.trapSlots.get(1).y);
         game.trapSlots.clear(); player.jobCooldown = 0;
         Player other = new Player(2);
         other.x = candidates.get(1).get(1).x(); other.y = candidates.get(1).get(1).y();
         game.players.add(other);
-        game.handleMessage(player, "JOB_ABILITY");
+        game.handleMessage(player, "TANK_WALL");
         assertTrue(game.trapSlots.isEmpty());
         assertEquals(0, player.jobCooldown);
     }
 
     @Test void destroyingOneWallSegmentKeepsOtherUntilExpiry() throws Exception {
         start("tank"); player.facingX = 1; player.facingY = 0;
-        game.handleMessage(player, "JOB_ABILITY");
+        game.handleMessage(player, "TANK_WALL");
         TrapSlot survivor = game.trapSlots.get(1);
         game.trapSlots.get(0).defense.hp = 0;
         call("updateJobEquipment", new Class<?>[]{double.class}, 1.0);

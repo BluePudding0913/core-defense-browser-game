@@ -13,10 +13,10 @@ const definitions = {
     rocket: {name:'LAUNCHER',capacity:8,owned:'ownsRocket',ammo:'rocketAmmo',silverAmmoEligible:false},
 };
 const me = {job:'attacker',weapon:'pistol',secondaryWeapon:'smg',ownsSmg:true,smgAmmo:173,
-    secondaryCooldown:.4,silverAmmo:8};
+    secondaryCooldown:.4,secondaryCooldownMax:.8,silverAmmo:8};
 const fields = new Map();
 const field = id => {
-    if (!fields.has(id)) fields.set(id, {classList:{toggle:(_, value) => fields.get(id).hidden = value}});
+    if (!fields.has(id)) fields.set(id, {style:{setProperty:(key,value) => fields.get(id)[key] = value},classList:{toggle:(_, value) => fields.get(id).hidden = value}});
     return fields.get(id);
 };
 const context = vm.createContext({WeaponUI, WEAPON_FIELDS:definitions, equipmentOrder:[], BUILD_INFO:{},
@@ -25,6 +25,8 @@ vm.runInContext(extract('updateSecondaryHud') + extract('equipmentEntries'), con
 context.updateSecondaryHud(me);
 assert.equal(field('#secondary-hud').hidden, false);
 assert.equal(field('#secondary-name').textContent, 'SMG');
+assert.equal(field('#secondary-icon').className, 'weapon-icon smg');
+assert.equal(field('#secondary-hud')['--cooldown-progress'], '50%');
 assert.equal(field('#secondary-ammo').textContent, '173');
 assert.equal(field('#secondary-cooldown').textContent, '0.4s');
 assert.equal(field('#secondary-silver').textContent, '銀弾 8');

@@ -2,14 +2,21 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync('client/app.js', 'utf8');
+const formatTime = require('../match-time.js');
+assert.equal(formatTime(59.9), '0:59');
+assert.equal(formatTime(60), '1:00');
+assert.equal(formatTime(3661), '1:01:01');
+assert.equal(formatTime(undefined), '0:00');
 function extract(name) {
     const start = source.indexOf(`function ${name}(`);
     return source.slice(start, source.indexOf('\nfunction ', start + 1));
 }
 const classes = new Set();
 let starts = 0, timer, timerDelay, now = 0;
+const sounds = [];
 const context = vm.createContext({
-    roundIntro: { textContent: '', offsetWidth: 1, classList: {
+    formatMatchTime: require('../match-time.js'),
+    roundIntro: { textContent: '', dataset: {}, offsetWidth: 1, classList: {
         remove: name => classes.delete(name),
         add: name => { classes.add(name); starts++; }
     } },
@@ -17,7 +24,7 @@ const context = vm.createContext({
     clearTimeout: () => { timer = null; },
     performance: { now: () => now },
     applyRules() {}, keepEndArea: () => now < 10000,
-    window: {}, reconcileEnemySmoothing() {}, reconcileDroneSmoothing() {}, getMe: () => ({}), endInteractionHold() {}, endJobHold() {},
+    window: {coreAudio:{play:name=>sounds.push(name)}}, reconcileEnemySmoothing() {}, reconcileDroneSmoothing() {}, getMe: () => ({}), endInteractionHold() {}, endJobHold() {},
     CORE: {}, reconcileLocalPrediction() {}, receiveLog() {}, updateHud() {},
     updateWorkbenchMaterials() {}, updateRoomLobby() {}, closeActionMenu() {},
     menu: { classList: { add() {}, remove() {} } },
@@ -27,7 +34,7 @@ const context = vm.createContext({
 vm.runInContext('let roundIntroTimer, previousPhase, previousRound, lastCoreHp, state; let activeMenuAccess = null;'
     + ['showRoundIntro', 'showScreenIntro', 'hideScreenIntro', 'receiveState'].map(extract).join('\n'), context);
 function receive(phase, round = 5) {
-    context.next = { phase, round, players: [], core: { hp: 100, x: 0, y: 0 } };
+    context.next = { phase, round, elapsedSeconds: 125, players: [], core: { hp: 100, x: 0, y: 0 } };
     vm.runInContext('receiveState(next)', context);
 }
 receive('wave');
@@ -35,6 +42,7 @@ assert.equal(context.roundIntro.textContent, 'ROUND 5');
 assert.equal(timerDelay, 2400);
 receive('wave');
 assert.equal(starts, 1);
+assert.deepEqual(sounds, ['round-start']);
 for (const [phase, text] of [['won', '防衛成功'], ['lost', '防衛失敗']]) {
     receive('preparing');
     assert(!classes.has('show'));
@@ -48,6 +56,7 @@ for (const [phase, text] of [['won', '防衛成功'], ['lost', '防衛失敗']])
     assert.equal(starts, waitingStarts);
     pending();
     assert.equal(context.roundIntro.textContent, text);
+    assert.equal(context.roundIntro.dataset.detail, 'TIME 2:05');
     assert(classes.has('show'));
     assert.equal(timerDelay, 2400);
     const before = starts, scheduled = timer;

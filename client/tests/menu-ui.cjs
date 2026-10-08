@@ -31,6 +31,7 @@ vm.runInNewContext(fs.readFileSync('client/pointer-settings.js', 'utf8'), contex
 vm.runInNewContext(fs.readFileSync('client/key-settings.js', 'utf8'), context);
 vm.runInNewContext(fs.readFileSync('client/job-ui.js', 'utf8'), context);
 vm.runInNewContext(fs.readFileSync('client/sound.js', 'utf8'), { ...context, window: Object.assign(context.window, { addEventListener() {} }) });
+vm.runInNewContext(fs.readFileSync('client/match-time.js', 'utf8'), context);
 vm.runInNewContext(fs.readFileSync('client/menu-ui.js', 'utf8'), context);
 const submit = (form, data = {}) => handlers.submit({ preventDefault() {}, target: { dataset: { form }, data } });
 const click = (action, slot) => handlers.click({ target: { closest: selector => selector === ".job-panel" ? (action === "job" ? {} : null) : ({ dataset: { action, slot, job: slot } }) } });

@@ -503,7 +503,7 @@ final class CombatSystem {
 
     private void awardCredits(Player player, int amount, String weapon) {
         var payout = GoldRewardRules.payout(amount, weapon,
-                droneShot != null && droneShot.owner == player, player.goldRewardRemainder);
+                droneShot != null && droneShot.owner == player, player.goldRewardRemainder, player.job);
         player.credits += payout.credits();
         player.goldRewardRemainder = payout.remainder();
     }
