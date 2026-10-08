@@ -30,6 +30,13 @@ final class JobRules {
     }
 
     static double maxHp(String job) { return job.equals("tank") ? 200 : 100; }
+    static int ammoCapacityMultiplier(String job) { return job.equals("attacker") ? 2 : 1; }
+    static WeaponCatalog.WeaponStats weaponStats(String job, String weapon) {
+        var stats = WeaponCatalog.stats(weapon);
+        if (!job.equals("spy") || !weapon.equals("pistol")) return stats;
+        return new WeaponCatalog.WeaponStats(stats.range(), stats.damage() * 3, stats.cooldown(),
+                stats.knockback(), stats.width());
+    }
 
     /** Two adjacent tiles across the facing direction, with either side as a placement option. */
     static java.util.List<java.util.List<MapPoint>> tankWallPlacements(double x, double y,

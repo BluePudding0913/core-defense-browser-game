@@ -19,8 +19,10 @@ class HealingAttackerTest extends JobsTest {
         assertEquals(55, ally.hp);
         assertEquals(50, outside.hp);
         ally.down = true;
+        ally.hp = 0;
         game.update(1);
-        assertEquals(55, ally.hp);
+        assertEquals(45, ally.hp);
+        assertFalse(ally.down);
         game.handleMessage(player, "JOB_ABILITY");
         assertEquals(8, player.healRemaining);
         game.update(9);
