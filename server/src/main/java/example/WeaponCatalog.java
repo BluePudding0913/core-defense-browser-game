@@ -28,7 +28,7 @@ final class WeaponCatalog {
             new Definition("revolver", 30, AttackMode.RAY, true, new WeaponStats(360, 320, 1.6, 10, 2), .95),
             new Definition("railgun", 2, AttackMode.BEAM, false, new WeaponStats(2400, 3000, 2, 0, 20), .55),
             new Definition("rocket", 8, AttackMode.ROCKET, false, new WeaponStats(1200, 3000, 5, 100, 2), .6),
-            new Definition("flamethrower", 400, AttackMode.FLAME, true, new WeaponStats(260, 60, .1, 0, 32), .7),
+            new Definition("flamethrower", 400, AttackMode.FLAME, true, new WeaponStats(220, 60, .1, 0, 32), .7),
             new Definition("lmg", 600, AttackMode.RAY, false, new WeaponStats(360, 18, .18, 0, 2), .9));
     private static final Map<String, Definition> BY_ID = ALL.stream()
             .collect(Collectors.toUnmodifiableMap(Definition::id, Function.identity()));
