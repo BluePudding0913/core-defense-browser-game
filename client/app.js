@@ -958,7 +958,7 @@ function updateHud() {
         updateInventory(me);
         const placing = Boolean(placementSelection(me));
         const interaction = findNearestInteraction();
-        const launchingDrone = me.selectedBuild === "drone" && !interaction;
+        const launchingDrone = interaction?.kind === "drone-launch";
         const droneViewAction = me.drone?.active && (me.drone.controlled || !interaction || interaction.kind === "drone");
         interactLabel.textContent = droneViewAction ? interaction?.kind === "drone" ? "RECOVER" : "VIEW" : launchingDrone ? "LAUNCH" : placing ? "PLACE" : interaction?.kind === "teleporter"
             ? interaction.owned ? "TP / 長押しで回収" : "TP" : ["core", "defense"].includes(interaction?.kind) ? "長押しで運搬" : "INTERACT";
@@ -1780,6 +1780,9 @@ function findNearestInteraction() {
     const me = getMe();
     if (me?.missileControl) return null;
     if (!me || me.down || !state || !["preparing", "wave"].includes(state.phase)) return null;
+    if (me.selectedBuild === "drone" && !me.drone?.active && me.buildItems?.drone > 0) {
+        return { kind: "drone-launch", target: me, label: "LAUNCH", action: openDroneLaunch };
+    }
     if (me?.drone?.active) {
         const drone = me.drone;
         if (distance(me, drone) <= me.droneRecoveryRange && hasInteractionPath(me, drone)) {

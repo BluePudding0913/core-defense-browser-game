@@ -42,15 +42,10 @@ me.ore = 0; me.copper = 0;
 run('openDroneLaunch()'); assert.ok(menus.at(-1).options.every(option => option.disabled));
 me.ore = 5; me.copper = 2;
 menus.at(-1).refresh(); assert.ok(menus.at(-1).options.every(option => !option.disabled));
-let facilityUsed = 0;
-const realInteraction = context.findNearestInteraction;
-context.findNearestInteraction = () => ({ kind: 'workbench', action: () => facilityUsed++ });
 const menuCount = menus.length;
-run('toggleNearestInteraction()'); assert.equal(facilityUsed, 1);
-assert.equal(menus.length, menuCount, 'broken selected drone does not intercept workbench R');
-context.findNearestInteraction = () => null;
-run('toggleNearestInteraction()'); assert.equal(menus.length, menuCount + 1, 'away from facilities R opens repair preflight');
-context.findNearestInteraction = realInteraction;
+assert.equal(run('findNearestInteraction().kind'), 'drone-launch');
+run('toggleNearestInteraction()');
+assert.equal(menus.length, menuCount + 1, 'broken selected drone opens repair preflight');
 me.drone = { active: true, controlled: true, weapon: 'smg', x: 200, y: 100 };
 me.selectedBuild = null; me.buildItems.drone = 0;
 assert.ok(!run('equipmentEntries(me)').some(e => e.key === 'build:drone'));
@@ -101,5 +96,28 @@ assert.equal(run('findNearestInteraction()'), null, 'remote piloting still uses 
 run('toggleNearestInteraction()'); assert.equal(commands.pop(), 'JOB_ABILITY');
 me.drone.active = me.drone.controlled = false; me.drone.hp = 45;
 me.selectedBuild = 'drone'; me.buildItems.drone = 1;
-run('toggleNearestInteraction()'); assert.equal(commands.pop(), 'WORKBENCH', 'healthy drone item does not intercept facilities either');
-console.log('Drone loadout UI passed: preflight selection, repair affordability, facility priority, nearby recovery, trajectory without damage quantities');
+let launchCount = menus.length;
+assert.equal(run('findNearestInteraction().kind'), 'drone-launch', 'launch wins over nearby workbench');
+run('toggleNearestInteraction()'); assert.equal(menus.length, ++launchCount);
+assert.equal(commands.length, 0, 'launch picker does not activate nearby facilities');
+context.state.core = {x: 100, y: 100};
+me.teleportPads = [{x: 100, y: 100}, {x: 200, y: 100}];
+assert.equal(run('findNearestInteraction().kind'), 'drone-launch', 'launch wins over core and TP');
+let holdTimer = null;
+Object.assign(context, {
+    interactionHold: null,
+    howToMenu: {classList: {contains: () => true}},
+    inventoryMenu: {classList: {contains: () => true, add() {}}},
+    setTimeout: fn => { holdTimer = fn; return 1; }, clearTimeout: () => {holdTimer = null;},
+});
+for (const name of ['beginInteractionHold', 'endInteractionHold'])
+    vm.runInContext(extract(name).split('\ninteractButton.addEventListener')[0], context);
+run('beginInteractionHold()'); assert.equal(holdTimer, null, 'launch does not start pickup or carry timer');
+run('endInteractionHold()'); assert.equal(menus.length, ++launchCount);
+run('beginInteractionHold(); endInteractionHold(true)'); assert.equal(menus.length, launchCount, 'canceled R does not launch');
+me.drone.hp = 0; me.ore = 0; me.copper = 0;
+run('beginInteractionHold(); endInteractionHold()'); assert.equal(menus.length, ++launchCount);
+assert.ok(menus.at(-1).options.every(option => option.disabled), 'broken drone keeps launch priority while repair is unaffordable');
+me.down = true; assert.equal(run('findNearestInteraction()'), null);
+run('beginInteractionHold(); endInteractionHold()'); assert.equal(menus.length, launchCount);
+console.log('Drone loadout UI passed: launch priority over facilities, core and TP, hold/cancel, repair, recovery and firing');
