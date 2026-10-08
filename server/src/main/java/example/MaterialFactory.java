@@ -19,7 +19,7 @@ final class MaterialFactory {
         interval = switch (resource) {
             case "wood", "ore" -> 10;
             case "copper" -> 16;
-            case "silver" -> 24;
+            case "silver" -> 12;
             default -> throw new IllegalArgumentException("Unknown factory resource: " + resource);
         };
     }
