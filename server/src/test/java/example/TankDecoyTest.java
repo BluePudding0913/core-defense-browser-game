@@ -43,6 +43,17 @@ class TankDecoyTest {
         player.x = GameMap.JOB_STATION.x(); player.y = GameMap.JOB_STATION.y();
         game.handleMessage(player, "JOB:healer"); assertEquals(100, player.hp);
     }
+    @Test void healerAreaRecoversTankAbove100AndCapsAt150() throws Exception {
+        start("tank"); player.hp = 145;
+        Player healer = new Player(1); healer.healX = player.x; healer.healY = player.y;
+        healer.healRemaining = JobRules.HEAL_DURATION; game.players.add(healer);
+        call("updateHealingAreas", new Class<?>[]{double.class}, 2.0);
+        assertEquals(150, player.hp);
+        player.down = true; player.hp = 0;
+        call("updateHealingAreas", new Class<?>[]{double.class}, 1.0);
+        assertEquals(0, player.hp);
+    }
+
     @Test void auraIncludesTankDoesNotStackAndStopsOnDownRangeOrWall() throws Exception {
         start("tank"); Player ally = new Player(1); ally.x = player.x + 50; ally.y = player.y; ally.hp = 100;
         game.players.add(ally);

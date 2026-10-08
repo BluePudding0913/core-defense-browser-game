@@ -340,6 +340,10 @@ function connect() {
         let message;
         try { message = JSON.parse(data); } catch { return; }
         if (message.type === "error" || message.type === "feedback") window.coreMenu?.status(message.message);
+        if (message.type === "purchase-complete") {
+            window.coreAudio?.play("purchase", 0);
+            if (message.closeMenu) closeActionMenu();
+        }
         if (message.type === "ammo-refilled") {
             if (!activeMenuAccess?.refresh) closeActionMenu();
             inventoryMenu.classList.add("hidden");
@@ -1170,7 +1174,7 @@ function showFeedback(text) {
 function playSoundEffect(message) {
     const me = getMe();
     if (!me) return;
-    if (message.item === "railgun-charge" || message.weapon === "railgun") return;
+    if (message.item === "railgun-charge" || message.effect === "shot" && message.item === "railgun") return;
     const own = message.playerId === myPlayerId;
     if (message.effect === "ability-ready") {
         if (own) window.coreAudio?.play("ability-ready", 0);
@@ -1239,7 +1243,8 @@ function openActionMenu(title, options, layout = "default") {
     options.forEach((option, index) => {
         const button = reuseButtons ? buttons[index] : document.createElement("button");
         button.disabled = Boolean(option.disabled);
-        const content = `${escapeHtml(option.label)}${option.detail ? `<small>${escapeHtml(option.detail)}</small>` : ""}`;
+        const content = `${escapeHtml(option.label)}${option.detail ? `<small>${escapeHtml(option.detail)}</small>` : ""}`
+            + (option.stock ? `<span class="action-stock">${escapeHtml(option.stock)}</span>` : "");
         if (button.innerHTML !== content) button.innerHTML = content;
         button.onclick = option.onSelect || (option.command ? () => {
             send(option.command);
@@ -1415,6 +1420,7 @@ function openShopPurchase(shop, chooseExchange = false) {
         openNearbyActionMenu(shop.label, [{
             label: "回復キット",
             detail: `${shop.cost}G`,
+            stock: `所持 ${me.medkits} / ${state.rules.medkitCapacity}`,
             command: "BUY:medkit",
             disabled: me.medkits >= state.rules.medkitCapacity || me.credits < shop.cost,
         }], shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
@@ -1456,6 +1462,8 @@ function openShopPurchase(shop, chooseExchange = false) {
         label: mounted ? "DRONE" : ammoFull ? "FULL" : alreadyOwned || shop.item === "ammo" && !unavailable ? "REFILL"
             : unavailable ? "LOCKED" : "BUY",
         detail: `${price}G`,
+        stock: shop.item === "ammo" ? WeaponUI.ammoStock(me, WEAPON_FIELDS)
+            : weaponFields?.capacity > 0 ? `弾薬 ${ammo} / ${weaponFields.capacity}` : "",
         command: weaponLimitReached ? undefined : `BUY:${shop.item}`,
         onSelect: weaponLimitReached ? () => openShopPurchase(shop, true) : undefined,
         disabled: mounted || ammoFull || unavailable || me.credits < price,
@@ -1484,7 +1492,9 @@ function openQuarryMenu() {
 
 function openWorkbenchMenu(workbench) {
     const me = getMe();
-    openNearbyActionMenu("WORKBENCH", Object.entries(BUILD_INFO).filter(([, info]) => !info.shopOnly).map(([type, info]) => ({
+    const order = { block: 0, barricade: 1, wire: 2, mine: 3, turret: 4, copperTurret: 5, silverTurret: 6 };
+    openNearbyActionMenu("WORKBENCH", Object.entries(BUILD_INFO).filter(([, info]) => !info.shopOnly)
+        .sort(([a], [b]) => (order[a] ?? 7) - (order[b] ?? 7)).map(([type, info]) => ({
         label: info.name,
         detail: `${info.description} — ${Object.entries(RESOURCE_NAMES).filter(([key]) => info[key] > 0).map(([key, name]) => `${name} ${info[key]}`).join(" / ")}`,
         command: `CRAFT:${type}`,
@@ -1561,8 +1571,15 @@ canvas.addEventListener("mousedown", event => {
     if (event.button !== 2) return;
     event.preventDefault();
     canvas.focus({ preventScroll: true });
-    requestScoutDash(worldFromScreen(event.clientX, event.clientY));
-    requestDecoy(worldFromScreen(event.clientX, event.clientY));
+    if (getMe()?.job === "attacker" && !getMe().down && !getMe().movingCore && !getMe().selectedBuild
+            && !exitDialog.open && howToMenu.classList.contains("hidden") && ["preparing", "wave"].includes(state?.phase)
+            && actionMenu.classList.contains("hidden") && inventoryMenu.classList.contains("hidden")) {
+        const p = worldFromScreen(event.clientX, event.clientY);
+        send(`SECONDARY_FIRE:${p.x.toFixed(1)}:${p.y.toFixed(1)}:1`);
+    } else {
+        requestScoutDash(worldFromScreen(event.clientX, event.clientY));
+        requestDecoy(worldFromScreen(event.clientX, event.clientY));
+    }
 });
 
 canvas.addEventListener("pointerdown", event => {
@@ -1602,6 +1619,13 @@ canvas.addEventListener("pointercancel", event => {
     if (joystick?.id === event.pointerId) { joystick = null; sendMovement(); }
     if (pendingMove?.id === event.pointerId) { clearTimeout(pendingMove.timer); pendingMove = null; }
     if (firingPointer?.id === event.pointerId) stopFiring(event.clientX, event.clientY);
+});
+window.addEventListener("mouseup", event => { if (event.button === 2) send("SECONDARY_FIRE:0:0:0"); });
+canvas.addEventListener("mousemove", event => {
+    if (getMe()?.job === "attacker" && (event.buttons & 2)) {
+        const p = worldFromScreen(event.clientX, event.clientY);
+        send(`SECONDARY_FIRE:${p.x.toFixed(1)}:${p.y.toFixed(1)}:1`);
+    }
 });
 canvas.addEventListener("contextmenu", event => event.preventDefault());
 
@@ -1742,6 +1766,7 @@ window.addEventListener("keyup", event => {
     keys.delete(key); sendMovement();
 });
 window.addEventListener("blur", () => {
+    send("SECONDARY_FIRE:0:0:0");
     endInteractionHold(true);
     keys.clear(); joystick = null;
     dashKey = false; setDash(false);
@@ -1816,6 +1841,11 @@ function findNearestInteraction() {
     if (me.job === "tank" && !me.movingCore && !placementSelection(me)) return {
         kind: "tank", target: me,
         label: me.jobCooldown > 0 ? Math.ceil(me.jobCooldown) + "s" : "WALL",
+        action: () => send("JOB_ABILITY")
+    };
+    if (me.job === "healer" && !me.movingCore && !placementSelection(me)) return {
+        kind: "healer", target: me,
+        label: me.jobCooldown > 0 ? Math.ceil(me.jobCooldown) + "s" : "回復エリア",
         action: () => send("JOB_ABILITY")
     };
     if (me.job === "spy" && !me.movingCore && !placementSelection(me)) return {
@@ -2020,6 +2050,7 @@ function draw() {
         drawResources();
         drawDroppedResources();
         drawTrapSlots();
+        drawHealingAreas();
         drawTeleportPads();
         drawArtilleryShells();
         drawMissiles();
@@ -2622,6 +2653,21 @@ function drawTeleportPads() {
     }
 }
 
+function drawHealingAreas() {
+    for (const p of state.players) {
+        if (!(p.healRemaining > 0)) continue;
+        const h = p.healHalfSize;
+        ctx.save(); ctx.fillStyle = "rgba(92,235,160,.15)"; ctx.strokeStyle = "#5ceba0"; ctx.lineWidth = 1;
+        ctx.fillRect(p.healX - h, p.healY - h, h * 2, h * 2);
+        ctx.strokeRect(p.healX - h, p.healY - h, h * 2, h * 2);
+        for (let i = 1; i < 3; i++) {
+            ctx.beginPath(); ctx.moveTo(p.healX - h + i * h * 2 / 3, p.healY - h); ctx.lineTo(p.healX - h + i * h * 2 / 3, p.healY + h);
+            ctx.moveTo(p.healX - h, p.healY - h + i * h * 2 / 3); ctx.lineTo(p.healX + h, p.healY - h + i * h * 2 / 3); ctx.stroke();
+        }
+        ctx.restore();
+    }
+}
+
 function drawPlayers() {
     for (const decoy of state.decoys || []) {
         if (decoy.hp <= 0) continue;
@@ -2661,6 +2707,12 @@ function drawPlayers() {
             ctx.restore();
         }
         ctx.fillStyle = hit || player.down ? "#ff5964" : player.id === myPlayerId ? "#79d8ff" : "#454545";
+        if (player.job === "attacker" && !player.down) {
+            ctx.fillStyle = "#b5b5b5";
+            ctx.fillRect(-12, -3, 4, 12); ctx.fillRect(8, -3, 4, 12);
+            ctx.fillStyle = "#454545";
+            ctx.fillRect(-12, -3, 4, 4); ctx.fillRect(8, -3, 4, 4);
+        }
         const playerSize = 10;
         const disguised = player.spyRemaining > 0 && !player.down;
         if (disguised) {

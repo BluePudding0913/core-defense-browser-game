@@ -308,7 +308,7 @@
     {"id":"early-ore-2","type":"ore","x":1460,"y":1340,"requiredArea":"ore-room"}
   ],
   "missileComputer": {"id":"missile-computer","x":540,"y":860,"requiredArea":"heavy-arms-area"},
-  "jobStation": {"id":"job-station","x":460,"y":1780,"requiredArea":"recovery-room"},
+  "jobStation": {"id":"job-station","x":260,"y":1780,"requiredArea":"recovery-room"},
   "shopUnits": [
     {"id":"shop-flamethrower","item":"flamethrower","label":"FLAME","x":380,"y":940,"cost":10000,"detail":"短距離の連続放射・複数の敵を焼く"},
     {"id":"shop-medkit","item":"medkit","label":"MEDKIT","x":1660,"y":1020,"cost":120,"detail":"携帯回復キット"},

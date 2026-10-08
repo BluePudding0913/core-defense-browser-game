@@ -25,6 +25,8 @@ for (const blocked of [{ job: 'healer' }, { down: true }, { movingCore: true }, 
     assert.equal(commands.length, count); Object.keys(me).forEach(key => delete me[key]); Object.assign(me, before);
 }
 context.state.phase = 'lobby'; rightClick(); assert.equal(commands.length, count); context.state.phase = 'wave';
+me.job = 'attacker'; rightClick(); assert.equal(commands.at(-1), 'SECONDARY_FIRE:1500.0:1900.0:1');
+me.job = 'scout'; commands.pop();
 context.exitDialog.open = true; rightClick(); assert.equal(commands.length, count); context.exitDialog.open = false;
 me.job = 'spy'; rightClick(); assert.equal(commands.at(-1), 'DECOY:1500.0:1900.0');
 const decoyCount = commands.length;
