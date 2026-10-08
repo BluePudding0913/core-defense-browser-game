@@ -68,7 +68,30 @@ final class Player {
     final WeaponInventory weapons = new WeaponInventory();
 
     double healRemaining, healX, healY;
-    double secondaryCooldown;
+    String secondaryWeapon = "pistol";
+    double secondaryCooldown, secondaryCooldownMax;
+    final java.util.Map<String, Double> secondaryWeaponCooldowns = new java.util.HashMap<>();
+    final java.util.Map<String, Double> secondaryWeaponCooldownMaxima = new java.util.HashMap<>();
+    double secondaryRailgunCharge, secondaryRailgunRemaining, secondaryRailgunTick;
+    double secondaryRailgunDx = 1, secondaryRailgunDy;
+
+    void stopSecondaryRailgun() {
+        if (secondaryRailgunRemaining > 0) {
+            secondaryCooldown = WeaponCatalog.stats("railgun").cooldown();
+            secondaryCooldownMax = secondaryCooldown;
+        }
+        secondaryRailgunCharge = secondaryRailgunRemaining = secondaryRailgunTick = 0;
+    }
+
+    void equipSecondaryWeapon(String next) {
+        if (secondaryWeapon.equals(next)) return;
+        stopSecondaryRailgun();
+        secondaryWeaponCooldowns.put(secondaryWeapon, secondaryCooldown);
+        secondaryWeaponCooldownMaxima.put(secondaryWeapon, secondaryCooldownMax);
+        secondaryWeapon = next;
+        secondaryCooldown = secondaryWeaponCooldowns.getOrDefault(next, 0.0);
+        secondaryCooldownMax = secondaryWeaponCooldownMaxima.getOrDefault(next, 0.0);
+    }
     boolean secondaryFiring;
     double secondaryAimX, secondaryAimY;
     boolean firing;

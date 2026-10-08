@@ -84,7 +84,7 @@ Object.assign(context, {
     weaponName: {}, weaponAmmo: {}, weaponIcon: {}, weaponCooldown: {},
     weaponButton: {style:{setProperty() {}}, classList:{toggle() {}}},
     WeaponUI: require('../weapon-ui.js'), WEAPON_FIELDS: {pistol:{name:'PISTOL', capacity:0}},
-    BUILD_INFO: {}, ammoForWeapon: () => '∞', updateInventory() {},
+    BUILD_INFO: {}, ammoForWeapon: () => '∞', updateInventory() {}, updateAttackerLoadout() {},
     placementSelection: () => null, findNearestInteraction: () => null,
     interactLabel: {}, interactButton: {classList:{toggle() {}}}, clamp:(v,a,b)=>Math.max(a,Math.min(v,b)),
 });

@@ -271,6 +271,7 @@ final class GameSession {
             case "SECONDARY_FIRE" -> handleSecondaryFire(player, parts);
             case "INTERACT" -> { if (parts.length >= 2) interact(player, parts[1]); }
             case "WEAPON" -> { if (parts.length >= 2) switchWeapon(player, parts[1]); }
+            case "SECONDARY_WEAPON" -> { if (parts.length >= 2) switchSecondaryWeapon(player, parts[1]); }
             case "BUY" -> { if (parts.length >= 2) buy(player, parts[1], parts.length >= 3 ? parts[2] : null); }
             case "BUILD" -> { if (parts.length >= 3) build(player, parts[1], parts[2]); }
             case "PICKUP_FACTORY" -> { if (parts.length >= 2) pickupFactory(player, parts[1]); }
@@ -316,9 +317,13 @@ final class GameSession {
             player.teleportCooldown = Math.max(0, player.teleportCooldown - dt);
             player.weaponCooldowns.replaceAll((weapon, remaining) -> Math.max(0, remaining - dt));
             player.cooldown = Math.max(0, player.cooldown - dt);
+            player.secondaryWeaponCooldowns.replaceAll((weapon, remaining) -> Math.max(0, remaining - dt));
             player.secondaryCooldown = Math.max(0, player.secondaryCooldown - dt);
             if (player.secondaryFiring && canMove()) combat.attackSecondary(player, player.secondaryAimX, player.secondaryAimY);
             player.gatherCooldown = Math.max(0, player.gatherCooldown - dt);
+            if (!player.secondaryFiring || player.down || player.movingCore || player.selectedBuild != null || !canMove()) {
+                player.stopSecondaryRailgun();
+            }
             if (!player.firing || player.down || player.movingCore || player.selectedBuild != null || !canMove()) {
                 player.stopRailgun();
             }
@@ -330,7 +335,7 @@ final class GameSession {
 
         updateBots(dt);
         updatePlayers(dt);
-        players.forEach(player -> combat.updateRailgun(player, dt));
+        players.forEach(player -> { combat.updateRailgun(player, dt); combat.updateSecondaryRailgun(player, dt); });
         updateMissiles(dt);
         updateJobEquipment(dt);
         updateMedbay(dt);
@@ -428,7 +433,10 @@ final class GameSession {
         player.breakerControl = null;
         player.stopRailgun(); cancelAction(player);
         double previousMaxHp = JobRules.maxHp(player.job);
-        player.secondaryFiring = false; player.secondaryCooldown = player.healRemaining = 0;
+        player.secondaryFiring = false; player.stopSecondaryRailgun();
+        player.secondaryWeapon = player.weapons.owns("pistol") ? "pistol" : player.weapon;
+        player.secondaryWeaponCooldowns.clear(); player.secondaryWeaponCooldownMaxima.clear();
+        player.secondaryCooldown = player.secondaryCooldownMax = player.healRemaining = 0;
         player.job = job;
         player.hp = player.down ? 0 : Math.min(JobRules.maxHp(job), player.hp * JobRules.maxHp(job) / previousMaxHp);
         player.decoyCooldown = 0;
@@ -545,7 +553,7 @@ final class GameSession {
 
     private void useScoutDash(Player player, double targetX, double targetY) {
         if (!canMove() || !JobRules.canScoutDash(player.job, player.down, player.movingCore,
-                player.selectedBuild != null, player.railgunRemaining > 0 || player.railgunCharge > 0,
+                player.selectedBuild != null, player.railgunRemaining > 0 || player.railgunCharge > 0 || player.secondaryRailgunRemaining > 0 || player.secondaryRailgunCharge > 0,
                 player.jobCooldown, player.stamina)) return;
         MapPoint direction = JobRules.scoutDashDirection(player.x, player.y, targetX, targetY);
         if (direction == null) return;
@@ -702,7 +710,7 @@ final class GameSession {
 
     private void handleSecondaryFire(Player player, String[] parts) {
         if (parts.length < 4) return;
-        if (parts[3].equals("0")) { player.secondaryFiring = false; return; }
+        if (parts[3].equals("0")) { player.secondaryFiring = false; player.stopSecondaryRailgun(); return; }
         if (!canMove() || !player.job.equals("attacker") || player.down || player.movingCore || player.selectedBuild != null) return;
         double x = Double.parseDouble(parts[1]), y = Double.parseDouble(parts[2]);
         if (!Double.isFinite(x) || !Double.isFinite(y)) return;
@@ -885,7 +893,7 @@ final class GameSession {
             }
             if (player.scoutDashRemaining > 0) {
                 if (player.down || player.movingCore || player.selectedBuild != null
-                        || player.railgunRemaining > 0 || player.railgunCharge > 0) {
+                        || player.railgunRemaining > 0 || player.railgunCharge > 0 || player.secondaryRailgunRemaining > 0 || player.secondaryRailgunCharge > 0) {
                     player.scoutDashRemaining = 0;
                 } else {
                     double travel = JobRules.SCOUT_DASH_SPEED * Math.min(dt, player.scoutDashRemaining);
@@ -901,7 +909,7 @@ final class GameSession {
             }
             double input = Math.hypot(player.moveX, player.moveY);
             if (player.dashExhausted && player.stamina >= 28) player.dashExhausted = false;
-            player.dashing = player.railgunRemaining <= 0 && player.railgunCharge <= 0 && !player.down && !player.movingCore
+            player.dashing = player.railgunRemaining <= 0 && player.railgunCharge <= 0 && player.secondaryRailgunRemaining <= 0 && player.secondaryRailgunCharge <= 0 && !player.down && !player.movingCore
                     && player.dashHeld && !player.dashExhausted
                     && input > 0.12 && player.stamina > 0;
             if (player.dashing) {
@@ -914,8 +922,8 @@ final class GameSession {
                 player.stamina = Math.min(JobRules.staminaMax(player.job), player.stamina + JobRules.staminaRecovery(player.job) * dt);
             }
             double speed = player.down ? 45 : player.movingCore ? 82 : player.dashing ? JobRules.dashSpeed(player.job) : 155;
-            if (player.railgunRemaining > 0) speed = 155 * .3;
-            else if (player.railgunCharge > 0) speed = 155 * .6;
+            if (player.railgunRemaining > 0 || player.secondaryRailgunRemaining > 0) speed = 155 * .3;
+            else if (player.railgunCharge > 0 || player.secondaryRailgunCharge > 0) speed = 155 * .6;
             double nextX = clamp(player.x + player.moveX * speed * dt, 7, WORLD_W - 7);
             double nextY = clamp(player.y + player.moveY * speed * dt, 7, WORLD_H - 7);
             if (canOccupy(nextX, player.y, 5)) player.x = nextX;
@@ -2392,6 +2400,13 @@ final class GameSession {
         }
     }
 
+    private void switchSecondaryWeapon(Player player, String weapon) {
+        if (!canMove() || !player.job.equals("attacker") || player.down || player.movingCore
+                || !player.weapons.owns(weapon) || DroneRules.mounted(player, weapon)) return;
+        player.equipSecondaryWeapon(weapon);
+        player.secondaryFiring = false;
+    }
+
     private void switchWeapon(Player player, String weapon) {
         if (player.weapons.owns(weapon) && !DroneRules.mounted(player, weapon)) {
             releaseCarriedCore(player);
@@ -2498,7 +2513,13 @@ final class GameSession {
         }
         if (spend(player, shop.cost())) {
             releaseCarriedCore(player);
-            if (exchange) player.weapons.exchange(item, outgoing);
+            if (exchange) {
+                player.weapons.exchange(item, outgoing);
+                if (player.secondaryWeapon.equals(outgoing)) {
+                    player.equipSecondaryWeapon(item);
+                    player.secondaryFiring = false;
+                }
+            }
             grantWeapon(player, item);
             gameEffects.purchased(player, item, true);
             gameEffects.feedback(player, "購入しました");
@@ -3111,7 +3132,10 @@ final class GameSession {
             player.spyCheckedEnemies.clear(); player.spyHostileEnemies.clear();
             player.spyRemaining = 0;
             player.drone = null;
-            player.secondaryFiring = false; player.secondaryCooldown = player.healRemaining = 0;
+            player.secondaryFiring = false; player.stopSecondaryRailgun();
+            player.secondaryWeapon = "pistol";
+            player.secondaryWeaponCooldowns.clear(); player.secondaryWeaponCooldownMaxima.clear();
+            player.secondaryCooldown = player.secondaryCooldownMax = player.healRemaining = 0;
             player.jobCooldown = 0;
             player.teleportCooldown = 0;
             player.teleportPads.clear();

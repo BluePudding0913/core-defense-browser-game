@@ -96,20 +96,26 @@
         },
         stopRailgun(id) { const current = railguns.get(id); current?.voice?.stop(); railguns.delete(id); },
         stopRailguns() { for (const id of railguns.keys()) this.stopRailgun(id); },
-        syncRailguns(players, listener, localId, localFiring) {
+        syncRailguns(players, listener, localId, localFiring, secondaryFiring) {
             const live = new Set();
-            for (const player of players) {
-                if (player.id === localId && localFiring === false) continue;
+            for (const owner of players) {
+              const hands = [{ ...owner, held: localFiring }];
+              if (owner.job === "attacker") hands.push({ ...owner, id: owner.id + ":right",
+                  weapon: owner.secondaryWeapon, railgunCharge: owner.secondaryRailgunCharge,
+                  railgunRemaining: owner.secondaryRailgunRemaining, held: secondaryFiring });
+              for (const player of hands) {
+                if (owner.id === localId && player.held === false) continue;
                 const name = !player.down && player.weapon === "railgun" ? player.railgunRemaining > 0 ? "railgun" : player.railgunCharge > 0 ? "railgun-charge" : null : null;
                 if (!name || !listener) continue;
                 live.add(player.id);
-                const distance = player.id === localId ? 0 : Math.hypot(listener.x - player.x, listener.y - player.y);
+                const distance = owner.id === localId ? 0 : Math.hypot(listener.x - player.x, listener.y - player.y);
                 if (railguns.get(player.id)?.name !== name) {
                     this.stopRailgun(player.id);
                     const voice = this.play(name, distance, name === "railgun");
                     if (voice) railguns.set(player.id, { name, voice });
                 }
                 railguns.get(player.id)?.voice?.setDistance(distance);
+              }
             }
             for (const id of railguns.keys()) if (!live.has(id)) this.stopRailgun(id);
         },

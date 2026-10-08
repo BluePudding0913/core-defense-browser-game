@@ -10,7 +10,7 @@ const context = vm.createContext({ window: {}, getMe: () => me, state: { phase: 
     canvas: { addEventListener: (name, handler) => handlers[name] = handler, focus() {} },
     worldFromScreen: (x, y) => ({ x, y }), send: command => commands.push(command),
     predictedLocal: { x: 940, y: 1900, stamina: 80, scoutDashRemaining: .2, scoutDashDx: 1, scoutDashDy: 0 },
-    canPredictOccupy: () => true,
+    canPredictOccupy: () => true, startFiring() {},
 });
 vm.runInContext(fs.readFileSync('client/scout-movement.js', 'utf8'), context);
 const start = source.indexOf('function requestDecoy(');

@@ -4,7 +4,7 @@
 window.JobUI = (() => {
     const catalog = Object.freeze({
         healer: { name: "Healer", description: "ダウンした味方を素早くリバイブする。ジョブ効果キーで3×3の回復エリアを10秒展開する。" },
-        attacker: { name: "Attacker", description: "二丁持ち。左クリックで装備武器、右クリックでサブのピストルを撃つ。" },
+        attacker: { name: "Attacker", description: "所持品画面で左右の武器を設定。左右クリックの長押しで同時に撃てる。" },
         spy: { name: "Spy", description: "ジョブ効果キーで偽装。右クリックした方向へデコイを発射（3秒）。偽装中は味方の弾も受ける。" },
         tank: { name: "Tank", description: "HP150。周囲の味方の被ダメージを25%軽減し、優先して狙われる。ジョブ効果キーで一時的な壁を設置。" },
         tp: { name: "TP", description: "テレポーターを2台所持。Rで設置・移動、R長押しで自分の装置を回収。味方全員が利用可能。" },

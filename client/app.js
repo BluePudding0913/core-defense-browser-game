@@ -977,6 +977,7 @@ function updateHud() {
             const silverLabel = WeaponUI.silverAmmoLabel(me, me.drone?.controlled ? me.drone.weapon : me.weapon, WEAPON_FIELDS);
             if (silverLabel) weaponCooldown.textContent += ` · ${silverLabel}`;
         }
+        updateAttackerLoadout(me);
         updateInventory(me);
         const placing = Boolean(placementSelection(me));
         const interaction = findNearestInteraction();
@@ -985,6 +986,32 @@ function updateHud() {
         interactButton.classList.toggle("hidden", !placing && !interaction);
     }
 }
+
+function updateAttackerLoadout(me) {
+    const panel = document.querySelector("#attacker-loadout");
+    panel.classList.toggle("hidden", me.job !== "attacker");
+    if (me.job !== "attacker") return;
+    const entries = WeaponUI.entries(me, WEAPON_FIELDS);
+    const options = entries.map(entry => '<option value="' + entry.value + '">' + escapeHtml(entry.label) + '</option>').join("");
+    for (const select of panel.querySelectorAll("select")) {
+        if (select.dataset.options !== options) {
+            select.innerHTML = options;
+            select.dataset.options = options;
+        }
+        select.value = select.dataset.hand === "left" ? me.weapon : me.secondaryWeapon || "pistol";
+        select.disabled = me.down || me.movingCore || me.missileControl;
+    }
+}
+
+document.querySelector("#attacker-loadout").addEventListener("change", event => {
+    const select = event.target.closest("select[data-hand]");
+    const me = getMe();
+    if (!select || select.disabled || me?.job !== "attacker" || me.down || me.movingCore) return;
+    if (!WeaponUI.entries(me, WEAPON_FIELDS).some(entry => entry.value === select.value)) return;
+    if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
+    stopSecondaryFiring();
+    send((select.dataset.hand === "left" ? "WEAPON:" : "SECONDARY_WEAPON:") + select.value);
+});
 
 // Keep button nodes alive across snapshots so a press spanning a network update still clicks.
 function updateInventory(me) {
@@ -1119,6 +1146,8 @@ inventoryItems.addEventListener("lostpointercapture", event => finishInventoryDr
 
 function toggleInventory() {
     endInteractionHold(true); endJobHold(true);
+    if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
+    if (secondaryHeld) stopSecondaryFiring();
     if (!inventoryMenu.classList.contains("hidden")) {
         inventoryMenu.classList.add("hidden");
         return;
@@ -1596,7 +1625,7 @@ function requestDecoy(point) {
     const me = getMe();
     if (!me || me.job !== "spy" || !["preparing", "wave"].includes(state.phase)
             || me.down || me.movingCore || me.selectedBuild || me.decoyCooldown > 0
-            || me.railgunRemaining > 0 || me.railgunCharge > 0 || exitDialog.open
+            || me.railgunRemaining > 0 || me.railgunCharge > 0 || me.secondaryRailgunRemaining > 0 || me.secondaryRailgunCharge > 0 || exitDialog.open
             || !howToMenu.classList.contains("hidden") || !inventoryMenu.classList.contains("hidden")
             || !actionMenu.classList.contains("hidden")) return;
     send(`DECOY:${point.x.toFixed(1)}:${point.y.toFixed(1)}`);
@@ -1606,7 +1635,7 @@ function requestScoutDash(point) {
     const me = getMe();
     if (!me || me.job !== "scout" || !["preparing", "wave"].includes(state.phase)
             || me.down || me.movingCore || me.selectedBuild || me.jobCooldown > 0
-            || me.stamina < me.scoutDashStamina || me.railgunRemaining > 0 || me.railgunCharge > 0
+            || me.stamina < me.scoutDashStamina || me.railgunRemaining > 0 || me.railgunCharge > 0 || me.secondaryRailgunRemaining > 0 || me.secondaryRailgunCharge > 0
             || exitDialog.open || !howToMenu.classList.contains("hidden")
             || !inventoryMenu.classList.contains("hidden") || !actionMenu.classList.contains("hidden")) return;
     send(`SCOUT_DASH:${point.x.toFixed(1)}:${point.y.toFixed(1)}`);
@@ -1614,6 +1643,12 @@ function requestScoutDash(point) {
 
 // Mouse down also fires when the left button is held, allowing a dash while shooting.
 canvas.addEventListener("mousedown", event => {
+    if (!state || !getMe()) return;
+    if (event.button === 0) {
+        canvas.focus({ preventScroll: true });
+        startFiring("mouse", event.clientX, event.clientY);
+        return;
+    }
     if (event.button !== 2) return;
     event.preventDefault();
     canvas.focus({ preventScroll: true });
@@ -1621,6 +1656,7 @@ canvas.addEventListener("mousedown", event => {
             && !exitDialog.open && howToMenu.classList.contains("hidden") && ["preparing", "wave"].includes(state?.phase)
             && actionMenu.classList.contains("hidden") && inventoryMenu.classList.contains("hidden")) {
         const p = worldFromScreen(event.clientX, event.clientY);
+        secondaryHeld = true;
         send(`SECONDARY_FIRE:${p.x.toFixed(1)}:${p.y.toFixed(1)}:1`);
     } else {
         requestScoutDash(worldFromScreen(event.clientX, event.clientY));
@@ -1630,9 +1666,9 @@ canvas.addEventListener("mousedown", event => {
 
 canvas.addEventListener("pointerdown", event => {
     if (!state || !getMe()) return;
-    if (event.pointerType === "mouse" && event.button !== 0) return;
     canvas.focus({ preventScroll: true });
     canvas.setPointerCapture(event.pointerId);
+    if (event.pointerType === "mouse") return;
     const inMovementArea = event.pointerType !== "mouse"
         && event.clientX < innerWidth * .42 && event.clientY > innerHeight * .42;
     if (inMovementArea) {
@@ -1647,7 +1683,7 @@ canvas.addEventListener("pointerdown", event => {
 canvas.addEventListener("pointermove", event => {
     if (pendingMove?.id === event.pointerId) { pendingMove.x = event.clientX; pendingMove.y = event.clientY; }
     if (joystick?.id === event.pointerId) updateJoystick(event.clientX, event.clientY);
-    if (firingPointer?.id === event.pointerId) updateFiringAim(event.clientX, event.clientY);
+    if (firingPointer?.id === event.pointerId || event.pointerType === "mouse" && firingPointer?.id === "mouse") updateFiringAim(event.clientX, event.clientY);
 });
 
 canvas.addEventListener("pointerup", event => {
@@ -1666,9 +1702,18 @@ canvas.addEventListener("pointercancel", event => {
     if (pendingMove?.id === event.pointerId) { clearTimeout(pendingMove.timer); pendingMove = null; }
     if (firingPointer?.id === event.pointerId) stopFiring(event.clientX, event.clientY);
 });
-window.addEventListener("mouseup", event => { if (event.button === 2) send("SECONDARY_FIRE:0:0:0"); });
+let secondaryHeld = false;
+function stopSecondaryFiring() {
+    secondaryHeld = false;
+    send("SECONDARY_FIRE:0:0:0");
+    window.coreAudio?.stopRailgun?.(myPlayerId + ":right");
+}
+window.addEventListener("mouseup", event => {
+    if (event.button === 0 && firingPointer?.id === "mouse") stopFiring(event.clientX, event.clientY);
+    if (event.button === 2) stopSecondaryFiring();
+});
 canvas.addEventListener("mousemove", event => {
-    if (getMe()?.job === "attacker" && (event.buttons & 2)) {
+    if (getMe()?.job === "attacker" && secondaryHeld && (event.buttons & 2)) {
         const p = worldFromScreen(event.clientX, event.clientY);
         send(`SECONDARY_FIRE:${p.x.toFixed(1)}:${p.y.toFixed(1)}:1`);
     }
@@ -1818,7 +1863,7 @@ window.addEventListener("keyup", event => {
     keys.delete(key); sendMovement();
 });
 window.addEventListener("blur", () => {
-    send("SECONDARY_FIRE:0:0:0");
+    stopSecondaryFiring();
     endInteractionHold(true); endJobHold(true);
     keys.clear(); joystick = null;
     dashKey = false; setDash(false);
@@ -1991,7 +2036,7 @@ function updateLocalPrediction(dt) {
     }
     if (!predictedLocal || !serverMe || !["preparing", "wave"].includes(state.phase)) return;
     if (predictedLocal.scoutDashRemaining > 0 && !serverMe.down && !serverMe.movingCore
-            && !serverMe.selectedBuild && !(serverMe.railgunRemaining > 0 || serverMe.railgunCharge > 0)) {
+            && !serverMe.selectedBuild && !(serverMe.railgunRemaining > 0 || serverMe.railgunCharge > 0 || serverMe.secondaryRailgunRemaining > 0 || serverMe.secondaryRailgunCharge > 0)) {
         const travel = serverMe.scoutDashSpeed * Math.min(dt, predictedLocal.scoutDashRemaining);
         const next = window.ScoutMovement.advance(predictedLocal, predictedLocal.scoutDashDx,
             predictedLocal.scoutDashDy, travel, serverMe.scoutDashStep, canPredictOccupy);
@@ -2004,7 +2049,7 @@ function updateLocalPrediction(dt) {
     predictedLocal.scoutDashRemaining = 0;
     const input = Math.hypot(localMove.x, localMove.y);
     if (predictedLocal.exhausted && predictedLocal.stamina >= 28) predictedLocal.exhausted = false;
-    predictedLocal.dashing = !(serverMe.railgunRemaining > 0 || serverMe.railgunCharge > 0) && !serverMe.down && !serverMe.movingCore
+    predictedLocal.dashing = !(serverMe.railgunRemaining > 0 || serverMe.railgunCharge > 0 || serverMe.secondaryRailgunRemaining > 0 || serverMe.secondaryRailgunCharge > 0) && !serverMe.down && !serverMe.movingCore
         && dashRequested && !predictedLocal.exhausted && input > .12 && predictedLocal.stamina > 0;
     if (predictedLocal.dashing) {
         predictedLocal.stamina = Math.max(0, predictedLocal.stamina - (serverMe.staminaDrain ?? 38) * dt);
@@ -2016,7 +2061,7 @@ function updateLocalPrediction(dt) {
         predictedLocal.stamina = Math.min(serverMe.staminaMax ?? 100, predictedLocal.stamina + (serverMe.staminaRecovery ?? 24) * dt);
     }
 
-    const speed = serverMe.railgunRemaining > 0 ? 155 * .3 : serverMe.railgunCharge > 0 ? 155 * .6 : serverMe.down ? 45 : serverMe.movingCore ? 82 : predictedLocal.dashing ? (serverMe.dashSpeed ?? 265) : 155;
+    const speed = serverMe.railgunRemaining > 0 || serverMe.secondaryRailgunRemaining > 0 ? 155 * .3 : serverMe.railgunCharge > 0 || serverMe.secondaryRailgunCharge > 0 ? 155 * .6 : serverMe.down ? 45 : serverMe.movingCore ? 82 : predictedLocal.dashing ? (serverMe.dashSpeed ?? 265) : 155;
     const nextX = clamp(predictedLocal.x + localMove.x * speed * dt, 25, WORLD.width - 25);
     const nextY = clamp(predictedLocal.y + localMove.y * speed * dt, 25, WORLD.height - 25);
     if (canPredictOccupy(nextX, predictedLocal.y, 5)) predictedLocal.x = nextX;
@@ -2053,7 +2098,7 @@ function animate(now = performance.now()) {
     const dt = Math.min(.05, Math.max(0, (now - lastFrameAt) / 1000));
     lastFrameAt = now;
     updateLocalPrediction(dt);
-    window.coreAudio?.syncRailguns?.(socket?.readyState === WebSocket.OPEN ? state?.players || [] : [], predictedLocal || getMe(), myPlayerId, Boolean(firingPointer));
+    window.coreAudio?.syncRailguns?.(socket?.readyState === WebSocket.OPEN ? state?.players || [] : [], predictedLocal || getMe(), myPlayerId, Boolean(firingPointer), secondaryHeld);
     window.TerminalUI?.update(state, getMe(), { map: { world: WORLD, tileMap: TILE_MAP, areas: AREAS, startingArea: STARTING_AREA }, send });
     draw();
     requestAnimationFrame(animate);
@@ -2661,7 +2706,12 @@ function drawMissiles() {
 }
 
 function drawRailguns() {
-    for (const player of state.players) {
+    for (const owner of state.players) {
+      const hands = [owner];
+      if (owner.job === "attacker") hands.push({ ...owner, weapon: owner.secondaryWeapon,
+          railgunCharge: owner.secondaryRailgunCharge, railgunRemaining: owner.secondaryRailgunRemaining,
+          railgunDx: owner.secondaryRailgunDx, railgunDy: owner.secondaryRailgunDy, railgunRange: owner.secondaryRailgunRange });
+      for (const player of hands) {
         if (player.down || player.weapon !== "railgun") continue;
         const p = player.id === myPlayerId && predictedLocal ? predictedLocal : smoothEntity("player", player);
         ctx.save();
@@ -2679,6 +2729,7 @@ function drawRailguns() {
             ctx.beginPath(); ctx.arc(p.x, p.y, 10, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress); ctx.stroke();
         }
         ctx.restore();
+      }
     }
 }
 

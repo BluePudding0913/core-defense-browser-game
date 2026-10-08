@@ -50,6 +50,10 @@
         <section id="inventory-menu" class="inventory-menu hidden" aria-label="所持品">
             <div class="inventory-card">
                 <div class="inventory-heading"><strong>INVENTORY</strong><button id="inventory-settings" class="how-to-link" type="button">設定</button><button id="how-to-inventory" class="how-to-link" type="button">遊び方</button></div>
+                <section id="attacker-loadout" class="attacker-loadout hidden" aria-label="左右の武器">
+                    <label>左クリック<select data-hand="left" aria-label="左の武器"></select></label>
+                    <label>右クリック<select data-hand="right" aria-label="右の武器"></select></label>
+                </section>
                 <div id="inventory-items" class="inventory-items"></div>
             </div>
         </section>

@@ -6,6 +6,39 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class CombatSystemTest {
+    @Test void rightHandUsesTheSameDamageAmmoAndCooldownRulesForEveryWeaponMode() {
+        for (var definition : WeaponCatalog.ALL) {
+            String weapon = definition.id();
+            double[] damage = new double[2];
+            for (int hand = 0; hand < 2; hand++) {
+                var world = new World(); world.active = true;
+                var combat = new CombatSystem(world, new Events());
+                var player = shooter(weapon, true);
+                var enemy = target(world, 1, 1100);
+                int ammo = player.weapons.ammo(weapon);
+                if (hand == 0) {
+                    player.firing = true; player.aimX = 1100; player.aimY = 1900;
+                    combat.attackAt(player, 1100, 1900);
+                    if (weapon.equals("railgun")) combat.updateRailgun(player, GameConfig.RAILGUN_CHARGE + .1);
+                } else {
+                    player.job = "attacker"; player.equipWeapon("pistol");
+                    player.equipSecondaryWeapon(weapon); player.secondaryFiring = true;
+                    player.secondaryAimX = 1100; player.secondaryAimY = 1900;
+                    combat.attackSecondary(player, 1100, 1900);
+                    if (weapon.equals("railgun")) combat.updateSecondaryRailgun(player, GameConfig.RAILGUN_CHARGE + .1);
+                    assertEquals("pistol", player.weapon, weapon);
+                    assertEquals(0, player.cooldown, weapon);
+                    if (!weapon.equals("railgun")) assertEquals(definition.stats().cooldown(), player.secondaryCooldown, weapon);
+                }
+                damage[hand] = enemy.maxHp - enemy.hp;
+                assertEquals(ammo - (definition.capacity() > 0 ? 1 : 0), player.weapons.ammo(weapon), weapon);
+                assertEquals(SilverAmmoRules.eligible(weapon) ? 9 : 10, player.weapons.silverAmmo(), weapon);
+            }
+            assertTrue(damage[0] > 0, weapon);
+            assertEquals(damage[0], damage[1], 1e-7, weapon);
+        }
+    }
+
     private static Player shooter(String weapon, boolean silver) {
         var player = new Player(1);
         player.x = 1020; player.y = 1900;

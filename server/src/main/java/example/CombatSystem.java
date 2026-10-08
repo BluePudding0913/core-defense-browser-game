@@ -102,20 +102,54 @@ final class CombatSystem {
     }
 
     void attackSecondary(Player player, double aimX, double aimY) {
-        if (!world.canAttack() || !player.job.equals("attacker") || player.down || player.movingCore
-                || player.selectedBuild != null || player.secondaryCooldown > 0) return;
-        var stats = WeaponCatalog.stats("pistol");
-        if (player.weapons.consumeSilverAmmo("pistol")) stats = SilverAmmoRules.boost(stats);
-        player.secondaryCooldown = stats.cooldown();
-        secondaryShooter = player;
-        try {
-            events.sound(player, "shot", "pistol");
-            double angle = Math.atan2(aimY - player.y, aimX - player.x);
-            fireRay(player, stats, Math.cos(angle), Math.sin(angle));
-        } finally { secondaryShooter = null; }
+        if (!player.job.equals("attacker") || !player.weapons.owns(player.secondaryWeapon)) return;
+        withSecondaryHand(player, () -> attackAt(player, aimX, aimY));
     }
 
-    private Player secondaryShooter;
+    void updateSecondaryRailgun(Player player, double dt) {
+        if (!player.job.equals("attacker") || !player.weapons.owns(player.secondaryWeapon)) {
+            player.secondaryFiring = false;
+            player.stopSecondaryRailgun();
+            return;
+        }
+        withSecondaryHand(player, () -> updateRailgun(player, dt));
+    }
+
+    // Run both hands through the same weapon rules; only hand state is swapped.
+    private record HandState(String weapon, double cooldown, double cooldownMax, boolean firing,
+            double aimX, double aimY, double charge, double remaining, double tick, double dx, double dy) {
+        static HandState primary(Player p) {
+            return new HandState(p.weapon, p.cooldown, p.cooldownMax, p.firing, p.aimX, p.aimY,
+                    p.railgunCharge, p.railgunRemaining, p.railgunTick, p.railgunDx, p.railgunDy);
+        }
+        static HandState secondary(Player p) {
+            return new HandState(p.secondaryWeapon, p.secondaryCooldown, p.secondaryCooldownMax,
+                    p.secondaryFiring, p.secondaryAimX, p.secondaryAimY, p.secondaryRailgunCharge,
+                    p.secondaryRailgunRemaining, p.secondaryRailgunTick, p.secondaryRailgunDx, p.secondaryRailgunDy);
+        }
+        void applyPrimary(Player p) {
+            p.weapon = weapon; p.cooldown = cooldown; p.cooldownMax = cooldownMax; p.firing = firing;
+            p.aimX = aimX; p.aimY = aimY; p.railgunCharge = charge; p.railgunRemaining = remaining;
+            p.railgunTick = tick; p.railgunDx = dx; p.railgunDy = dy;
+        }
+        void applySecondary(Player p) {
+            p.secondaryWeapon = weapon; p.secondaryCooldown = cooldown; p.secondaryCooldownMax = cooldownMax;
+            p.secondaryFiring = firing; p.secondaryAimX = aimX; p.secondaryAimY = aimY;
+            p.secondaryRailgunCharge = charge; p.secondaryRailgunRemaining = remaining;
+            p.secondaryRailgunTick = tick; p.secondaryRailgunDx = dx; p.secondaryRailgunDy = dy;
+        }
+    }
+
+    private void withSecondaryHand(Player p, Runnable action) {
+        HandState primary = HandState.primary(p);
+        HandState.secondary(p).applyPrimary(p);
+        try { action.run(); }
+        finally {
+            HandState.primary(p).applySecondary(p);
+            primary.applyPrimary(p);
+            if (p.down) p.firing = p.secondaryFiring = false;
+        }
+    }
 
     void missileImpact(Player player, double x, double y) {
         events.explosion(x, y, MissileRules.radius());
@@ -146,7 +180,7 @@ final class CombatSystem {
 
     private record DroneShot(Player owner, String weapon, double x, double y, Drone drone) { }
     private DroneShot droneShot;
-    private String shotWeapon(Player p) { return droneShot != null && droneShot.owner == p ? droneShot.weapon : secondaryShooter == p ? "pistol" : p.weapon; }
+    private String shotWeapon(Player p) { return droneShot != null && droneShot.owner == p ? droneShot.weapon : p.weapon; }
     private double shotX(Player p) { return droneShot != null && droneShot.owner == p ? droneShot.x : p.x; }
     private double shotY(Player p) { return droneShot != null && droneShot.owner == p ? droneShot.y : p.y; }
 
