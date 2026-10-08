@@ -11,12 +11,11 @@ final class GameConfig {
     static final double PREP_SECONDS = 10;
 
     static double prepSeconds(int upcomingRound) {
-        if (upcomingRound >= 40) return 240;
-        if (upcomingRound >= 30) return 180;
-        if (upcomingRound >= 20) return 120;
-        if (upcomingRound >= 10) return 60;
-        if (upcomingRound >= 5) return 30;
-        return PREP_SECONDS;
+        double normal = upcomingRound >= 40 ? 40 : upcomingRound >= 30 ? 35
+                : upcomingRound >= 20 ? 30 : upcomingRound >= 10 ? 25
+                : upcomingRound >= 5 ? 20 : PREP_SECONDS;
+        return normal + (upcomingRound > 0 && upcomingRound % 10 == 0 ? 20
+                : upcomingRound > 0 && upcomingRound % 5 == 0 ? 10 : 0);
     }
 
     static double goldMultiplier(int currentRound) {
