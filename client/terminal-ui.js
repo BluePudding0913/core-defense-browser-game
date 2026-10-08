@@ -50,11 +50,12 @@ window.TerminalUI = (() => {
         if (canvas.width !== map.world.width) canvas.width = map.world.width;
         if (canvas.height !== map.world.height) canvas.height = map.world.height;
         const readOnly = Boolean(me.breakerControl);
+        const livingEnemies = state.enemies.filter(enemy => enemy.hp > 0);
         if (title) title.textContent = readOnly ? "MAP" : "MISSILE SYSTEM";
         if (enemyCount) {
             enemyCount.hidden = !readOnly;
             const remaining = state.phase === "wave"
-                ? state.enemies.filter(enemy => enemy.hp > 0).length + (state.queued || 0) : 0;
+                ? livingEnemies.length + (state.queued || 0) : 0;
             enemyCount.textContent = `ENEMY ${remaining}`;
         }
         if (cooldown) {
@@ -74,8 +75,16 @@ window.TerminalUI = (() => {
         const dot = (entity, color, radius) => { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(entity.x, entity.y, radius, 0, 2 * Math.PI); ctx.fill(); };
         ctx.fillStyle = "#79d8ff";
         ctx.fillRect(state.core.x - 20, state.core.y - 20, 40, 40);
-        state.enemies.forEach(enemy => dot(enemy, "#ff716f", 12));
-        state.players.forEach(player => { dot(player, player.down ? "#777" : "#8fffb2", 14); if (player.drone?.active) dot(player.drone, "#8cdde9", 10); });
+        livingEnemies.forEach(enemy => dot(enemy, "#ff716f", 12));
+        state.players.forEach(player => {
+            const self = player.id === me.id;
+            dot(player, player.down ? "#777" : self ? "#c7ffdc" : "#8fffb2", self ? 18 : 14);
+            if (self) {
+                ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.arc(player.x, player.y, 22, 0, Math.PI * 2); ctx.stroke();
+            }
+            if (player.drone?.active) dot(player.drone, "#8cdde9", 10);
+        });
         const tripped = new Set(state.trippedBreakers || []);
         for (const breaker of map.breakerTerminals || []) {
             const broken = tripped.has(breaker.id);
