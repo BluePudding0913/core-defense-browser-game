@@ -140,6 +140,8 @@ final class GameMap {
         }
         if (FACILITY_POSITIONS.stream().anyMatch(facility -> GameSupport.distance(
                 point.x(), point.y(), facility.x(), facility.y()) < FACILITY_CLEARANCE)) return false;
+        if (AREAS.stream().anyMatch(area -> !unlockedAreas.contains(area.id())
+                && GameSupport.distance(point.x(), point.y(), area.terminalX(), area.terminalY()) < FACILITY_CLEARANCE)) return false;
         return SPAWN_POINTS.stream().noneMatch(spawn ->
                 GameSupport.distance(point.x(), point.y(), spawn.x(), spawn.y()) < SPAWN_CLEARANCE);
     }
@@ -151,7 +153,6 @@ final class GameMap {
                 new MapPoint(PREP_CONSOLE.x(), PREP_CONSOLE.y())));
         for (WorkbenchUnit unit : java.util.Arrays.asList(MISSILE_COMPUTER, JOB_STATION))
             if (unit != null) positions.add(new MapPoint(unit.x(), unit.y()));
-        AREAS.forEach(area -> positions.add(new MapPoint(area.terminalX(), area.terminalY())));
         MEDBAYS.forEach(station -> positions.add(new MapPoint(station.x(), station.y())));
         WORKBENCH_UNITS.forEach(unit -> positions.add(new MapPoint(unit.x(), unit.y())));
         SHOP_UNITS.forEach(unit -> positions.add(new MapPoint(unit.x(), unit.y())));
