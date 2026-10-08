@@ -5,7 +5,7 @@ const CombatFeedback = (() => {
         if (effect.effect !== "hit" || effect.playerId !== playerId
                 || !(effect.credits > 0 || effect.headshot)) return;
         popups = popups.filter(popup => now - popup.updated < 900);
-        const matches = popup => now - popup.updated < 350 && now - popup.created < 1200;
+        const matches = popup => now - popup.updated < 900;
         const nearby = popup => Math.hypot(popup.x - effect.x, popup.y - effect.y) < 48;
         let popup = popups.findLast(popup => matches(popup) && popup.enemyId != null && popup.enemyId === effect.enemyId)
             || popups.findLast(popup => matches(popup) && popup.enemyId == null && effect.enemyId == null && nearby(popup));
@@ -28,9 +28,14 @@ const CombatFeedback = (() => {
             if (!text && !headshot) continue;
             const width = Math.max(text.length * 7, headshot ? 18 : 0);
             const age = now - popup.updated;
-            let y = popup.y - 26 - Math.min(1, (now - popup.created) / 900) * 20;
-            while (placed.some(other => Math.abs(other.x - popup.x) < (other.width + width) / 2 + 8
-                    && Math.abs(other.y - y) < 30)) y -= 30;
+            const baseY = popup.y - 26 - Math.min(1, (now - popup.created) / 900) * 20;
+            if (popup.labelOffset == null) {
+                let y = baseY;
+                while (placed.some(other => Math.abs(other.x - popup.x) < (other.width + width) / 2 + 8
+                        && Math.abs(other.y - y) < 30)) y -= 30;
+                popup.labelOffset = y - baseY;
+            }
+            const y = baseY + popup.labelOffset;
             placed.push({...popup, headshot, x:popup.x, y, width, text, alpha:Math.min(1, (900 - age) / 250)});
         }
         return placed;
