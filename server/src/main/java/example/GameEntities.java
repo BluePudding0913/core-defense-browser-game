@@ -52,6 +52,7 @@ final class Player {
         weapon = next;
         cooldown = weaponCooldowns.getOrDefault(next, 0.0);
         cooldownMax = weaponCooldownMaxima.getOrDefault(next, 0.0);
+        ensureDistinctWeapons();
     }
 
     double railgunCharge, railgunRemaining, railgunTick;
@@ -68,7 +69,7 @@ final class Player {
     final WeaponInventory weapons = new WeaponInventory();
 
     double healRemaining, healX, healY;
-    String secondaryWeapon = "pistol";
+    String secondaryWeapon = "bat";
     double secondaryCooldown, secondaryCooldownMax;
     final java.util.Map<String, Double> secondaryWeaponCooldowns = new java.util.HashMap<>();
     final java.util.Map<String, Double> secondaryWeaponCooldownMaxima = new java.util.HashMap<>();
@@ -84,6 +85,7 @@ final class Player {
     }
 
     void equipSecondaryWeapon(String next) {
+        if (job.equals("attacker") && weapon.equals(next)) return;
         if (secondaryWeapon.equals(next)) return;
         stopSecondaryRailgun();
         secondaryWeaponCooldowns.put(secondaryWeapon, secondaryCooldown);
@@ -91,6 +93,13 @@ final class Player {
         secondaryWeapon = next;
         secondaryCooldown = secondaryWeaponCooldowns.getOrDefault(next, 0.0);
         secondaryCooldownMax = secondaryWeaponCooldownMaxima.getOrDefault(next, 0.0);
+    }
+
+    void ensureDistinctWeapons() {
+        if (!job.equals("attacker") || !secondaryWeapon.equals(weapon) && weapons.owns(secondaryWeapon)) return;
+        equipSecondaryWeapon(WeaponCatalog.ALL.stream().map(WeaponCatalog.Definition::id)
+                .filter(id -> !id.equals(weapon) && weapons.owns(id)).findFirst().orElse("none"));
+        secondaryFiring = false;
     }
     boolean secondaryFiring;
     double secondaryAimX, secondaryAimY;

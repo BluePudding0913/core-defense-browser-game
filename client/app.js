@@ -767,6 +767,7 @@ function reorderEquipment(sourceKey, targetKey) {
 
 function equipmentEntries(me) {
     const entries = WeaponUI.entries(me, WEAPON_FIELDS)
+        .filter(entry => me.job !== "attacker" || entry.value !== me.secondaryWeapon)
         .filter(entry => !(me.drone?.active && entry.value === me.drone.weapon));
     for (const [type, info] of Object.entries(BUILD_INFO)) {
         if ((me.buildItems?.[type] || 0) > 0) entries.push({ key: `build:${type}`, kind: "build", value: type, label: info.name });
@@ -992,13 +993,16 @@ function updateAttackerLoadout(me) {
     panel.classList.toggle("hidden", me.job !== "attacker");
     if (me.job !== "attacker") return;
     const entries = WeaponUI.entries(me, WEAPON_FIELDS);
-    const options = entries.map(entry => '<option value="' + entry.value + '">' + escapeHtml(entry.label) + '</option>').join("");
     for (const select of panel.querySelectorAll("select")) {
+        const opposite = select.dataset.hand === "left" ? me.secondaryWeapon : me.weapon;
+        const options = entries.filter(entry => entry.value !== opposite)
+            .map(entry => '<option value="' + entry.value + '">' + escapeHtml(entry.label) + '</option>').join("")
+            || '<option value="none">—</option>';
         if (select.dataset.options !== options) {
             select.innerHTML = options;
             select.dataset.options = options;
         }
-        select.value = select.dataset.hand === "left" ? me.weapon : me.secondaryWeapon || "pistol";
+        select.value = select.dataset.hand === "left" ? me.weapon : me.secondaryWeapon || "bat";
         select.disabled = me.down || me.movingCore || me.missileControl;
     }
 }
@@ -1007,6 +1011,7 @@ document.querySelector("#attacker-loadout").addEventListener("change", event => 
     const select = event.target.closest("select[data-hand]");
     const me = getMe();
     if (!select || select.disabled || me?.job !== "attacker" || me.down || me.movingCore) return;
+    if (select.value === (select.dataset.hand === "left" ? me.secondaryWeapon : me.weapon)) return;
     if (!WeaponUI.entries(me, WEAPON_FIELDS).some(entry => entry.value === select.value)) return;
     if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
     stopSecondaryFiring();
