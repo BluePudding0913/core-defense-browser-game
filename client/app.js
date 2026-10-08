@@ -1427,7 +1427,7 @@ function canBuildAt(point, forCore = false) {
     if (!forCore && distance(point, state.core) < 40) return false;
     if (distance(point, ARMORY) < 36 || MEDBAYS.some(station => distance(point, station) < 36)
             || distance(point, WOODCUTTER) < 36 || distance(point, QUARRY) < 36) return false;
-    if (AREAS.some(area => distance(point, { x: area.terminalX, y: area.terminalY }) < 36)) return false;
+    if (AREAS.some(area => !state.areas[area.id] && distance(point, { x: area.terminalX, y: area.terminalY }) < 36)) return false;
     if (WORKBENCHES.some(workbench => distance(point, workbench) < 36)) return false;
     if (SHOP_UNITS.some(shop => distance(point, shop) < 36)) return false;
     if (BREAKER_TERMINALS.some(breaker => distance(point, breaker) < 36)) return false;
