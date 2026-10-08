@@ -3,6 +3,9 @@ const WeaponUI = Object.freeze({
     name(id, definitions) {
         return (definitions[id]?.name || id).toUpperCase();
     },
+    capacity(player, definition) {
+        return (definition?.capacity ?? 0) * (player.ammoCapacityMultiplier ?? 1);
+    },
     owns(player, definition) {
         return (definition.capacity === 0 && player[definition.owned] === undefined) || Boolean(player[definition.owned]);
     },
@@ -40,7 +43,7 @@ const WeaponUI = Object.freeze({
     ammoStock(player, definitions) {
         return Object.entries(definitions)
             .filter(([, definition]) => definition.capacity > 0 && this.owns(player, definition))
-            .map(([id, definition]) => `${this.name(id, definitions)} ${player[definition.ammo] ?? 0} / ${definition.capacity}`)
+            .map(([id, definition]) => `${this.name(id, definitions)} ${player[definition.ammo] ?? 0} / ${this.capacity(player, definition)}`)
             .join("\n");
     },
     atLimit(player, definitions, limit) {

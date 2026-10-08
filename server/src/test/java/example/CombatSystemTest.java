@@ -6,6 +6,28 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class CombatSystemTest {
+    @Test void spyPistolDealsTripleDamageWithHeadshotsAndSilverButOtherJobsAndWeaponsStayNormal() {
+        for (String job : List.of("spy", "healer", "attacker")) {
+            for (String weapon : List.of("pistol", "smg")) {
+                for (boolean silver : List.of(false, true)) {
+                    var world = new World(); world.active = true;
+                    var combat = new CombatSystem(world, new Events(), () -> 0);
+                    var player = shooter(weapon, silver); player.job = job;
+                    var enemy = new Enemy(1, "grunt", GameMap.SPAWN_POINTS.get(0), 1000, 0, 0, 0);
+                    enemy.x = player.x + 100; enemy.y = player.y;
+                    world.enemies.add(enemy);
+                    combat.attackAt(player, enemy.x, enemy.y);
+                    double base = WeaponCatalog.stats(weapon).damage();
+                    double multiplier = job.equals("spy") && weapon.equals("pistol") ? 3 : 1;
+                    assertEquals(1000 - base * multiplier * (silver ? 2 : 1), enemy.hp, 1e-9);
+                    player.cooldown = 0; enemy.hp = 1000;
+                    combat.attackAt(player, enemy.x, enemy.y - 10.5);
+                    assertEquals(1000 - base * multiplier * (silver ? 2 : 1) * 2, enemy.hp, 1e-9);
+                }
+            }
+        }
+    }
+
     @Test void combatRewardsUseTheWeaponMultiplierAndNeverRepeatAfterDeath() {
         for (var weapon : WeaponCatalog.ALL) {
             var world = new World();

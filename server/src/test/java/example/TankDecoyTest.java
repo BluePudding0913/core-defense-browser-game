@@ -51,7 +51,7 @@ class TankDecoyTest {
         assertEquals(150, player.hp);
         player.down = true; player.hp = 0;
         call("updateHealingAreas", new Class<?>[]{double.class}, 1.0);
-        assertEquals(0, player.hp);
+        assertEquals(45, player.hp); assertFalse(player.down);
     }
 
     @Test void auraIncludesTankDoesNotStackAndStopsOnDownRangeOrWall() throws Exception {
@@ -109,7 +109,7 @@ class TankDecoyTest {
     @Test void decoyLaunchPreservesDisguiseAndAttractsMeleeAndArtillery() throws Exception {
         start("spy"); game.handleMessage(player, "JOB_ABILITY");
         game.handleMessage(player, "DECOY:1400:1900"); assertEquals(1, game.decoys.size());
-        assertEquals(3, player.decoyCooldown);
+        assertEquals(.5, player.decoyCooldown);
         assertEquals(JobRules.SPY_DURATION, player.spyRemaining);
         game.handleMessage(player, "DECOY:1400:1900"); assertEquals(1, game.decoys.size());
         Decoy decoy = game.decoys.get(0);
@@ -133,7 +133,7 @@ class TankDecoyTest {
         decoy.hp = 0; assertNull(DecoyRules.target(enemy, List.of(decoy), (x, y) -> true));
         decoy.hp = 45; decoy.remaining = 0; assertNull(DecoyRules.target(enemy, List.of(decoy), (x, y) -> true));
     }
-    @Test void decoyUsesClickedDirectionAndCanLaunchAgainAfterThreeSeconds() {
+    @Test void decoyUsesClickedDirectionAndCanLaunchAgainAfterHalfSecond() {
         start("spy");
         game.handleMessage(player, "DECOY:1240:2000");
         Decoy original = game.decoys.get(0);
@@ -144,7 +144,7 @@ class TankDecoyTest {
         game.handleMessage(player, "DECOY:1040:1900"); assertSame(original, game.decoys.get(0));
         player.decoyCooldown = 0;
         game.handleMessage(player, "DECOY:1040:1900");
-        assertNotSame(original, game.decoys.get(0)); assertEquals(3, player.decoyCooldown);
+        assertNotSame(original, game.decoys.get(0)); assertEquals(.5, player.decoyCooldown);
         DecoyRules.advance(game.decoys.get(0), .1, (x, y) -> true);
         assertEquals(1090, game.decoys.get(0).x); assertEquals(1900, game.decoys.get(0).y);
     }

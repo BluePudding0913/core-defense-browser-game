@@ -29,6 +29,13 @@ final class JobRules {
     }
 
     static double maxHp(String job) { return job.equals("tank") ? 150 : 100; }
+    static int ammoCapacityMultiplier(String job) { return job.equals("attacker") ? 2 : 1; }
+    static WeaponCatalog.WeaponStats weaponStats(String job, String weapon) {
+        var stats = WeaponCatalog.stats(weapon);
+        if (!job.equals("spy") || !weapon.equals("pistol")) return stats;
+        return new WeaponCatalog.WeaponStats(stats.range(), stats.damage() * 3, stats.cooldown(),
+                stats.knockback(), stats.width());
+    }
     static int targetPriority(Player player) { return player.job.equals("tank") ? 0 : 1; }
     static boolean preferTarget(Player candidate, Player current, double distance, double currentDistance) {
         return current == null || targetPriority(candidate) < targetPriority(current)

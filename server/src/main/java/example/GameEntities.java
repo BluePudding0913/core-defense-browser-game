@@ -66,7 +66,7 @@ final class Player {
         railgunCharge = railgunRemaining = railgunTick = 0;
     }
 
-    final WeaponInventory weapons = new WeaponInventory();
+    final WeaponInventory weapons = new WeaponInventory(() -> job);
 
     double healRemaining, healX, healY;
     String secondaryWeapon = "bat";
