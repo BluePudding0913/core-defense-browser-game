@@ -236,7 +236,7 @@ final class GameSession {
     private void handleCommand(Player player, String message) {
         String[] parts = message.split(":", 4);
         if (canMove() && DroneRules.controlling(player)
-                && !Set.of("MOVE", "FIRE", "ATTACK", "JOB_ABILITY", "DRONE_RECOVER", "BREAKER", "HELLO").contains(parts[0])) return;
+                && !Set.of("MOVE", "FIRE", "ATTACK", "JOB_ABILITY", "DRONE_RECOVER", "DRONE_SELF_DESTRUCT", "BREAKER", "HELLO").contains(parts[0])) return;
         if (player.missileControl && !Set.of("MISSILE", "MAP_REPAIR", "COMPUTER", "HELLO").contains(parts[0])) return;
         switch (parts[0]) {
             case "HELLO" -> updateName(player, parts);
@@ -266,6 +266,7 @@ final class GameSession {
             case "JOB_ABILITY" -> useJobAbility(player);
             case "DECOY" -> { if (parts.length >= 3) launchDecoy(player, Double.parseDouble(parts[1]), Double.parseDouble(parts[2])); }
             case "DRONE_RECOVER" -> recoverDrone(player);
+            case "DRONE_SELF_DESTRUCT" -> selfDestructDrone(player);
             case "DRONE_MOUNT" -> { if (parts.length > 1) mountDrone(player, parts[1]); }
             case "DRONE_LAUNCH" -> {
                 if (parts.length > 1 && canMove() && !player.down && !player.movingCore
@@ -666,6 +667,13 @@ final class GameSession {
         player.drone.active = false;
         player.drone.controlled = false;
         player.drone.attackers.clear();
+    }
+
+    private void selfDestructDrone(Player player) {
+        if (!canMove() || !DroneRules.canSelfDestruct(player)) return;
+        Drone drone = player.drone;
+        damageDrone(player, drone.hp);
+        combat.droneExplosion(player, drone);
     }
 
     private void damageDrone(Player owner, double damage) {

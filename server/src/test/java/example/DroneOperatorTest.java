@@ -50,6 +50,50 @@ class DroneOperatorTest {
         }
     }
 
+    @Test void selfDestructWorksInBothViewsDestroysMountedWeaponAndCannotRepeat() {
+        for (boolean controlled : List.of(false, true)) {
+            player.weapons.setOwned("pistol", true); player.drone = null;
+            launch(); player.drone.controlled = controlled; player.drone.x = 1140; player.drone.y = 1900;
+            game.enemies.clear(); Enemy target = enemy(1, "grunt", 1140);
+            Player ally = new Player(2); ally.hp = 100; ally.x = 1140; ally.y = 1900; game.players.add(ally);
+            int credits = player.credits;
+            game.handleMessage(player, "DRONE_SELF_DESTRUCT");
+            assertEquals(0, player.drone.hp); assertFalse(player.drone.active); assertFalse(player.drone.controlled);
+            assertFalse(player.weapons.owns("pistol")); assertEquals(0, target.hp);
+            assertEquals(credits + 50, player.credits, "Drone rewards stay halved");
+            assertEquals(100, ally.hp); assertEquals(100, player.hp);
+            assertTrue(messages.stream().anyMatch(m -> m.contains("\"effect\":\"explosion\"") && m.contains("\"radius\":120.0")));
+            int count = messages.size(); game.handleMessage(player, "DRONE_SELF_DESTRUCT");
+            assertEquals(count, messages.size());
+            game.players.remove(ally);
+        }
+    }
+
+    @Test void selfDestructUsesRadiusFalloffAndCannotDamageEnemiesAcrossWalls() {
+        launch(); player.drone.x = 1260; player.drone.y = 1900;
+        Enemy edge = enemy(1, "grunt", 1140); edge.hp = 1000;
+        Enemy outside = enemy(2, "grunt", 1139); outside.hp = 1000;
+        Enemy blocked = enemy(3, "grunt", 1300); blocked.y = 1900; blocked.hp = 1000;
+        assertFalse(GameMap.hasClearLine(1260, 1900, blocked.x, blocked.y, game.unlockedAreas));
+        game.handleMessage(player, "DRONE_SELF_DESTRUCT");
+        assertEquals(850, edge.hp); assertEquals(1000, outside.hp); assertEquals(1000, blocked.hp);
+    }
+
+    @Test void invalidSelfDestructDoesNotDamageOrConsumeDroneAndRepairStillCostsMaterials() {
+        game.handleMessage(player, "DRONE_SELF_DESTRUCT"); assertNull(player.drone);
+        launch(); player.down = true; game.handleMessage(player, "DRONE_SELF_DESTRUCT");
+        assertTrue(player.drone.active); assertEquals(45, player.drone.hp);
+        player.down = false; player.job = "healer"; game.handleMessage(player, "DRONE_SELF_DESTRUCT");
+        assertTrue(player.drone.active);
+        player.job = "drone"; game.phase = GamePhase.WON; game.handleMessage(player, "DRONE_SELF_DESTRUCT");
+        assertEquals(45, player.drone.hp);
+        game.phase = GamePhase.PREPARING; game.handleMessage(player, "DRONE_SELF_DESTRUCT");
+        game.handleMessage(player, "DRONE_LAUNCH:none"); assertFalse(player.drone.active);
+        player.ore = 5; player.copper = 2; game.handleMessage(player, "DRONE_LAUNCH:none");
+        assertTrue(player.drone.active); assertEquals(45, player.drone.hp);
+        assertEquals(0, player.ore); assertEquals(0, player.copper);
+    }
+
     @Test void selectionPersistsAcrossReconnectAndRestartResetsDrone() {
         assertEquals("drone", player.job);
         launch(); Drone original = player.drone;

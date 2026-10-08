@@ -28,5 +28,19 @@ console.log('Key settings checks passed');
 assert.equal(settings.api.getJobEffect(), "f");
 assert.equal(settings.api.setMedkit("f"), false);
 assert.equal(settings.api.setJobEffect("F2"), false);
-assert.equal(settings.api.setJobEffect("g"), true);
-assert.equal(settings.api.setMedkit("g"), false);
+assert.equal(settings.api.getDroneSelfDestruct(), "g");
+assert.equal(settings.api.setJobEffect("g"), false);
+assert.equal(settings.api.setJobEffect("j"), true);
+assert.equal(settings.api.setMedkit("j"), false);
+const savedKeys = new Map([
+    ['core-defense-job-key','g'], ['core-defense-medkit-key','h'],
+]);
+const persisted = {window:{},localStorage:{getItem:key=>savedKeys.get(key),setItem:(key,value)=>savedKeys.set(key,value)}};
+vm.runInNewContext(source,persisted);
+assert.equal(persisted.window.coreKeySettings.getJobEffect(),'g', 'existing assignments survive the new default');
+assert.equal(persisted.window.coreKeySettings.getDroneSelfDestruct(),'j');
+assert(persisted.window.coreKeySettings.setDroneSelfDestruct('x'));
+assert.equal(persisted.window.coreKeySettings.setMedkit('x'),false);
+assert.equal(persisted.window.coreKeySettings.setJobEffect('x'),false);
+vm.runInNewContext(source,persisted);
+assert.equal(persisted.window.coreKeySettings.getDroneSelfDestruct(),'x', 'self-destruct binding survives restart');
