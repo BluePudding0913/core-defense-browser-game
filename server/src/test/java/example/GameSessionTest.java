@@ -517,6 +517,39 @@ class GameSessionTest {
     }
 
     @Test
+    void forestWoodRespawnsBeforeOpeningRoomWood() {
+        startPreparing();
+        game.players.forEach(candidate -> candidate.human = true);
+        game.unlockedAreas.addAll(Set.of("forest", "wood-room"));
+        ResourceNode forest = game.resourceNodes.stream()
+                .filter(node -> node.id.equals("wood-1")).findFirst().orElseThrow();
+        ResourceNode opening = game.resourceNodes.stream()
+                .filter(node -> node.id.equals("early-wood-1")).findFirst().orElseThrow();
+        Player other = game.players.get(1);
+        player.x = forest.x;
+        player.y = forest.y;
+        other.x = opening.x;
+        other.y = opening.y;
+
+        game.update(0.05);
+        assertEquals(1, player.wood);
+        assertEquals(1, other.wood);
+        game.update(1.9);
+        assertFalse(forest.available);
+        assertFalse(opening.available);
+        game.update(0.11);
+        game.update(0.05);
+        assertEquals(2, player.wood);
+        assertEquals(1, other.wood);
+        assertFalse(opening.available);
+        assertTrue(events.broadcasts.stream().anyMatch(message -> message.contains("\"effect\":\"pickup\"")
+                && message.contains("\"playerId\":\"" + player.id + "\"")));
+        game.update(1);
+        game.update(0.05);
+        assertEquals(2, other.wood);
+    }
+
+    @Test
     void droppedMaterialsCanBeCollectedByAnotherPlayer() {
         startPreparing();
         game.players.forEach(candidate -> candidate.human = true);
