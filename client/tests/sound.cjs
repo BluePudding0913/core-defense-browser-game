@@ -31,7 +31,9 @@ for (const name of names) {
     const source = sources.at(-1), data = source.buffer.getChannelData(0);
     assert(source.started, name);
     assert(data.some(value => Math.abs(value) > .01), `${name} is audible`);
-    assert(data.every(value => Number.isFinite(value) && Math.abs(value) <= .161), `${name} stays within volume limit`);
+    const boosted = name === 'round-start' || name === 'flamethrower';
+    assert(data.every(value => Number.isFinite(value) && Math.abs(value) <= (boosted ? .241 : .161)), `${name} stays within volume limit`);
+    if (boosted) assert(data.some(value => Math.abs(value) > .161), `${name} has increased amplitude`);
     demo.push(data, new Float32Array(12000));
     source.onended(); assert(source.disconnected);
 }
