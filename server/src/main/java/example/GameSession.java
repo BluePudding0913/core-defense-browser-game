@@ -1,7 +1,7 @@
 package example;
 
 import static example.GameConfig.BUILD_RECIPES;
-import example.GameConfig.WeaponStats;
+import example.WeaponCatalog.WeaponStats;
 import static example.GameConfig.GATHER_COOLDOWN_SECONDS;
 import static example.GameConfig.MAX_ROUNDS;
 import static example.GameConfig.PLAYER_COUNT;
@@ -67,6 +67,7 @@ final class GameSession {
 
     final List<Player> players = new ArrayList<>();
     final List<Enemy> enemies = new ArrayList<>();
+    final List<MissileStrike> missiles = new ArrayList<>();
     final List<ArtilleryShell> artilleryShells = new ArrayList<>();
     final List<TrapSlot> trapSlots = GameMap.createTrapSlots();
     final List<ResourceNode> resourceNodes = GameMap.createResourceNodes();
@@ -100,9 +101,12 @@ final class GameSession {
     String roomOwnerId;
 
     private final GameEventSink events;
+    private final GameEffects gameEffects;
+    final CombatSystem combat;
     private final List<String> activeLanes = new ArrayList<>();
     private final Random random = new Random();
     private final EnemyTravel laterFeatureTravel = new EnemyTravel();
+    private final EnemyNavigation enemyNavigation = new EnemyNavigation();
     private double spawnTimer;
     private int nextEnemyId = 1;
     private int nextDefenseId = 1;
@@ -112,6 +116,18 @@ final class GameSession {
 
     GameSession(GameEventSink events) {
         this.events = events;
+        this.gameEffects = new GameEffects(events);
+        this.combat = new CombatSystem(new CombatSystem.World() {
+            public boolean canAttack() { return canMove(); }
+            public Set<String> unlockedAreas() { return unlockedAreas; }
+            public List<Enemy> enemies() { return enemies; }
+            public List<Player> players() { return players; }
+            public void damagePlayer(Player player, double damage) { GameSession.this.damagePlayer(player, damage); }
+            public boolean canOccupy(double x, double y, double radius) { return GameSession.this.canOccupy(x, y, radius); }
+            public void onEnemyDefeated(Enemy enemy) {
+                if (enemy.type.equals("bomber")) explodeBomber(enemy);
+            }
+        }, gameEffects, random::nextDouble);
         for (int slot = 1; slot <= PLAYER_COUNT; slot++) players.add(new Player(slot));
         resetWorld();
     }
@@ -138,6 +154,11 @@ final class GameSession {
             assigned.roomReady = false;
             assigned.reconnectGrace = 0;
             if (!rejoining) {
+                assigned.drone = null;
+                assigned.job = JobRules.DEFAULT;
+                assigned.stamina = Math.min(assigned.stamina, JobRules.staminaMax(assigned.job));
+                assigned.spyRemaining = assigned.jobCooldown = assigned.scoutDashRemaining = 0;
+                assigned.teleportPads.clear();
                 assigned.sessionId = reconnectId;
                 assigned.lastProcessedInput = 0;
                 assigned.name = "Player " + assigned.slot;
@@ -156,6 +177,8 @@ final class GameSession {
         if (!player.human) return;
         String displayName = player.name;
         player.human = false;
+        releaseDroneControl(player);
+        player.missileControl = false;
         player.roomReady = false;
         if (!allowReconnect) player.sessionId = null;
         player.reconnectGrace = player.sessionId == null ? 0 : RECONNECT_GRACE_SECONDS;
@@ -164,6 +187,7 @@ final class GameSession {
         player.moveY = 0;
         player.dashHeld = false;
         player.dashing = false;
+        player.scoutDashRemaining = 0;
         player.firing = false;
         releaseCarriedCore(player);
         cancelAction(player);
@@ -186,27 +210,60 @@ final class GameSession {
 
     private void handleCommand(Player player, String message) {
         String[] parts = message.split(":", 4);
+        if (canMove() && DroneRules.controlling(player)
+                && !Set.of("MOVE", "FIRE", "ATTACK", "JOB_ABILITY", "DRONE_RECOVER", "HELLO").contains(parts[0])) return;
+        if (player.missileControl && !Set.of("MISSILE", "COMPUTER", "HELLO").contains(parts[0])) return;
         switch (parts[0]) {
             case "HELLO" -> updateName(player, parts);
             case "START" -> {
                 if (phase == GamePhase.LOBBY || phase == GamePhase.WON || phase == GamePhase.LOST) {
                     if (!player.id.equals(roomOwnerId)) {
-                        feedback(player, "ルームのオーナーだけが開始できます");
+                        gameEffects.feedback(player, "ルームのオーナーだけが開始できます");
                     } else if (!roomReadyForStart()) {
-                        feedback(player, "全員の準備が完了するまでお待ちください");
+                        gameEffects.feedback(player, "全員の準備が完了するまでお待ちください");
                     } else {
                         startMatch(player, parts.length > 1 && parts[1].equals("DEBUG"));
                     }
                 }
             }
+            case "COMPUTER" -> {
+                if (player.missileControl) player.missileControl = false;
+                else if (player.job.equals("hacker") && canOperate(player, GameMap.MISSILE_COMPUTER)) {
+                    player.missileControl = true;
+                    player.moveX = player.moveY = 0;
+                    player.firing = player.dashHeld = player.dashing = false;
+                    player.stopRailgun(); cancelAction(player);
+                }
+            }
+            case "MISSILE" -> { if (parts.length >= 3) launchMissile(player, Double.parseDouble(parts[1]), Double.parseDouble(parts[2])); }
+            case "JOB" -> { if (parts.length >= 2) selectJob(player, parts[1]); }
+            case "JOB_ABILITY" -> useJobAbility(player);
+            case "DRONE_RECOVER" -> recoverDrone(player);
+            case "DRONE_MOUNT" -> { if (parts.length > 1) mountDrone(player, parts[1]); }
+            case "DRONE_LAUNCH" -> {
+                if (parts.length > 1 && canMove() && !player.down && !player.movingCore
+                        && player.job.equals("drone") && "drone".equals(player.selectedBuild)
+                        && player.buildItemCount("drone") > 0
+                        && (parts[1].equals("none") || DroneRules.mountable(parts[1]) && player.weapons.owns(parts[1]))) {
+                    mountDrone(player, parts[1]);
+                    launchDrone(player);
+                }
+            }
+            case "SCOUT_DASH" -> { if (parts.length >= 3) useScoutDash(player,
+                    Double.parseDouble(parts[1]), Double.parseDouble(parts[2])); }
+            case "TELEPORT" -> useTeleport(player);
+            case "PICKUP_TELEPORT" -> {
+                if (parts.length >= 3) pickupTeleport(player, new MapPoint(
+                        Double.parseDouble(parts[1]), Double.parseDouble(parts[2])));
+            }
             case "ROOM_READY" -> setRoomReady(player, parts);
             case "MOVE" -> handleMove(player, parts);
             case "DASH" -> handleDash(player, parts);
-            case "ATTACK" -> attackAt(player, player.aimX, player.aimY);
+            case "ATTACK" -> combat.attackAt(player, player.aimX, player.aimY);
             case "FIRE" -> handleFire(player, parts);
             case "INTERACT" -> { if (parts.length >= 2) interact(player, parts[1]); }
             case "WEAPON" -> { if (parts.length >= 2) switchWeapon(player, parts[1]); }
-            case "BUY" -> { if (parts.length >= 2) buy(player, parts[1]); }
+            case "BUY" -> { if (parts.length >= 2) buy(player, parts[1], parts.length >= 3 ? parts[2] : null); }
             case "BUILD" -> { if (parts.length >= 3) build(player, parts[1], parts[2]); }
             case "PICKUP_FACTORY" -> { if (parts.length >= 2) pickupFactory(player, parts[1]); }
             case "REMOVE" -> { if (parts.length >= 2) removeDefense(player, parts[1]); }
@@ -217,6 +274,7 @@ final class GameSession {
             case "BREAKER" -> { if (parts.length >= 2) resetBreaker(player, parts[1]); }
             case "GATHER" -> { if (parts.length >= 2) gather(player, parts[1]); }
             case "DROP_RESOURCE" -> { if (parts.length >= 3) dropResource(player, parts); }
+            case "DROP_ITEM" -> { if (parts.length >= 3 && parts[1].equals("medkit")) dropInventory(player, parts); }
             case "CRAFT" -> { if (parts.length >= 2) craft(player, parts[1]); }
             case "EQUIP_BUILD" -> { if (parts.length >= 2) equipBuild(player, parts[1]); }
             case "EQUIP_CORE" -> equipCore(player);
@@ -232,21 +290,32 @@ final class GameSession {
     void update(double dt) {
         updateReconnectReservations(dt);
         for (Player player : players) {
+            if (!canMove()) recallDrone(player);
+            if (player.drone != null) player.drone.cooldown = Math.max(0, player.drone.cooldown - dt);
+            player.missileCooldown = Math.max(0, player.missileCooldown - dt);
+            if (!canOperate(player, GameMap.MISSILE_COMPUTER) || !player.job.equals("hacker")) player.missileControl = false;
+            player.spyRemaining = Math.max(0, player.spyRemaining - dt);
+            double previousJobCooldown = player.jobCooldown;
+            player.jobCooldown = Math.max(0, player.jobCooldown - dt);
+            if (player.job.equals("spy") && previousJobCooldown > 0 && player.jobCooldown == 0 && canMove())
+                gameEffects.abilityReady(player);
+            player.teleportCooldown = Math.max(0, player.teleportCooldown - dt);
             player.weaponCooldowns.replaceAll((weapon, remaining) -> Math.max(0, remaining - dt));
             player.cooldown = Math.max(0, player.cooldown - dt);
             player.gatherCooldown = Math.max(0, player.gatherCooldown - dt);
             if (!player.firing || player.down || player.movingCore || player.selectedBuild != null || !canMove()) {
                 player.stopRailgun();
             }
-            if (player.firing && player.cooldown <= 0 && canMove()) {
-                attackAt(player, player.aimX, player.aimY);
+            if (player.firing && (player.cooldown <= 0 || DroneRules.controlling(player)) && canMove()) {
+                combat.attackAt(player, player.aimX, player.aimY);
             }
         }
         if (phase == GamePhase.LOBBY || phase == GamePhase.WON || phase == GamePhase.LOST) return;
 
         updateBots(dt);
         updatePlayers(dt);
-        players.forEach(player -> updateRailgun(player, dt));
+        players.forEach(player -> combat.updateRailgun(player, dt));
+        updateMissiles(dt);
         updateMedbay(dt);
         updateRevives(dt);
         updateResources(dt);
@@ -317,7 +386,7 @@ final class GameSession {
             player.moveX /= length;
             player.moveY /= length;
         }
-        if (length > 0.12) {
+        if (length > 0.12 && !DroneRules.controlling(player)) {
             updateFacing(player, player.moveX, player.moveY);
         }
     }
@@ -333,6 +402,202 @@ final class GameSession {
         player.facingY = facingY;
     }
 
+    private void selectJob(Player player, String job) {
+        if (!player.human || !JobRules.valid(job)
+                || !(phase == GamePhase.LOBBY || phase == GamePhase.WON || phase == GamePhase.LOST || canOperate(player, GameMap.JOB_STATION))) return;
+        if (player.job.equals(job)) return;
+        player.firing = player.dashing = player.dashHeld = player.missileControl = false;
+        player.stopRailgun(); cancelAction(player);
+        player.job = job;
+        player.stamina = Math.min(player.stamina, JobRules.staminaMax(job));
+        player.drone = null;
+        player.roomReady = false;
+        player.spyRemaining = player.jobCooldown = player.scoutDashRemaining = 0;
+        player.teleportPads.clear();
+    }
+
+    private boolean canOperate(Player player, WorkbenchUnit unit) {
+        return unit != null && canUseFacilities() && !player.down && !player.movingCore && player.selectedBuild == null
+                && unlockedAreas.contains(unit.requiredArea()) && canInteract(player, unit.x(), unit.y(), 70);
+    }
+
+    private void launchMissile(Player player, double x, double y) {
+        if (!player.missileControl || !player.job.equals("hacker") || player.missileCooldown > 0
+                || !canOperate(player, GameMap.MISSILE_COMPUTER) || !MissileRules.validTarget(x, y, unlockedAreas)) return;
+        missiles.add(new MissileStrike(player, x, y));
+        player.missileCooldown = MissileRules.cooldown();
+        gameEffects.sound(player, "shot", "rocket");
+    }
+
+    private void updateMissiles(double dt) {
+        for (MissileStrike strike : List.copyOf(missiles)) {
+            strike.remaining -= dt;
+            if (strike.remaining > 1e-9) continue;
+            combat.missileImpact(strike.owner, strike.x, strike.y);
+            missiles.remove(strike);
+        }
+    }
+
+    private void useJobAbility(Player player) {
+        if (!canMove() || player.down || player.movingCore) return;
+        if (player.job.equals("drone")) {
+            if (player.drone == null || !player.drone.active) return;
+            boolean next = !player.drone.controlled;
+            releaseDroneControl(player);
+            player.drone.controlled = next;
+            player.selectedBuild = null;
+            cancelAction(player);
+            return;
+        }
+        if (player.job.equals("spy")) {
+            if (player.selectedBuild != null) return;
+            if (player.jobCooldown > 0) return;
+            player.spyCheckedEnemies.clear(); player.spyHostileEnemies.clear();
+            player.spyRemaining = JobRules.SPY_DURATION;
+            player.jobCooldown = JobRules.SPY_COOLDOWN;
+        }
+    }
+
+    private void useScoutDash(Player player, double targetX, double targetY) {
+        if (!canMove() || !JobRules.canScoutDash(player.job, player.down, player.movingCore,
+                player.selectedBuild != null, player.railgunRemaining > 0 || player.railgunCharge > 0,
+                player.jobCooldown, player.stamina)) return;
+        MapPoint direction = JobRules.scoutDashDirection(player.x, player.y, targetX, targetY);
+        if (direction == null) return;
+        player.scoutDashDx = direction.x(); player.scoutDashDy = direction.y();
+        player.scoutDashRemaining = JobRules.SCOUT_DASH_DURATION;
+        player.jobCooldown = JobRules.SCOUT_DASH_COOLDOWN;
+        player.stamina -= JobRules.SCOUT_DASH_STAMINA;
+        player.dashing = false;
+        updateFacing(player, direction.x(), direction.y());
+        cancelAction(player);
+    }
+
+    private void placeTeleport(Player player, MapPoint point) {
+        if (!player.job.equals("tp") || !"teleporter".equals(player.selectedBuild)
+                || player.buildItemCount("teleporter") <= 0) return;
+        if (!canPlaceDefenseAt(point, null)) {
+            gameEffects.feedback(player, "ここには設置できません");
+            return;
+        }
+        player.teleportPads.add(point);
+        if (player.buildItemCount("teleporter") == 0) player.selectedBuild = null;
+        gameEffects.sound(player, "item-use", "build");
+    }
+
+    private void launchDrone(Player player) {
+        if (!player.job.equals("drone") || player.down || player.movingCore || !canMove()
+                || !"drone".equals(player.selectedBuild) || player.buildItemCount("drone") <= 0) return;
+        if (player.drone == null) player.drone = new Drone();
+        Drone drone = player.drone;
+        if (drone.hp <= 0) {
+            if (!DroneRules.canRepair(player.ore, player.copper)) {
+                gameEffects.feedback(player, "修復: 鉱石" + DroneRules.REPAIR_ORE + " / 銅" + DroneRules.REPAIR_COPPER);
+                return;
+            }
+            player.ore -= DroneRules.REPAIR_ORE; player.copper -= DroneRules.REPAIR_COPPER;
+            drone.hp = DroneRules.HP;
+        }
+        if (!player.weapons.owns(drone.weapon)) {
+            drone.weapon = "";
+        }
+        drone.x = player.x; drone.y = player.y;
+        drone.active = drone.controlled = true;
+        if (DroneRules.mounted(player, player.weapon)) {
+            String available = WeaponCatalog.ALL.stream().map(WeaponCatalog.Definition::id)
+                    .filter(id -> !id.equals("bat") && player.weapons.owns(id) && !DroneRules.mounted(player, id))
+                    .findFirst().orElse("bat");
+            player.equipWeapon(available);
+        }
+        drone.attackers.clear();
+        player.selectedBuild = null;
+        player.firing = player.dashHeld = player.dashing = false;
+        player.stopRailgun(); cancelAction(player);
+    }
+
+    private void mountDrone(Player player, String weapon) {
+        if (!canMove() || player.down || !player.job.equals("drone")
+                || player.drone != null && player.drone.active
+                || !weapon.equals("none") && (!DroneRules.mountable(weapon) || !player.weapons.owns(weapon))) return;
+        if (player.drone == null) player.drone = new Drone();
+        player.drone.weapon = weapon.equals("none") ? "" : weapon;
+    }
+
+    private void releaseDroneControl(Player player) {
+        if (player.drone == null) return;
+        player.drone.controlled = false;
+        player.moveX = player.moveY = 0;
+        player.firing = player.dashHeld = player.dashing = false;
+        player.stopRailgun();
+    }
+
+    private void recoverDrone(Player player) {
+        if (!canMove() || player.down || player.drone == null || !player.drone.active
+                || !DroneRules.canRecover(distance(player.x, player.y, player.drone.x, player.drone.y),
+                    GameMap.hasClearLine(player.x, player.y, player.drone.x, player.drone.y))) return;
+        recallDrone(player);
+        player.selectedBuild = "drone";
+    }
+
+    private void recallDrone(Player player) {
+        if (player.drone == null || !player.drone.active) return;
+        if (player.drone.controlled) releaseDroneControl(player);
+        player.drone.active = false;
+        player.drone.controlled = false;
+        player.drone.attackers.clear();
+    }
+
+    private void damageDrone(Player owner, double damage) {
+        owner.drone.hp = Math.max(0, owner.drone.hp - damage);
+        if (owner.drone.hp <= 0) {
+            String weapon = owner.drone.weapon;
+            owner.weapons.remove(weapon);
+            if (owner.weapon.equals(weapon)) owner.equipWeapon("bat");
+            owner.weaponCooldowns.remove(weapon);
+            owner.weaponCooldownMaxima.remove(weapon);
+            owner.drone.weapon = "";
+            recallDrone(owner);
+            gameEffects.feedback(owner, "ドローン破壊 / 修復が必要");
+        }
+    }
+
+    private void pickupTeleport(Player player, MapPoint point) {
+        if (!canUseFacilities() || player.down || player.movingCore
+                || !Double.isFinite(point.x()) || !Double.isFinite(point.y())
+                || !JobRules.canRecoverTeleport(player.job, player.teleportPads.contains(point),
+                    distance(player.x, player.y, point.x(), point.y()),
+                    GameMap.hasClearLine(player.x, player.y, point.x(), point.y()))) return;
+        player.teleportPads.remove(point);
+        player.selectedBuild = "teleporter";
+        gameEffects.feedback(player, "テレポーターを回収しました");
+    }
+
+    private void useTeleport(Player player) {
+        if (!canMove() || player.down || player.movingCore || player.teleportCooldown > 0) return;
+        MapPoint destination = null;
+        double nearest = 45;
+        for (Player owner : players) {
+            if (owner.teleportPads.size() != 2) continue;
+            for (int i = 0; i < 2; i++) {
+                MapPoint from = owner.teleportPads.get(i);
+                double range = distance(player.x, player.y, from.x(), from.y());
+                if (range > nearest || !GameMap.hasClearLine(player.x, player.y, from.x(), from.y())) continue;
+                nearest = range;
+                destination = owner.teleportPads.get(1 - i);
+            }
+        }
+        if (destination == null) return;
+        if (!JobRules.canTeleportTo(destination, canOccupy(destination.x(), destination.y(), 5),
+                player, players, enemies, coreX, coreY)) {
+            gameEffects.feedback(player, "移動先が塞がっています");
+            return;
+        }
+        player.x = destination.x(); player.y = destination.y();
+        player.scoutDashRemaining = 0;
+        player.teleportCooldown = 1.5;
+        cancelAction(player);
+    }
+
     private void handleDash(Player player, String[] parts) {
         if (parts.length < 2 || !canMove() || player.down) return;
         player.dashHeld = parts[1].equals("1") || parts[1].equalsIgnoreCase("true");
@@ -345,7 +610,7 @@ final class GameSession {
         double y = Double.parseDouble(parts[2]);
         if (!Double.isFinite(x) || !Double.isFinite(y)) return;
         boolean active = parts[3].equals("1") || parts[3].equalsIgnoreCase("true");
-        if (player.movingCore) {
+        if (player.movingCore || player.selectedBuild != null) {
             player.firing = false;
             return;
         }
@@ -354,8 +619,8 @@ final class GameSession {
         player.aimY = clamp(y, 0, WORLD_H);
         player.firing = active;
         if (!active) player.stopRailgun();
-        if (beginsPress && player.cooldown <= 0) {
-            attackAt(player, player.aimX, player.aimY);
+        if (beginsPress && (player.cooldown <= 0 || DroneRules.controlling(player))) {
+            combat.attackAt(player, player.aimX, player.aimY);
         }
     }
 
@@ -363,8 +628,6 @@ final class GameSession {
         resetWorld();
         if (debugMode) {
             host.credits = 100_000;
-            GameConfig.WEAPONS.keySet().forEach(weapon -> giveBotWeapon(host, weapon));
-            host.equipWeapon("pistol");
         }
         phase = GamePhase.PREPARING;
         prepTime = GameConfig.prepSeconds(1);
@@ -501,21 +764,48 @@ final class GameSession {
 
     private void updatePlayers(double dt) {
         for (Player player : players) {
+            if (player.missileControl) continue;
+            if (DroneRules.controlling(player)) {
+                Drone drone = player.drone;
+                double nextX = clamp(drone.x + player.moveX * DroneRules.SPEED * dt, 7, WORLD_W - 7);
+                double nextY = clamp(drone.y + player.moveY * DroneRules.SPEED * dt, 7, WORLD_H - 7);
+                // Flight ignores placed equipment, but respects walls and locked areas.
+                if (GameMap.canOccupy(nextX, drone.y, 5, unlockedAreas)) drone.x = nextX;
+                if (GameMap.canOccupy(drone.x, nextY, 5, unlockedAreas)) drone.y = nextY;
+                player.dashing = false;
+                continue;
+            }
+            if (player.scoutDashRemaining > 0) {
+                if (player.down || player.movingCore || player.selectedBuild != null
+                        || player.railgunRemaining > 0 || player.railgunCharge > 0) {
+                    player.scoutDashRemaining = 0;
+                } else {
+                    double travel = JobRules.SCOUT_DASH_SPEED * Math.min(dt, player.scoutDashRemaining);
+                    MapPoint next = JobRules.advanceScoutDash(player.x, player.y,
+                            player.scoutDashDx, player.scoutDashDy, travel, (x, y) -> canOccupy(x, y, 5));
+                    boolean blocked = distance(player.x, player.y, next.x(), next.y()) + .001 < travel;
+                    player.x = next.x(); player.y = next.y();
+                    player.scoutDashRemaining = blocked ? 0 : Math.max(0, player.scoutDashRemaining - dt);
+                    if (player.scoutDashRemaining < 1e-9) player.scoutDashRemaining = 0;
+                    player.dashing = false;
+                    continue;
+                }
+            }
             double input = Math.hypot(player.moveX, player.moveY);
             if (player.dashExhausted && player.stamina >= 28) player.dashExhausted = false;
             player.dashing = player.railgunRemaining <= 0 && player.railgunCharge <= 0 && !player.down && !player.movingCore
                     && player.dashHeld && !player.dashExhausted
                     && input > 0.12 && player.stamina > 0;
             if (player.dashing) {
-                player.stamina = Math.max(0, player.stamina - 38 * dt);
+                player.stamina = Math.max(0, player.stamina - JobRules.staminaDrain(player.job) * dt);
                 if (player.stamina <= 0) {
                     player.dashExhausted = true;
                     player.dashing = false;
                 }
             } else {
-                player.stamina = Math.min(100, player.stamina + 24 * dt);
+                player.stamina = Math.min(JobRules.staminaMax(player.job), player.stamina + JobRules.staminaRecovery(player.job) * dt);
             }
-            double speed = player.down ? 45 : player.movingCore ? 82 : player.dashing ? 265 : 155;
+            double speed = player.down ? 45 : player.movingCore ? 82 : player.dashing ? JobRules.dashSpeed(player.job) : 155;
             if (player.railgunRemaining > 0) speed = 155 * .3;
             else if (player.railgunCharge > 0) speed = 155 * .6;
             double nextX = clamp(player.x + player.moveX * speed * dt, 7, WORLD_W - 7);
@@ -551,7 +841,7 @@ final class GameSession {
 
     private void updateRevives(double dt) {
         for (Player player : players) {
-            Player target = player.down ? null : players.stream()
+            Player target = player.down || DroneRules.controlling(player) ? null : players.stream()
                     .filter(other -> other != player && other.down
                             && distance(player.x, player.y, other.x, other.y) <= 78
                             && GameMap.hasClearLine(player.x, player.y, other.x, other.y))
@@ -563,7 +853,7 @@ final class GameSession {
                 player.actionProgress = 0;
             }
             player.actionProgress += dt;
-            if (player.actionProgress >= 4) {
+            if (player.actionProgress >= JobRules.reviveSeconds(player.job)) {
                 target.down = false;
                 target.hp = 45;
                 target.moveX = 0;
@@ -633,13 +923,19 @@ final class GameSession {
             if (drop.pickupDelay > 0) continue;
             Player collector = players.stream()
                     .filter(player -> !player.down
+                            && (!drop.type.equals("medkit") || player.medkits < GameConfig.MEDKIT_CAPACITY)
                             && (!player.id.equals(drop.droppedBy) || drop.ownerLeft)
                             && GameMap.hasClearLine(player.x, player.y, drop.x, drop.y)
                             && distance(player.x, player.y, drop.x, drop.y) <= 30)
                     .findFirst().orElse(null);
             if (collector == null) continue;
-            addResource(collector,drop.type,drop.amount);
-            drop.pickupDelay = -1;
+            int collected = drop.type.equals("medkit")
+                    ? InventoryDropRules.pickupAmount(drop.amount, collector.medkits, GameConfig.MEDKIT_CAPACITY)
+                    : drop.amount;
+            if (drop.type.equals("medkit")) collector.medkits += collected;
+            else addResource(collector, drop.type, collected);
+            drop.amount -= collected;
+            if (drop.amount == 0) drop.pickupDelay = -1;
             events.broadcast("{\"type\":\"effect\",\"effect\":\"pickup\",\"resource\":\""
                     + drop.type + "\",\"playerId\":\"" + collector.id + "\",\"x\":"
                     + roundOne(drop.x) + ",\"y\":" + roundOne(drop.y) + "}");
@@ -857,11 +1153,10 @@ final class GameSession {
                 reward = 14;
             }
         }
-        if (GameMap.spawnArea(spawn) != null) {
-            List<MapPoint> route = findPath(spawn.x(), spawn.y(), coreX, coreY, 17, false);
-            spawn = new SpawnPoint(spawn.id(), spawn.name(), spawn.x(), spawn.y(), spawn.lane(),
-                    spawn.enemyBias(), spawn.speedMultiplier(), spawn.targetPriority(), route);
-        }
+        // Retain route metadata for snapshots/threat scoring; movement uses the shared field.
+        if (GameMap.spawnArea(spawn) != null) spawn = new SpawnPoint(spawn.id(), spawn.name(),
+                spawn.x(), spawn.y(), spawn.lane(), spawn.enemyBias(), spawn.speedMultiplier(),
+                spawn.targetPriority(), List.of(new MapPoint(spawn.x(), spawn.y()), new MapPoint(coreX, coreY)));
         enemies.add(new Enemy(nextEnemyId++, type, spawn, hp * 2, speed * 0.5, damage,
                 (int) Math.round(reward * 2.5 * GameConfig.goldMultiplier(round))));
     }
@@ -881,7 +1176,7 @@ final class GameSession {
             } else if (Set.of("turret","copperTurret","silverTurret").contains(defense.type) && defense.cooldown <= 0) {
                 Enemy target = enemies.stream()
                         .filter(enemy -> enemy.hp > 0 && distance(slot.x, slot.y, enemy.x, enemy.y) <= (defense.type.equals("silverTurret") ? 380 : 300))
-                        .filter(enemy -> GameMap.hasClearLine(slot.x, slot.y, enemy.x, enemy.y))
+                        .filter(enemy -> GameMap.hasClearLine(slot.x, slot.y, enemy.x, enemy.y, unlockedAreas))
                         .min(Comparator.comparingDouble(enemy -> distance(enemy.x, enemy.y, coreX, coreY)))
                         .orElse(null);
                 if (target != null) {
@@ -893,12 +1188,12 @@ final class GameSession {
                     boolean hit = !target.type.equals("tiny") || random.nextDouble() < tinyHitChance;
                     double turretDamage = (17+round*.5)*(defense.type.equals("silverTurret") ? 3.5 : defense.type.equals("copperTurret") ? 2 : 1);
                     turretDamage = target.shieldedDamage(turretDamage, slot.x, slot.y);
-                    double dealt = hit ? damageEnemy(target, turretDamage, null) : 0;
+                    double dealt = hit ? combat.damageEnemy(target, turretDamage, null) : 0;
                     double missAngle = Math.atan2(target.y - slot.y, target.x - slot.x) + Math.PI / 2;
-                    sendHitEffect("trap", "turret", slot.x, slot.y,
+                    gameEffects.hit("trap", "turret", slot.x, slot.y,
                             target.x + (hit ? 0 : Math.cos(missAngle) * 16),
                             target.y + (hit ? 0 : Math.sin(missAngle) * 16),
-                            dealt, target.hp <= 0, 0, false);
+                            dealt, target.hp <= 0, 0, false, hit ? target.id : null);
                     defense.cooldown = defense.type.equals("silverTurret") ? .45 : .7;
                 }
             } else if (defense.type.equals("mine")) {
@@ -908,9 +1203,9 @@ final class GameSession {
                 if (trigger != null) {
                     for (Enemy enemy : enemies) {
                         if (enemy.hp > 0 && distance(slot.x, slot.y, enemy.x, enemy.y) < 120) {
-                            double dealt = damageEnemy(enemy, 450, null);
-                            sendHitEffect("trap", "mine", slot.x, slot.y, enemy.x, enemy.y,
-                                    dealt, enemy.hp <= 0, 0, false);
+                            double dealt = combat.damageEnemy(enemy, 450, null);
+                            gameEffects.hit("trap", "mine", slot.x, slot.y, enemy.x, enemy.y,
+                                    dealt, enemy.hp <= 0, 0, false, enemy.id);
                         }
                     }
                     slot.defense = null;
@@ -927,6 +1222,7 @@ final class GameSession {
 
     private void updateEnemies(double dt) {
         updateArtilleryShells(dt);
+        if (!enemies.isEmpty()) enemyNavigation.prepare(coreX, coreY, unlockedAreas);
         long remaining = queuedEnemies + queuedBosses + enemies.stream()
                 .filter(e -> e.hp > 0 && !e.type.equals("explosionBoss")).count();
         List<Enemy> explodedBosses = new ArrayList<>();
@@ -953,6 +1249,21 @@ final class GameSession {
                 continue;
             }
 
+            Player droneTarget = DroneRules.target(enemy, players);
+            if (droneTarget != null) {
+                Drone drone = droneTarget.drone;
+                enemy.navigationTimer = 0;
+                enemy.faceToward(drone.x, drone.y);
+                if (distance(enemy.x, enemy.y, drone.x, drone.y) <= 36
+                        && GameMap.hasClearLine(enemy.x, enemy.y, drone.x, drone.y)) {
+                    if (enemy.attackCooldown <= 0) {
+                        damageDrone(droneTarget, enemy.damage);
+                        enemy.attackCooldown = .9;
+                    }
+                } else moveEnemyToward(enemy, drone.x, drone.y, enemy.speed * enemy.slow * dt);
+                continue;
+            }
+
             advanceEnemyRoute(enemy);
             if (enemy.isBoss()) {
                 enemy.specialCooldown = Math.max(0, enemy.specialCooldown - dt);
@@ -967,13 +1278,8 @@ final class GameSession {
                 case "players" -> 75;
                 default -> 50;
             };
-            double playerRange = switch (enemy.targetPriority) {
-                case "players" -> 190;
-                case "defenses" -> 75;
-                default -> 55;
-            };
             TrapSlot defenseTarget = nearestDefense(enemy, defenseRange);
-            Player playerTarget = nearestPlayer(enemy, playerRange);
+            Player playerTarget = enemyNavigation.visiblePlayer(enemy, players, dt);
             boolean preferDefense = enemy.targetPriority.equals("defenses");
             if (preferDefense && defenseTarget != null || playerTarget == null) {
                 playerTarget = null;
@@ -982,41 +1288,40 @@ final class GameSession {
             }
 
             if (defenseTarget != null) {
+                enemy.navigationTimer = 0;
                 double targetDistance = distance(enemy.x, enemy.y, defenseTarget.x, defenseTarget.y);
                 if (targetDistance <= 38) attackDefense(enemy, defenseTarget);
                 else moveEnemyToward(enemy, defenseTarget.x, defenseTarget.y, enemy.speed * enemy.slow * dt);
                 continue;
             }
             if (playerTarget != null) {
+                enemy.navigationTimer = 0;
                 enemy.faceToward(playerTarget.x, playerTarget.y);
                 double targetDistance = distance(enemy.x, enemy.y, playerTarget.x, playerTarget.y);
                 if (targetDistance <= 36) {
+                    if (!GameMap.hasClearLine(enemy.x, enemy.y, playerTarget.x, playerTarget.y)) continue;
                     if (enemy.attackCooldown <= 0) {
-                        damagePlayer(playerTarget, enemy.damage);
+                        if (!JobRules.avoidsContactDamage(playerTarget, enemy)) damagePlayer(playerTarget, enemy.damage);
                         enemy.attackCooldown = 0.9;
                     }
                 } else {
-                    moveEnemyToward(enemy, playerTarget.x, playerTarget.y, enemy.speed * enemy.slow * dt);
+                    // Follow the last visible position until the next perception check.
+                    // A player ducking behind a wall must not trigger per-enemy path searches.
+                    moveEnemyDirect(enemy, enemy.visiblePlayerX, enemy.visiblePlayerY, enemy.speed * enemy.slow * dt);
                 }
                 continue;
             }
 
-            boolean canSeeCore = distance(enemy.x, enemy.y, coreX, coreY) <= 520
-                    && GameMap.hasClearLine(enemy.x, enemy.y, coreX, coreY);
-            MapPoint routeTarget = !canSeeCore && enemy.routeIndex < enemy.route.size()
-                    ? enemy.route.get(enemy.routeIndex) : null;
-            double targetX = routeTarget == null ? coreX : routeTarget.x();
-            double targetY = routeTarget == null ? coreY : routeTarget.y();
-            double targetDistance = distance(enemy.x, enemy.y, targetX, targetY);
-
-            if (routeTarget == null && distance(enemy.x, enemy.y, coreX, coreY) <= 72) {
+            if (distance(enemy.x, enemy.y, coreX, coreY) <= 72
+                    && GameMap.hasClearLine(enemy.x, enemy.y, coreX, coreY)) {
                 enemy.faceToward(coreX, coreY);
                 if (enemy.attackCooldown <= 0) {
                     damageCore(enemy.damage);
                     enemy.attackCooldown = 0.9;
                 }
             } else {
-                moveEnemyToward(enemy, targetX + enemy.wanderX, targetY + enemy.wanderY,
+                MapPoint target = enemyNavigation.coreTarget(enemy, dt);
+                moveEnemyDirect(enemy, target.x(), target.y(),
                         enemy.speed * enemy.slow * dt);
             }
         }
@@ -1047,6 +1352,9 @@ final class GameSession {
                 events.broadcast("{\"type\":\"effect\",\"effect\":\"explosion\",\"x\":" + roundOne(enemy.x)
                         + ",\"y\":" + roundOne(enemy.y) + ",\"radius\":" + radius + "}");
                 for (Player target : players) {
+                    if (target.drone != null && target.drone.active && target.drone.attackers.contains(enemy.id)
+                            && distance(enemy.x, enemy.y, target.drone.x, target.drone.y) <= radius)
+                        damageDrone(target, GameConfig.EXPLOSION_BOSS_DAMAGE);
                     if (!target.down && distance(enemy.x, enemy.y, target.x, target.y) <= radius) {
                         damagePlayer(target, GameConfig.EXPLOSION_BOSS_DAMAGE);
                     }
@@ -1055,6 +1363,12 @@ final class GameSession {
             }
         }
         Player target = nearestPlayer(enemy, WORLD_W + WORLD_H);
+        Player droneOwner = DroneRules.target(enemy, players);
+        if (droneOwner != null) {
+            enemy.faceToward(droneOwner.drone.x, droneOwner.drone.y);
+            moveEnemyToward(enemy, droneOwner.drone.x, droneOwner.drone.y, enemy.speed * enemy.slow * dt);
+            return;
+        }
         if (target != null) {
             enemy.faceToward(target.x, target.y);
             if (distance(enemy.x, enemy.y, target.x, target.y) > 36)
@@ -1075,6 +1389,8 @@ final class GameSession {
         events.broadcast("{\"type\":\"effect\",\"effect\":\"explosion\",\"x\":" + roundOne(bomber.x)
                 + ",\"y\":" + roundOne(bomber.y) + ",\"radius\":" + radius + "}");
         for (Player target : players) {
+            if (target.drone != null && target.drone.active && target.drone.attackers.contains(bomber.id)
+                    && inBomberBlast(bomber, target.drone.x, target.drone.y, radius)) damageDrone(target, bomber.damage);
             if (!target.down && inBomberBlast(bomber, target.x, target.y, radius)) damagePlayer(target, bomber.damage);
         }
         for (TrapSlot slot : trapSlots) {
@@ -1088,8 +1404,25 @@ final class GameSession {
 
     private boolean updateArtillery(Enemy enemy, double dt) {
         enemy.specialCooldown = Math.max(0, enemy.specialCooldown - dt);
+        Player droneOwner = DroneRules.target(enemy, players);
+        if (droneOwner != null) {
+            Drone drone = droneOwner.drone;
+            enemy.faceToward(drone.x, drone.y);
+            if (canArtilleryAim(enemy, drone.x, drone.y)) {
+                if (distance(enemy.x, enemy.y, drone.x, drone.y) < 110) {
+                    if (distance(enemy.x, enemy.y, drone.x, drone.y) <= 36 && enemy.attackCooldown <= 0) {
+                        damageDrone(droneOwner, enemy.damage);
+                        enemy.attackCooldown = .9;
+                    } else moveEnemyToward(enemy, drone.x, drone.y, enemy.speed * dt);
+                } else if (enemy.specialCooldown <= 0) {
+                    artilleryShells.add(new ArtilleryShell(enemy.x, enemy.y, drone.x, drone.y, enemy.damage * 3, enemy.id));
+                    enemy.specialCooldown = GameConfig.ARTILLERY_COOLDOWN;
+                }
+            } else moveEnemyToward(enemy, drone.x, drone.y, enemy.speed * dt);
+            return true;
+        }
         Player target = players.stream()
-                .filter(player -> !player.down && canArtilleryAim(enemy, player.x, player.y))
+                .filter(player -> !player.down && !JobRules.concealedFrom(player, enemy) && canArtilleryAim(enemy, player.x, player.y))
                 .min(Comparator.comparingDouble(player -> distance(enemy.x, enemy.y, player.x, player.y)))
                 .orElse(null);
         TrapSlot defense = target == null ? trapSlots.stream()
@@ -1105,7 +1438,7 @@ final class GameSession {
         if (distance(enemy.x, enemy.y, x, y) < 110) return false;
         enemy.faceToward(x, y);
         if (enemy.specialCooldown <= 0) {
-            artilleryShells.add(new ArtilleryShell(enemy.x, enemy.y, x, y, enemy.damage * 3));
+            artilleryShells.add(new ArtilleryShell(enemy.x, enemy.y, x, y, enemy.damage * 3, enemy.id));
             enemy.specialCooldown = GameConfig.ARTILLERY_COOLDOWN;
         }
         return true;
@@ -1124,6 +1457,8 @@ final class GameSession {
             if (shell.remaining > 1e-9) continue;
             iterator.remove();
             for (Player player : players) {
+                if (player.drone != null && player.drone.active && player.drone.attackers.contains(shell.enemyId)
+                        && inArtilleryBlast(shell, player.drone.x, player.drone.y)) damageDrone(player, shell.damage);
                 if (inArtilleryBlast(shell, player.x, player.y)) damagePlayer(player, shell.damage);
             }
             for (TrapSlot slot : trapSlots) {
@@ -1185,7 +1520,7 @@ final class GameSession {
 
     private Player nearestPlayer(Enemy enemy, double range) {
         return players.stream()
-                .filter(player -> !player.down
+                .filter(player -> !player.down && !JobRules.concealedFrom(player, enemy)
                         && distance(enemy.x, enemy.y, player.x, player.y) <= range)
                 .min(Comparator.comparingDouble(player -> distance(enemy.x, enemy.y, player.x, player.y)))
                 .orElse(null);
@@ -1224,10 +1559,15 @@ final class GameSession {
                 targetY = enemy.path.get(enemy.pathIndex).y();
             }
         }
+        moveEnemyDirect(enemy, targetX, targetY, amount);
+    }
+
+    private void moveEnemyDirect(Enemy enemy, double targetX, double targetY, double amount) {
         double dx = targetX - enemy.x;
         double dy = targetY - enemy.y;
         enemy.faceToward(targetX, targetY);
         double length = Math.max(1, Math.hypot(dx, dy));
+        amount = Math.min(amount, length);
         double nextX = clamp(enemy.x + dx / length * amount, 18, WORLD_W - 18);
         double nextY = clamp(enemy.y + dy / length * amount, 18, WORLD_H - 18);
         if (canOccupy(nextX, enemy.y, 17)) enemy.x = nextX;
@@ -1245,7 +1585,7 @@ final class GameSession {
     }
 
     // Later boss spawning and artillery dodging still require a body-safe segment.
-    // Ordinary enemy movement uses the original point sight line and axis steps.
+    // CORE steering uses its own shared field; local movement retains axis steps.
     private boolean canEnemyTravel(double fromX, double fromY, double toX, double toY) {
         return laterFeatureTravel.canTravel(fromX, fromY, toX, toY, 17, unlockedAreas);
     }
@@ -1296,7 +1636,7 @@ final class GameSession {
                 } else moveBotToward(bot, downed.x, downed.y);
                 Enemy threat = bestBotCombatTarget(bot);
                 if (threat != null && recognizeBotTarget(bot, threat, dt)) {
-                    selectBotWeapon(bot, distance(bot.x, bot.y, threat.x, threat.y));
+                    BotWeaponPolicy.select(bot, distance(bot.x, bot.y, threat.x, threat.y));
                     attack(bot, threat.id);
                 } else if (threat == null) {
                     clearBotTarget(bot);
@@ -1448,7 +1788,7 @@ final class GameSession {
 
     private void engageBotTarget(Player bot, Enemy target) {
         double targetDistance = distance(bot.x, bot.y, target.x, target.y);
-        selectBotWeapon(bot, targetDistance);
+        BotWeaponPolicy.select(bot, targetDistance);
         WeaponStats weapon = weaponStats(bot.weapon);
         double effectiveRange = weapon.range() - 8;
         boolean clearShot = GameMap.hasClearLine(bot.x, bot.y, target.x, target.y);
@@ -1477,48 +1817,6 @@ final class GameSession {
         } else {
             moveBotAround(bot, target.x, target.y);
         }
-    }
-
-    private static void selectBotWeapon(Player bot, double targetDistance) {
-        if (targetDistance <= 72 && (!hasBotRangedAmmo(bot) || bot.hp > 70)) {
-            bot.equipWeapon("bat");
-        } else if (bot.ownsRevolver && bot.revolverAmmo > 0 && targetDistance <= 500) {
-            bot.equipWeapon("revolver");
-        } else if (bot.ownsRocket && bot.rocketAmmo > 0 && targetDistance > 160 && targetDistance <= weaponStats("rocket").range()) {
-            bot.equipWeapon("rocket");
-        } else if (targetDistance > 390 && bot.ownsSniper && bot.sniperAmmo > 0) {
-            bot.equipWeapon("sniper");
-        } else if (targetDistance > 260 && bot.ownsRifle && bot.rifleAmmo > 0) {
-            bot.equipWeapon("rifle");
-        } else if (bot.ownsLmg && bot.lmgAmmo > 0 && targetDistance <= 360) {
-            bot.equipWeapon("lmg");
-        } else if (bot.ownsRicochet && bot.ricochetAmmo > 0 && targetDistance <= 300) {
-            bot.equipWeapon("ricochet");
-        } else if (targetDistance > 155 && bot.ownsSmg && bot.smgAmmo > 0) {
-            bot.equipWeapon("smg");
-        } else if (targetDistance <= 190 && bot.ownsShotgun && bot.shotgunAmmo > 0) {
-            bot.equipWeapon("shotgun");
-        } else if (bot.ownsSmg && bot.smgAmmo > 0) {
-            bot.equipWeapon("smg");
-        } else if (bot.ownsRifle && bot.rifleAmmo > 0) {
-            bot.equipWeapon("rifle");
-        } else if (bot.ownsSniper && bot.sniperAmmo > 0) {
-            bot.equipWeapon("sniper");
-        } else {
-            bot.equipWeapon("pistol");
-        }
-        bot.selectedBuild = null;
-    }
-
-    private static boolean hasBotRangedAmmo(Player bot) {
-        return bot.ownsShotgun && bot.shotgunAmmo > 0
-                || bot.ownsSmg && bot.smgAmmo > 0
-                || bot.ownsRifle && bot.rifleAmmo > 0
-                || bot.ownsSniper && bot.sniperAmmo > 0
-                || bot.ownsRevolver && bot.revolverAmmo > 0
-                || bot.ownsRocket && bot.rocketAmmo > 0
-                || bot.ownsLmg && bot.lmgAmmo > 0
-                || bot.ownsRicochet && bot.ricochetAmmo > 0;
     }
 
     private void moveBotToSaferPosition(Player bot, Enemy enemy) {
@@ -1780,7 +2078,7 @@ final class GameSession {
         if (tryBotUnlock(bot)) return true;
         TrapSlot damaged = trapSlots.stream().filter(slot -> slot.defense != null
                 && slot.defense.hp < slot.defense.maxHp * .65
-                && (Set.of("turret", "copperTurret", "silverTurret", "wire", "mine").contains(slot.defense.type) ? bot.ore > 0 : bot.wood > 0)
+                && BuildingRules.repair(slot.defense.type, slot.defense.hp, slot.defense.maxHp, materials(bot)).status() == BuildingRules.RepairStatus.READY
                 && isAssignedBot(bot, slot.x, slot.y))
                 .min(Comparator.comparingDouble(slot -> distance(bot.x, bot.y, slot.x, slot.y))).orElse(null);
         if (damaged != null) return botUse(bot, damaged.x, damaged.y, 70, () -> repair(bot, damaged.id));
@@ -1792,10 +2090,10 @@ final class GameSession {
         };
         for (String item : preference) {
             ShopUnit shop = GameMap.shopByItem(item);
-            boolean owned = botOwnsWeapon(bot, item);
+            boolean owned = bot.weapons.owns(item);
             if (shop == null || !isPointUnlocked(shop.x(), shop.y())
                     || bot.credits < (owned ? ammoRefillCost() : shop.cost())) continue;
-            if (owned ? weaponAmmo(bot, item) > weaponAmmoCapacity(item) / 4 : hasBotRangedAmmo(bot)) continue;
+            if (owned ? weaponAmmo(bot, item) > weaponAmmoCapacity(item) / 4 : BotWeaponPolicy.hasRangedAmmo(bot)) continue;
             return botUse(bot, shop.x(), shop.y(), 55, () -> buy(bot, item));
         }
         if (phase != GamePhase.PREPARING) return false;
@@ -1851,7 +2149,7 @@ final class GameSession {
             return false; // No legal site: guard instead of accumulating more unplaceable equipment.
         }
         var recipe = BUILD_RECIPES.get(buildType);
-        if (bot.wood >= recipe.getOrDefault("wood", 0) && bot.ore >= recipe.getOrDefault("ore", 0)) {
+        if (BuildingRules.canAfford(recipe, materials(bot))) {
             WorkbenchUnit bench = GameMap.WORKBENCH_UNITS.stream()
                     .filter(unit -> unit.requiredArea() == null || unlockedAreas.contains(unit.requiredArea()))
                     .min(Comparator.comparingDouble(unit -> distance(bot.x, bot.y, unit.x(), unit.y()))).orElse(null);
@@ -1924,346 +2222,20 @@ final class GameSession {
                 .allMatch(area -> unlockedAreas.contains(area.id()));
     }
 
-    private static boolean botOwnsWeapon(Player bot, String item) {
-        return switch (item) {
-            case "shotgun" -> bot.ownsShotgun;
-            case "smg" -> bot.ownsSmg;
-            case "rifle" -> bot.ownsRifle;
-            case "sniper" -> bot.ownsSniper;
-            case "revolver" -> bot.ownsRevolver;
-            case "rocket" -> bot.ownsRocket;
-            case "railgun" -> bot.ownsRailgun;
-            case "lmg" -> bot.ownsLmg;
-            case "ricochet" -> bot.ownsRicochet;
-            default -> true;
-        };
-    }
-
-    private static void giveBotWeapon(Player bot, String item) {
-        switch (item) {
-            case "shotgun" -> bot.ownsShotgun = true;
-            case "smg" -> bot.ownsSmg = true;
-            case "rifle" -> bot.ownsRifle = true;
-            case "sniper" -> bot.ownsSniper = true;
-            case "revolver" -> bot.ownsRevolver = true;
-            case "rocket" -> bot.ownsRocket = true;
-            case "railgun" -> bot.ownsRailgun = true;
-            case "lmg" -> bot.ownsLmg = true;
-            case "ricochet" -> bot.ownsRicochet = true;
-            default -> { return; }
-        }
-        setWeaponAmmo(bot, item, weaponAmmoCapacity(item));
-        bot.equipWeapon(item);
-        bot.selectedBuild = null;
+    private static void grantWeapon(Player player, String item) {
+        if (WeaponCatalog.capacity(item) == 0) return;
+        if (!player.weapons.grant(item)) return;
+        player.equipWeapon(item);
+        player.selectedBuild = null;
     }
 
     private void attack(Player player, int enemyId) {
         if (player.human) return;
         Enemy target = enemies.stream().filter(enemy -> enemy.id == enemyId && enemy.hp > 0).findFirst().orElse(null);
-        if (target != null) attackAt(player, target.x, target.y);
+        if (target != null) combat.attackAt(player, target.x, target.y);
     }
 
-    private void attackAt(Player player, double aimX, double aimY) {
-        if (!canMove() || player.down || player.movingCore || player.cooldown > 0) return;
-
-        if (player.weapon.equals("railgun")) {
-            if (!player.firing || player.selectedBuild != null) return;
-            if (!player.ownsRailgun || player.railgunAmmo <= 0 && player.railgunRemaining <= 0) {
-                player.firing = false;
-                return;
-            }
-            if (player.railgunCharge <= 0 && player.railgunRemaining <= 0) {
-                player.railgunCharge = 1e-9;
-                sendSoundEffect(player, "shot", "railgun-charge");
-            }
-            return;
-        }
-        WeaponStats weapon = weaponStats(player.weapon);
-        boolean empty = player.weapon.equals("shotgun") && player.shotgunAmmo <= 0
-                || player.weapon.equals("smg") && player.smgAmmo <= 0
-                || player.weapon.equals("rifle") && player.rifleAmmo <= 0
-                || player.weapon.equals("sniper") && player.sniperAmmo <= 0
-                || player.weapon.equals("revolver") && player.revolverAmmo <= 0
-                || player.weapon.equals("rocket") && player.rocketAmmo <= 0
-                || player.weapon.equals("lmg") && player.lmgAmmo <= 0
-                || player.weapon.equals("ricochet") && player.ricochetAmmo <= 0;
-        if (empty) {
-            feedback(player, "弾薬がありません");
-            player.firing = false;
-            return;
-        }
-        if (player.weapon.equals("shotgun")) player.shotgunAmmo--;
-        if (player.weapon.equals("smg")) player.smgAmmo--;
-        if (player.weapon.equals("rifle")) player.rifleAmmo--;
-        if (player.weapon.equals("sniper")) player.sniperAmmo--;
-        if (player.weapon.equals("revolver")) player.revolverAmmo--;
-        if (player.weapon.equals("rocket")) player.rocketAmmo--;
-        if (player.weapon.equals("lmg")) player.lmgAmmo--;
-        if (player.weapon.equals("ricochet")) player.ricochetAmmo--;
-
-        sendSoundEffect(player,"shot",player.weapon);
-        player.cooldown = weapon.cooldown();
-        player.cooldownMax = weapon.cooldown();
-        double dx = aimX - player.x;
-        double dy = aimY - player.y;
-        double length = Math.hypot(dx, dy);
-        if (length < 0.001) {
-            dx = 1;
-            dy = 0;
-            length = 1;
-        }
-        double directionX = dx / length;
-        double directionY = dy / length;
-        if (player.weapon.equals("rocket")) {
-            fireRocket(player, weapon, directionX, directionY, Math.min(length, weapon.range()));
-            return;
-        }
-        if (player.weapon.equals("ricochet")) {
-            fireRicochet(player, weapon, directionX, directionY);
-            return;
-        }
-        boolean shotgun = player.weapon.equals("shotgun");
-        int rays = shotgun ? GameConfig.SHOTGUN_PELLETS : 1;
-        double angle = Math.atan2(directionY, directionX);
-        for (int pellet = 0; pellet < rays; pellet++) {
-            double spreadAngle = shotgun ? (pellet - (rays - 1) / 2.0) * .14 : 0;
-            fireRay(player, weapon, Math.cos(angle + spreadAngle), Math.sin(angle + spreadAngle));
-        }
-    }
-
-    private void updateRailgun(Player player, double dt) {
-        if (!player.weapon.equals("railgun") || !player.firing || player.down
-                || player.movingCore || player.selectedBuild != null || !canMove()) {
-            player.stopRailgun();
-            return;
-        }
-        double remainingDt = dt;
-        if (player.railgunCharge > 0) {
-            double step = Math.min(remainingDt, GameConfig.RAILGUN_CHARGE - player.railgunCharge);
-            player.railgunCharge += step;
-            remainingDt -= step;
-            if (player.railgunCharge + 1e-9 < GameConfig.RAILGUN_CHARGE) return;
-            player.railgunCharge = 0;
-            if (player.railgunAmmo <= 0) return;
-            player.railgunAmmo--;
-            double dx = player.aimX - player.x, dy = player.aimY - player.y;
-            double length = Math.hypot(dx, dy);
-            player.railgunDx = length < .001 ? 1 : dx / length;
-            player.railgunDy = length < .001 ? 0 : dy / length;
-            player.railgunRemaining = GameConfig.RAILGUN_DURATION;
-            player.railgunTick = 0;
-            sendSoundEffect(player, "shot", "railgun");
-        }
-        if (player.railgunRemaining <= 0) return;
-        double elapsed = Math.min(remainingDt, player.railgunRemaining);
-        player.railgunRemaining = Math.max(0, player.railgunRemaining - elapsed);
-        player.railgunTick += elapsed;
-        WeaponStats stats = weaponStats("railgun");
-        while (player.railgunTick + 1e-9 >= GameConfig.RAILGUN_TICK) {
-            player.railgunTick -= GameConfig.RAILGUN_TICK;
-            double range = GameMap.distanceToWall(player.x, player.y, player.railgunDx, player.railgunDy, stats.range());
-            // Copy: damage can spawn enemies, so newly spawned enemies enter on the next tick.
-            for (Enemy enemy : List.copyOf(enemies)) {
-                if (enemy.hp <= 0 || !isInsideAttack(enemy, player.x, player.y, player.railgunDx, player.railgunDy, stats, range)
-                        || !GameMap.hasClearLine(player.x, player.y, enemy.x, enemy.y)) continue;
-                int before = player.credits;
-                double dealt = damageEnemy(enemy, stats.damage() * GameConfig.RAILGUN_TICK, player);
-                sendHitEffect(player.id, "railgun", player.x, player.y, enemy.x, enemy.y,
-                        dealt, enemy.hp <= 0, player.credits - before, false);
-            }
-        }
-        if (player.railgunRemaining < 1e-9) {
-            player.railgunRemaining = 0;
-            player.railgunTick = 0;
-            player.cooldown = stats.cooldown();
-            player.cooldownMax = player.cooldown;
-        }
-    }
-
-    private void fireRocket(Player player, WeaponStats weapon, double dx, double dy, double range) {
-        double impactDistance = GameMap.distanceToWall(player.x, player.y, dx, dy, range);
-        // Stop at the first enemy body; unlike bullets, the rocket detonates instead of piercing.
-        for (Enemy enemy : enemies) {
-            if (enemy.hp <= 0) continue;
-            double ex = enemy.x - player.x, ey = enemy.y - player.y;
-            double projection = ex * dx + ey * dy;
-            double perpendicular = Math.abs(ex * dy - ey * dx);
-            double radius = enemyRadius(enemy) + weapon.width();
-            if (projection < 0 || perpendicular > radius) continue;
-            double entry = Math.max(0, projection - Math.sqrt(radius * radius - perpendicular * perpendicular));
-            if (entry < impactDistance) impactDistance = entry;
-        }
-        double x = player.x + dx * impactDistance, y = player.y + dy * impactDistance;
-        sendHitEffect(player.id, "rocket", player.x, player.y, x, y, 0, false, 0, false);
-        events.broadcast("{\"type\":\"effect\",\"effect\":\"explosion\",\"x\":" + roundOne(x)
-                + ",\"y\":" + roundOne(y) + ",\"radius\":" + GameConfig.ROCKET_BLAST_RADIUS + "}");
-        for (Enemy enemy : enemies) {
-            double blastDistance = distance(x, y, enemy.x, enemy.y);
-            if (enemy.hp <= 0 || blastDistance > GameConfig.ROCKET_BLAST_RADIUS
-                    || !GameMap.hasClearLine(x, y, enemy.x, enemy.y)) continue;
-            // Full damage at the center, half damage at the edge; no headshot multiplier.
-            double damage = weapon.damage() * (1 - .5 * blastDistance / GameConfig.ROCKET_BLAST_RADIUS);
-            int creditsBefore = player.credits;
-            double dealt = damageEnemy(enemy, damage, player);
-            knockbackEnemy(x, y, enemy, weapon.knockback());
-            sendHitEffect(player.id, "rocket", x, y, enemy.x, enemy.y, dealt,
-                    enemy.hp <= 0, player.credits - creditsBefore, false);
-        }
-    }
-
-    private void fireRicochet(Player player, WeaponStats weapon, double dx, double dy) {
-        double x = player.x, y = player.y, remaining = weapon.range();
-        for (int bounce = 0; bounce <= 2 && remaining > .01; bounce++) {
-            GameMap.WallImpact wall = GameMap.rayWall(x, y, dx, dy, remaining);
-            double length = Math.max(0, wall.distance() - .001);
-            if (fireSegment(player, weapon, x, y, dx, dy, length)) return;
-            remaining -= wall.distance();
-            if (!wall.flipX() && !wall.flipY()) return;
-            x += dx * length; y += dy * length;
-            if (wall.flipX()) dx = -dx;
-            if (wall.flipY()) dy = -dy;
-            x += dx * .002; y += dy * .002;
-            remaining -= .002;
-        }
-    }
-
-    private void fireRay(Player player, WeaponStats weapon, double directionX, double directionY) {
-        double shotDistance = GameMap.distanceToWall(player.x, player.y,
-                directionX, directionY, weapon.range());
-        fireSegment(player, weapon, player.x, player.y, directionX, directionY, shotDistance);
-    }
-
-    private boolean fireSegment(Player player, WeaponStats weapon, double originX, double originY,
-            double directionX, double directionY, double shotDistance) {
-        double endX = originX + directionX * shotDistance;
-        double endY = originY + directionY * shotDistance;
-        List<Enemy> candidates = enemies.stream().filter(enemy -> enemy.hp > 0)
-                .filter(enemy -> isInsideAttack(enemy, originX, originY, directionX, directionY, weapon, shotDistance))
-                .filter(enemy -> GameMap.hasClearLine(originX, originY, enemy.x, enemy.y))
-                .sorted(Comparator.comparingDouble(enemy ->
-                        (enemy.x - originX) * directionX + (enemy.y - originY) * directionY)).toList();
-        boolean piercing = player.weapon.equals("sniper") || player.weapon.equals("revolver");
-        List<Enemy> targets = piercing ? candidates : candidates.stream().limit(1).toList();
-        if (!piercing && !targets.isEmpty() && !player.weapon.equals("bat")) {
-            Enemy first = targets.get(0);
-            double projection = (first.x - originX) * directionX + (first.y - originY) * directionY;
-            double perpendicular = Math.abs((first.x - originX) * directionY - (first.y - originY) * directionX);
-            double radius = enemyRadius(first) + weapon.width();
-            double entry = Math.max(0, projection - Math.sqrt(Math.max(0, radius * radius - perpendicular * perpendicular)));
-            endX = originX + directionX * entry; endY = originY + directionY * entry;
-        }
-        // A trajectory event is separate from impact and reward events.
-        sendHitEffect(player.id, player.weapon, originX, originY, endX, endY, 0, false, 0, false);
-        for (Enemy hit : targets) {
-            int creditsBeforeHit = player.credits;
-            boolean headshot = isHeadshot(hit, player, originX, originY, directionX, directionY, weapon, shotDistance);
-            double damage = weapon.damage() * (headshot ? 2 : 1);
-            if (!player.weapon.equals("bat")) damage = hit.shieldedDamage(damage, originX, originY);
-            double dealt = damageEnemy(hit, damage, player);
-            if (headshot) player.credits += 3;
-            knockbackEnemy(originX, originY, hit, weapon.knockback());
-            sendHitEffect(player.id, player.weapon, player.x, player.y, hit.x, hit.y,
-                    dealt, hit.hp <= 0, player.credits - creditsBeforeHit, headshot);
-        }
-        return !targets.isEmpty();
-    }
-
-    private boolean isInsideAttack(Enemy enemy, double originX, double originY, double directionX,
-            double directionY, WeaponStats weapon, double shotDistance) {
-        double toEnemyX = enemy.x - originX;
-        double toEnemyY = enemy.y - originY;
-        double projection = toEnemyX * directionX + toEnemyY * directionY;
-        if (projection < 0 || projection > shotDistance) return false;
-        double perpendicular = Math.abs(toEnemyX * directionY - toEnemyY * directionX);
-        double enemyRadius = enemyRadius(enemy);
-        double spread = weapon.width();
-        return perpendicular <= spread + enemyRadius;
-    }
-
-    private boolean isHeadshot(Enemy enemy, Player player, double originX, double originY, double directionX,
-            double directionY, WeaponStats weapon, double shotDistance) {
-        if (player.weapon.equals("bat") || enemy.type.equals("explosionBoss")) return false;
-        double radius = enemyRadius(enemy);
-        double headX = enemy.x;
-        double headY = enemy.y - radius * 0.5;
-        double toHeadX = headX - originX;
-        double toHeadY = headY - originY;
-        double projection = toHeadX * directionX + toHeadY * directionY;
-        if (projection < 0 || projection > shotDistance) return false;
-        double perpendicular = Math.abs(toHeadX * directionY - toHeadY * directionX);
-        double headRadius = Math.min(radius * 0.5, Math.max(4, radius * 0.28));
-        double aimTolerance = player.weapon.equals("shotgun")
-                ? Math.min(3, weapon.width() * 0.25)
-                : weapon.width() * 0.25;
-        return perpendicular <= headRadius + aimTolerance;
-    }
-
-    private static double enemyRadius(Enemy enemy) {
-        return switch (enemy.type) {
-            case "explosionBoss" -> 42;
-            case "bomber" -> 20;
-            case "tiny" -> 3;
-            case "boss" -> 42;
-            case "warlord" -> 44;
-            case "titan" -> 48;
-            case "armored" -> 30;
-            case "shield" -> 24;
-            case "artillery" -> 22;
-            case "siege" -> 32;
-            case "champion" -> 26;
-            case "hunter" -> 18;
-            case "brute" -> 28;
-            case "runner" -> 16;
-            default -> 21;
-        };
-    }
-
-    static WeaponStats weaponStats(String weapon) {
-        return GameConfig.WEAPONS.getOrDefault(weapon, GameConfig.WEAPONS.get("pistol"));
-    }
-
-    private double damageEnemy(Enemy enemy, double damage, Player player) {
-        if (enemy.hp <= 0) return 0;
-        if (enemy.type.equals("explosionBoss")) damage *= .001;
-        double dealt = Math.min(enemy.hp, damage);
-        enemy.hp -= dealt;
-        if (player != null && dealt > 0) {
-            enemy.creditProgress += enemy.reward * dealt / enemy.maxHp;
-            int earnedCredits = Math.min(enemy.reward,
-                    (int) Math.floor(enemy.creditProgress + 1e-9));
-            int payout = earnedCredits - enemy.paidCredits;
-            if (payout > 0) {
-                player.credits += payout;
-                enemy.paidCredits += payout;
-            }
-            if (enemy.hp <= 0) player.kills++;
-        }
-        if (enemy.hp <= 0 && enemy.type.equals("bomber")) explodeBomber(enemy);
-        // Report the mitigated hit strength, retaining ordinary overkill feedback.
-        return damage;
-    }
-
-    private void knockbackEnemy(double fromX, double fromY, Enemy enemy, double amount) {
-        if (amount <= 0) return;
-        double dx = enemy.x - fromX;
-        double dy = enemy.y - fromY;
-        double length = Math.max(1, Math.hypot(dx, dy));
-        double nextX = clamp(enemy.x + dx / length * amount, 18, WORLD_W - 18);
-        double nextY = clamp(enemy.y + dy / length * amount, 18, WORLD_H - 18);
-        if (canOccupy(nextX, enemy.y, 17)) enemy.x = nextX;
-        if (canOccupy(enemy.x, nextY, 17)) enemy.y = nextY;
-    }
-
-    private void sendHitEffect(String playerId, String weapon, double fromX, double fromY,
-            double x, double y, double damage, boolean defeated, int credits,
-            boolean headshot) {
-        events.broadcast("{\"type\":\"effect\",\"effect\":\"hit\",\"playerId\":\"" + playerId
-                + "\",\"weapon\":\"" + weapon + "\",\"fromX\":" + roundOne(fromX)
-                + ",\"fromY\":" + roundOne(fromY) + ",\"x\":" + roundOne(x)
-                + ",\"y\":" + roundOne(y) + ",\"damage\":" + (Math.round(damage * 1000) / 1000.0)
-                + ",\"defeated\":" + defeated + ",\"credits\":" + credits
-                + ",\"headshot\":" + headshot + "}");
-    }
+    static WeaponStats weaponStats(String weapon) { return WeaponCatalog.stats(weapon); }
 
     private void interact(Player player, String targetId) {
         if (player.down || !canUseFacilities() || !targetId.startsWith("player-")) return;
@@ -2280,17 +2252,7 @@ final class GameSession {
     }
 
     private void switchWeapon(Player player, String weapon) {
-        boolean owned = weapon.equals("pistol") || weapon.equals("bat")
-                || weapon.equals("shotgun") && player.ownsShotgun
-                || weapon.equals("smg") && player.ownsSmg
-                || weapon.equals("rifle") && player.ownsRifle
-                || weapon.equals("sniper") && player.ownsSniper
-                || weapon.equals("revolver") && player.ownsRevolver
-                || weapon.equals("railgun") && player.ownsRailgun
-                || weapon.equals("rocket") && player.ownsRocket
-                || weapon.equals("lmg") && player.ownsLmg
-                || weapon.equals("ricochet") && player.ownsRicochet;
-        if (owned) {
+        if (player.weapons.owns(weapon) && !DroneRules.mounted(player, weapon)) {
             releaseCarriedCore(player);
             player.equipWeapon(weapon);
             player.selectedBuild = null;
@@ -2300,135 +2262,120 @@ final class GameSession {
     }
 
     private void buy(Player player, String item) {
+        String outgoing = player.human || player.weapons.canAcquire(item) ? null
+                : WeaponCatalog.ALL.stream().map(WeaponCatalog.Definition::id)
+                .filter(id -> !id.equals("bat") && player.weapons.owns(id)).findFirst().orElse(null);
+        buy(player, item, outgoing);
+    }
+
+    private void buy(Player player, String item, String outgoing) {
         if (!canUseFacilities() || player.down) return;
         if(item.equals("medkit")) {
             ShopUnit kitShop = GameMap.shopByItem("medkit");
             if (!isPointUnlocked(kitShop.x(), kitShop.y())
                     || !canInteract(player, kitShop.x(), kitShop.y(), 70)) return;
-            if(player.medkits >= GameConfig.MEDKIT_CAPACITY) { feedback(player,"回復キットは5個まで持てます"); return; }
-            if(spend(player,GameConfig.MEDKIT_PRICE)) { player.medkits++; feedback(player,"回復キットを購入しました"); }
-            else feedback(player,"お金が足りません");
+            if(player.medkits >= GameConfig.MEDKIT_CAPACITY) { gameEffects.feedback(player,"回復キットは5個まで持てます"); return; }
+            if(spend(player,GameConfig.MEDKIT_PRICE)) { player.medkits++; gameEffects.feedback(player,"回復キットを購入しました"); }
+            else gameEffects.feedback(player,"お金が足りません");
             return;
         }
         ShopUnit shop = GameMap.shopByItem(item);
         if (shop == null || !isPointUnlocked(shop.x(), shop.y())
                 || !canInteract(player, shop.x(), shop.y(), 70)) {
-            feedback(player, "ショップに近づいてください");
+            gameEffects.feedback(player, "ショップに近づいてください");
             return;
         }
         if (item.endsWith("Factory")) {
-            if (!spend(player, shop.cost())) { feedback(player, "お金が足りません"); return; }
+            if (!spend(player, shop.cost())) { gameEffects.feedback(player, "お金が足りません"); return; }
             player.addBuildItem(item, 1);
             player.selectedBuild = item;
             releaseCarriedCore(player);
-            feedback(player, shop.label() + "を購入しました。Rで設置できます");
+            gameEffects.feedback(player, shop.label() + "を購入しました。Rで設置できます");
+            return;
+        }
+        if (WeaponCatalog.capacity(item) > 0) {
+            buyOrRefillWeapon(player, shop, item, outgoing);
             return;
         }
         switch (item) {
-            case "shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "ricochet", "rocket", "railgun" ->
-                    buyOrRefillWeapon(player, shop, item);
             case "ammo" -> {
-                if (!player.ownsShotgun && !player.ownsSmg
-                        && !player.ownsRifle && !player.ownsSniper && !player.ownsRevolver && !player.ownsLmg && !player.ownsRicochet && !player.ownsRocket && !player.ownsRailgun) {
-                    feedback(player, "弾薬を使う武器を持っていません");
+                List<String> owned = WeaponCatalog.ALL.stream().filter(WeaponCatalog.Definition::usesAmmo)
+                        .map(WeaponCatalog.Definition::id).filter(player.weapons::owns).toList();
+                if (owned.isEmpty()) {
+                    gameEffects.feedback(player, "弾薬を使う武器を持っていません");
                     return;
                 }
-                List<String> owned = List.of("shotgun", "smg", "rifle", "sniper", "revolver", "lmg", "ricochet", "rocket", "railgun")
-                        .stream().filter(weapon -> botOwnsWeapon(player, weapon)).toList();
                 if (owned.stream().allMatch(weapon -> weaponAmmo(player, weapon) >= weaponAmmoCapacity(weapon))) {
                     return;
                 }
                 if (spend(player, shop.cost())) {
                     owned.forEach(weapon -> setWeaponAmmo(player, weapon, weaponAmmoCapacity(weapon)));
-                    feedback(player, "弾薬を補充しました");
+                    gameEffects.feedback(player, "弾薬を補充しました");
                     events.send(player, "{\"type\":\"ammo-refilled\"}");
                 } else {
-                    feedback(player, "お金が足りません");
+                    gameEffects.feedback(player, "お金が足りません");
                 }
             }
             default -> { }
         }
     }
 
-    private void buyOrRefillWeapon(Player player, ShopUnit shop, String item) {
-        if (botOwnsWeapon(player, item)) {
+    private void buyOrRefillWeapon(Player player, ShopUnit shop, String item, String outgoing) {
+        if (player.weapons.owns(item)) {
             int capacity = weaponAmmoCapacity(item);
             if (weaponAmmo(player, item) >= capacity) {
                 return;
             }
             if (spend(player, ammoRefillCost())) {
                 setWeaponAmmo(player, item, capacity);
-                feedback(player, "弾薬を補充しました");
+                gameEffects.feedback(player, "弾薬を補充しました");
                 events.send(player, "{\"type\":\"ammo-refilled\"}");
             } else {
-                feedback(player, "お金が足りません");
+                gameEffects.feedback(player, "お金が足りません");
             }
+            return;
+        }
+        boolean exchange = !player.weapons.canAcquire(item);
+        if (exchange && !player.weapons.canExchange(item, outgoing)) {
+            gameEffects.feedback(player, "交換する武器を選んでください");
             return;
         }
         if (spend(player, shop.cost())) {
             releaseCarriedCore(player);
-            giveBotWeapon(player, item);
-            feedback(player, "購入しました");
+            if (exchange) player.weapons.exchange(item, outgoing);
+            grantWeapon(player, item);
+            gameEffects.feedback(player, "購入しました");
         } else {
-            feedback(player, "お金が足りません");
+            gameEffects.feedback(player, "お金が足りません");
         }
     }
 
-    static int weaponAmmo(Player player, String item) {
-        return switch (item) {
-            case "shotgun" -> player.shotgunAmmo;
-            case "smg" -> player.smgAmmo;
-            case "rifle" -> player.rifleAmmo;
-            case "sniper" -> player.sniperAmmo;
-            case "revolver" -> player.revolverAmmo;
-            case "rocket" -> player.rocketAmmo;
-            case "railgun" -> player.railgunAmmo;
-            case "lmg" -> player.lmgAmmo;
-            case "ricochet" -> player.ricochetAmmo;
-            default -> 0;
-        };
-    }
+    static int weaponAmmo(Player player, String item) { return player.weapons.ammo(item); }
 
-    static int weaponAmmoCapacity(String item) {
-        return GameConfig.AMMO_CAPACITIES.getOrDefault(item, 0);
-    }
+    static int weaponAmmoCapacity(String item) { return WeaponCatalog.capacity(item); }
 
-    private static void setWeaponAmmo(Player player, String item, int ammo) {
-        ammo = Math.max(0, Math.min(ammo, weaponAmmoCapacity(item)));
-        switch (item) {
-            case "shotgun" -> player.shotgunAmmo = ammo;
-            case "smg" -> player.smgAmmo = ammo;
-            case "rifle" -> player.rifleAmmo = ammo;
-            case "sniper" -> player.sniperAmmo = ammo;
-            case "revolver" -> player.revolverAmmo = ammo;
-            case "rocket" -> player.rocketAmmo = ammo;
-            case "railgun" -> player.railgunAmmo = ammo;
-            case "lmg" -> player.lmgAmmo = ammo;
-            case "ricochet" -> player.ricochetAmmo = ammo;
-            default -> { }
-        }
-    }
+    private static void setWeaponAmmo(Player player, String item, int ammo) { player.weapons.setAmmo(item, ammo); }
 
     private void gather(Player player, String resource) {
         if (!canUseFacilities() || player.down) return;
         if (player.gatherCooldown > 0) {
-            feedback(player, "まだ採取できません");
+            gameEffects.feedback(player, "まだ採取できません");
             return;
         }
         if (resource.equals("wood")) {
             if (!isPointUnlocked(WOODCUTTER_X, WOODCUTTER_Y) || !canInteract(player, WOODCUTTER_X, WOODCUTTER_Y, 110)) {
-                feedback(player, "伐採所に近づいてください");
+                gameEffects.feedback(player, "伐採所に近づいてください");
                 return;
             }
             player.wood += 4;
-            feedback(player, "木材を4個入手しました");
+            gameEffects.feedback(player, "木材を4個入手しました");
         } else if (resource.equals("ore")) {
             if (!isPointUnlocked(QUARRY_X, QUARRY_Y) || !canInteract(player, QUARRY_X, QUARRY_Y, 110)) {
-                feedback(player, "採石場に近づいてください");
+                gameEffects.feedback(player, "採石場に近づいてください");
                 return;
             }
             player.ore++;
-            feedback(player, "鉄を1個入手しました");
+            gameEffects.feedback(player, "鉄を1個入手しました");
         } else {
             return;
         }
@@ -2436,19 +2383,23 @@ final class GameSession {
     }
 
     private void dropResource(Player player, String[] parts) {
+        if (!Set.of("wood", "ore", "copper", "silver").contains(parts[1])) return;
+        dropInventory(player, parts);
+    }
+
+    private void dropInventory(Player player, String[] parts) {
         if (!canUseFacilities() || player.down) return;
         String type = parts[1];
-        if(!Set.of("wood","ore","copper","silver").contains(type)) return;
-        int available = resourceCount(player,type);
+        int available = type.equals("medkit") ? player.medkits : resourceCount(player,type);
         int requested;
         try {
             requested = Integer.parseInt(parts[2]);
         } catch (NumberFormatException error) {
             return;
         }
-        int amount = Math.min(available, Math.max(0, requested));
+        int amount = InventoryDropRules.dropAmount(available, requested);
         if (amount <= 0) {
-            feedback(player, "渡せる素材がありません");
+            gameEffects.feedback(player, type.equals("medkit") ? "回復キットがありません" : "渡せる素材がありません");
             return;
         }
         MapPoint origin = GameMap.snapToTile(player.x, player.y);
@@ -2456,10 +2407,11 @@ final class GameSession {
                 origin.y() + player.facingY * GameMap.TILE_SIZE);
         double dropX = canOccupy(target.x(), target.y(), 5) ? target.x() : player.x;
         double dropY = canOccupy(target.x(), target.y(), 5) ? target.y() : player.y;
-        addResource(player,type,-amount);
+        if (type.equals("medkit")) player.medkits -= amount;
+        else addResource(player,type,-amount);
         droppedResources.add(new DroppedResource(nextDroppedResourceId++, type,
                 dropX, dropY, amount, player.id));
-        feedback(player, "素材を置きました");
+        gameEffects.feedback(player, type.equals("medkit") ? "回復キットを置きました" : "素材を置きました");
     }
 
     private void craft(Player player, String type) {
@@ -2469,30 +2421,30 @@ final class GameSession {
                         || unlockedAreas.contains(workbench.requiredArea()))
                 .anyMatch(workbench -> canInteract(player, workbench.x(), workbench.y(), 110));
         if (!nearWorkbench) {
-            feedback(player, "作業台に近づいてください");
+            gameEffects.feedback(player, "作業台に近づいてください");
             return;
         }
         var recipe = BUILD_RECIPES.get(type);
-        int woodCost = recipe.getOrDefault("wood", 0);
-        int oreCost = recipe.getOrDefault("ore", 0);
-        if(recipe.entrySet().stream().anyMatch(entry -> resourceCount(player,entry.getKey()) < entry.getValue())) {
-            feedback(player, "素材が足りません");
+        if (!BuildingRules.canAfford(recipe, materials(player))) {
+            gameEffects.feedback(player, "素材が足りません");
             return;
         }
         recipe.forEach((resource,cost) -> addResource(player,resource,-cost));
         player.addBuildItem(type, 1);
         player.selectedBuild = type;
         releaseCarriedCore(player);
-        feedback(player, "製作しました");
+        gameEffects.feedback(player, "製作しました");
     }
 
     private void equipBuild(Player player, String type) {
         if (type.equals("none")) {
             releaseCarriedCore(player);
             player.selectedBuild = null;
-        } else if ((BUILD_RECIPES.containsKey(type) || type.endsWith("Factory")) && player.buildItemCount(type) > 0) {
+        } else if ((type.equals("teleporter") || type.equals("drone") || BUILD_RECIPES.containsKey(type) || type.endsWith("Factory")) && player.buildItemCount(type) > 0) {
             releaseCarriedCore(player);
             player.selectedBuild = type;
+            player.firing = false;
+            player.stopRailgun();
         }
     }
 
@@ -2548,32 +2500,27 @@ final class GameSession {
                 || player.medkits <= 0 || player.hp >= 100) return;
         player.medkits--;
         player.hp = Math.min(100, player.hp + GameConfig.MEDKIT_HEAL);
-        sendSoundEffect(player, "item-use", item);
-        feedback(player, "回復キットを使いました");
-    }
-
-    private void sendSoundEffect(Player player, String effect, String item) {
-        events.broadcast("{\"type\":\"effect\",\"effect\":\"" + effect
-                + "\",\"playerId\":\"" + player.id + "\",\"weapon\":\"" + player.weapon
-                + "\",\"item\":\"" + item + "\"}");
+        gameEffects.sound(player, "item-use", item);
+        gameEffects.feedback(player, "回復キットを使いました");
     }
 
     private void equipCore(Player player) {
         if (!canUseFacilities() || player.down
                 || !canInteract(player, coreX, coreY, 130)) {
-            feedback(player, "コアに近づいてください");
+            gameEffects.feedback(player, "コアに近づいてください");
             return;
         }
         Player carrier = players.stream()
                 .filter(other -> other != player && other.movingCore)
                 .findFirst().orElse(null);
         if (carrier != null) {
-            feedback(player, "コアはほかのプレイヤーが運んでいます");
+            gameEffects.feedback(player, "コアはほかのプレイヤーが運んでいます");
             return;
         }
         player.movingCore = true;
         player.dashHeld = false;
         player.dashing = false;
+        player.scoutDashRemaining = 0;
         player.selectedBuild = null;
         player.firing = false;
         coreX = player.x;
@@ -2587,18 +2534,12 @@ final class GameSession {
         if (!Double.isFinite(requestedX) || !Double.isFinite(requestedY)) return;
         MapPoint point = GameMap.snapToTile(requestedX, requestedY);
         if (distance(player.x, player.y, point.x(), point.y()) > 180) {
-            feedback(player, "もう少し近づいてください");
+            gameEffects.feedback(player, "もう少し近づいてください");
             return;
         }
-        if (!GameMap.canPlaceCore(point.x(), point.y(), unlockedAreas)
-                || factories.stream().anyMatch(unit -> distance(point.x(), point.y(), unit.x, unit.y) < 45)
-                || trapSlots.stream().anyMatch(slot -> slot.defense != null
-                        && distance(point.x(), point.y(), slot.x, slot.y) < 45)
-                || players.stream().anyMatch(other -> other != player && !other.down
-                        && distance(point.x(), point.y(), other.x, other.y) < 24)
-                || enemies.stream().anyMatch(enemy -> enemy.hp > 0
-                        && distance(point.x(), point.y(), enemy.x, enemy.y) < 55)) {
-            feedback(player, "ここにはコアを置けません");
+        if (BuildingRules.teleportPadOccupied(point, players, 45) || !BuildingRules.canPlaceCore(point,
+                GameMap.canPlaceCore(point.x(), point.y(), unlockedAreas), buildingPlacementState(), player)) {
+            gameEffects.feedback(player, "ここにはコアを置けません");
             return;
         }
         coreX = point.x();
@@ -2609,6 +2550,7 @@ final class GameSession {
 
     private void placeInFacingTile(Player player) {
         if (!canUseFacilities() || player.down) return;
+        if ("drone".equals(player.selectedBuild)) { launchDrone(player); return; }
         MapPoint origin = GameMap.snapToTile(player.x, player.y);
         double targetX = origin.x() + player.facingX * GameMap.TILE_SIZE;
         double targetY = origin.y() + player.facingY * GameMap.TILE_SIZE;
@@ -2620,13 +2562,15 @@ final class GameSession {
         if (player.movingCore) {
             placeCore(player, new String[] {"PLACE_CORE",
                     Double.toString(targetX), Double.toString(targetY)});
+        } else if ("teleporter".equals(player.selectedBuild)) {
+            placeTeleport(player, GameMap.snapToTile(targetX, targetY));
         } else if (player.selectedBuild != null && player.selectedBuild.endsWith("Factory")) {
             placeFactory(player, GameMap.snapToTile(targetX, targetY));
         } else if (player.selectedBuild != null) {
             placeDefense(player, new String[] {"PLACE",
                     Double.toString(targetX), Double.toString(targetY), player.selectedBuild});
         } else {
-            feedback(player, "先に設置するアイテムを選んでください");
+            gameEffects.feedback(player, "先に設置するアイテムを選んでください");
         }
     }
 
@@ -2635,13 +2579,13 @@ final class GameSession {
         ShopUnit shop = GameMap.shopByItem(item);
         if (shop == null || !item.endsWith("Factory") || player.buildItemCount(item) <= 0) return;
         if (!canPlaceDefenseAt(point, null)) {
-            feedback(player, "ここには設置できません");
+            gameEffects.feedback(player, "ここには設置できません");
             return;
         }
         factories.add(new MaterialFactory("quarry-" + nextFactoryId++, shop, point));
         player.addBuildItem(item, -1);
         if (player.buildItemCount(item) == 0) player.selectedBuild = null;
-        feedback(player, "製造装置を設置しました");
+        gameEffects.feedback(player, "製造装置を設置しました");
     }
 
     private void pickupFactory(Player player, String id) {
@@ -2654,34 +2598,34 @@ final class GameSession {
         player.addBuildItem(item, 1);
         player.selectedBuild = item;
         releaseCarriedCore(player);
-        feedback(player, "製造装置を回収しました");
+        gameEffects.feedback(player, "製造装置を回収しました");
     }
 
     private void build(Player player, String slotId, String type) {
         if (!canUseFacilities() || player.down || !BUILD_RECIPES.containsKey(type)) return;
         TrapSlot slot = slotById(slotId);
         if (slot == null || !canInteract(player, slot.x, slot.y, 100)) {
-            feedback(player, "もう少し近づいてください");
+            gameEffects.feedback(player, "もう少し近づいてください");
             return;
         }
         if (slot.requiredArea != null && !unlockedAreas.contains(slot.requiredArea)) {
-            feedback(player, "このエリアはまだ開放されていません");
+            gameEffects.feedback(player, "このエリアはまだ開放されていません");
             return;
         }
         if (slot.defense != null) {
-            feedback(player, "すでに設備が置かれています");
+            gameEffects.feedback(player, "すでに設備が置かれています");
             return;
         }
         if (player.buildItemCount(type) <= 0) {
-            feedback(player, "先にこの設備を製作してください");
+            gameEffects.feedback(player, "先にこの設備を製作してください");
             return;
         }
         if (!canPlaceDefenseAt(new MapPoint(slot.x, slot.y), slot)) return;
         player.addBuildItem(type, -1);
         slot.ownerId = player.id;
         slot.defense = player.takeDefense(type);
-        sendSoundEffect(player,"item-use","build");
-        feedback(player, "設置しました");
+        gameEffects.sound(player,"item-use","build");
+        gameEffects.feedback(player, "設置しました");
     }
 
     private void placeDefense(Player player, String[] parts) {
@@ -2691,16 +2635,16 @@ final class GameSession {
         if (!Double.isFinite(requestedX) || !Double.isFinite(requestedY)) return;
         MapPoint point = GameMap.snapToTile(requestedX, requestedY);
         if (distance(player.x, player.y, point.x(), point.y()) > 180) {
-            feedback(player, "もう少し近づいてください");
+            gameEffects.feedback(player, "もう少し近づいてください");
             return;
         }
         if (!canPlaceDefenseAt(point, null)) {
-            feedback(player, "ここには設置できません");
+            gameEffects.feedback(player, "ここには設置できません");
             return;
         }
         String type = parts[3];
         if (!type.equals(player.selectedBuild) || player.buildItemCount(type) <= 0) {
-            feedback(player, "設置する設備を手に持ってください");
+            gameEffects.feedback(player, "設置する設備を手に持ってください");
             return;
         }
         player.addBuildItem(type, -1);
@@ -2714,20 +2658,22 @@ final class GameSession {
         placed.ownerId = player.id;
         placed.defense = player.takeDefense(type);
         trapSlots.add(placed);
-        sendSoundEffect(player,"item-use","build");
-        feedback(player, "設置しました");
+        gameEffects.sound(player,"item-use","build");
+        gameEffects.feedback(player, "設置しました");
+    }
+
+    private BuildingRules.PlacementState buildingPlacementState() {
+        return new BuildingRules.PlacementState(coreX, coreY, factories, trapSlots, players, enemies);
+    }
+
+    private static BuildingRules.Materials materials(Player player) {
+        return new BuildingRules.Materials(player.wood, player.ore, player.copper, player.silver);
     }
 
     private boolean canPlaceDefenseAt(MapPoint point, TrapSlot ignored) {
-        return GameMap.canPlaceDefense(point.x(), point.y(), unlockedAreas)
-                && distance(point.x(), point.y(), coreX, coreY) >= 40
-                && factories.stream().noneMatch(unit -> distance(point.x(), point.y(), unit.x, unit.y) < 36)
-                && trapSlots.stream().noneMatch(slot -> slot != ignored && slot.defense != null
-                        && distance(point.x(), point.y(), slot.x, slot.y) < 36)
-                && players.stream().noneMatch(other -> Math.abs(point.x() - other.x) < 23
-                        && Math.abs(point.y() - other.y) < 23)
-                && enemies.stream().noneMatch(enemy -> enemy.hp > 0
-                        && distance(point.x(), point.y(), enemy.x, enemy.y) < 48);
+        return !BuildingRules.teleportPadOccupied(point, players, 36)
+                && BuildingRules.canPlaceDefense(point,
+                GameMap.canPlaceDefense(point.x(), point.y(), unlockedAreas), buildingPlacementState(), ignored);
     }
 
     private void removeDefense(Player player, String slotId) {
@@ -2740,7 +2686,7 @@ final class GameSession {
         player.recoverDefense(slot.defense);
         player.selectedBuild = type;
         releaseCarriedCore(player);
-        feedback(player, "設備を回収しました");
+        gameEffects.feedback(player, "設備を回収しました");
     }
 
     private void repair(Player player, String slotId) {
@@ -2748,18 +2694,18 @@ final class GameSession {
         TrapSlot slot = slotById(slotId);
         if (slot == null || slot.defense == null
                 || !canInteract(player, slot.x, slot.y, 100)) return;
-        if (slot.defense.hp >= slot.defense.maxHp) {
-            feedback(player, "設備の耐久値は満タンです");
+        var plan = BuildingRules.repair(slot.defense.type, slot.defense.hp, slot.defense.maxHp, materials(player));
+        if (plan.status() == BuildingRules.RepairStatus.FULL) {
+            gameEffects.feedback(player, "設備の耐久値は満タンです");
             return;
         }
-        boolean metal = Set.of("turret", "copperTurret", "silverTurret", "wire", "mine").contains(slot.defense.type);
-        if (metal && player.ore < 1 || !metal && player.wood < 1) {
-            feedback(player, "素材が足りません");
+        if (plan.status() == BuildingRules.RepairStatus.MISSING_MATERIAL) {
+            gameEffects.feedback(player, "素材が足りません");
             return;
         }
-        if (metal) player.ore--; else player.wood--;
+        addResource(player, plan.resource(), -1);
         slot.defense.hp = slot.defense.maxHp;
-        feedback(player, "設備を修理しました");
+        gameEffects.feedback(player, "設備を修理しました");
     }
 
     private void upgradeCore(Player player, String type) {
@@ -2771,9 +2717,9 @@ final class GameSession {
                 if (spend(player, cost)) {
                     coreMaxHp += 250;
                     coreHp += 250;
-                    feedback(player, "コアを強化しました");
+                    gameEffects.feedback(player, "コアを強化しました");
                 } else {
-                    feedback(player, "お金が足りません");
+                    gameEffects.feedback(player, "お金が足りません");
                 }
             }
             case "shield" -> {
@@ -2781,35 +2727,35 @@ final class GameSession {
                 if (spend(player, cost)) {
                     coreMaxShield += 180;
                     coreShield = coreMaxShield;
-                    feedback(player, "コアを強化しました");
+                    gameEffects.feedback(player, "コアを強化しました");
                 } else {
-                    feedback(player, "お金が足りません");
+                    gameEffects.feedback(player, "お金が足りません");
                 }
             }
             case "defense" -> {
                 int cost = coreUpgradeCost("defense");
                 if (coreDefenseLevel >= 4) {
-                    feedback(player, "すでに最大レベルです");
+                    gameEffects.feedback(player, "すでに最大レベルです");
                     return;
                 }
                 if (spend(player, cost)) {
                     coreDefenseLevel++;
-                    feedback(player, "コアを強化しました");
+                    gameEffects.feedback(player, "コアを強化しました");
                 } else {
-                    feedback(player, "お金が足りません");
+                    gameEffects.feedback(player, "お金が足りません");
                 }
             }
             case "regen" -> {
                 int cost = coreUpgradeCost("regen");
                 if (coreRegenLevel >= 4) {
-                    feedback(player, "すでに最大レベルです");
+                    gameEffects.feedback(player, "すでに最大レベルです");
                     return;
                 }
                 if (spend(player, cost)) {
                     coreRegenLevel++;
-                    feedback(player, "コアを強化しました");
+                    gameEffects.feedback(player, "コアを強化しました");
                 } else {
-                    feedback(player, "お金が足りません");
+                    gameEffects.feedback(player, "お金が足りません");
                 }
             }
             default -> { }
@@ -2825,19 +2771,19 @@ final class GameSession {
         if (!canUseFacilities() || player.down
                 || !unlockedAreas.contains(console.requiredArea())) return;
         if (!canInteract(player, console.x(), console.y(), 95)) {
-            feedback(player, "準備時間の操作端末に近づいてください");
+            gameEffects.feedback(player, "準備時間の操作端末に近づいてください");
             return;
         }
         if (!spend(player, prepExtensionCost())) {
-            feedback(player, "お金が足りません");
+            gameEffects.feedback(player, "お金が足りません");
             return;
         }
         if (phase == GamePhase.PREPARING) {
             prepTime += console.seconds();
-            feedback(player, "準備時間を1分延長しました");
+            gameEffects.feedback(player, "準備時間を1分延長しました");
         } else {
             nextPrepBonusSeconds += console.seconds();
-            feedback(player, "次の準備時間を1分延長しました");
+            gameEffects.feedback(player, "次の準備時間を1分延長しました");
         }
     }
 
@@ -2868,21 +2814,21 @@ final class GameSession {
                 || breaker.requiredArea() != null
                 && !unlockedAreas.contains(breaker.requiredArea())) return;
         if (!blackoutActive) {
-            feedback(player, "電力は正常です");
+            gameEffects.feedback(player, "電力は正常です");
             return;
         }
         if (!canInteract(player, breaker.x(), breaker.y(), 95)) {
-            feedback(player, "ブレーカーに近づいてください");
+            gameEffects.feedback(player, "ブレーカーに近づいてください");
             return;
         }
         if (!trippedBreakers.remove(breaker.id())) {
-            feedback(player, "このブレーカーは正常です");
+            gameEffects.feedback(player, "このブレーカーは正常です");
             return;
         }
         int remaining = trippedBreakers.size();
         if (remaining == 0) {
             blackoutActive = false;
-            feedback(player, "電力を復旧しました");
+            gameEffects.feedback(player, "電力を復旧しました");
             setNotice("電力が復旧しました");
         }
     }
@@ -2892,11 +2838,11 @@ final class GameSession {
         UnlockArea area = GameMap.areaById(areaId);
         if (area == null || !terminalAccessible(area)) return;
         if (unlockedAreas.contains(areaId)) {
-            feedback(player, "このエリアは開放済みです");
+            gameEffects.feedback(player, "このエリアは開放済みです");
             return;
         }
         if (!canInteract(player, area.terminalX(), area.terminalY(), 100)) {
-            feedback(player, "開放端末に近づいてください");
+            gameEffects.feedback(player, "開放端末に近づいてください");
             return;
         }
         int cost = unlockCost(areaId);
@@ -2905,7 +2851,7 @@ final class GameSession {
             // Opened areas only become spawn candidates when the next round starts.
             setNotice(area.name() + "を開放しました");
         } else {
-            feedback(player, "お金が足りません");
+            gameEffects.feedback(player, "お金が足りません");
         }
     }
 
@@ -2922,6 +2868,7 @@ final class GameSession {
         player.medbayDamageDelay = GameConfig.MEDBAY_DAMAGE_DELAY;
         player.hp = Math.max(0, player.hp - damage);
         if (player.hp <= 0) {
+            releaseDroneControl(player);
             player.down = true;
             events.broadcast("{\"type\":\"effect\",\"effect\":\"player-down\",\"playerId\":\"" + player.id
                     + "\",\"x\":" + player.x + ",\"y\":" + player.y + "}");
@@ -2930,6 +2877,7 @@ final class GameSession {
             player.moveY = 0;
             player.dashHeld = false;
             player.dashing = false;
+            player.scoutDashRemaining = 0;
             player.firing = false;
             releaseCarriedCore(player);
             setNotice(player.name + "がダウンしました");
@@ -2967,6 +2915,7 @@ final class GameSession {
         coreRegenLevel = 0;
         enemies.clear();
         artilleryShells.clear();
+        missiles.clear();
         droppedResources.clear();
         activeLanes.clear();
         activeSpawnIds.clear();
@@ -2995,8 +2944,16 @@ final class GameSession {
             player.down = false;
             player.dashHeld = false;
             player.dashing = false;
+            player.scoutDashRemaining = 0;
             player.dashExhausted = false;
-            player.stamina = 100;
+            player.missileControl = false; player.missileCooldown = 0;
+            player.stamina = JobRules.staminaMax(player.job);
+            player.spyCheckedEnemies.clear(); player.spyHostileEnemies.clear();
+            player.spyRemaining = 0;
+            player.drone = null;
+            player.jobCooldown = 0;
+            player.teleportCooldown = 0;
+            player.teleportPads.clear();
             player.equipWeapon("pistol");
             player.weaponCooldowns.clear();
             player.weaponCooldownMaxima.clear();
@@ -3005,25 +2962,8 @@ final class GameSession {
             player.firing = false;
             player.aimX = player.x + 100;
             player.aimY = player.y;
-            player.ownsShotgun = false;
-            player.ownsSmg = false;
-            player.ownsRifle = false;
-            player.ownsSniper = false;
-            player.ownsRevolver = false;
-            player.ownsRocket = false;
-            player.ownsRailgun = false;
             player.stopRailgun();
-            player.ownsLmg = false;
-            player.ownsRicochet = false;
-            player.shotgunAmmo = 0;
-            player.smgAmmo = 0;
-            player.rifleAmmo = 0;
-            player.sniperAmmo = 0;
-            player.revolverAmmo = 0;
-            player.rocketAmmo = 0;
-            player.railgunAmmo = 0;
-            player.lmgAmmo = 0;
-            player.ricochetAmmo = 0;
+            player.weapons.clear();
             player.wood = 0;
             player.ore = 0;
             player.recoveredDefenses.clear();
@@ -3036,6 +2976,7 @@ final class GameSession {
             player.mineItems = 0;
             player.barricadeItems = 0;
             player.credits = 0;
+            player.droneRewardRemainder = 0;
             player.selectedBuild = null;
             player.movingCore = false;
             player.kills = 0;
@@ -3102,13 +3043,6 @@ final class GameSession {
     private void cancelAction(Player player) {
         player.actionTarget = null;
         player.actionProgress = 0;
-    }
-
-    private void feedback(Player player, String message) {
-        if (player.human) {
-            events.send(player, "{\"type\":\"feedback\",\"message\":\""
-                    + escapeJson(message) + "\"}");
-        }
     }
 
     private void setNotice(String text) {

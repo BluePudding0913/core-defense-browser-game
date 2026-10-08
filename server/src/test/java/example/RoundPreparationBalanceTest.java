@@ -54,8 +54,7 @@ class RoundPreparationBalanceTest {
             Enemy enemy = game.enemies.get(0);
             assertEquals(step[1], enemy.reward);
             player.credits = 0;
-            invoke(game, "damageEnemy", new Class<?>[]{Enemy.class, double.class, Player.class},
-                    enemy, enemy.maxHp, player);
+            game.combat.damageEnemy(enemy, enemy.maxHp, player);
             assertEquals(step[1], player.credits);
             invoke(game, "finishRound", new Class<?>[]{});
             assertEquals(step[1] + step[2], player.credits);

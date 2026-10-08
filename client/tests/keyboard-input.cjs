@@ -37,6 +37,12 @@ key('keyup', { key: 'ArrowRight', code: 'ArrowRight' });
 key('keydown', { key: 'W', code: '' });
 assert.equal(commands.at(-1), 'MOVE:0.00:-1.00', 'key fallback supports missing code');
 key('keyup', { key: 'W', code: '' });
+context.window.coreMenu = { settingsOpen: () => true };
+const settingsCommandCount = commands.length;
+key('keydown', { key: 'w', code: 'KeyW' });
+key('keydown', { key: 'r', code: 'KeyR' });
+assert.equal(commands.length, settingsCommandCount, 'in-game settings block movement and interaction');
+context.window.coreMenu.settingsOpen = () => false;
 let focused = false, captured = false;
 context.canvas = {
     addEventListener: (type, handler) => { handlers[type] = handler; },

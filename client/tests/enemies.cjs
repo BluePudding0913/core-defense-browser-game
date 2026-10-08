@@ -80,3 +80,30 @@ function transitions(start, end) {
 }
 assert(transitions(25, 30) > transitions(0, 5) * 3);
 console.log('Explosion boss display passed: black hexagon, red eyes, accelerating countdown flashes');
+
+// A neighboring body must never inherit another enemy's hit flash.
+context.state.enemies = [
+    { id: 9800, type: 'grunt', x: 1120, y: 1900, hp: 1974, maxHp: 2000 },
+    { id: 9801, type: 'grunt', x: 1120, y: 1930, hp: 2000, maxHp: 2000 },
+];
+function flashes(effects) {
+    context.hitEffects = effects;
+    fills.length = 0;
+    vm.runInContext('drawEnemies()', context);
+    return fills.filter(color => color === '#ff3b48').length;
+}
+const hit = { effect: 'hit', enemyId: 9800, damage: 26, x: 1120, y: 1900, started: 1000 };
+assert.equal(flashes([hit]), 1, 'Only the damaged enemy flashes');
+context.state.enemies[0].x = 900;
+assert.equal(flashes([hit]), 1, 'Movement or knockback does not lose the target flash');
+context.state.enemies[1].x = 900;
+context.state.enemies[1].y = 1900;
+assert.equal(flashes([hit]), 1, 'Even overlapping enemies remain distinct');
+assert.equal(flashes([{ ...hit, damage: 0 }]), 0, 'Trajectories and misses do not flash');
+assert.equal(flashes([{ ...hit, enemyId: null }]), 0, 'An untargeted event does not flash');
+assert.equal(flashes([{ ...hit, enemyId: 9999 }]), 0, 'A missing or defeated target does not flash neighbors');
+assert.equal(flashes([{ ...hit, started: 700 }]), 0, 'Expired hits do not flash');
+assert.equal(flashes([hit, { ...hit, enemyId: 9801 }]), 2, 'Area attacks flash each damaged target');
+context.state.enemies[0].hp = 0;
+assert.equal(flashes([hit]), 0, 'Dead targets do not transfer their flash');
+console.log('Enemy hit effects passed: exact target, adjacent and overlapping enemies, movement, misses, expiration and area damage');

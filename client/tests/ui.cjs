@@ -53,6 +53,8 @@ for(const [rescuer,target,expected] of [['ally','other',0],['me','other',1],['al
 }
 console.log('UI regressions passed: revive visibility, locked floors, terminal paths');
 
+context.jobAbilityButton = { classList: { toggle() {} } };
+context.teleportUseButton = { classList: { toggle() {} } };
 context.roundElement = {};
 context.phaseElement = { classList: { add() {} } };
 context.phaseDetail = {};

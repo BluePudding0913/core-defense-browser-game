@@ -10,6 +10,26 @@ const roomBrowser = document.querySelector("#room-browser");
 const roomLobby = document.querySelector("#room-lobby");
 const roomList = document.querySelector("#room-list");
 const roomMembers = document.querySelector("#room-members");
+const JOBS = window.JobUI.catalog;
+const jobSelect = document.querySelector("#job-select");
+const jobToggle = document.querySelector("#job-toggle");
+const legacyJobPanel = document.querySelector("#legacy-job-panel");
+jobToggle.addEventListener("click", () => {
+    legacyJobPanel.hidden = !legacyJobPanel.hidden;
+    jobToggle.setAttribute("aria-expanded", String(!legacyJobPanel.hidden));
+});
+document.addEventListener("click", event => {
+    if (!event.target.closest("#job-toggle, #legacy-job-panel")) {
+        legacyJobPanel.hidden = true;
+        jobToggle.setAttribute("aria-expanded", "false");
+    }
+});
+const jobAbilityButton = document.querySelector("#job-ability");
+jobSelect.addEventListener("click", event => {
+    const job = event.target.closest("[data-job]")?.dataset.job;
+    if (job) send(`JOB:${job}`);
+});
+jobAbilityButton.addEventListener("click", () => send("JOB_ABILITY"));
 const roomCode = document.querySelector("#room-code");
 const roomOwner = document.querySelector("#room-owner");
 const createRoomButton = document.querySelector("#create-room");
@@ -45,6 +65,18 @@ const inventoryItems = document.querySelector("#inventory-items");
 const roundIntro = document.querySelector("#round-intro");
 const howToMenu = document.querySelector("#how-to-menu");
 const howToStart = document.querySelector("#how-to-start");
+document.querySelector("#inventory-settings").addEventListener("click", () => {
+    endInteractionHold(true);
+    keys.clear(); joystick = null; dashKey = false; setDash(false);
+    if (pendingMove) clearTimeout(pendingMove.timer);
+    pendingMove = null;
+    if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
+    sendMovement(true);
+    inventoryMenu.classList.add("hidden");
+    window.coreMenu?.openSettings(() => {
+        if (["preparing", "wave"].includes(state?.phase)) toggleInventory();
+    });
+});
 const howToInventory = document.querySelector("#how-to-inventory");
 const howToClose = document.querySelector("#how-to-close");
 const URL_PARAMETERS = new URLSearchParams(window.location.search);
@@ -62,23 +94,15 @@ let WORKBENCH = { id: "workbench", x: 0, y: 0 };
 let WORKBENCHES = [];
 let TILE_MAP = { tileSize: 40, legend: {}, rows: [] };
 let AREAS = [];
+let STARTING_AREA = null;
 let SPAWN_POINTS = [];
 let SHOP_UNITS = [];
 let BREAKER_TERMINALS = [];
 let PREP_CONSOLE = null;
+let MISSILE_COMPUTER = null, JOB_STATION = null;
 let BUILD_INFO = {};
 const RESOURCE_NAMES = { wood: "木材", ore: "鉄鉱石", copper: "銅", silver: "銀" };
-const WEAPON_FIELDS = ({
-    ricochet: { owned: "ownsRicochet", ammo: "ricochetAmmo" },
-    shotgun: { owned: "ownsShotgun", ammo: "shotgunAmmo" },
-    smg: { owned: "ownsSmg", ammo: "smgAmmo" },
-    rifle: { owned: "ownsRifle", ammo: "rifleAmmo" },
-    sniper: { owned: "ownsSniper", ammo: "sniperAmmo" },
-    revolver: { owned: "ownsRevolver", ammo: "revolverAmmo" },
-    railgun: { owned: "ownsRailgun", ammo: "railgunAmmo" },
-    rocket: { owned: "ownsRocket", ammo: "rocketAmmo" },
-    lmg: { owned: "ownsLmg", ammo: "lmgAmmo" },
-});
+const WEAPON_FIELDS = {};
 let WEAPON_AMMO_REFILL_COST;
 const INTERACTION_RANGE = Object.freeze({
     shop: 70,
@@ -147,11 +171,13 @@ function applyMap(map) {
         rows: [...map.tileMap.rows],
     };
     AREAS = map.areas.map(area => ({ ...area }));
+    STARTING_AREA = map.startingArea;
     SPAWN_POINTS = map.spawnPoints.map(spawn => ({ ...spawn }));
     SHOP_UNITS = map.shopUnits.map(shop => ({ ...shop }));
     BREAKER_TERMINALS = map.breakerTerminals.map(breaker => ({ ...breaker }));
     WORKBENCHES = map.workbenchUnits.map(workbench => ({ ...workbench }));
     PREP_CONSOLE = { ...map.prepConsole };
+    MISSILE_COMPUTER = map.missileComputer; JOB_STATION = map.jobStation;
     camera = { x: CORE.x, y: CORE.y };
     if (!mapReady) {
         mapReady = true;
@@ -310,7 +336,10 @@ function connect() {
         let message;
         try { message = JSON.parse(data); } catch { return; }
         if (message.type === "error" || message.type === "feedback") window.coreMenu?.status(message.message);
-        if (message.type === "ammo-refilled") { closeActionMenu(); inventoryMenu.classList.add("hidden"); }
+        if (message.type === "ammo-refilled") {
+            if (!activeMenuAccess?.refresh) closeActionMenu();
+            inventoryMenu.classList.add("hidden");
+        }
         if (message.type === "error" && !welcomed && connectionTarget.mode !== "directory" && window.coreMenu) {
             window.coreReconnect?.forget(clientSessionId, connectionTarget.roomId);
             window.coreMenu.rejected();
@@ -368,6 +397,7 @@ function connect() {
     });
     socket.addEventListener("close", event => {
         if (socket !== connectingSocket) return;
+        window.coreAudio?.stopRailguns?.();
         if (event?.code === 4000) {
             // A newer tab now owns this player. Do not reconnect and steal it back.
             clientSessionId = window.coreReconnect?.newSession() || clientSessionId;
@@ -489,15 +519,13 @@ function acknowledgeInputs(value) {
 
 function applyRules(next) {
     if (next.rules) {
-        BUILD_INFO = { ...next.rules.recipes };
+        BUILD_INFO = { ...next.rules.recipes, teleporter: { name: "テレポーター", shopOnly: true }, drone: { name: "DRONE", shopOnly: true } };
         SHOP_UNITS.filter(shop => shop.item.endsWith("Factory")).forEach(shop => {
             BUILD_INFO[shop.item] = { name: shop.label, description: "持ち運べる製造装置", shopOnly: true };
         });
         WEAPON_AMMO_REFILL_COST = next.rules.shop.ammo;
-        for (const [weapon, fields] of Object.entries(WEAPON_FIELDS)) {
-            fields.capacity = next.rules.weapons[weapon].capacity;
-            fields.refillCost = next.rules.weapons[weapon].refillCost;
-        }
+        for (const key of Object.keys(WEAPON_FIELDS)) delete WEAPON_FIELDS[key];
+        Object.assign(WEAPON_FIELDS, next.rules.weapons);
     }
 }
 
@@ -531,8 +559,19 @@ function receiveState(next) {
     const endsDefense = ["won", "lost"].includes(next.phase) && previousPhase !== next.phase;
     if (lastCoreHp !== undefined && next.core.hp < lastCoreHp) coreHitStarted = performance.now();
     lastCoreHp = next.core.hp;
+    const incomingMe = next.players.find(p => p.id === myPlayerId);
+    const controlChanged = Boolean(getMe()?.drone?.controlled) !== Boolean(incomingMe?.drone?.controlled)
+        || Boolean(getMe()?.missileControl) !== Boolean(incomingMe?.missileControl);
+    reconcileDroneSmoothing(next);
     reconcileEnemySmoothing(next);
     state = next;
+    if (getMe()?.drone?.controlled) slotPopup.classList.add("hidden");
+    if (controlChanged) {
+        if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
+        endInteractionHold(true);
+        closeActionMenu();
+        sendMovement(true);
+    }
     state.artilleryReceivedAt = performance.now();
     if (!getMe() || getMe().down || !["preparing", "wave"].includes(next.phase)) endInteractionHold(true);
     CORE.x = next.core.x;
@@ -547,6 +586,7 @@ function receiveState(next) {
             && !canUseNearby(activeMenuAccess.target, activeMenuAccess.range, false)) {
         closeActionMenu();
     }
+    activeMenuAccess?.refresh?.();
     receiveLog(next.noticeVersion, next.notice);
     updateHud();
     updateWorkbenchMaterials();
@@ -577,6 +617,12 @@ function updateRoomLobby(snapshot) {
         <span>${player.id === snapshot.roomOwnerId ? "host" : player.ready ? "準備完了" : "準備中"}</span>
     </div>`).join("");
     const me = snapshot.players.find(player => player.id === myPlayerId);
+    jobToggle.textContent = `ジョブ:${JOBS[me?.job]?.name || "Healer"}`;
+    const jobScroll = jobSelect.querySelector(".job-list")?.scrollTop || 0;
+    const focusedJob = document.activeElement?.dataset?.job;
+    jobSelect.innerHTML = window.JobUI.render(me?.job, !me, JOBS, "legacy-job-detail");
+    jobSelect.querySelector(".job-list").scrollTop = jobScroll;
+    if (focusedJob && JOBS[focusedJob]) jobSelect.querySelector(`[data-job="${focusedJob}"]`)?.focus();
     const isOwner = myPlayerId === snapshot.roomOwnerId;
     readyRoomButton.classList.toggle("hidden", isOwner);
     readyRoomButton.disabled = !me || isOwner;
@@ -587,6 +633,15 @@ function updateRoomLobby(snapshot) {
     menuStatus.textContent = snapshot.phase === "won" ? "防衛成功"
         : snapshot.phase === "lost" ? "防衛失敗"
             : "";
+}
+
+function reconcileDroneSmoothing(next) {
+    for (const owner of next.players) {
+        const key = `drone-${owner.id}`;
+        const previous = state?.players.find(p => p.id === owner.id)?.drone;
+        if (!owner.drone?.active) smoothed.delete(key);
+        else if (!previous?.active) smoothed.set(key, { x: owner.drone.x, y: owner.drone.y });
+    }
 }
 
 function reconcileEnemySmoothing(next) {
@@ -705,20 +760,8 @@ function reorderEquipment(sourceKey, targetKey) {
 }
 
 function equipmentEntries(me) {
-    const entries = [
-        { key: "weapon:bat", kind: "weapon", value: "bat", label: "BAT" },
-        { key: "weapon:pistol", kind: "weapon", value: "pistol", label: "PISTOL" },
-    ];
-    if (me.ownsShotgun) entries.push({ key: "weapon:shotgun", kind: "weapon", value: "shotgun", label: "SHOTGUN" });
-    if (me.ownsSmg) entries.push({ key: "weapon:smg", kind: "weapon", value: "smg", label: "SMG" });
-    if (me.ownsRifle) entries.push({ key: "weapon:rifle", kind: "weapon", value: "rifle", label: "RIFLE" });
-    if (me.ownsSniper) entries.push({ key: "weapon:sniper", kind: "weapon", value: "sniper", label: "SNIPER" });
-    if (me.ownsRicochet) entries.push({ key: "weapon:ricochet", kind: "weapon", value: "ricochet", label: "RICOCHET" });
-    if (me.ownsRevolver) entries.push({ key: "weapon:revolver", kind: "weapon", value: "revolver", label: "REVOLVER" });
-    if (me.ownsRailgun) entries.push({ key: "weapon:railgun", kind: "weapon", value: "railgun", label: "RAILGUN" });
-    if (me.ownsRocket) entries.push({ key: "weapon:rocket", kind: "weapon", value: "rocket", label: "ROCKET" });
-    if (me.ownsLmg) entries.push({ key: "weapon:lmg", kind: "weapon", value: "lmg", label: "LMG" });
-    if (me.medkits > 0) entries.push({ key: "item:medkit", kind: "item", value: "medkit", label: "回復キット" });
+    const entries = WeaponUI.entries(me, WEAPON_FIELDS)
+        .filter(entry => !(me.drone?.active && entry.value === me.drone.weapon));
     for (const [type, info] of Object.entries(BUILD_INFO)) {
         if ((me.buildItems?.[type] || 0) > 0) entries.push({ key: `build:${type}`, kind: "build", value: type, label: info.name });
     }
@@ -743,10 +786,10 @@ function selectEquipment(entry) {
 
 function showEquipmentPopup(selectedKey) {
     const me = getMe();
-    if (!me) return;
+    if (!me || me.drone?.controlled) return;
     const entries = equipmentEntries(me);
     slotPopup.innerHTML = entries.map((entry, index) => {
-        const amount = entry.kind === "build" ? ` ×${me.buildItems?.[entry.value] || 0}` : "";
+        const amount = entry.kind === "build" && entry.value !== "drone" ? ` ×${me.buildItems?.[entry.value] || 0}` : "";
         return `<div class="${entry.key === selectedKey ? "selected" : ""}">${index + 1}. ${escapeHtml(entry.label)}${amount}</div>`;
     }).join("");
     slotPopup.classList.remove("hidden");
@@ -757,7 +800,7 @@ function showEquipmentPopup(selectedKey) {
 function cycleEquipment(direction = 1) {
     const me = getMe();
     if (!me) return;
-    if (me.movingCore) return;
+    if (me.movingCore || me.drone?.controlled) return;
     const entries = equipmentEntries(me).filter(entry => entry.kind !== "item");
     const selectedKey = me.movingCore ? "core"
         : me.selectedBuild ? `build:${me.selectedBuild}` : `weapon:${me.weapon}`;
@@ -777,7 +820,18 @@ function beginInteractionHold() {
         ? interaction.kind === "core" ? "core" : interaction.target.id : null;
     const hold = { used: false, timer: null };
     interactionHold = hold;
-    if (target && actionMenu.classList.contains("hidden") && !placementSelection(getMe())) {
+    if (getMe()?.drone?.active && actionMenu.classList.contains("hidden")
+            && (getMe().drone.controlled || !interaction || interaction.kind === "drone")) {
+        hold.interaction = interaction?.kind === "drone" ? interaction : { action: () => send("JOB_ABILITY") };
+        return;
+    }
+    if (interaction?.kind === "teleporter" && actionMenu.classList.contains("hidden") && !placementSelection(getMe())) {
+        hold.interaction = interaction;
+        if (interaction.owned) hold.timer = setTimeout(() => {
+            hold.used = true;
+            send(`PICKUP_TELEPORT:${interaction.target.x}:${interaction.target.y}`);
+        }, 500);
+    } else if (target && actionMenu.classList.contains("hidden") && !placementSelection(getMe())) {
         hold.timer = setTimeout(() => {
             hold.used = true;
             send(`CARRY_NEAREST:${target}`);
@@ -789,7 +843,10 @@ function endInteractionHold(cancel = false) {
     if (!hold) return;
     clearTimeout(hold.timer);
     interactionHold = null;
-    if (!cancel && !hold.used) toggleNearestInteraction();
+    if (!cancel && !hold.used) {
+        if (hold.interaction) hold.interaction.action();
+        else toggleNearestInteraction();
+    }
 }
 interactButton.addEventListener("pointerdown", event => {
     if (event.button !== 0) return;
@@ -842,6 +899,10 @@ function updateHud() {
         : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}`
             : "";
     const me = getMe();
+    jobAbilityButton.classList.toggle("hidden", true);
+    jobAbilityButton.textContent = me?.spyRemaining > 0 ? `偽装 ${Math.ceil(me.spyRemaining)}s`
+        : me?.jobCooldown > 0 ? `偽装 ${Math.ceil(me.jobCooldown)}s` : "偽装";
+    jobAbilityButton.disabled = !me || me.down || me.movingCore || Boolean(me.selectedBuild) || me.jobCooldown > 0;
     teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">
             <div class="teammate-label">
@@ -849,6 +910,7 @@ function updateHud() {
                 <span class="player-stats">${player.down ? "DOWN" : ""}<b>${player.credits}G</b></span>
             </div>
             <div class="hp-line"><span style="width:${player.hp}%"></span></div>
+            ${me?.job === "scout" ? window.JobUI.renderAllyIntel(player, AREAS, areaContains, STARTING_AREA) : ""}
         </div>`).join("");
     selfVitals.classList.toggle("hidden", !me);
     if (me) {
@@ -864,7 +926,7 @@ function updateHud() {
         const cooldownProgress = showingItem ? 1 : 1 - Math.min(1, me.cooldown / cooldownMax);
         weaponName.textContent = me.movingCore ? "CORE"
             : selectedBuild ? BUILD_INFO[selectedBuild].name : me.weapon.toUpperCase();
-        weaponAmmo.textContent = me.movingCore ? "" : selectedBuild
+        weaponAmmo.textContent = me.movingCore || selectedBuild === "drone" ? "" : selectedBuild
             ? `×${me.buildItems[selectedBuild]}` : ammoForWeapon(me, me.weapon);
         weaponIcon.className = `weapon-icon ${me.movingCore ? "core" : selectedBuild ? `build-${selectedBuild}` : me.weapon}`;
         weaponCooldown.textContent = showingItem ? "R TO PLACE"
@@ -873,11 +935,27 @@ function updateHud() {
         weaponButton.classList.toggle("cooling", !showingItem && me.cooldown > 0);
         weaponButton.classList.toggle("locked", me.movingCore);
         weaponButton.disabled = me.movingCore;
+        if (me.drone?.controlled) {
+            weaponName.textContent = me.drone.weapon ? `DRONE / ${me.drone.weapon.toUpperCase()}` : "DRONE";
+            weaponAmmo.textContent = me.drone.weapon ? ammoForWeapon(me, me.drone.weapon) : "";
+            weaponIcon.className = `weapon-icon ${me.drone.weapon || "drone"}`;
+            weaponCooldown.textContent = !me.drone.weapon ? "UNARMED" : me.drone.cooldown > 0 ? `${me.drone.cooldown.toFixed(1)}s` : "READY";
+            weaponButton.style.setProperty("--cooldown-progress", `${(1 - me.drone.cooldown / me.drone.cooldownMax) * 100}%`);
+            weaponButton.classList.toggle("cooling", me.drone.cooldown > 0);
+            weaponButton.disabled = true;
+        }
+        if (selectedBuild === "drone") {
+            weaponCooldown.textContent = me.drone && me.drone.hp <= 0
+                ? `REPAIR ${me.droneRepairOre}鉱石 / ${me.droneRepairCopper}銅 · R` : "R TO LAUNCH";
+        }
         updateInventory(me);
         const placing = Boolean(placementSelection(me));
         const interaction = findNearestInteraction();
-        interactLabel.textContent = placing ? "PLACE" : ["core", "defense"].includes(interaction?.kind) ? "長押しで運搬" : "INTERACT";
-        interactButton.classList.toggle("hidden", !placing && !interaction);
+        const launchingDrone = me.selectedBuild === "drone" && !interaction;
+        const droneViewAction = me.drone?.active && (me.drone.controlled || !interaction || interaction.kind === "drone");
+        interactLabel.textContent = droneViewAction ? interaction?.kind === "drone" ? "RECOVER" : "VIEW" : launchingDrone ? "LAUNCH" : placing ? "PLACE" : interaction?.kind === "teleporter"
+            ? interaction.owned ? "TP / 長押しで回収" : "TP" : ["core", "defense"].includes(interaction?.kind) ? "長押しで運搬" : "INTERACT";
+        interactButton.classList.toggle("hidden", !placing && (!interaction || interaction.kind === "spy") && me.selectedBuild !== "drone" && !me.drone?.active);
     }
 }
 
@@ -887,6 +965,16 @@ function updateInventory(me) {
         inventoryItems.innerHTML = `
             <div class="inventory-health" role="status"></div>
             <div class="inventory-section"><h3>EQUIPMENT</h3><div class="inventory-grid equipment-grid"></div></div>
+            <div class="inventory-section"><h3>ITEMS</h3><div class="inventory-grid">
+                <div class="inventory-resource" data-item="medkit">
+                    <strong>回復キット</strong><span class="item-count"></span>
+                    <div class="resource-actions">
+                        <button type="button" data-use="medkit">使用</button>
+                        <button type="button" data-drop-item="medkit" data-amount="1">1個落とす</button>
+                        <button type="button" data-drop-item="medkit" data-amount="all">全部落とす</button>
+                    </div>
+                </div>
+            </div></div>
             <div class="inventory-section"><h3>MATERIALS</h3><div class="inventory-grid materials-grid">
                 ${resourceInventoryCard("wood")}
                 ${resourceInventoryCard("ore")}
@@ -895,6 +983,12 @@ function updateInventory(me) {
             </div></div>`;
     }
     inventoryItems.querySelector(".inventory-health").textContent = `HP ${Math.ceil(me.hp)} / ${me.maxHp || 100}${me.down ? "（ダウン中）" : ""}`;
+    const medkitCard = inventoryItems.querySelector('[data-item="medkit"]');
+    medkitCard.querySelector(".item-count").textContent = `×${me.medkits || 0}`;
+    medkitCard.querySelectorAll("button").forEach(button => {
+        button.disabled = me.down || !(me.medkits > 0)
+            || Boolean(button.dataset.use && me.hp >= (me.maxHp || 100));
+    });
     const entries = equipmentEntries(me);
     const selectedKey = me.movingCore ? "core"
         : me.selectedBuild ? `build:${me.selectedBuild}` : `weapon:${me.weapon}`;
@@ -917,10 +1011,11 @@ function updateInventory(me) {
         button.classList.toggle("selected", selectedKey === entry.key);
         button.disabled = entry.kind === "item" && (me.down || me.hp >= (me.maxHp || 100));
         button.querySelector("strong").textContent = `${index + 1}. ${entry.label}`;
-        button.querySelector("span").textContent = entry.kind === "build" ? `×${me.buildItems[entry.value]}`
+        button.querySelector("span").textContent = entry.value === "drone" ? ""
+            : entry.kind === "build" ? `×${me.buildItems[entry.value]}`
             : entry.kind === "item" ? `×${me.medkits} · 使用する`
             : entry.kind === "core" ? ""
-                : WEAPON_FIELDS[entry.value] ? `${ammoForWeapon(me, entry.value)} / ${WEAPON_FIELDS[entry.value].capacity}`
+                : WEAPON_FIELDS[entry.value]?.capacity > 0 ? `${ammoForWeapon(me, entry.value)} / ${WEAPON_FIELDS[entry.value].capacity}`
                     : entry.value === "pistol" ? "∞" : "";
     });
     for (const type of Object.keys(RESOURCE_NAMES)) {
@@ -938,6 +1033,11 @@ inventoryItems.addEventListener("click", event => {
     if (button.dataset.key) {
         const entry = equipmentEntries(me).find(candidate => candidate.key === button.dataset.key);
         if (entry) selectEquipment(entry);
+    } else if (button.dataset.use) {
+        if (me.medkits > 0 && me.hp < (me.maxHp || 100)) send("USE:medkit");
+    } else if (button.dataset.dropItem) {
+        const amount = button.dataset.amount === "all" ? me.medkits : 1;
+        if (me.medkits > 0) send(`DROP_ITEM:medkit:${amount}`);
     } else if (button.dataset.drop) {
         const type = button.dataset.drop;
         const amount = button.dataset.amount === "all" ? me[type] : 1;
@@ -1067,7 +1167,12 @@ function showFeedback(text) {
 function playSoundEffect(message) {
     const me = getMe();
     if (!me) return;
+    if (message.item === "railgun-charge" || message.weapon === "railgun") return;
     const own = message.playerId === myPlayerId;
+    if (message.effect === "ability-ready") {
+        if (own) window.coreAudio?.play("ability-ready", 0);
+        return;
+    }
     if (message.effect === "pickup" && !own) return;
     let name;
     if (message.effect === "shot") name = message.item === "railgun-charge" ? message.item : message.weapon;
@@ -1083,8 +1188,7 @@ function playSoundEffect(message) {
 function getMe() { return state?.players.find(player => player.id === myPlayerId); }
 
 function ammoForWeapon(player, weapon) {
-    const field = WEAPON_FIELDS[weapon]?.ammo;
-    return field ? String(player[field] ?? 0) : "∞";
+    return WeaponUI.ammo(player, weapon, WEAPON_FIELDS);
 }
 
 function reconcileLocalPrediction(snapshot) {
@@ -1094,12 +1198,12 @@ function reconcileLocalPrediction(snapshot) {
     if (!predictedLocal) {
         predictedLocal = { x: serverMe.x, y: serverMe.y, stamina: serverMe.stamina, dashing: serverMe.dashing, exhausted: false };
         localFacing = { x: serverMe.facingX, y: serverMe.facingY };
-        return;
     }
     const errorX = serverMe.x - predictedLocal.x;
     const errorY = serverMe.y - predictedLocal.y;
     const error = Math.hypot(errorX, errorY);
-    if (error > 120 || !["preparing", "wave"].includes(snapshot.phase)) {
+    if (error > 120 || serverMe.scoutDashRemaining > 0 || predictedLocal.scoutDashRemaining > 0
+            || !["preparing", "wave"].includes(snapshot.phase)) {
         predictedLocal.x = serverMe.x;
         predictedLocal.y = serverMe.y;
     } else {
@@ -1110,6 +1214,9 @@ function reconcileLocalPrediction(snapshot) {
         predictedLocal.y += errorY * correction;
     }
     predictedLocal.stamina += (serverMe.stamina - predictedLocal.stamina) * .4;
+    predictedLocal.scoutDashRemaining = serverMe.scoutDashRemaining || 0;
+    predictedLocal.scoutDashDx = serverMe.scoutDashDx || 0;
+    predictedLocal.scoutDashDy = serverMe.scoutDashDy || 0;
     if (Math.hypot(localMove.x, localMove.y) <= .12) {
         localFacing = { x: serverMe.facingX, y: serverMe.facingY };
     }
@@ -1122,25 +1229,36 @@ function openActionMenu(title, options, layout = "default") {
     document.querySelector("#workbench-materials").hidden = layout !== "workbench";
     updateWorkbenchMaterials();
     actionMenu.classList.toggle("single-action", layout === "single");
-    actionOptions.replaceChildren();
-    for (const option of options) {
-        const button = document.createElement("button");
+    const buttons = Array.from(actionOptions.children);
+    const reuseButtons = buttons.length === options.length
+        && options.every((option, index) => buttons[index].dataset.command === (option.command || ""));
+    if (!reuseButtons) actionOptions.replaceChildren();
+    options.forEach((option, index) => {
+        const button = reuseButtons ? buttons[index] : document.createElement("button");
         button.disabled = Boolean(option.disabled);
-        button.innerHTML = `${escapeHtml(option.label)}${option.detail ? `<small>${escapeHtml(option.detail)}</small>` : ""}`;
-        if (option.command) button.addEventListener("click", () => { send(option.command); closeActionMenu(); });
-        actionOptions.append(button);
-    }
+        const content = `${escapeHtml(option.label)}${option.detail ? `<small>${escapeHtml(option.detail)}</small>` : ""}`;
+        if (button.innerHTML !== content) button.innerHTML = content;
+        button.onclick = option.onSelect || (option.command ? () => {
+            send(option.command);
+            if (!option.command.startsWith("BUY:") && !option.command.startsWith("CRAFT:")) closeActionMenu();
+        } : null);
+        if (!reuseButtons) {
+            button.dataset.command = option.command || "";
+            actionOptions.append(button);
+        }
+    });
     actionMenu.classList.remove("hidden");
 }
 
-function openNearbyActionMenu(title, options, target, range, layout = "default") {
+function openNearbyActionMenu(title, options, target, range, layout = "default", refresh = null) {
     if (!canUseNearby(target, range, true)) return;
-    activeMenuAccess = { target: { x: target.x, y: target.y }, range };
+    activeMenuAccess = { target: { x: target.x, y: target.y }, range, refresh };
     openActionMenu(title, options, layout);
 }
 
 function canUseNearby(target, range, showReason) {
     const me = getMe();
+    if (me?.drone?.controlled || me?.missileControl) return false;
     if (!me || !state || !["preparing", "wave"].includes(state.phase)) return false;
     if (me.down) {
         if (showReason) showFeedback("ダウン中は利用できません");
@@ -1176,6 +1294,29 @@ function closeActionMenu() {
     activeMenuAccess = null;
     actionMenu.classList.add("hidden");
     actionMenu.classList.remove("single-action");
+}
+
+function openJobStation() {
+    if (!canUseNearby(JOB_STATION, 70, true)) return;
+    activeMenuAccess = { target: JOB_STATION, range: 70, refresh: refreshJobStation };
+    actionTitle.textContent = "JOB";
+    document.querySelector("#workbench-materials").hidden = true;
+    actionMenu.classList.remove("single-action", "hidden");
+    refreshJobStation();
+}
+
+function refreshJobStation() {
+    const me = getMe();
+    if (actionOptions.dataset.selectedJob === me?.job && actionOptions.querySelector(".job-picker")) return;
+    const position = actionOptions.querySelector(".job-list")?.scrollTop || 0;
+    const focused = document.activeElement?.dataset.job;
+    actionOptions.innerHTML = window.JobUI.render(me?.job, !me || me.down, JOBS, "station-job-detail");
+    actionOptions.dataset.selectedJob = me?.job;
+    actionOptions.querySelector(".job-list").scrollTop = position;
+    actionOptions.querySelectorAll("[data-job]").forEach(button => {
+        button.onclick = () => send("JOB:" + button.dataset.job);
+        if (button.dataset.job === focused) button.focus({ preventScroll: true });
+    });
 }
 
 function openSlotMenu(slot) {
@@ -1228,8 +1369,10 @@ function canBuildAt(point, forCore = false) {
     if (SHOP_UNITS.some(shop => distance(point, shop) < 36)) return false;
     if (BREAKER_TERMINALS.some(breaker => distance(point, breaker) < 36)) return false;
     if (PREP_CONSOLE && distance(point, PREP_CONSOLE) < 36) return false;
+    if ([MISSILE_COMPUTER, JOB_STATION].some(unit => unit && distance(point, unit) < 36)) return false;
     if ((state.resources || []).some(node => distance(point, node) < 36)) return false;
     if (SPAWN_POINTS.some(spawn => distance(point, spawn) < 80)) return false;
+    if (state.players.some(owner => (owner.teleportPads || []).some(pad => distance(point, pad) < (forCore ? 45 : 36)))) return false;
     if ((state.factories || []).some(unit => distance(point, unit) < (forCore ? 45 : 36))) return false;
     if (state.slots.some(slot => slot.defense && distance(point, slot) < (forCore ? 45 : 36))) return false;
     return !state.players.some(player => (forCore ? player.id !== myPlayerId && !player.down && distance(point, player) < 24
@@ -1262,7 +1405,7 @@ function openPrepConsoleMenu() {
     }], PREP_CONSOLE, 95, "single");
 }
 
-function openShopPurchase(shop) {
+function openShopPurchase(shop, chooseExchange = false) {
     const me = getMe();
     if (shop.item === "medkit") {
         openNearbyActionMenu(shop.label, [{
@@ -1270,7 +1413,7 @@ function openShopPurchase(shop) {
             detail: `${shop.cost}G`,
             command: "BUY:medkit",
             disabled: me.medkits >= state.rules.medkitCapacity || me.credits < shop.cost,
-        }], shop, INTERACTION_RANGE.shop, "single");
+        }], shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
         return;
     }
     if (shop.item.endsWith("Factory")) {
@@ -1279,25 +1422,37 @@ function openShopPurchase(shop) {
             detail: shop.cost + "G",
             command: "BUY:" + shop.item,
             disabled: !me || me.credits < shop.cost,
-        }], shop, INTERACTION_RANGE.shop, "single");
+        }], shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
         return;
     }
     const weaponFields = WEAPON_FIELDS[shop.item];
-    const alreadyOwned = Boolean(weaponFields && me[weaponFields.owned]);
+    const alreadyOwned = Boolean(weaponFields && WeaponUI.owns(me, weaponFields));
     const ammo = alreadyOwned ? me[weaponFields.ammo] : 0;
-    const ownedWeapons = Object.values(WEAPON_FIELDS).filter(fields => me[fields.owned]);
+    const ownedWeapons = WeaponUI.ownedAmmoWeapons(me, WEAPON_FIELDS);
     const ammoFull = shop.item === "ammo" ? ownedWeapons.length > 0
         && ownedWeapons.every(fields => me[fields.ammo] >= fields.capacity)
         : alreadyOwned && ammo >= weaponFields.capacity;
     const price = alreadyOwned ? weaponFields.refillCost ?? WEAPON_AMMO_REFILL_COST : shop.cost;
     const unavailable = shop.item === "ammo" && ownedWeapons.length === 0;
+    const weaponLimitReached = weaponFields && !alreadyOwned
+        && WeaponUI.atLimit(me, WEAPON_FIELDS, state.rules.weaponLimit);
+    if (weaponLimitReached && chooseExchange) {
+        openNearbyActionMenu(shop.label, WeaponUI.entries(me, WEAPON_FIELDS)
+            .filter(entry => entry.value !== "bat").map(entry => ({
+                label: `交換: ${entry.label}`,
+                command: `BUY:${shop.item}:${entry.value}`,
+                disabled: me.credits < price,
+            })), shop, INTERACTION_RANGE.shop, "default", () => openShopPurchase(shop, true));
+        return;
+    }
     openNearbyActionMenu(shop.label, [{
         label: ammoFull ? "FULL" : alreadyOwned || shop.item === "ammo" && !unavailable ? "REFILL"
             : unavailable ? "LOCKED" : "BUY",
         detail: `${price}G`,
-        command: `BUY:${shop.item}`,
+        command: weaponLimitReached ? undefined : `BUY:${shop.item}`,
+        onSelect: weaponLimitReached ? () => openShopPurchase(shop, true) : undefined,
         disabled: ammoFull || unavailable || me.credits < price,
-    }], shop, INTERACTION_RANGE.shop, "single");
+    }], shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
 }
 
 function openWoodcutterMenu() {
@@ -1327,7 +1482,7 @@ function openWorkbenchMenu(workbench) {
         detail: `${info.description} — ${Object.entries(RESOURCE_NAMES).filter(([key]) => info[key] > 0).map(([key, name]) => `${name} ${info[key]}`).join(" / ")}`,
         command: `CRAFT:${type}`,
         disabled: Object.keys(RESOURCE_NAMES).some(key => (me[key] || 0) < (info[key] || 0)),
-    })), workbench, INTERACTION_RANGE.workbench, "workbench");
+    })), workbench, INTERACTION_RANGE.workbench, "workbench", () => openWorkbenchMenu(workbench));
 }
 
 function updateWorkbenchMaterials() {
@@ -1362,7 +1517,7 @@ function resize() {
     canvas.height = Math.round(innerHeight * dpr);
     canvas.style.width = `${innerWidth}px`;
     canvas.style.height = `${innerHeight}px`;
-    scale = Math.min(canvas.width / VIEW.width, canvas.height / VIEW.height);
+    scale = Math.max(canvas.width / VIEW.width, canvas.height / VIEW.height);
 }
 window.addEventListener("resize", resize);
 resize();
@@ -1373,6 +1528,24 @@ function worldFromScreen(clientX, clientY) {
     const py = (clientY - rect.top) * canvas.height / rect.height;
     return { x: camera.x + (px - canvas.width / 2) / scale, y: camera.y + (py - canvas.height / 2) / scale };
 }
+
+function requestScoutDash(point) {
+    const me = getMe();
+    if (!me || me.job !== "scout" || !["preparing", "wave"].includes(state.phase)
+            || me.down || me.movingCore || me.selectedBuild || me.jobCooldown > 0
+            || me.stamina < me.scoutDashStamina || me.railgunRemaining > 0 || me.railgunCharge > 0
+            || exitDialog.open || !howToMenu.classList.contains("hidden")
+            || !inventoryMenu.classList.contains("hidden") || !actionMenu.classList.contains("hidden")) return;
+    send(`SCOUT_DASH:${point.x.toFixed(1)}:${point.y.toFixed(1)}`);
+}
+
+// Mouse down also fires when the left button is held, allowing a dash while shooting.
+canvas.addEventListener("mousedown", event => {
+    if (event.button !== 2) return;
+    event.preventDefault();
+    canvas.focus({ preventScroll: true });
+    requestScoutDash(worldFromScreen(event.clientX, event.clientY));
+});
 
 canvas.addEventListener("pointerdown", event => {
     if (!state || !getMe()) return;
@@ -1415,6 +1588,7 @@ canvas.addEventListener("pointercancel", event => {
 canvas.addEventListener("contextmenu", event => event.preventDefault());
 
 function startFiring(pointerId, clientX, clientY) {
+    if (getMe()?.selectedBuild || getMe()?.missileControl) return;
     if (getMe()?.movingCore) {
         showFeedback("CORE運搬中は武器を使用できません");
         return;
@@ -1426,7 +1600,7 @@ function startFiring(pointerId, clientX, clientY) {
 
 function updateFiringAim(clientX, clientY) {
     if (!firingPointer) return;
-    if (getMe()?.movingCore) {
+    if (getMe()?.movingCore || getMe()?.selectedBuild) {
         firingPointer = null;
         return;
     }
@@ -1442,9 +1616,11 @@ function stopFiring(clientX, clientY) {
     const point = worldFromScreen(clientX, clientY);
     send(`FIRE:${point.x.toFixed(1)}:${point.y.toFixed(1)}:0`);
     firingPointer = null;
+    window.coreAudio?.stopRailgun?.(myPlayerId);
 }
 
 function fireOnce(clientX, clientY) {
+    if (getMe()?.selectedBuild) return;
     if (getMe()?.movingCore) {
         showFeedback("CORE運搬中は武器を使用できません");
         return;
@@ -1496,7 +1672,7 @@ function isTypingTarget(target) {
 }
 
 window.addEventListener("keydown", event => {
-    if (exitDialog.open) return;
+    if (exitDialog.open || window.coreMenu?.settingsOpen?.()) return;
     if (isTypingTarget(event.target)) return;
     const key = window.coreKeySettings.gameKey(event);
     if (!howToMenu.classList.contains("hidden")) {
@@ -1559,13 +1735,35 @@ window.addEventListener("blur", () => {
 
 function findNearestInteraction() {
     const me = getMe();
+    if (me?.missileControl) return null;
     if (!me || me.down || !state || !["preparing", "wave"].includes(state.phase)) return null;
+    if (me?.drone?.active) {
+        const drone = me.drone;
+        if (distance(me, drone) <= me.droneRecoveryRange && hasInteractionPath(me, drone)) {
+            return { kind: "drone", target: drone, action: () => send("DRONE_RECOVER") };
+        }
+        if (drone.controlled) return null;
+    }
     const choices = [];
+    for (const owner of state.players) {
+        for (const pad of owner.teleportPads || []) {
+            const separation = distance(me, pad);
+            const owned = owner.id === me.id && me.job === "tp";
+            if ((!owned && owner.teleportPads.length !== 2) || separation > 45 || !hasInteractionPath(me, pad)) continue;
+            choices.push({ kind: "teleporter", target: pad, owned, separation,
+                action: () => { if (owner.teleportPads.length === 2) send("TELEPORT"); } });
+        }
+    }
+    if (choices.length) return choices.sort((a, b) => a.separation - b.separation)[0];
     const add = (kind, target, range, label, action) => {
         const separation = distance(me, target);
         if (separation <= range && hasInteractionPath(me, target)) choices.push({ kind, target, label, action, separation });
     };
 
+    if (MISSILE_COMPUTER && me.job === "hacker" && state.areas[MISSILE_COMPUTER.requiredArea])
+        add("computer", MISSILE_COMPUTER, 70, "MISSILE", () => send("COMPUTER"));
+    if (JOB_STATION && state.areas[JOB_STATION.requiredArea])
+        add("job-station", JOB_STATION, 70, "JOB", openJobStation);
     (state.factories || []).forEach(unit =>
         add("factory", unit, 70, "PICK UP", () => openNearbyActionMenu("QUARRY", [{
             label: "PICK UP", detail: "回収して持ち運ぶ", command: "PICKUP_FACTORY:" + unit.id,
@@ -1595,7 +1793,14 @@ function findNearestInteraction() {
         const terminal = { x: area.terminalX, y: area.terminalY };
         add("area", terminal, INTERACTION_RANGE.areaTerminal, "UNLOCK", () => openUnlockMenu(area));
     }
-    return choices.sort((a, b) => a.separation - b.separation)[0] || null;
+    const nearest = choices.sort((a, b) => a.separation - b.separation)[0];
+    if (nearest) return nearest;
+    if (me.job === "spy" && !me.movingCore && !placementSelection(me)) return {
+        kind: "spy", target: me,
+        label: me.spyRemaining > 0 ? "偽装中" : me.jobCooldown > 0 ? Math.ceil(me.jobCooldown) + "s" : "偽装",
+        action: () => send("JOB_ABILITY")
+    };
+    return null;
 }
 
 function useNearestInteraction() {
@@ -1610,12 +1815,21 @@ function toggleNearestInteraction() {
         return;
     }
     inventoryMenu.classList.add("hidden");
+    const me = getMe();
+    const interaction = findNearestInteraction();
+    if (interaction?.kind === "drone") { interaction.action(); return; }
+    if (!me?.drone?.controlled && (me?.drone?.active || me?.selectedBuild === "drone")
+            && interaction && interaction.kind !== "drone") {
+        interaction.action();
+        return;
+    }
+    if (me?.drone?.active) { send("JOB_ABILITY"); return; }
     if (placeSelectedInFront()) return;
     useNearestInteraction();
 }
 
 function placementSelection(player) {
-    if (!player || player.down) return null;
+    if (!player || player.down || player.selectedBuild === "drone") return null;
     if (player.movingCore) return { forCore: true, type: "core" };
     const type = player.selectedBuild;
     if (type && (player.buildItems?.[type] || 0) > 0) return { forCore: false, type };
@@ -1653,6 +1867,7 @@ function frontPlacementTile(player) {
 
 function placeSelectedInFront() {
     const me = getMe();
+    if (me?.selectedBuild === "drone" && !me.down) { openDroneLaunch(); return true; }
     const selection = placementSelection(me);
     if (!selection) return false;
     // The preview is advisory; only the server has the current collision state.
@@ -1663,26 +1878,60 @@ function placeSelectedInFront() {
 function nearestAt(items, point) {
     return items.slice().sort((a, b) => distance(point, a) - distance(point, b))[0];
 }
+function openDroneLaunch() {
+    const me = getMe();
+    if (!me || me.down || me.selectedBuild !== "drone" || me.drone?.active || !(me.buildItems?.drone > 0)) {
+        closeActionMenu();
+        return;
+    }
+    const broken = me.drone && me.drone.hp <= 0;
+    const unavailable = broken && (me.ore < me.droneRepairOre || me.copper < me.droneRepairCopper);
+    const options = WeaponUI.entries(me, WEAPON_FIELDS)
+        .filter(entry => WEAPON_FIELDS[entry.value].droneMountable)
+        .map(entry => ({ label: entry.label, command: `DRONE_LAUNCH:${entry.value}`, disabled: unavailable }));
+    options.push({ label: "UNARMED", command: "DRONE_LAUNCH:none", disabled: unavailable });
+    const title = broken ? `DRONE / REPAIR ${me.droneRepairOre} ORE / ${me.droneRepairCopper} COPPER` : "DRONE";
+    openNearbyActionMenu(title, options, me, 45, "default", openDroneLaunch);
+}
+
 function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
 function updateLocalPrediction(dt) {
     const serverMe = getMe();
+    if (serverMe?.missileControl) return;
+    if (serverMe?.drone?.controlled && predictedLocal) {
+        predictedLocal.x = serverMe.x; predictedLocal.y = serverMe.y;
+        predictedLocal.dashing = false;
+        return;
+    }
     if (!predictedLocal || !serverMe || !["preparing", "wave"].includes(state.phase)) return;
+    if (predictedLocal.scoutDashRemaining > 0 && !serverMe.down && !serverMe.movingCore
+            && !serverMe.selectedBuild && !(serverMe.railgunRemaining > 0 || serverMe.railgunCharge > 0)) {
+        const travel = serverMe.scoutDashSpeed * Math.min(dt, predictedLocal.scoutDashRemaining);
+        const next = window.ScoutMovement.advance(predictedLocal, predictedLocal.scoutDashDx,
+            predictedLocal.scoutDashDy, travel, serverMe.scoutDashStep, canPredictOccupy);
+        predictedLocal.x = next.x; predictedLocal.y = next.y;
+        predictedLocal.scoutDashRemaining = next.blocked ? 0 : Math.max(0, predictedLocal.scoutDashRemaining - dt);
+        if (predictedLocal.scoutDashRemaining < 1e-9) predictedLocal.scoutDashRemaining = 0;
+        predictedLocal.dashing = false;
+        return;
+    }
+    predictedLocal.scoutDashRemaining = 0;
     const input = Math.hypot(localMove.x, localMove.y);
     if (predictedLocal.exhausted && predictedLocal.stamina >= 28) predictedLocal.exhausted = false;
     predictedLocal.dashing = !(serverMe.railgunRemaining > 0 || serverMe.railgunCharge > 0) && !serverMe.down && !serverMe.movingCore
         && dashRequested && !predictedLocal.exhausted && input > .12 && predictedLocal.stamina > 0;
     if (predictedLocal.dashing) {
-        predictedLocal.stamina = Math.max(0, predictedLocal.stamina - 38 * dt);
+        predictedLocal.stamina = Math.max(0, predictedLocal.stamina - (serverMe.staminaDrain ?? 38) * dt);
         if (predictedLocal.stamina <= 0) {
             predictedLocal.exhausted = true;
             predictedLocal.dashing = false;
         }
     } else {
-        predictedLocal.stamina = Math.min(100, predictedLocal.stamina + 24 * dt);
+        predictedLocal.stamina = Math.min(serverMe.staminaMax ?? 100, predictedLocal.stamina + (serverMe.staminaRecovery ?? 24) * dt);
     }
 
-    const speed = serverMe.railgunRemaining > 0 ? 155 * .3 : serverMe.railgunCharge > 0 ? 155 * .6 : serverMe.down ? 45 : serverMe.movingCore ? 82 : predictedLocal.dashing ? 265 : 155;
+    const speed = serverMe.railgunRemaining > 0 ? 155 * .3 : serverMe.railgunCharge > 0 ? 155 * .6 : serverMe.down ? 45 : serverMe.movingCore ? 82 : predictedLocal.dashing ? (serverMe.dashSpeed ?? 265) : 155;
     const nextX = clamp(predictedLocal.x + localMove.x * speed * dt, 25, WORLD.width - 25);
     const nextY = clamp(predictedLocal.y + localMove.y * speed * dt, 25, WORLD.height - 25);
     if (canPredictOccupy(nextX, predictedLocal.y, 5)) predictedLocal.x = nextX;
@@ -1719,6 +1968,8 @@ function animate(now = performance.now()) {
     const dt = Math.min(.05, Math.max(0, (now - lastFrameAt) / 1000));
     lastFrameAt = now;
     updateLocalPrediction(dt);
+    window.coreAudio?.syncRailguns?.(socket?.readyState === WebSocket.OPEN ? state?.players || [] : [], predictedLocal || getMe(), myPlayerId, Boolean(firingPointer));
+    window.TerminalUI?.update(state, getMe(), { map: { world: WORLD, tileMap: TILE_MAP, areas: AREAS, startingArea: STARTING_AREA }, send });
     draw();
     requestAnimationFrame(animate);
 }
@@ -1727,7 +1978,7 @@ function draw() {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const me = getMe();
-    const cameraTarget = predictedLocal || me;
+    const cameraTarget = me?.drone?.controlled ? smoothEntity("drone", { ...me.drone, id: me.id }) : predictedLocal || me;
     if (cameraTarget) {
         camera.x += (cameraTarget.x - camera.x) * .12;
         camera.y += (cameraTarget.y - camera.y) * .12;
@@ -1746,10 +1997,13 @@ function draw() {
         drawResources();
         drawDroppedResources();
         drawTrapSlots();
+        drawTeleportPads();
         drawArtilleryShells();
+        drawMissiles();
         drawEnemies();
         drawRailguns();
         drawPlayers();
+        drawDrones();
         drawInteractionPrompt();
         drawHitEffects();
     }
@@ -1810,7 +2064,16 @@ function drawBlackoutSignals() {
 }
 
 function drawBlackout() {
-    const me = predictedLocal || getMe();
+    const local = getMe();
+    if (local?.missileControl) return;
+    if (local?.drone?.controlled) {
+        ctx.save();
+        ctx.fillStyle = "rgba(60, 255, 110, .12)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+        return;
+    }
+    const me = predictedLocal || local;
     if (!me) return;
     const x = (me.x - camera.x) * scale + canvas.width / 2;
     const y = (me.y - camera.y) * scale + canvas.height / 2;
@@ -1928,6 +2191,16 @@ function drawDebugSpawn(spawn) {
 function drawAreas() {
     const reachable = reachableFloorTiles();
     const size = TILE_MAP.tileSize;
+    if (STARTING_AREA) {
+        ctx.save();
+        ctx.fillStyle = "rgb(255 255 255 / 72%)";
+        ctx.shadowColor = "#000";
+        ctx.shadowBlur = 5;
+        ctx.font = "900 13px ui-monospace, monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(STARTING_AREA.name, STARTING_AREA.labelX, STARTING_AREA.labelY);
+        ctx.restore();
+    }
     for (const area of AREAS) {
         const unlocked = state.areas[area.id];
         const column = Math.floor(area.terminalX / size);
@@ -2066,6 +2339,8 @@ function drawCore() {
 }
 
 function drawShops() {
+    for (const [unit, label] of [[MISSILE_COMPUTER, "MISSILE"], [JOB_STATION, "JOB"]])
+        if (unit && state.areas[unit.requiredArea]) drawStation(unit, label, "#7adba1", "#111");
     SHOP_UNITS.filter(isUnlockedPoint)
         .forEach(shop => {
             drawStation(shop, shop.label, "#d8d8d8", "#111");
@@ -2127,7 +2402,14 @@ function drawDroppedResources() {
         ctx.fillStyle = drop.type === "wood" ? "#b8b8b8" : drop.type === "copper" ? "#aa754d" : drop.type === "silver" ? "#eee" : "#777";
         ctx.strokeStyle = "#fff";
         ctx.lineWidth = 1.5;
-        if (drop.type === "wood") {
+        if (drop.type === "medkit") {
+            ctx.fillStyle = "#eee";
+            ctx.fillRect(-10, -8, 20, 16);
+            ctx.strokeRect(-10, -8, 20, 16);
+            ctx.fillStyle = "#e45151";
+            ctx.fillRect(-2, -6, 4, 12);
+            ctx.fillRect(-6, -2, 12, 4);
+        } else if (drop.type === "wood") {
             ctx.fillRect(-8, -6, 16, 12);
             ctx.strokeRect(-8, -6, 16, 12);
         } else {
@@ -2222,7 +2504,7 @@ function drawEnemies() {
         const p = smoothEntity("enemy", enemy), radius = enemyRadius(enemy);
         const recentHit = hitEffects.find(effect => effect.effect === "hit" && effect.damage > 0
             && performance.now() - effect.started < 260
-            && Math.hypot(effect.x - p.x, effect.y - p.y) < radius + 18);
+            && effect.enemyId === enemy.id);
         if (recentHit) {
             ctx.save();
             ctx.globalAlpha = 1 - (performance.now() - recentHit.started) / 260;
@@ -2273,6 +2555,15 @@ function drawEnemies() {
     }
 }
 
+function drawMissiles() {
+    for (const strike of state.missiles || []) {
+        ctx.save(); ctx.strokeStyle = "#7adba1"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(strike.x, strike.y, strike.radius, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = "#153f2a"; ctx.font = "bold 14px monospace"; ctx.textAlign = "center";
+        ctx.fillText(Math.max(0, strike.remaining - (performance.now() - state.artilleryReceivedAt) / 1000).toFixed(1), strike.x, strike.y); ctx.restore();
+    }
+}
+
 function drawRailguns() {
     for (const player of state.players) {
         if (player.down || player.weapon !== "railgun") continue;
@@ -2295,12 +2586,25 @@ function drawRailguns() {
     }
 }
 
+function drawTeleportPads() {
+    for (const owner of state.players) {
+        for (const [index, pad] of (owner.teleportPads || []).entries()) {
+            ctx.save(); ctx.translate(pad.x, pad.y);
+            ctx.strokeStyle = owner.teleportPads.length === 2 ? "#aa83ff" : "#666";
+            ctx.fillStyle = "#211a36"; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = "#eee"; ctx.font = "800 10px system-ui"; ctx.textAlign = "center";
+            ctx.fillText(`TP${index + 1}`, 0, 4); ctx.restore();
+        }
+    }
+}
+
 function drawPlayers() {
     for (const player of state.players) {
         const isLocal = player.id === myPlayerId && predictedLocal;
         const p = isLocal ? predictedLocal : smoothEntity("player", player);
         const rescuers = state.players.filter(worker => worker.action === player.id);
-        if (player.down && rescuers.length && (player.id === myPlayerId || rescuers.some(worker => worker.id === myPlayerId))) drawReviveEffect(p.x, p.y, Math.max(...rescuers.map(worker => worker.actionProgress / 4)));
+        if (player.down && rescuers.length && (player.id === myPlayerId || rescuers.some(worker => worker.id === myPlayerId))) drawReviveEffect(p.x, p.y, Math.max(...rescuers.map(worker => worker.actionProgress / (worker.reviveSeconds ?? 4))));
         ctx.save();
         if (player.down) { ctx.translate(p.x, p.y + 8); ctx.scale(1.35, .65); }
         else ctx.translate(p.x, p.y);
@@ -2317,8 +2621,15 @@ function drawPlayers() {
         }
         ctx.fillStyle = hit || player.down ? "#ff5964" : player.id === myPlayerId ? "#79d8ff" : "#454545";
         const playerSize = 10;
-        ctx.fillRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize);
-        if (player.id === myPlayerId) { ctx.strokeStyle = "white"; ctx.lineWidth = 1.5; ctx.strokeRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize); }
+        const disguised = player.spyRemaining > 0 && !player.down;
+        if (disguised) {
+            ctx.fillStyle = "#707070"; ctx.strokeStyle = "#c8c8c8"; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(-6, -5, 3, 3); ctx.fillRect(3, -5, 3, 3);
+            ctx.fillStyle = "#79d8ff"; ctx.fillRect(-2, 6, 4, 2);
+        } else ctx.fillRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize);
+        if (player.id === myPlayerId && !disguised) { ctx.strokeStyle = "white"; ctx.lineWidth = 1.5; ctx.strokeRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize); }
         if (player.selectedBuild?.endsWith("Factory") && player.buildItems?.[player.selectedBuild] > 0) {
             ctx.fillStyle = "#70bfff";
             ctx.fillRect(-9, -24, 18, 16);
@@ -2333,6 +2644,26 @@ function drawPlayers() {
 
     }
     ctx.textAlign = "left";
+}
+
+function drawDrones() {
+    for (const owner of state.players) {
+        if (!owner.drone?.active) continue;
+        const p = smoothEntity("drone", { ...owner.drone, id: owner.id });
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.fillStyle = "#0005";
+        ctx.beginPath(); ctx.ellipse(0, 12, 15, 6, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#8be8f5"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-9, -9); ctx.lineTo(9, 9);
+        ctx.moveTo(9, -9); ctx.lineTo(-9, 9); ctx.stroke();
+        for (const [x, y] of [[-9, -9], [9, -9], [-9, 9], [9, 9]]) {
+            ctx.beginPath(); ctx.ellipse(x, y, 6, 3, performance.now() / 70, 0, Math.PI * 2); ctx.stroke();
+        }
+        ctx.fillStyle = "#ddfbff"; ctx.fillRect(-4, -4, 8, 8);
+        drawBar(-15, -23, 30, 3, owner.drone.hp / owner.drone.maxHp, "#8be8f5");
+        ctx.restore();
+    }
 }
 
 function drawMedbayParticles(player, position) {
@@ -2357,7 +2688,7 @@ function drawMedbayParticles(player, position) {
 
 function drawInteractionPrompt() {
     const interaction = findNearestInteraction();
-    if (!interaction || !actionMenu.classList.contains("hidden")) return;
+    if (!interaction || interaction.kind === "spy" || !actionMenu.classList.contains("hidden")) return;
     const x = interaction.target.x;
     const y = interaction.target.y - 34;
     ctx.save();
@@ -2448,7 +2779,7 @@ function drawHitEffects() {
             ctx.fillStyle = "#000";
             ctx.font = "900 11px ui-monospace, monospace";
             ctx.textAlign = "center";
-            ctx.fillText(`+${RESOURCE_NAMES[effect.resource] || effect.resource}${effect.amount > 1 ? ` ×${effect.amount}` : ""}`,
+            ctx.fillText(`+${effect.resource === "medkit" ? "回復キット" : RESOURCE_NAMES[effect.resource] || effect.resource}${effect.amount > 1 ? ` ×${effect.amount}` : ""}`,
                 effect.x, effect.y - 18 - progress * 22);
             ctx.restore();
             continue;
@@ -2457,9 +2788,17 @@ function drawHitEffects() {
         if (age < 360) {
             const progress = age / 360;
             ctx.save(); ctx.globalAlpha = 1 - progress; ctx.strokeStyle = "#ff5964";
+            if (effect.weapon === "bat" && effect.damage === 0 && progress < .55) {
+                ctx.strokeStyle = "#79d8ff";
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(effect.x, effect.y, 4 + progress * 6, 0, Math.PI * 2);
+                ctx.stroke();
+            }
             if ((effect.weapon === "turret" || effect.damage === 0)
                 && !["bat", "mine"].includes(effect.weapon) && progress < .55) {
-                ctx.lineWidth = 1.35;
+                ctx.strokeStyle = effect.weapon === "flamethrower" ? "#ff9c38" : ctx.strokeStyle;
+                ctx.lineWidth = effect.weapon === "flamethrower" ? 24 * (1 - progress) : 1.35;
                 ctx.beginPath(); ctx.moveTo(effect.fromX, effect.fromY); ctx.lineTo(effect.x, effect.y); ctx.stroke();
             }
             ctx.restore();

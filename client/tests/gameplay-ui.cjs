@@ -43,15 +43,15 @@ assert.equal(context.BUILD_INFO.silverTurret.silver, 7);
 run('applyRules({rules:{recipes:{},shop:{ammo:19},weapons:{smg:{capacity:321}}}})');
 assert.equal(context.WEAPON_FIELDS.smg.capacity, 321, 'server changes replace displayed limits');
 
-const activeAudio = [];
-const soundContext = vm.createContext({ window: { addEventListener: (_, fn) => fn() },
-    Audio: class { constructor(path) { this.path = path; activeAudio.push(this); } addEventListener() {} play() { return Promise.reject(new Error('empty placeholder')); } }
-});
-vm.runInContext(fs.readFileSync('client/sound.js', 'utf8'), soundContext);
-soundContext.window.coreAudio.play('shotgun');
-assert.equal(activeAudio[0].path, 'sounds/shotgun.mp3');
-for (const file of fs.readdirSync('client/sounds')) assert.equal(fs.statSync('client/sounds/' + file).size, 0);
-console.log('Gameplay UI passed: tap/hold/cancel/down/placement, authoritative rules, silent audio placeholders');
+// Gameplay routes shot events to the synthesized audio API; sound.cjs verifies synthesis.
+const played = [];
+context.window = { coreAudio: { play: (...args) => played.push(args) } };
+context.myPlayerId = 'self';
+context.state.players = [];
+vm.runInContext(extract('playSoundEffect'), context);
+run('playSoundEffect({effect:"shot",playerId:"self",weapon:"shotgun"})');
+assert.deepEqual(played, [['shotgun', 0]]);
+console.log('Gameplay UI passed: tap/hold/cancel/down/placement, authoritative rules and shot audio');
 
 const entranceLines = [];
 context.TILE_MAP = { tileSize: 40, rows: ['###', '#.#', '###'], legend: { '#': { solid: true }, '.': { solid: false } } };
@@ -80,3 +80,69 @@ run('openPrepConsoleMenu()');
 assert.equal(prepMenu.detail, '200G / 予約 +1:00');
 assert.equal(prepMenu.disabled, false);
 assert.equal(prepMenu.command, 'EXTEND_PREP');
+
+// Teleporter R taps travel; only the owner gets a recovery hold.
+context.placementSelection = () => null;
+let teleportTarget = { kind: 'teleporter', target: { x: 1180, y: 1900 }, owned: true,
+    action: () => commands.push('TELEPORT') };
+context.findNearestInteraction = () => teleportTarget;
+const beforeTeleport = commands.length;
+run('beginInteractionHold(); endInteractionHold()');
+assert.equal(commands.at(-1), 'TELEPORT');
+run('beginInteractionHold()'); timer(); run('endInteractionHold()');
+assert.equal(commands.at(-1), 'PICKUP_TELEPORT:1180:1900');
+assert.equal(commands.length, beforeTeleport + 2, 'recovery release must not also teleport');
+teleportTarget.owned = false;
+run('beginInteractionHold()'); assert.equal(timer, null); run('endInteractionHold()');
+assert.equal(commands.at(-1), 'TELEPORT');
+teleportTarget.owned = true;
+run('beginInteractionHold(); endInteractionHold(true)');
+assert.equal(commands.length, beforeTeleport + 3);
+console.log('Teleporter input passed: tap, owner hold, ally access and cancellation');
+
+// R falls back to disguise, while nearby facilities retain their interaction.
+const spyCommands = [];
+const spy = { id: 1, job: 'spy', x: 0, y: 0, spyRemaining: 0, jobCooldown: 0 };
+const spyContext = vm.createContext({
+    getMe: () => spy,
+    state: { phase: 'wave', players: [spy], areas: {}, factories: [], slots: [], core: { x: 1000, y: 1000 } },
+    MISSILE_COMPUTER: null, JOB_STATION: null, PREP_CONSOLE: null,
+    SHOP_UNITS: [], WORKBENCHES: [], BREAKER_TERMINALS: [], AREAS: [],
+    INTERACTION_RANGE: { core: 70, trapSlot: 70, shop: 70, workbench: 70 },
+    distance: (a, b) => Math.hypot(a.x-b.x, a.y-b.y), hasInteractionPath: () => true,
+    placementSelection: () => null, send: command => spyCommands.push(command),
+    openCoreMenu() {}, openJobStation() {}, openShopPurchase() {},
+});
+vm.runInContext(extract('findNearestInteraction') + '\n' + extract('useNearestInteraction'), spyContext);
+assert.equal(vm.runInContext('findNearestInteraction().kind', spyContext), 'spy');
+vm.runInContext('useNearestInteraction()', spyContext);
+assert.deepEqual(spyCommands, ['JOB_ABILITY']);
+spyContext.state.core = { x: 20, y: 0 };
+assert.equal(vm.runInContext('findNearestInteraction().kind', spyContext), 'core');
+spyContext.state.core = { x: 1000, y: 1000 };
+spy.down = true;
+assert.equal(vm.runInContext('findNearestInteraction()', spyContext), null);
+spy.down = false; spy.job = 'healer';
+assert.equal(vm.runInContext('findNearestInteraction()', spyContext), null);
+console.log('Spy interaction passed: R disguise, nearby facility priority, down and other jobs');
+
+me.drone = { active: true, controlled: true };
+context.getMe = () => me;
+context.findNearestInteraction = () => ({ kind: 'drone', action: () => commands.push('DRONE_RECOVER') });
+run('beginInteractionHold()'); assert.equal(timer, null, 'drone recovery has no hold timer'); run('endInteractionHold()');
+assert.equal(commands.at(-1), 'DRONE_RECOVER');
+context.findNearestInteraction = () => null;
+run('beginInteractionHold(); endInteractionHold()'); assert.equal(commands.at(-1), 'JOB_ABILITY', 'remote R taps switch views');
+const beforeRemoteHold = commands.length;
+run('beginInteractionHold()'); assert.equal(timer, null); run('endInteractionHold()');
+assert.equal(commands.at(-1), 'JOB_ABILITY'); assert.equal(commands.length, beforeRemoteHold + 1);
+run('beginInteractionHold(); endInteractionHold(true)'); assert.equal(commands.length, beforeRemoteHold + 1);
+me.drone.controlled = false;
+run('beginInteractionHold(); endInteractionHold()'); assert.equal(commands.at(-1), 'JOB_ABILITY', 'R can return to drone view');
+console.log('Drone R input passed: nearby tap recovery, no drone hold timers, remote view switching and canceled input');
+context.findNearestInteraction = () => ({kind: 'defense', target: {id: 'trap-123'}});
+const beforeFacilityTap = commands.length, beforeFacilityMenu = menuOpens;
+run('beginInteractionHold(); endInteractionHold()');
+assert.equal(commands.length, beforeFacilityTap); assert.equal(menuOpens, beforeFacilityMenu + 1);
+run('beginInteractionHold()'); timer(); run('endInteractionHold()');
+assert.equal(commands.at(-1), 'CARRY_NEAREST:trap-123', 'body view keeps the facility long-press action');

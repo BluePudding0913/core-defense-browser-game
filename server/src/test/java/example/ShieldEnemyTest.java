@@ -36,9 +36,7 @@ class ShieldEnemyTest {
     void shoot(String weapon, double x, double y) throws Exception {
         player.weapon = weapon; player.x = x; player.y = y;
         double dx = shield.x - x, dy = shield.y - y, length = Math.hypot(dx, dy);
-        invoke("fireSegment", new Class<?>[]{Player.class, GameConfig.WeaponStats.class,
-                double.class, double.class, double.class, double.class, double.class},
-                player, GameSession.weaponStats(weapon), x, y, dx / length, dy / length, length + 30);
+        game.combat.fireSegment(player, GameSession.weaponStats(weapon), x, y, dx / length, dy / length, length + 30);
     }
 
     @Test void frontalArcHasClearBoundariesAndRotatesWithFacing() {
@@ -88,8 +86,7 @@ class ShieldEnemyTest {
         assertEquals(1550, shield.hp);
         assertNull(mine.defense);
         shield.hp = 2000; player.weapon = "rocket"; player.x = 1120; player.y = 1900;
-        invoke("fireRocket", new Class<?>[]{Player.class, GameConfig.WeaponStats.class,
-                double.class, double.class, double.class}, player, GameSession.weaponStats("rocket"), -1., 0., 100.);
+        game.combat.fireRocket(player, GameSession.weaponStats("rocket"), -1., 0., 100.);
         assertTrue(2000 - shield.hp > GameSession.weaponStats("rocket").damage() * .5);
     }
 

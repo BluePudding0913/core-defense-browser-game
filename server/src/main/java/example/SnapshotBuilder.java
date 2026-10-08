@@ -56,6 +56,14 @@ final class SnapshotBuilder {
         appendPlayers(json, game);
         appendEnemies(json, game.enemies);
         appendArtilleryShells(json, game);
+        json.append(",\"missiles\":[");
+        for (int i = 0; i < game.missiles.size(); i++) {
+            if (i > 0) json.append(',');
+            MissileStrike strike = game.missiles.get(i);
+            json.append("{\"x\":").append(strike.x).append(",\"y\":").append(strike.y)
+                .append(",\"remaining\":").append(strike.remaining).append(",\"radius\":").append(MissileRules.radius()).append('}');
+        }
+        json.append(']');
         appendSlots(json, game);
         appendResources(json, game);
         appendFactories(json, game);
@@ -81,21 +89,24 @@ final class SnapshotBuilder {
     }
 
     private static void appendRules(StringBuilder json, GameSession game) {
-        json.append(",\"rules\":{\"weapons\":{");
+        json.append(",\"rules\":{\"weaponLimit\":").append(WeaponInventory.MAX_WEAPONS).append(",\"weapons\":{");
         boolean first = true;
-        for (var entry : GameConfig.WEAPONS.entrySet()) {
+        for (var definition : WeaponCatalog.ALL) {
             if (!first) json.append(',');
             first = false;
-            String key = entry.getKey();
-            var stats = entry.getValue();
+            String key = definition.id();
+            var stats = definition.stats();
             ShopUnit shop = GameMap.shopByItem(key);
             json.append('"').append(key).append("\":{\"capacity\":").append(GameSession.weaponAmmoCapacity(key))
                 .append(",\"price\":").append(shop == null ? 0 : shop.cost()).append(",\"refillCost\":").append(GameSession.ammoRefillCost())
                 .append(",\"damage\":").append(stats.damage()).append(",\"range\":").append(stats.range())
-                .append(",\"cooldown\":").append(stats.cooldown()).append(",\"ammoPerShot\":").append(key.equals("ricochet") ? 2 : 1)
-                .append(",\"pellets\":").append(key.equals("shotgun") ? GameConfig.SHOTGUN_PELLETS : 1).append(",\"maxTargets\":").append(key.equals("railgun") || key.equals("sniper") || key.equals("revolver") ? -1 : key.equals("shotgun") ? GameConfig.SHOTGUN_MAX_TARGETS : 1)
-                .append(",\"blastRadius\":").append(key.equals("rocket") ? GameConfig.ROCKET_BLAST_RADIUS : 0)
-                .append(",\"name\":\"").append(key).append("\"}");
+                .append(",\"cooldown\":").append(stats.cooldown()).append(",\"ammoPerShot\":").append(1)
+                .append(",\"pellets\":").append(definition.pellets()).append(",\"maxTargets\":").append(definition.maxTargets())
+                .append(",\"blastRadius\":").append(definition.blastRadius())
+                .append(",\"droneMountable\":").append(DroneRules.mountable(key))
+                .append(",\"owned\":\"").append(definition.ownedField())
+                .append("\",\"ammo\":\"").append(definition.ammoField())
+                .append("\",\"name\":\"").append(key).append("\"}");
         }
         json.append("},\"recipes\":{");
         first = true;
@@ -168,27 +179,54 @@ final class SnapshotBuilder {
                     .append(",\"railgunDx\":").append(player.railgunDx)
                     .append(",\"railgunDy\":").append(player.railgunDy)
                     .append(",\"railgunRange\":").append(player.railgunRemaining > 0
-                        ? GameMap.distanceToWall(player.x, player.y, player.railgunDx, player.railgunDy, GameSession.weaponStats("railgun").range()) : 0);
+                        ? GameMap.distanceToWall(player.x, player.y, player.railgunDx, player.railgunDy,
+                            GameSession.weaponStats("railgun").range(), game.unlockedAreas) : 0);
             json.append(",\"stamina\":").append(roundOne(player.stamina))
                     .append(",\"dashing\":").append(player.dashing);
-            json.append(",\"ownsShotgun\":").append(player.ownsShotgun)
-                    .append(",\"ownsSmg\":").append(player.ownsSmg)
-                    .append(",\"ownsRifle\":").append(player.ownsRifle)
-                    .append(",\"ownsSniper\":").append(player.ownsSniper)
-                    .append(",\"ownsRevolver\":").append(player.ownsRevolver)
-                    .append(",\"ownsRocket\":").append(player.ownsRocket)
-                    .append(",\"ownsRailgun\":").append(player.ownsRailgun)
-                    .append(",\"ownsLmg\":").append(player.ownsLmg)
-                    .append(",\"ownsRicochet\":").append(player.ownsRicochet);
-            json.append(",\"shotgunAmmo\":").append(player.shotgunAmmo)
-                    .append(",\"smgAmmo\":").append(player.smgAmmo)
-                    .append(",\"rifleAmmo\":").append(player.rifleAmmo)
-                    .append(",\"sniperAmmo\":").append(player.sniperAmmo)
-                    .append(",\"revolverAmmo\":").append(player.revolverAmmo)
-                    .append(",\"rocketAmmo\":").append(player.rocketAmmo)
-                    .append(",\"railgunAmmo\":").append(player.railgunAmmo)
-                    .append(",\"lmgAmmo\":").append(player.lmgAmmo)
-                    .append(",\"ricochetAmmo\":").append(player.ricochetAmmo);
+            json.append(",\"job\":\"").append(player.job).append('"')
+                    .append(",\"spyRemaining\":").append(roundOne(player.spyRemaining))
+                    .append(",\"scoutDashRemaining\":").append(player.scoutDashRemaining)
+                    .append(",\"scoutDashDx\":").append(player.scoutDashDx)
+                    .append(",\"scoutDashDy\":").append(player.scoutDashDy)
+                    .append(",\"scoutDashSpeed\":").append(JobRules.SCOUT_DASH_SPEED)
+                    .append(",\"scoutDashStep\":").append(JobRules.SCOUT_DASH_STEP)
+                    .append(",\"scoutDashStamina\":").append(JobRules.SCOUT_DASH_STAMINA)
+                    .append(",\"jobCooldown\":").append(roundOne(player.jobCooldown))
+                    .append(",\"teleportCooldown\":").append(roundOne(player.teleportCooldown))
+                    .append(",\"dashSpeed\":").append(JobRules.dashSpeed(player.job))
+                    .append(",\"staminaRecovery\":").append(JobRules.staminaRecovery(player.job))
+                    .append(",\"staminaMax\":").append(JobRules.staminaMax(player.job))
+                    .append(",\"staminaDrain\":").append(JobRules.staminaDrain(player.job))
+                    .append(",\"reviveSeconds\":").append(JobRules.reviveSeconds(player.job))
+                    .append(",\"teleportPads\":[");
+            for (int padIndex = 0; padIndex < player.teleportPads.size(); padIndex++) {
+                if (padIndex > 0) json.append(',');
+                MapPoint pad = player.teleportPads.get(padIndex);
+                json.append("{\"x\":").append(pad.x()).append(",\"y\":").append(pad.y()).append('}');
+            }
+            json.append(']');
+            // Keep the existing wire fields for browser/reconnect compatibility.
+            json.append(",\"missileControl\":").append(player.missileControl)
+                .append(",\"missileCooldown\":").append(roundOne(player.missileCooldown))
+                .append(",\"missileDelay\":").append(MissileRules.DELAY);
+            json.append(",\"drone\":");
+            if (player.drone == null) json.append("null");
+            else json.append("{\"x\":").append(roundOne(player.drone.x))
+                    .append(",\"y\":").append(roundOne(player.drone.y))
+                    .append(",\"hp\":").append(roundOne(player.drone.hp))
+                    .append(",\"maxHp\":").append(DroneRules.HP)
+                    .append(",\"cooldown\":").append(roundOne(player.drone.cooldown))
+                    .append(",\"cooldownMax\":").append(player.drone.weapon.isEmpty() ? 1 : WeaponCatalog.stats(player.drone.weapon).cooldown())
+                    .append(",\"weapon\":\"").append(player.drone.weapon).append('"')
+                    .append(",\"controlled\":").append(DroneRules.controlling(player))
+                    .append(",\"active\":").append(player.drone.active).append('}');
+            json.append(",\"droneRepairOre\":").append(DroneRules.REPAIR_ORE)
+                    .append(",\"droneRecoveryRange\":").append(DroneRules.RECOVERY_RANGE)
+                    .append(",\"droneRepairCopper\":").append(DroneRules.REPAIR_COPPER);
+            for (var definition : WeaponCatalog.ALL) {
+                json.append(",\"").append(definition.ownedField()).append("\":").append(player.weapons.owns(definition.id()));
+                json.append(",\"").append(definition.ammoField()).append("\":").append(player.weapons.ammo(definition.id()));
+            }
             json.append(",\"wood\":").append(player.wood)
                     .append(",\"ore\":").append(player.ore)
                     .append(",\"copper\":").append(player.copper)
@@ -206,7 +244,9 @@ final class SnapshotBuilder {
                     .append(",\"mine\":").append(player.mineItems)
                     .append(",\"barricade\":").append(player.barricadeItems)
                     .append(",\"copperTurret\":").append(player.copperTurretItems)
-                    .append(",\"silverTurret\":").append(player.silverTurretItems);
+                    .append(",\"silverTurret\":").append(player.silverTurretItems)
+                    .append(",\"teleporter\":").append(player.buildItemCount("teleporter"));
+            json.append(",\"drone\":").append(player.buildItemCount("drone"));
             for (String item : List.of("woodFactory", "oreFactory", "copperFactory", "silverFactory")) {
                 json.append(",\"").append(item).append("\":").append(player.buildItemCount(item));
             }

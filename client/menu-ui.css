@@ -2,9 +2,13 @@
 .menu-preview { touch-action: auto; user-select: auto; }
 .menu-preview > #menu, .menu-preview > #game, .menu-preview > #hud, .menu-preview > #rotate-message { display: none; }
 #menu-ui[hidden] { display: none; }
+#menu-ui:has(form[data-form="game-settings"]) { z-index: 19; }
 #menu-ui { position: fixed; inset: 0; z-index: 9; overflow-y: auto; background: #101010; padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); }
 #menu-ui .ui-shell { min-height: 100%; display: grid; align-content: start; justify-items: center; padding-top: max(200px, calc(50dvh - 48px)); }
-/* Every page starts its actions at the home navigation's first row. */
+/* Settings need room for the full form above the fold. */
+#menu-ui .ui-shell.ui-settings { padding-top: clamp(8px, calc(100dvh - 660px), 64px); }
+#menu-ui .ui-settings form > input { position: static; }
+/* Other pages start their actions at the home navigation's first row. */
 #menu-ui .ui-content { position: relative; width: min(22rem, 100%); text-align: center; display: grid; gap: .55rem; }
 #menu-ui h1 { position: absolute; bottom: 100%; left: 0; right: 0; margin: 0 0 clamp(40px, 12vh, 100px); color: #fff; font: 800 clamp(1.5rem, 4vw, 2rem) ui-monospace, monospace; letter-spacing: .11em; text-align: center; }
 #menu-ui h2 { position: absolute; bottom: calc(100% + 84px); left: 0; right: 0; margin: 0; font-size: 1rem; text-align: center; outline: none; }
@@ -33,7 +37,7 @@
 #menu-ui .ui-pointer-settings legend { padding: 0 .3rem; font-size: .85rem; }
 #menu-ui .ui-pointer-settings label { display: flex; align-items: center; gap: .6rem; text-align: left; font-size: .85rem; }
 #menu-ui .ui-pointer-settings input[type="color"] { width: 3rem; padding: .25rem; margin-left: auto; }
-#menu-ui .ui-pointer-settings input[type="range"] { flex: 1; width: 0; padding: 0; border: 0; accent-color: var(--pointer-color); }
+#menu-ui .ui-pointer-settings input[type="range"] { flex: 1; width: 0; padding: 0; border: 0; accent-color: #fff; }
 #menu-ui .ui-pointer-settings output { min-width: 4ch; text-align: right; }
 #menu-ui input[name="medkit-key"] { width: 5rem; margin-left: auto; text-align: center; cursor: pointer; }
 #menu-ui .ui-pointer-preview { height: 44px; display: grid; place-items: center; background: #181818; border-radius: .3rem; cursor: var(--game-pointer, crosshair); }

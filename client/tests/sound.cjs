@@ -6,22 +6,24 @@ let contexts = 0;
 class AudioContext {
     constructor() { contexts++; this.sampleRate = 48000; this.state = 'suspended'; }
     resume() { this.state = 'running'; return Promise.resolve(); }
-    createGain() { return { gain: { value: 1 }, connect() {}, disconnect() { this.disconnected = true; } }; }
+    createGain() { return { gain: { value: 1 }, connect(node) { this.output = node; }, disconnect() { this.disconnected = true; } }; }
     createBuffer(channels, length) {
         const data = new Float32Array(length);
         const buffer = { getChannelData: () => data };
         buffers.push(buffer); return buffer;
     }
     createBufferSource() {
-        const source = { connect(node) { this.output = node; }, disconnect() { this.disconnected = true; }, start() { this.started = true; } };
+        const source = { connect(node) { this.output = node; }, disconnect() { this.disconnected = true; }, start() { this.started = true; }, stop() { this.stopped = true; this.onended?.(); } };
         sources.push(source); return source;
     }
 }
 const window = { AudioContext, addEventListener: (name, fn) => listeners[name] = fn };
-vm.runInNewContext(fs.readFileSync('client/sound.js', 'utf8'), { window });
+const saved = new Map();
+const localStorage = { getItem: key => saved.get(key) ?? null, setItem: (key, value) => saved.set(key, value) };
+vm.runInNewContext(fs.readFileSync('client/sound.js', 'utf8'), { window, localStorage });
 window.coreAudio.play('pistol'); assert.equal(contexts, 0);
 listeners.pointerdown(); assert.equal(contexts, 1);
-const names = ['pistol', 'ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket', 'bat', 'medkit', 'heal', 'build', 'pickup', 'item', 'railgun', 'railgun-charge'];
+const names = ['pistol', 'ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket', 'bat', 'medkit', 'heal', 'build', 'pickup', 'item', 'ability-ready', 'railgun', 'railgun-charge'];
 const demo = [];
 for (const name of names) {
     window.coreAudio.play(name);
@@ -54,6 +56,24 @@ for (const name of names) {
     assert.equal(sources.length, count, `${name} is silent beyond hearing range`);
 }
 
+window.coreAudio.play('pistol');
+const master = sources.at(-1).output.output;
+window.coreAudio.setVolume(.35);
+assert.equal(master.gain.value, .35, 'changes already playing voices');
+assert.equal(saved.get('core-defense-volume'), '0.35');
+window.coreAudio.setVolume(0);
+const mutedCount = sources.length;
+window.coreAudio.play('heal');
+assert.equal(sources.length, mutedCount, 'zero volume mutes all effects');
+const reloaded = { addEventListener() {} };
+vm.runInNewContext(fs.readFileSync('client/sound.js', 'utf8'), { window: reloaded, localStorage });
+assert.equal(reloaded.coreAudio.getVolume(), 0, 'saved mute survives reload');
+for (const [value, expected] of [[2, 1], [-1, 0], [NaN, 1]]) {
+    window.coreAudio.setVolume(value);
+    assert.equal(window.coreAudio.getVolume(), expected);
+}
+sources.at(-1).onended();
+
 const app = fs.readFileSync('client/app.js', 'utf8');
 const start = app.indexOf('function playSoundEffect(');
 const played = [];
@@ -70,6 +90,10 @@ effect({ effect: 'pickup', playerId: 'other', x: 10, y: 0 });
 assert.equal(played.length, 0, 'other players cannot trigger pickup SE');
 effect({ effect: 'pickup', playerId: 'me', x: 10, y: 0 });
 assert.deepEqual(played.pop(), ['pickup', 0]);
+effect({ effect: 'ability-ready', playerId: 'me' });
+assert.deepEqual(played.pop(), ['ability-ready', 0]);
+effect({ effect: 'ability-ready', playerId: 'other' });
+assert.equal(played.length, 0, 'cooldown readiness only sounds for its owner');
 effect({ effect: 'shot', playerId: 'other', weapon: 'rifle' });
 assert.deepEqual(played.pop(), ['rifle', 300]);
 game.predictedLocal = { x: 100, y: 0 };
@@ -78,7 +102,7 @@ assert.deepEqual(played.pop(), ['build', 300]);
 effect({ effect: 'item-use', playerId: 'other', item: 'medkit' });
 assert.deepEqual(played.pop(), ['medkit', 200]);
 effect({ effect: 'shot', playerId: 'me', weapon: 'railgun', item: 'railgun-charge' });
-assert.deepEqual(played.pop(), ['railgun-charge', 0]);
+assert.equal(played.length, 0, 'railgun sounds follow continuous state instead of one-shot events');
 effect({ effect: 'shot', playerId: 'missing', weapon: 'pistol' });
 assert.equal(played.length, 0, 'unknown source cannot trigger full-volume audio');
 vm.runInNewContext(fs.readFileSync('client/sound.js', 'utf8'), { window: { addEventListener() {} } });
@@ -94,4 +118,29 @@ if (process.argv[2]) {
     for (const data of demo) for (const value of data) { wav.writeInt16LE(Math.round(value * 32767), offset); offset += 2; }
     fs.writeFileSync(process.argv[2], wav);
 }
+// Charge cancellation, loop lifetime, transitions and multiple shooters.
+window.coreAudio.setVolume(1);
+const railPlayer = { id: 'rail', x: 0, y: 0, weapon: 'railgun', railgunCharge: .2, railgunRemaining: 0 };
+window.coreAudio.syncRailguns([railPlayer], railPlayer, 'rail');
+const charging = sources.at(-1);
+assert.equal(charging.loop, false);
+window.coreAudio.syncRailguns([railPlayer], railPlayer, 'rail');
+assert.equal(sources.at(-1), charging, 'charge does not restart every frame');
+railPlayer.railgunCharge = 0;
+window.coreAudio.syncRailguns([railPlayer], railPlayer, 'rail');
+assert(charging.stopped, 'cancelled charge stops immediately');
+railPlayer.railgunRemaining = 3;
+window.coreAudio.syncRailguns([railPlayer], railPlayer, 'rail');
+const beam = sources.at(-1);
+assert.equal(beam.loop, true, 'beam loops throughout irradiation');
+window.coreAudio.syncRailguns([railPlayer], railPlayer, 'rail');
+assert.equal(sources.at(-1), beam);
+railPlayer.down = true;
+window.coreAudio.syncRailguns([railPlayer], railPlayer, 'rail');
+assert(beam.stopped, 'down state stops beam');
+railPlayer.down = false;
+window.coreAudio.syncRailguns([railPlayer], railPlayer, 'rail');
+const disconnected = sources.at(-1);
+window.coreAudio.stopRailguns();
+assert(disconnected.stopped, 'disconnect stops all tracked sounds');
 console.log('Synthesized SE passed: all effects, gesture unlock, cached buffers, bounded volume and voice limit');

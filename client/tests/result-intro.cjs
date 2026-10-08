@@ -17,7 +17,7 @@ const context = vm.createContext({
     clearTimeout: () => { timer = null; },
     performance: { now: () => now },
     applyRules() {}, keepEndArea: () => now < 10000,
-    window: {}, reconcileEnemySmoothing() {}, getMe: () => ({}), endInteractionHold() {},
+    window: {}, reconcileEnemySmoothing() {}, reconcileDroneSmoothing() {}, getMe: () => ({}), endInteractionHold() {},
     CORE: {}, reconcileLocalPrediction() {}, receiveLog() {}, updateHud() {},
     updateWorkbenchMaterials() {}, updateRoomLobby() {}, closeActionMenu() {},
     menu: { classList: { add() {}, remove() {} } },
@@ -27,7 +27,7 @@ const context = vm.createContext({
 vm.runInContext('let roundIntroTimer, previousPhase, previousRound, lastCoreHp, state; let activeMenuAccess = null;'
     + ['showRoundIntro', 'showScreenIntro', 'hideScreenIntro', 'receiveState'].map(extract).join('\n'), context);
 function receive(phase, round = 5) {
-    context.next = { phase, round, core: { hp: 100, x: 0, y: 0 } };
+    context.next = { phase, round, players: [], core: { hp: 100, x: 0, y: 0 } };
     vm.runInContext('receiveState(next)', context);
 }
 receive('wave');

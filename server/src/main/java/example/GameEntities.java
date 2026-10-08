@@ -25,6 +25,17 @@ final class Player {
     boolean dashing;
     boolean dashExhausted;
     double stamina;
+    String job = JobRules.DEFAULT;
+    double spyRemaining;
+    final java.util.Set<Integer> spyCheckedEnemies = new java.util.HashSet<>();
+    final java.util.Set<Integer> spyHostileEnemies = new java.util.HashSet<>();
+    double scoutDashRemaining, scoutDashDx, scoutDashDy;
+    double jobCooldown;
+    Drone drone;
+    boolean missileControl;
+    double missileCooldown;
+    double teleportCooldown;
+    final java.util.List<MapPoint> teleportPads = new java.util.ArrayList<>();
     String weapon = "pistol";
     double cooldown;
     double cooldownMax;
@@ -46,33 +57,17 @@ final class Player {
 
     void stopRailgun() {
         if (railgunRemaining > 0) {
-            cooldown = GameConfig.WEAPONS.get("railgun").cooldown();
+            cooldown = WeaponCatalog.stats("railgun").cooldown();
             cooldownMax = cooldown;
         }
         railgunCharge = railgunRemaining = railgunTick = 0;
     }
 
+    final WeaponInventory weapons = new WeaponInventory();
+
     boolean firing;
     double aimX;
     double aimY;
-    boolean ownsShotgun;
-    boolean ownsSmg;
-    boolean ownsRifle;
-    boolean ownsSniper;
-    boolean ownsRevolver;
-    boolean ownsRocket;
-    boolean ownsRailgun;
-    boolean ownsLmg;
-    boolean ownsRicochet;
-    int shotgunAmmo;
-    int smgAmmo;
-    int rifleAmmo;
-    int sniperAmmo;
-    int revolverAmmo;
-    int rocketAmmo;
-    int railgunAmmo;
-    int lmgAmmo;
-    int ricochetAmmo;
     int wood;
     int ore;
     int copper, silver, medkits, copperTurretItems, silverTurretItems;
@@ -83,6 +78,7 @@ final class Player {
     int mineItems;
     int barricadeItems;
     int credits;
+    int droneRewardRemainder;
     final java.util.Map<String, Integer> quarryItems = new java.util.HashMap<>();
     String selectedBuild;
     boolean movingCore;
@@ -123,6 +119,8 @@ final class Player {
 
     int buildItemCount(String type) {
         return switch (type) {
+            case "drone" -> job.equals("drone") && (drone == null || !drone.active) ? 1 : 0;
+            case "teleporter" -> job.equals("tp") ? Math.max(0, 2 - teleportPads.size()) : 0;
             case "block" -> blockItems;
             case "turret" -> turretItems;
             case "copperTurret" -> copperTurretItems;
@@ -148,6 +146,13 @@ final class Player {
     }
 }
 
+final class Drone {
+    double x, y, hp = DroneRules.HP, cooldown;
+    boolean active, controlled;
+    String weapon = "pistol";
+    final java.util.Set<Integer> attackers = new java.util.HashSet<>();
+}
+
 final class DroppedResource {
     static final double PICKUP_DELAY_SECONDS = 2.5;
 
@@ -155,7 +160,7 @@ final class DroppedResource {
     final String type;
     final double x;
     final double y;
-    final int amount;
+    int amount;
     final String droppedBy;
     boolean ownerLeft;
     double pickupDelay = PICKUP_DELAY_SECONDS;
@@ -218,6 +223,13 @@ final class Enemy {
     List<MapPoint> path = List.of();
     int pathIndex;
     double pathTimer;
+    MapPoint navigationTarget;
+    int navigationGeneration = -1;
+    double navigationTimer;
+    Player visiblePlayer;
+    double visiblePlayerX;
+    double visiblePlayerY;
+    double perceptionTimer;
 
     Enemy(int id, String type, SpawnPoint spawn, double hp, double speed, double damage, int reward) {
         this.id = id;
@@ -275,10 +287,16 @@ final class Enemy {
 
 /** A fired acid shell survives its shooter and retains the original aim point. */
 final class ArtilleryShell {
+    final int enemyId;
     final double sourceX, sourceY, x, y, damage;
     double remaining = GameConfig.ARTILLERY_FLIGHT_SECONDS;
 
     ArtilleryShell(double sourceX, double sourceY, double x, double y, double damage) {
+        this(sourceX, sourceY, x, y, damage, -1);
+    }
+
+    ArtilleryShell(double sourceX, double sourceY, double x, double y, double damage, int enemyId) {
+        this.enemyId = enemyId;
         this.sourceX = sourceX;
         this.sourceY = sourceY;
         this.x = x;

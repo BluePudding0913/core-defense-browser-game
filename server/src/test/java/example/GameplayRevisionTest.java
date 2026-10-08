@@ -46,12 +46,12 @@ class GameplayRevisionTest {
         ShopUnit shop = GameMap.shopByItem("ricochet");
         player.x = shop.x(); player.y = shop.y(); player.credits = 1000;
         game.handleMessage(player, "BUY:ricochet");
-        assertFalse(player.ownsRicochet);
+        assertFalse(player.weapons.owns("ricochet"));
         game.unlockedAreas.add("ricochet-room");
         game.handleMessage(player, "BUY:ricochet");
         assertEquals(600, player.credits);
-        assertTrue(player.ownsRicochet);
-        assertEquals(240, player.ricochetAmmo);
+        assertTrue(player.weapons.owns("ricochet"));
+        assertEquals(240, player.weapons.ammo("ricochet"));
         player.x = 1020; player.y = 1900;
         Enemy enemy = new Enemy(9300, "grunt", GameMap.SPAWN_POINTS.get(0), 500, 0, 0, 50);
         enemy.x = 1120; enemy.y = 1900;
@@ -59,22 +59,22 @@ class GameplayRevisionTest {
         game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":1");
         game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":0");
         assertEquals(470, enemy.hp);
-        assertEquals(239, player.ricochetAmmo);
+        assertEquals(239, player.weapons.ammo("ricochet"));
         assertEquals(.30, player.cooldown);
-        player.cooldown = 0; player.ricochetAmmo = 0;
+        player.cooldown = 0; player.weapons.setAmmo("ricochet", 0);
         game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":1");
         game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":0");
         assertEquals(470, enemy.hp, "an empty weapon cannot fire");
         player.x = shop.x(); player.y = shop.y();
         game.handleMessage(player, "BUY:ricochet");
-        assertEquals(240, player.ricochetAmmo);
-        player.ricochetAmmo = 0;
+        assertEquals(240, player.weapons.ammo("ricochet"));
+        player.weapons.setAmmo("ricochet", 0);
         game.unlockedAreas.add("forest");
         ShopUnit ammo = GameMap.shopByItem("ammo");
         player.x = ammo.x(); player.y = ammo.y();
         player.credits = 1000;
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(240, player.ricochetAmmo);
+        assertEquals(240, player.weapons.ammo("ricochet"));
         var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
         var self = snapshot.path("players").get(player.slot - 1);
         assertTrue(self.path("ownsRicochet").asBoolean());
@@ -82,8 +82,8 @@ class GameplayRevisionTest {
         game.phase = GamePhase.WON;
         game.players.forEach(p -> p.roomReady = true);
         game.handleMessage(player, "START");
-        assertFalse(player.ownsRicochet);
-        assertEquals(0, player.ricochetAmmo);
+        assertFalse(player.weapons.owns("ricochet"));
+        assertEquals(0, player.weapons.ammo("ricochet"));
     }
 
     @Test void headshotsAddThreeGoldEvenWhenTheEnemyDies() {
@@ -104,24 +104,24 @@ class GameplayRevisionTest {
         player.x = ammo.x(); player.y = ammo.y(); player.credits = 1000;
         game.handleMessage(player, "BUY:ammo");
         assertEquals(1000, player.credits, "no owned weapon means no purchase");
-        player.ownsShotgun = player.ownsSmg = player.ownsRifle = true;
-        player.ownsSniper = player.ownsRevolver = player.ownsLmg = true;
-        player.shotgunAmmo = 29; player.smgAmmo = 1; player.rifleAmmo = 12;
-        player.sniperAmmo = 0; player.revolverAmmo = 25; player.lmgAmmo = 150;
+        player.weapons.setOwned("shotgun", true); player.weapons.setOwned("smg", true); player.weapons.setOwned("rifle", true);
+        player.weapons.setOwned("sniper", true); player.weapons.setOwned("revolver", true); player.weapons.setOwned("lmg", true);
+        player.weapons.setAmmo("shotgun", 29); player.weapons.setAmmo("smg", 1); player.weapons.setAmmo("rifle", 12);
+        player.weapons.setAmmo("sniper", 0); player.weapons.setAmmo("revolver", 25); player.weapons.setAmmo("lmg", 150);
         game.handleMessage(player, "BUY:ammo");
         assertEquals(500, player.credits);
-        assertEquals(List.of(50, 240, 30, 15, 30, 600), List.of(player.shotgunAmmo,
-                player.smgAmmo, player.rifleAmmo, player.sniperAmmo, player.revolverAmmo, player.lmgAmmo));
+        assertEquals(List.of(50, 240, 30, 15, 30, 600), List.of(player.weapons.ammo("shotgun"),
+                player.weapons.ammo("smg"), player.weapons.ammo("rifle"), player.weapons.ammo("sniper"), player.weapons.ammo("revolver"), player.weapons.ammo("lmg")));
         for (int i = 0; i < 3; i++) game.handleMessage(player, "BUY:ammo");
         assertEquals(500, player.credits);
-        assertEquals(600, player.lmgAmmo);
-        player.shotgunAmmo = 0; player.credits = 499;
+        assertEquals(600, player.weapons.ammo("lmg"));
+        player.weapons.setAmmo("shotgun", 0); player.credits = 499;
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(0, player.shotgunAmmo);
+        assertEquals(0, player.weapons.ammo("shotgun"));
         assertEquals(499, player.credits);
         player.credits = 500;
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(50, player.shotgunAmmo);
+        assertEquals(50, player.weapons.ammo("shotgun"));
         assertEquals(0, player.credits);
     }
 
@@ -169,16 +169,16 @@ class GameplayRevisionTest {
     @Test void matchesAndRestartsBeginWithZeroGoldAndNoPurchasedWeapons() {
         assertTrue(game.players.stream().allMatch(p -> p.credits == 0));
         player.credits = 1234;
-        player.ownsRevolver = true; player.revolverAmmo = 36;
-        player.ownsLmg = true; player.lmgAmmo = 150;
+        player.weapons.setOwned("revolver", true); player.weapons.setAmmo("revolver", 36);
+        player.weapons.setOwned("lmg", true); player.weapons.setAmmo("lmg", 150);
         game.phase = GamePhase.WON;
         game.players.forEach(p -> p.roomReady = true);
         game.handleMessage(player, "START");
         assertEquals(GamePhase.PREPARING, game.phase);
         assertTrue(game.players.stream().allMatch(p -> p.credits == 0));
-        assertFalse(player.ownsRevolver);
-        assertFalse(player.ownsLmg);
-        assertEquals(0, player.revolverAmmo + player.lmgAmmo);
+        assertFalse(player.weapons.owns("revolver"));
+        assertFalse(player.weapons.owns("lmg"));
+        assertEquals(0, player.weapons.ammo("revolver") + player.weapons.ammo("lmg"));
     }
 
     @Test void newWeaponsRequireUnlockedShopsAndSupportCombatRefillsAndSnapshots() throws Exception {
@@ -206,13 +206,13 @@ class GameplayRevisionTest {
         game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":0");
             assertEquals(1000 - damage, enemy.hp);
             assertEquals(weapon.equals("revolver") ? 1.6 : .18, player.cooldown, 1e-9);
-            assertEquals(capacity - 1, weapon.equals("revolver") ? player.revolverAmmo : player.lmgAmmo);
+            assertEquals(capacity - 1, weapon.equals("revolver") ? player.weapons.ammo("revolver") : player.weapons.ammo("lmg"));
             game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":1");
         game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":0");
             assertEquals(1000 - damage, enemy.hp, "cooldown prevents an immediate second shot");
             player.x = shop.x(); player.y = shop.y();
             game.handleMessage(player, "BUY:" + weapon);
-            assertEquals(capacity, weapon.equals("revolver") ? player.revolverAmmo : player.lmgAmmo);
+            assertEquals(capacity, weapon.equals("revolver") ? player.weapons.ammo("revolver") : player.weapons.ammo("lmg"));
             int afterRefill = player.credits;
             game.handleMessage(player, "BUY:" + weapon);
             assertEquals(afterRefill, player.credits, "full ammo must not be charged");
@@ -220,7 +220,7 @@ class GameplayRevisionTest {
             var self = snapshot.path("players").get(player.slot - 1);
             assertEquals(capacity, self.path(weapon + "Ammo").asInt());
             assertTrue(self.path(weapon.equals("revolver") ? "ownsRevolver" : "ownsLmg").asBoolean());
-            if (weapon.equals("revolver")) player.revolverAmmo = 0; else player.lmgAmmo = 0;
+            if (weapon.equals("revolver")) player.weapons.setAmmo("revolver", 0); else player.weapons.setAmmo("lmg", 0);
             player.cooldown = 0; player.x = 1020; player.y = 1900;
             game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":1");
         game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":0");
@@ -233,8 +233,8 @@ class GameplayRevisionTest {
         ShopUnit ammo = GameMap.shopByItem("ammo");
         player.x = ammo.x(); player.y = ammo.y();
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(30, player.revolverAmmo);
-        assertEquals(600, player.lmgAmmo);
+        assertEquals(30, player.weapons.ammo("revolver"));
+        assertEquals(600, player.weapons.ammo("lmg"));
     }
 
     @Test void frontPlacementAtTileEdgeSkipsTheTileOverlappingThePlayer() {
@@ -354,6 +354,7 @@ class GameplayRevisionTest {
     }
 
     @Test void leavingReviveRangeResetsProgressAndWallsPreventRevives() {
+        player.job = "scout";
         Player downed = game.players.get(1);
         player.x = 1020; player.y = 1900;
         downed.x = 1060; downed.y = 1900; downed.hp = 0; downed.down = true;
@@ -374,8 +375,6 @@ class GameplayRevisionTest {
     @Test void enemyHealthSpeedAndFullKillGoldMatchRequestedBalance() throws Exception {
         Method spawn = GameSession.class.getDeclaredMethod("spawnEnemy", String.class, SpawnPoint.class);
         spawn.setAccessible(true);
-        Method damage = GameSession.class.getDeclaredMethod("damageEnemy", Enemy.class, double.class, Player.class);
-        damage.setAccessible(true);
         game.round = 8;
         double[] hp = {106, 67, 254, 1727};
         double[] speed = {70, 168, 46, 32};
@@ -388,10 +387,10 @@ class GameplayRevisionTest {
             assertEquals(hp[i] * 2, enemy.maxHp, 1e-6);
             assertEquals(speed[i] * .5 * point.speedMultiplier(), enemy.speed, 1e-6);
             int before = player.credits;
-            damage.invoke(game, enemy, enemy.maxHp / 4, player);
+            game.combat.damageEnemy(enemy, enemy.maxHp / 4, player);
             assertEquals(gold[i] / 4, player.credits - before,
                     "partial hits must pay the increased reward before the kill");
-            for (int hit = 0; hit < 13; hit++) damage.invoke(game, enemy, enemy.maxHp / 12, player);
+            for (int hit = 0; hit < 13; hit++) game.combat.damageEnemy(enemy, enemy.maxHp / 12, player);
             assertEquals(gold[i], player.credits - before);
         }
     }
@@ -488,6 +487,61 @@ class GameplayRevisionTest {
         assertTrue(game.droppedResources.isEmpty());
     }
 
+    @Test void medkitsCanBeDroppedTransferredAndUsedWithoutExceedingCapacity() {
+        player.x = 845; player.y = 1980; player.facingX = -1; player.facingY = 0;
+        player.medkits = 3;
+        game.handleMessage(player, "DROP_ITEM:medkit:-1");
+        game.handleMessage(player, "DROP_ITEM:medkit:NaN");
+        game.handleMessage(player, "DROP_ITEM:unknown:1");
+        player.down = true;
+        game.handleMessage(player, "DROP_ITEM:medkit:1");
+        player.down = false;
+        assertEquals(3, player.medkits);
+        assertTrue(game.droppedResources.isEmpty());
+        game.handleMessage(player, "DROP_ITEM:medkit:1");
+        assertEquals(2, player.medkits);
+        assertEquals(1, game.droppedResources.get(0).amount);
+        game.handleMessage(player, "DROP_ITEM:medkit:999");
+        assertEquals(0, player.medkits);
+        assertEquals(2, game.droppedResources.get(1).amount);
+        assertTrue(SnapshotBuilder.build(game).contains("\"type\":\"medkit\""));
+        Player receiver = game.players.get(1);
+        receiver.x = 865; receiver.y = 1980;
+        receiver.medkits = GameConfig.MEDKIT_CAPACITY;
+        game.update(1);
+        assertEquals(2, game.droppedResources.size());
+        game.update(2);
+        assertEquals(2, game.droppedResources.size(), "Full inventory must leave drops on the ground");
+        receiver.medkits = 3;
+        game.update(.05);
+        assertEquals(5, receiver.medkits);
+        assertEquals(1, game.droppedResources.size());
+        assertEquals(1, game.droppedResources.get(0).amount);
+        receiver.hp = 40;
+        game.handleMessage(receiver, "USE:medkit");
+        assertEquals(100, receiver.hp);
+        game.update(.05);
+        assertEquals(5, receiver.medkits);
+        assertTrue(game.droppedResources.isEmpty());
+        assertEquals(0, player.medkits);
+        assertTrue(broadcasts.stream().anyMatch(message -> message.contains("\"resource\":\"medkit\"")));
+    }
+
+    @Test void medkitDropAgainstWallWaitsUntilOwnerLeavesAndReturns() {
+        player.x = 845; player.y = 1980; player.facingX = -1; player.facingY = 0;
+        player.medkits = 1;
+        game.handleMessage(player, "DROP_ITEM:medkit:1");
+        game.update(3);
+        assertEquals(0, player.medkits);
+        assertEquals(1, game.droppedResources.size());
+        player.x = 900;
+        game.update(.05);
+        player.x = 845;
+        game.update(.05);
+        assertEquals(1, player.medkits);
+        assertTrue(game.droppedResources.isEmpty());
+    }
+
     @Test void everyTerminalHasAnOutsideApproach() {
         for (UnlockArea area : GameMap.AREAS) {
             int col = (int) area.terminalX() / 40, row = (int) area.terminalY() / 40;
@@ -507,7 +561,7 @@ class GameplayRevisionTest {
         ShopUnit shop = GameMap.shopByItem("shotgun");
         player.x = shop.x(); player.y = shop.y();
         game.handleMessage(player, "BUY:shotgun");
-        assertFalse(player.ownsShotgun);
+        assertFalse(player.weapons.owns("shotgun"));
         assertEquals(0, player.credits);
         player.x = 1020; player.y = 1900;
         game.handleMessage(player, "CRAFT:turret");
@@ -619,13 +673,13 @@ class GameplayRevisionTest {
     }
 
     @Test void weaponCooldownsStayIndependentAndContinueWhileUnequipped() {
-        player.ownsShotgun = true;
-        player.shotgunAmmo = 10;
+        player.weapons.setOwned("shotgun", true);
+        player.weapons.setAmmo("shotgun", 10);
         game.handleMessage(player, "WEAPON:shotgun");
         game.handleMessage(player, "FIRE:1020:1800:1");
         double shotgunWait = player.cooldown;
         assertTrue(shotgunWait > 0);
-        assertEquals(9, player.shotgunAmmo);
+        assertEquals(9, player.weapons.ammo("shotgun"));
         game.handleMessage(player, "WEAPON:pistol");
         assertEquals(0, player.cooldown);
         game.handleMessage(player, "FIRE:1020:1800:1");
@@ -633,7 +687,7 @@ class GameplayRevisionTest {
         game.handleMessage(player, "WEAPON:shotgun");
         assertEquals(shotgunWait, player.cooldown);
         game.handleMessage(player, "FIRE:1020:1800:1");
-        assertEquals(9, player.shotgunAmmo);
+        assertEquals(9, player.weapons.ammo("shotgun"));
         game.handleMessage(player, "WEAPON:bat");
         game.update(.1);
         game.handleMessage(player, "WEAPON:shotgun");
@@ -669,7 +723,7 @@ class GameplayRevisionTest {
     }
 
     @Test void shotgunFiresFourStraightRaysAndMissesBetweenThem() throws Exception {
-        player.x=1020; player.y=1900; player.ownsShotgun=true; player.shotgunAmmo=10;
+        player.x=1020; player.y=1900; player.weapons.setOwned("shotgun", true); player.weapons.setAmmo("shotgun", 10);
         game.handleMessage(player,"WEAPON:shotgun");
         for (int i=0;i<4;i++) {
             double angle=(i-1.5)*.14;
@@ -682,7 +736,7 @@ class GameplayRevisionTest {
         game.handleMessage(player,"FIRE:1250:1900:1");
         assertEquals(4,game.enemies.stream().filter(e -> e.hp<e.maxHp).count());
         assertEquals(2000,gap.hp,"a target inside the old auto-hit cone must miss between rays");
-        assertEquals(9,player.shotgunAmmo);
+        assertEquals(9,player.weapons.ammo("shotgun"));
         var json=new com.fasterxml.jackson.databind.ObjectMapper();
         long rays=0;
         for(String message:broadcasts) {
@@ -695,7 +749,7 @@ class GameplayRevisionTest {
     @Test void sniperAndRevolverPierceAlignedEnemiesButRespectRangeAndWalls() {
         for(String weapon:List.of("sniper","revolver")) {
             game.enemies.clear(); player.x=1020; player.y=1900; player.cooldown=0; player.firing=false;
-            player.weapon=weapon; player.sniperAmmo=10; player.revolverAmmo=10;
+            player.weapon=weapon; player.weapons.setAmmo("sniper", 10); player.weapons.setAmmo("revolver", 10);
             for(int i=0;i<2;i++) {
                 Enemy enemy=new Enemy(9500+i,"grunt",GameMap.SPAWN_POINTS.get(0),2000,0,0,0);
                 enemy.x=1100+i*80; enemy.y=1900; game.enemies.add(enemy);

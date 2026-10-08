@@ -153,7 +153,7 @@ class GameSessionTest {
     }
 
     @Test
-    void debugStartGivesOnlyTheHostCreditsAndEveryWeaponWithFullAmmo() {
+    void debugStartGivesOnlyTheHostCreditsWithoutExtraWeapons() {
         Player guest = game.connectPlayer("test-session-b");
         game.handleMessage(guest, "ROOM_READY:1");
         game.handleMessage(guest, "START:DEBUG");
@@ -164,15 +164,16 @@ class GameSessionTest {
         assertEquals(GamePhase.PREPARING, game.phase);
         assertEquals(100_000, player.credits);
         assertEquals("pistol", player.weapon);
-        for (String weapon : GameConfig.WEAPONS.keySet()) {
+        for (String weapon : WeaponCatalog.ALL.stream().filter(WeaponCatalog.Definition::usesAmmo).map(WeaponCatalog.Definition::id).toList()) {
             game.handleMessage(player, "WEAPON:" + weapon);
-            assertEquals(weapon, player.weapon);
-            assertEquals(GameSession.weaponAmmoCapacity(weapon), GameSession.weaponAmmo(player, weapon));
+            assertEquals("pistol", player.weapon);
+            assertFalse(player.weapons.owns(weapon));
+            assertEquals(0, GameSession.weaponAmmo(player, weapon));
         }
         for (Player other : game.players) {
             if (other == player) continue;
             assertEquals(0, other.credits);
-            for (String weapon : GameConfig.AMMO_CAPACITIES.keySet()) {
+            for (String weapon : WeaponCatalog.ALL.stream().filter(WeaponCatalog.Definition::usesAmmo).map(WeaponCatalog.Definition::id).toList()) {
                 game.handleMessage(other, "WEAPON:" + weapon);
                 assertEquals("pistol", other.weapon);
                 assertEquals(0, GameSession.weaponAmmo(other, weapon));
@@ -180,19 +181,19 @@ class GameSessionTest {
         }
 
         player.credits = 1;
-        player.shotgunAmmo = 0;
+        player.weapons.setAmmo("shotgun", 0);
         game.phase = GamePhase.LOST;
         game.handleMessage(guest, "ROOM_READY:1");
         game.handleMessage(player, "START:DEBUG");
         assertEquals(100_000, player.credits);
-        assertEquals(GameSession.weaponAmmoCapacity("shotgun"), player.shotgunAmmo);
+        assertEquals(0, player.weapons.ammo("shotgun"));
 
         game.phase = GamePhase.LOST;
         game.handleMessage(guest, "ROOM_READY:1");
         game.handleMessage(player, "START");
         assertEquals(GamePhase.PREPARING, game.phase);
         assertEquals(0, player.credits);
-        for (String weapon : GameConfig.AMMO_CAPACITIES.keySet()) {
+        for (String weapon : WeaponCatalog.ALL.stream().filter(WeaponCatalog.Definition::usesAmmo).map(WeaponCatalog.Definition::id).toList()) {
             game.handleMessage(player, "WEAPON:" + weapon);
             assertEquals("pistol", player.weapon);
             assertEquals(0, GameSession.weaponAmmo(player, weapon));
@@ -210,14 +211,14 @@ class GameSessionTest {
 
         game.handleMessage(player, "BUY:shotgun");
 
-        assertTrue(player.ownsShotgun);
+        assertTrue(player.weapons.owns("shotgun"));
         assertEquals("shotgun", player.weapon);
-        assertEquals(GameSession.weaponAmmoCapacity("shotgun"), player.shotgunAmmo);
+        assertEquals(GameSession.weaponAmmoCapacity("shotgun"), player.weapons.ammo("shotgun"));
         assertEquals(250, player.credits);
 
-        player.shotgunAmmo = 4;
+        player.weapons.setAmmo("shotgun", 4);
         game.handleMessage(player, "BUY:shotgun");
-        assertEquals(GameSession.weaponAmmoCapacity("shotgun"), player.shotgunAmmo);
+        assertEquals(GameSession.weaponAmmoCapacity("shotgun"), player.weapons.ammo("shotgun"));
         assertEquals(130, player.credits,
                 "the weapon unit should refill its own ammunition for 120G");
 
@@ -226,14 +227,14 @@ class GameSessionTest {
 
         player.credits = 1_000;
         game.handleMessage(player, "BUY:rifle");
-        assertFalse(player.ownsRifle);
+        assertFalse(player.weapons.owns("rifle"));
         assertEquals(1_000, player.credits,
                 "a shop unit must sell only the item assigned to that unit");
 
         player.x = GameMap.CORE_X;
         player.y = GameMap.CORE_Y;
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(GameSession.weaponAmmoCapacity("shotgun"), player.shotgunAmmo);
+        assertEquals(GameSession.weaponAmmoCapacity("shotgun"), player.weapons.ammo("shotgun"));
         assertEquals(1_000, player.credits, "a remote purchase must be rejected");
     }
 
@@ -260,24 +261,24 @@ class GameSessionTest {
         player.x = smgShop.x();
         player.y = smgShop.y();
         game.handleMessage(player, "BUY:smg");
-        assertTrue(player.ownsSmg);
+        assertTrue(player.weapons.owns("smg"));
         assertEquals("smg", player.weapon);
-        assertEquals(GameSession.weaponAmmoCapacity("smg"), player.smgAmmo);
+        assertEquals(GameSession.weaponAmmoCapacity("smg"), player.weapons.ammo("smg"));
 
         ShopUnit sniperShop = GameMap.shopByItem("sniper");
         player.x = sniperShop.x();
         player.y = sniperShop.y();
         game.handleMessage(player, "BUY:sniper");
-        assertTrue(player.ownsSniper);
+        assertTrue(player.weapons.owns("sniper"));
         assertEquals("sniper", player.weapon);
-        assertEquals(15, player.sniperAmmo);
+        assertEquals(15, player.weapons.ammo("sniper"));
 
         ShopUnit ammoShop = GameMap.shopByItem("ammo");
         player.x = ammoShop.x();
         player.y = ammoShop.y();
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(GameSession.weaponAmmoCapacity("smg"), player.smgAmmo);
-        assertEquals(15, player.sniperAmmo);
+        assertEquals(GameSession.weaponAmmoCapacity("smg"), player.weapons.ammo("smg"));
+        assertEquals(15, player.weapons.ammo("sniper"));
     }
 
     @Test
@@ -370,6 +371,52 @@ class GameSessionTest {
         game.handleMessage(player, "FIRE:" + enemy.x + ":" + enemy.y + ":0");
 
         assertTrue(enemy.x > initialX, "the bat should retain its deliberate knockback");
+    }
+
+    @Test
+    void batEffectUsesClickPositionWithinReachAndClampsDistantClicks() throws Exception {
+        startWave();
+        game.enemies.clear();
+        player.x = GameMap.CORE_X;
+        player.y = GameMap.CORE_Y;
+        game.handleMessage(player, "WEAPON:bat");
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        for (double[] offset : List.of(new double[]{40, 0}, new double[]{30, 40},
+                new double[]{GameSession.weaponStats("bat").range(), 0}, new double[]{300, 0}, new double[]{0, 0})) {
+            player.cooldown = 0;
+            events.broadcasts.clear();
+            double aimX = player.x + offset[0], aimY = player.y + offset[1];
+            game.handleMessage(player, "FIRE:" + aimX + ":" + aimY + ":1");
+            game.handleMessage(player, "FIRE:" + aimX + ":" + aimY + ":0");
+            var effects = new java.util.ArrayList<com.fasterxml.jackson.databind.JsonNode>();
+            for (String message : events.broadcasts) {
+                var event = mapper.readTree(message);
+                if (event.path("effect").asText().equals("hit")
+                        && event.path("weapon").asText().equals("bat")
+                        && event.path("damage").asDouble() == 0) effects.add(event);
+            }
+            assertEquals(1, effects.size(), "each swing should produce exactly one visual effect");
+            double length = Math.hypot(offset[0], offset[1]);
+            double fraction = length == 0 ? 0 : Math.min(length, GameSession.weaponStats("bat").range()) / length;
+            assertEquals(player.x + offset[0] * fraction, effects.get(0).path("x").asDouble(), .1);
+            assertEquals(player.y + offset[1] * fraction, effects.get(0).path("y").asDouble(), .1);
+        }
+    }
+
+    @Test
+    void closeBatClickRetainsFullCombatReach() {
+        startWave();
+        game.enemies.clear();
+        player.x = GameMap.CORE_X;
+        player.y = GameMap.CORE_Y;
+        game.handleMessage(player, "WEAPON:bat");
+        Enemy enemy = new Enemy(9_003, "grunt", GameMap.SPAWN_POINTS.get(0), 500, 0, 0, 0);
+        enemy.x = player.x + 80;
+        enemy.y = player.y;
+        game.enemies.add(enemy);
+        game.handleMessage(player, "FIRE:" + (player.x + 40) + ":" + player.y + ":1");
+        game.handleMessage(player, "FIRE:" + (player.x + 40) + ":" + player.y + ":0");
+        assertEquals(500 - GameSession.weaponStats("bat").damage(), enemy.hp, .001);
     }
 
     @Test
@@ -606,7 +653,7 @@ class GameSessionTest {
     @Test
     void nearbyPlayerIsRevivedOnlyAfterFourSeconds() {
         startPreparing();
-        game.players.forEach(candidate -> candidate.human = true);
+        game.players.forEach(candidate -> { candidate.human = true; candidate.job = "scout"; });
         Player target = game.players.get(1);
         player.x = 1020;
         player.y = 1900;
@@ -745,7 +792,7 @@ class GameSessionTest {
     void reconnectTokenRestoresTheSamePlayerAndState() {
         player.name = "Reconnect Tester";
         player.x = 777;
-        player.ownsShotgun = true;
+        player.weapons.setOwned("shotgun", true);
         game.disconnectPlayer(player);
 
         Player rejoined = game.connectPlayer("test-session-a");
@@ -754,7 +801,7 @@ class GameSessionTest {
         assertTrue(rejoined.human);
         assertEquals("Reconnect Tester", rejoined.name);
         assertEquals(777, rejoined.x);
-        assertTrue(rejoined.ownsShotgun);
+        assertTrue(rejoined.weapons.owns("shotgun"));
     }
 
     @Test
@@ -771,13 +818,13 @@ class GameSessionTest {
     @Test
     void browserReturnKeepsInventoryBeyondTheOldThirtySecondLimit() {
         player.credits = 1234;
-        player.ownsShotgun = true;
+        player.weapons.setOwned("shotgun", true);
         game.disconnectPlayer(player);
         game.update(31);
         assertEquals("test-session-a", player.sessionId);
         assertSame(player, game.connectPlayer("test-session-a"));
         assertEquals(1234, player.credits);
-        assertTrue(player.ownsShotgun);
+        assertTrue(player.weapons.owns("shotgun"));
         game.disconnectPlayer(player);
         game.update(GameConfig.RECONNECT_GRACE_SECONDS + 1);
         assertNull(player.sessionId);
@@ -786,13 +833,13 @@ class GameSessionTest {
     @Test
     void returningAfterGameOverDoesNotResetEveryoneInventory() {
         player.credits = 1234;
-        player.ownsShotgun = true;
+        player.weapons.setOwned("shotgun", true);
         game.disconnectPlayer(player);
         game.phase = GamePhase.LOST;
         assertSame(player, game.connectPlayer("test-session-a"));
         assertEquals(GamePhase.LOST, game.phase);
         assertEquals(1234, player.credits);
-        assertTrue(player.ownsShotgun);
+        assertTrue(player.weapons.owns("shotgun"));
     }
 
     @Test
@@ -892,10 +939,10 @@ class GameSessionTest {
 
         game.prepTime = 90;
         game.update(.05);
-        assertFalse(bot.ownsRicochet, "CPU must travel to the facility before buying");
-        for (int i = 0; i < 900 && !bot.ownsRicochet; i++) game.update(.05);
+        assertFalse(bot.weapons.owns("ricochet"), "CPU must travel to the facility before buying");
+        for (int i = 0; i < 900 && !bot.weapons.owns("ricochet"); i++) game.update(.05);
 
-        assertTrue(bot.ownsRicochet);
+        assertTrue(bot.weapons.owns("ricochet"));
         assertEquals(50, bot.credits);
         assertEquals("ricochet", bot.weapon);
     }
@@ -1230,6 +1277,76 @@ class GameSessionTest {
         game.handleMessage(player, "READY");
         game.update(0.05);
         assertEquals(GamePhase.WAVE, game.phase);
+    }
+
+    @Test void purchaseAtLimitExchangesOnlySelectedWeaponAndChargesOnlyOnSuccess() throws Exception {
+        startPreparing();
+        GameMap.AREAS.forEach(area -> game.unlockedAreas.add(area.id()));
+        player.credits = 100_000;
+        for (String id : List.of("shotgun", "smg")) {
+            var shop = GameMap.shopByItem(id);
+            player.x = shop.x(); player.y = shop.y();
+            game.handleMessage(player, "BUY:" + id);
+        }
+        assertEquals(3, player.weapons.weaponCount());
+        var shop = GameMap.shopByItem("rifle");
+        player.x = shop.x(); player.y = shop.y();
+        int credits = player.credits;
+        String equipped = player.weapon;
+        for (String command : List.of("BUY:rifle", "BUY:rifle:bat", "BUY:rifle:sniper")) {
+            game.handleMessage(player, command);
+            assertEquals(credits, player.credits);
+            assertEquals(equipped, player.weapon);
+            assertFalse(player.weapons.owns("rifle"));
+        }
+        assertTrue(events.directMessages.stream().anyMatch(message -> message.contains("交換する武器")));
+        player.credits = shop.cost() - 1;
+        game.handleMessage(player, "BUY:rifle:shotgun");
+        assertTrue(player.weapons.owns("shotgun"));
+        assertEquals(shop.cost() - 1, player.credits);
+        player.credits = credits;
+        game.handleMessage(player, "BUY:rifle:shotgun");
+        assertEquals(credits - shop.cost(), player.credits);
+        assertFalse(player.weapons.owns("shotgun"));
+        assertEquals(0, player.weapons.ammo("shotgun"));
+        assertTrue(player.weapons.owns("smg"));
+        assertEquals("rifle", player.weapon);
+        assertEquals(3, player.weapons.weaponCount());
+        credits = player.credits;
+        game.handleMessage(player, "BUY:rifle:smg");
+        assertEquals(credits, player.credits);
+        assertTrue(player.weapons.owns("smg"));
+        player.weapons.setAmmo("rifle", 0);
+        game.handleMessage(player, "BUY:rifle");
+        assertEquals(credits - GameSession.ammoRefillCost(), player.credits);
+        assertEquals(WeaponCatalog.capacity("rifle"), player.weapons.ammo("rifle"));
+        shop = GameMap.shopByItem("sniper");
+        player.x = shop.x(); player.y = shop.y();
+        game.handleMessage(player, "BUY:sniper:pistol");
+        assertFalse(player.weapons.owns("pistol"));
+        assertEquals(3, player.weapons.weaponCount());
+        var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
+        assertEquals(3, snapshot.path("rules").path("weaponLimit").asInt());
+        assertTrue(snapshot.path("players").get(player.slot - 1).has("ownsPistol"));
+        assertFalse(snapshot.path("players").get(player.slot - 1).path("ownsPistol").asBoolean());
+    }
+
+    @Test void cpuPurchaseUsesTheSameExchangeLimitAndCost() throws Exception {
+        startPreparing();
+        var bot = game.players.stream().filter(candidate -> !candidate.human).findFirst().orElseThrow();
+        bot.weapons.grant("shotgun");
+        bot.weapons.grant("smg");
+        GameMap.AREAS.forEach(area -> game.unlockedAreas.add(area.id()));
+        var shop = GameMap.shopByItem("rifle");
+        bot.x = shop.x(); bot.y = shop.y(); bot.credits = shop.cost();
+        var buy = GameSession.class.getDeclaredMethod("buy", Player.class, String.class);
+        buy.setAccessible(true);
+        buy.invoke(game, bot, "rifle");
+        assertEquals(0, bot.credits);
+        assertEquals(3, bot.weapons.weaponCount());
+        assertFalse(bot.weapons.owns("pistol"));
+        assertTrue(bot.weapons.owns("rifle"));
+        assertEquals("rifle", bot.weapon);
     }
 
     private static final class RecordingEvents implements GameEventSink {

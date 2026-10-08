@@ -78,6 +78,9 @@ button, input { font: inherit; }
 .player-stats b { color: white; font-size: .9em; }
 .hp-line { height: 6px; margin-top: .45rem; background: rgb(255 255 255 / 16%); overflow: hidden; }
 .hp-line span { display: block; height: 100%; background: var(--accent-blue); box-shadow: 0 0 8px rgb(121 216 255 / 58%); }
+.teammate-intel { display: flex; flex-wrap: wrap; gap: .12rem .5rem; margin-top: .35rem; font-size: clamp(.65rem, 1.3vw, .78rem); line-height: 1.3; }
+.teammate-intel > span:first-child { color: var(--accent-blue); }
+.teammate-intel > span:last-child { color: rgb(255 255 255 / 80%); overflow-wrap: anywhere; }
 .teammate.low .hp-line span,
 .teammate.down .hp-line span { background: var(--accent-red); box-shadow: 0 0 8px rgb(255 89 100 / 58%); }
 .materials { margin-top: .36rem; color: rgb(255 255 255 / 62%); font: 800 .7rem ui-monospace, monospace; letter-spacing: .08em; }
@@ -85,7 +88,7 @@ button, input { font: inherit; }
 .self-vitals {
     position: absolute;
     left: max(.8rem, env(safe-area-inset-left));
-    bottom: max(.75rem, env(safe-area-inset-bottom));
+    bottom: calc(max(.75rem, env(safe-area-inset-bottom)) + 1.5rem);
     z-index: 5;
     display: flex;
     align-items: center;
@@ -127,7 +130,7 @@ button, input { font: inherit; }
 .notice {
     position: absolute;
     left: max(.9rem, env(safe-area-inset-left));
-    bottom: calc(max(.9rem, env(safe-area-inset-bottom)) + 8rem);
+    bottom: calc(max(.9rem, env(safe-area-inset-bottom)) + 11rem);
     z-index: 3;
     display: grid;
     gap: .22rem;
@@ -236,12 +239,14 @@ button, input { font: inherit; }
 .weapon::after { content: ""; position: absolute; left: 0; bottom: 0; width: var(--cooldown-progress); height: 3px; background: #fff; transition: width .08s linear; }
 .weapon:active { transform: scale(.98); }
 .weapon:disabled { opacity: .66; cursor: not-allowed; }
-.weapon-meta { display: grid; align-content: center; gap: .46rem; min-width: 0; }
+.weapon-meta { position: relative; z-index: 1; display: grid; align-content: center; gap: .46rem; min-width: 0; }
 #weapon-name { font: 900 1.42rem ui-monospace, monospace; letter-spacing: .08em; }
 #weapon-ammo { color: white; font: 900 1.85rem ui-monospace, monospace; }
 .weapon-cooldown { color: rgb(255 255 255 / 70%); font: 800 .86rem ui-monospace, monospace; }
 .weapon-icon { position: relative; width: 5.2rem; height: 2.6rem; transform: scale(2); transform-origin: center; image-rendering: pixelated; }
 .weapon-icon::before, .weapon-icon::after { content: ""; position: absolute; display: block; background: #e6e6e6; }
+.weapon-icon.drone::before, .weapon-icon.build-drone::before { left: 1.9rem; top: .9rem; width: 1.2rem; height: .8rem; background: #ddfbff; }
+.weapon-icon.drone::after, .weapon-icon.build-drone::after { left: .35rem; top: .15rem; width: 1.6rem; height: .65rem; border-radius: 50%; background: #8be8f5; box-shadow: 2.8rem 0 0 #8be8f5, 0 1.55rem 0 #8be8f5, 2.8rem 1.55rem 0 #8be8f5; }
 .weapon-icon.pistol::before { left: .45rem; top: .55rem; width: 3.2rem; height: .72rem; box-shadow: .45rem -.22rem 0 #aaa; }
 .weapon-icon.pistol::after { left: 2.45rem; top: 1.2rem; width: .78rem; height: 1.05rem; transform: skew(-10deg); background: #8b8b8b; }
 .weapon-icon.bat::before { left: .55rem; top: 1rem; width: 3.8rem; height: .55rem; transform: rotate(-18deg); background: #d0d0d0; }
@@ -258,6 +263,7 @@ button, input { font: inherit; }
 .weapon-icon.build-turret::before { left: 1rem; top: .75rem; width: 2.7rem; height: 1.45rem; border: .14rem solid #eee; background: #777; }
 .weapon-icon.build-turret::after { left: 2.12rem; top: -.25rem; width: .55rem; height: 1.45rem; background: #79d8ff; }
 .weapon-icon.build-wire::before { left: .4rem; top: .4rem; width: 4.1rem; height: 1.7rem; border-top: .24rem solid #ddd; border-bottom: .24rem solid #aaa; background: repeating-linear-gradient(125deg, transparent 0 .45rem, #888 .5rem .68rem); }
+.weapon-icon.build-teleporter::before { left: 1.25rem; top: .2rem; width: 2.5rem; height: 2.25rem; border: .2rem solid #aa83ff; border-radius: 50%; background: #282035; box-shadow: inset 0 0 .7rem #aa83ff; }
 .weapon-icon.build-mine::before { left: 1.35rem; top: .2rem; width: 2.25rem; height: 2.25rem; border: .14rem solid #fff; border-radius: 50%; background: #777; }
 .weapon-icon.build-mine::after { left: 2.18rem; top: .95rem; width: .62rem; height: .62rem; border-radius: 50%; background: #ff5964; }
 .weapon-icon.build-barricade::before { left: .25rem; top: .45rem; width: 4.5rem; height: 1.75rem; border: .14rem solid #ddd; background: repeating-linear-gradient(0deg, #666 0 .4rem, #999 .4rem .62rem); }
@@ -292,6 +298,7 @@ button, input { font: inherit; }
     font: 950 1.08rem ui-monospace, monospace;
     letter-spacing: .08em;
 }
+.inventory-heading strong { margin-right: auto; }
 .how-to-link {
     padding: .38rem .55rem;
     border: 1px solid rgb(255 255 255 / 32%);
@@ -673,3 +680,14 @@ button, input { font: inherit; }
 
 .health-heart.full .heart-fill { clip-path: none; }
 .health-heart.full .heart-base { color: var(--accent-red); }
+
+#room-lobby { position: relative; }
+#job-ability { padding: .6rem; min-width: 64px; font-size: .8rem; }
+
+#missile-panel { position: fixed; inset: 5vh 5vw; z-index: 50; background: #07170d; color: #8fefb0; border: 1px solid #57a779; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+#missile-panel[hidden] { display: none; }
+#missile-panel header { display: flex; align-items: center; justify-content: space-between; }
+#missile-map { width: 100%; flex: 1; min-height: 0; object-fit: contain; cursor: crosshair; touch-action: none; }
+#action-options:has(.job-picker) { display: block; }
+.weapon-icon.flamethrower::before { left: .4rem; top: .7rem; width: 3.8rem; height: .8rem; background: #d88636; }
+.weapon-icon.flamethrower::after { left: 1rem; top: 1.5rem; width: 1rem; height: .9rem; background: #555; }
