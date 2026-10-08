@@ -3098,6 +3098,13 @@ function drawHitEffects() {
             ctx.restore();
             continue;
         }
+        if (effect.weapon === "flamethrower") {
+            if (effect.damage === 0 && effect.enemyId == null && typeof FlameParticles !== "undefined") {
+                FlameParticles.draw(ctx, effect, now, state.rules.flameHalfAngle,
+                    (origin, target) => canPredictOccupy(target.x, target.y, 0, false) && hasInteractionPath(origin, target));
+            }
+            continue;
+        }
         const age = now - effect.started;
         if (age < 360) {
             const progress = age / 360;
@@ -3111,8 +3118,7 @@ function drawHitEffects() {
             }
             if ((effect.weapon === "turret" || effect.damage === 0)
                 && !["bat", "mine"].includes(effect.weapon) && progress < .55) {
-                ctx.strokeStyle = effect.weapon === "flamethrower" ? "#ff9c38" : ctx.strokeStyle;
-                ctx.lineWidth = effect.weapon === "flamethrower" ? 24 * (1 - progress) : 1.35;
+                ctx.lineWidth = 1.35;
                 ctx.beginPath(); ctx.moveTo(effect.fromX, effect.fromY); ctx.lineTo(effect.x, effect.y); ctx.stroke();
             }
             ctx.restore();

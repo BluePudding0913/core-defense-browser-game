@@ -27,6 +27,18 @@ class HackerArsenalTest {
         e.x = x; e.y = y; game.enemies.add(e); return e;
     }
     void advance(double seconds) { for (int i = 0; i < Math.round(seconds / .05); i++) game.update(.05); }
+    @Test void flameHitsSeveralTargetsAcrossFanUsingOneAmmoAndOneBurstEvent() throws Exception {
+        player.x=940; player.y=1900; player.weapons.grant("flamethrower"); player.equipWeapon("flamethrower");
+        Enemy middle=enemy(1100,1900), wing=enemy(1100,1960), outside=enemy(970,1960), rear=enemy(900,1900);
+        game.handleMessage(player,"FIRE:1200:1900:1");
+        assertEquals(9940,middle.hp); assertEquals(9940,wing.hp);
+        assertEquals(10000,outside.hp); assertEquals(10000,rear.hp);
+        assertEquals(WeaponCatalog.capacity("flamethrower")-1,player.weapons.ammo("flamethrower"));
+        assertEquals(1,broadcasts.stream().filter(m->m.contains("\"weapon\":\"flamethrower\"")
+                && m.contains("\"enemyId\":null")).count());
+        var state=new ObjectMapper().readTree(SnapshotBuilder.build(game));
+        assertEquals(FlameRules.HALF_ANGLE,state.path("rules").path("flameHalfAngle").asDouble());
+    }
     @Test void launchAndImpactBroadcastSeparateSoundsWithOneImpactForAllPlayers() {
         game.handleMessage(player, "COMPUTER");
         game.handleMessage(player, "MISSILE:1020:1900");
