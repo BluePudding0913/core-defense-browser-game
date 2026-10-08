@@ -60,7 +60,7 @@ function mountMenu() {
                 const host = p.id === snapshot.roomOwnerId;
                 return `<li class="room-member ${host || p.ready ? "ready" : ""}"><strong>${escape(p.name)}</strong><span>${host ? "host" : p.ready ? "準備完了" : "準備中"}</span></li>`;
             }).join("") + '</ol>';
-            if (["won", "lost"].includes(snapshot.phase)) content += `<p class="ui-defense-result" role="status">${snapshot.phase === "won" ? "防衛成功" : "防衛失敗"}<small>TIME ${formatMatchTime(snapshot.elapsedSeconds)}</small></p>`;
+            if (["won", "lost"].includes(snapshot.phase)) content += `<p class="ui-defense-result${snapshot.phase === "lost" ? " failed" : ""}" role="status">${snapshot.phase === "won" ? "防衛成功" : "防衛失敗"}<small>TIME ${formatMatchTime(snapshot.elapsedSeconds)}</small></p>`;
             content += owner ? `<button data-action="start" ${!snapshot.allReady || !connected ? "disabled" : ""}>${snapshot.phase === "lobby" ? "開始" : "もう一度プレイ"}</button>` : `<button data-action="ready" ${disabled()}>${me?.ready ? "準備を取り消す" : "準備OK"}</button>`;
             content += `<button type="button" data-action="toggle-job" aria-expanded="${jobOpen}" aria-controls="job-panel" ${disabled()}>ジョブ:${window.coreJobs?.[me?.job]?.name || "Healer"}</button>`;
             content += button("leave", "戻る");

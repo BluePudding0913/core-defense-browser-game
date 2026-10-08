@@ -64,6 +64,7 @@ const actionClose = document.querySelector("#action-close");
 const inventoryMenu = document.querySelector("#inventory-menu");
 const inventoryItems = document.querySelector("#inventory-items");
 const roundIntro = document.querySelector("#round-intro");
+const screenFade = document.querySelector("#screen-fade");
 const howToMenu = document.querySelector("#how-to-menu");
 const howToStart = document.querySelector("#how-to-start");
 document.querySelector("#inventory-settings").addEventListener("click", () => {
@@ -543,24 +544,34 @@ function applyRules(next) {
 }
 
 let endAreaPhase = null;
-let endAreaDeadline = 0;
+let endAreaVisible = false;
 let endAreaTimer;
 
 function keepEndArea(next) {
     if (!["won", "lost"].includes(next.phase)) {
         clearTimeout(endAreaTimer);
         endAreaPhase = null;
+        endAreaVisible = false;
+        screenFade.classList.remove("show");
         return false;
     }
     if (endAreaPhase !== next.phase) {
         clearTimeout(endAreaTimer);
         endAreaPhase = next.phase;
-        endAreaDeadline = performance.now() + 10000;
+        endAreaVisible = true;
         endAreaTimer = setTimeout(() => {
-            if (state && state.phase === endAreaPhase) receiveState(state);
+            if (!state || state.phase !== endAreaPhase) return;
+            screenFade.classList.add("show");
+            endAreaTimer = setTimeout(() => {
+                if (state && state.phase === endAreaPhase) {
+                    endAreaVisible = false;
+                    receiveState(state);
+                }
+                screenFade.classList.remove("show");
+            }, 350);
         }, 10000);
     }
-    return performance.now() < endAreaDeadline;
+    return endAreaVisible;
 }
 
 function receiveState(next) {
@@ -593,8 +604,8 @@ function receiveState(next) {
     CORE.y = next.core.y;
     if (beginsRound) { showRoundIntro(next.round); window.coreAudio?.play("round-start"); }
     else if (endsDefense) showScreenIntro(next.phase === "won" ? "防衛成功" : "防衛失敗", 2000,
-        `TIME ${formatMatchTime(next.elapsedSeconds)}`);
-    else if (!["wave", "won", "lost"].includes(next.phase)) hideScreenIntro();
+        `TIME ${formatMatchTime(next.elapsedSeconds)}`, next.phase);
+    else if (!["wave", "won", "lost"].includes(next.phase) || !keepArea && ["won", "lost"].includes(next.phase)) hideScreenIntro();
     previousRound = next.round;
     previousPhase = next.phase;
     reconcileLocalPrediction(next);
@@ -688,14 +699,15 @@ function hideScreenIntro() {
     roundIntro.classList.remove("show");
 }
 
-function showScreenIntro(text, delay = 0, detail = "") {
+function showScreenIntro(text, delay = 0, detail = "", result = "") {
     hideScreenIntro();
     const show = () => {
         roundIntro.textContent = text;
         roundIntro.dataset.detail = detail;
+        roundIntro.dataset.result = result;
         void roundIntro.offsetWidth;
         roundIntro.classList.add("show");
-        roundIntroTimer = setTimeout(() => roundIntro.classList.remove("show"), 2400);
+        if (!result) roundIntroTimer = setTimeout(() => roundIntro.classList.remove("show"), 2400);
     };
     if (delay > 0) roundIntroTimer = setTimeout(show, delay);
     else show();
@@ -1311,7 +1323,7 @@ function reconcileLocalPrediction(snapshot) {
     const errorY = serverMe.y - predictedLocal.y;
     const error = Math.hypot(errorX, errorY);
     if (error > 120 || serverMe.scoutDashRemaining > 0 || predictedLocal.scoutDashRemaining > 0
-            || !["preparing", "wave"].includes(snapshot.phase)) {
+            || !(["preparing", "wave"].includes(snapshot.phase) || snapshot.phase === "won" && snapshot.victoryMoveRemaining > 0)) {
         predictedLocal.x = serverMe.x;
         predictedLocal.y = serverMe.y;
     } else {
@@ -2124,7 +2136,8 @@ function updateLocalPrediction(dt) {
         predictedLocal.dashing = false;
         return;
     }
-    if (!predictedLocal || !serverMe || !["preparing", "wave"].includes(state.phase)) return;
+    if (!predictedLocal || !serverMe || !(["preparing", "wave"].includes(state.phase)
+            || state.phase === "won" && state.victoryMoveRemaining > 0)) return;
     if (predictedLocal.movementPauseUntil) {
         if (performance.now() < predictedLocal.movementPauseUntil) return;
         predictedLocal.movementPauseUntil = 0;

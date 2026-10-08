@@ -30,6 +30,7 @@ final class SnapshotBuilder {
         json.append(",\"round\":").append(game.round).append(",\"maxRounds\":").append(MAX_ROUNDS);
         json.append(",\"prepTime\":").append(roundOne(game.prepTime));
         json.append(",\"elapsedSeconds\":").append(roundOne(game.elapsedSeconds));
+        json.append(",\"victoryMoveRemaining\":").append(roundOne(game.victoryMoveRemaining));
         json.append(",\"nextPrepBonus\":").append(game.nextPrepBonusSeconds);
         json.append(",\"prepExtensionCost\":").append(game.prepExtensionCost());
         json.append(",\"queued\":").append(game.queuedEnemies + game.queuedBosses);
