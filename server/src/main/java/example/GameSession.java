@@ -435,10 +435,11 @@ final class GameSession {
         player.stopRailgun(); cancelAction(player);
         double previousMaxHp = JobRules.maxHp(player.job);
         player.secondaryFiring = false; player.stopSecondaryRailgun();
-        player.secondaryWeapon = player.weapons.owns("pistol") ? "pistol" : player.weapon;
+        player.secondaryWeapon = "bat";
         player.secondaryWeaponCooldowns.clear(); player.secondaryWeaponCooldownMaxima.clear();
         player.secondaryCooldown = player.secondaryCooldownMax = player.healRemaining = 0;
         player.job = job;
+        player.ensureDistinctWeapons();
         player.hp = player.down ? 0 : Math.min(JobRules.maxHp(job), player.hp * JobRules.maxHp(job) / previousMaxHp);
         player.decoyCooldown = 0;
         decoys.removeIf(decoy -> decoy.ownerId.equals(player.id));
@@ -2403,12 +2404,13 @@ final class GameSession {
 
     private void switchSecondaryWeapon(Player player, String weapon) {
         if (!canMove() || !player.job.equals("attacker") || player.down || player.movingCore
-                || !player.weapons.owns(weapon) || DroneRules.mounted(player, weapon)) return;
+                || weapon.equals(player.weapon) || !player.weapons.owns(weapon) || DroneRules.mounted(player, weapon)) return;
         player.equipSecondaryWeapon(weapon);
         player.secondaryFiring = false;
     }
 
     private void switchWeapon(Player player, String weapon) {
+        if (player.job.equals("attacker") && weapon.equals(player.secondaryWeapon)) return;
         if (player.weapons.owns(weapon) && !DroneRules.mounted(player, weapon)) {
             releaseCarriedCore(player);
             player.equipWeapon(weapon);
@@ -3146,7 +3148,7 @@ final class GameSession {
             player.spyRemaining = 0;
             player.drone = null;
             player.secondaryFiring = false; player.stopSecondaryRailgun();
-            player.secondaryWeapon = "pistol";
+            player.secondaryWeapon = "bat";
             player.secondaryWeaponCooldowns.clear(); player.secondaryWeaponCooldownMaxima.clear();
             player.secondaryCooldown = player.secondaryCooldownMax = player.healRemaining = 0;
             player.jobCooldown = 0;

@@ -767,6 +767,7 @@ function reorderEquipment(sourceKey, targetKey) {
 
 function equipmentEntries(me) {
     const entries = WeaponUI.entries(me, WEAPON_FIELDS)
+        .filter(entry => me.job !== "attacker" || entry.value !== me.secondaryWeapon)
         .filter(entry => !(me.drone?.active && entry.value === me.drone.weapon));
     for (const [type, info] of Object.entries(BUILD_INFO)) {
         if ((me.buildItems?.[type] || 0) > 0) entries.push({ key: `build:${type}`, kind: "build", value: type, label: info.name });
@@ -992,13 +993,16 @@ function updateAttackerLoadout(me) {
     panel.classList.toggle("hidden", me.job !== "attacker");
     if (me.job !== "attacker") return;
     const entries = WeaponUI.entries(me, WEAPON_FIELDS);
-    const options = entries.map(entry => '<option value="' + entry.value + '">' + escapeHtml(entry.label) + '</option>').join("");
     for (const select of panel.querySelectorAll("select")) {
+        const opposite = select.dataset.hand === "left" ? me.secondaryWeapon : me.weapon;
+        const options = entries.filter(entry => entry.value !== opposite)
+            .map(entry => '<option value="' + entry.value + '">' + escapeHtml(entry.label) + '</option>').join("")
+            || '<option value="none">—</option>';
         if (select.dataset.options !== options) {
             select.innerHTML = options;
             select.dataset.options = options;
         }
-        select.value = select.dataset.hand === "left" ? me.weapon : me.secondaryWeapon || "pistol";
+        select.value = select.dataset.hand === "left" ? me.weapon : me.secondaryWeapon || "bat";
         select.disabled = me.down || me.movingCore || me.missileControl;
     }
 }
@@ -1007,6 +1011,7 @@ document.querySelector("#attacker-loadout").addEventListener("change", event => 
     const select = event.target.closest("select[data-hand]");
     const me = getMe();
     if (!select || select.disabled || me?.job !== "attacker" || me.down || me.movingCore) return;
+    if (select.value === (select.dataset.hand === "left" ? me.secondaryWeapon : me.weapon)) return;
     if (!WeaponUI.entries(me, WEAPON_FIELDS).some(entry => entry.value === select.value)) return;
     if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
     stopSecondaryFiring();
@@ -1427,7 +1432,7 @@ function canBuildAt(point, forCore = false) {
     if (!forCore && distance(point, state.core) < 40) return false;
     if (distance(point, ARMORY) < 36 || MEDBAYS.some(station => distance(point, station) < 36)
             || distance(point, WOODCUTTER) < 36 || distance(point, QUARRY) < 36) return false;
-    if (AREAS.some(area => distance(point, { x: area.terminalX, y: area.terminalY }) < 36)) return false;
+    if (AREAS.some(area => !state.areas[area.id] && distance(point, { x: area.terminalX, y: area.terminalY }) < 36)) return false;
     if (WORKBENCHES.some(workbench => distance(point, workbench) < 36)) return false;
     if (SHOP_UNITS.some(shop => distance(point, shop) < 36)) return false;
     if (BREAKER_TERMINALS.some(breaker => distance(point, breaker) < 36)) return false;
@@ -1517,9 +1522,7 @@ function openShopPurchase(shop, chooseExchange = false) {
             : unavailable ? "LOCKED" : "BUY",
         detail: `${price}G`,
         titleAmmo: alreadyOwned && weaponFields.capacity > 0 ? `${ammo} / ${weaponFields.capacity}` : "",
-        ammoStock: shop.item === "ammo" ? Object.entries(WEAPON_FIELDS)
-            .filter(([, fields]) => ownedWeapons.includes(fields))
-            .map(([id, fields]) => ({ name: WeaponUI.name(id, WEAPON_FIELDS), count: `${me[fields.ammo]} / ${fields.capacity}` })) : [],
+        stock: shop.item === "ammo" ? WeaponUI.ammoStock(me, WEAPON_FIELDS) : "",
         command: weaponLimitReached ? undefined : `BUY:${shop.item}`,
         onSelect: weaponLimitReached ? () => openShopPurchase(shop, true) : undefined,
         disabled: mounted || ammoFull || unavailable || me.credits < price,
@@ -2406,8 +2409,7 @@ function drawPlacementPreview() {
     ctx.fillStyle = valid ? "#111" : "#fff";
     ctx.font = "950 9px ui-monospace, monospace";
     ctx.textAlign = "center";
-    const reservedResource = (state.resources || []).some(node => distance(point, node) < 36);
-    ctx.fillText(valid ? "R PLACE" : reservedResource ? "RESOURCE" : "BLOCKED", point.x, point.y + 3);
+    ctx.fillText(valid ? "R PLACE" : "BLOCKED", point.x, point.y + 3);
     ctx.restore();
 }
 
@@ -2503,16 +2505,7 @@ function drawStation(station, label, color, labelColor = "#111") {
 
 function drawResources() {
     for (const node of state.resources || []) {
-        if (!node.available) {
-            if (placementSelection(getMe())) {
-                ctx.save();
-                ctx.strokeStyle = "rgb(150 150 150 / 55%)";
-                ctx.lineWidth = 1;
-                ctx.strokeRect(node.x - 8, node.y - 6, 16, 12);
-                ctx.restore();
-            }
-            continue;
-        }
+        if (!node.available) continue;
         const bob = Math.sin(performance.now() / 260 + node.x * .01) * 3;
         ctx.save();
         ctx.translate(node.x, node.y + bob);
