@@ -25,8 +25,9 @@ class RoundPreparationBalanceTest {
         game.handleMessage(host, "START");
         game.players.forEach(p -> p.human = true);
         assertEquals(10, game.prepTime);
-        for (int[] step : new int[][]{{2,10},{4,10},{5,30},{9,30},{10,60},{19,60},
-                {20,120},{29,120},{30,180},{39,180},{40,240},{50,240}}) {
+        for (int[] step : new int[][]{{2,10},{4,10},{5,30},{9,20},{10,45},{11,25},{15,35},{19,25},
+                {20,50},{21,30},{25,40},{29,30},{30,55},{31,35},{35,45},{39,35},
+                {40,60},{41,40},{45,50},{49,40},{50,60}}) {
             game.round = step[0] - 1;
             game.nextPrepBonusSeconds = 60;
             invoke(game, "finishRound", new Class<?>[]{});
