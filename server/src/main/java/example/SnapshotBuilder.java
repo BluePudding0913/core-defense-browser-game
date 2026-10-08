@@ -231,6 +231,7 @@ final class SnapshotBuilder {
                     .append(",\"jobCooldown\":").append(roundOne(player.jobCooldown))
                     .append(",\"teleportCooldown\":").append(roundOne(player.teleportCooldown))
                     .append(",\"dashSpeed\":").append(JobRules.dashSpeed(player.job))
+                    .append(",\"downSpeed\":").append(JobRules.downSpeed(player.job))
                     .append(",\"staminaRecovery\":").append(JobRules.staminaRecovery(player.job))
                     .append(",\"staminaMax\":").append(JobRules.staminaMax(player.job))
                     .append(",\"staminaDrain\":").append(JobRules.staminaDrain(player.job))

@@ -14,7 +14,7 @@
         rocket: { pitch: 140, end: 28, duration: .42, noise: .8 },
         "missile-launch": { pitch: 1100, end: 220, duration: 1.6, noise: .72, whoosh: true },
         "missile-impact": { pitch: 55, end: 18, duration: 1.05, noise: .88, rumble: true },
-        flamethrower: { pitch: 100, end: 65, duration: .12, noise: .9 },
+        flamethrower: { pitch: 80, end: 60, duration: .18, noise: .2, rumble: true },
         bat: { pitch: 150, end: 40, duration: .14, noise: .4 },
         medkit: { notes: [440, 554, 659, 880], duration: .36 },
         heal: { notes: [523, 659, 784], duration: .24 },
@@ -23,7 +23,7 @@
         purchase: { notes: [659, 988, 1318], duration: .18 },
         refill: { notes: [330, 440, 660], duration: .2, noise: .12 },
         damage: { pitch: 220, end: 55, duration: .1, noise: .35, rumble: true },
-        "round-start": { notes: [95, 145], duration: .6, noise: .15, rumble: true },
+        "round-start": { notes: [130, 195], duration: .6, noise: .15, rumble: true },
         pickup: { notes: [880, 1320], duration: .12 },
         item: { notes: [660, 880], duration: .16 },
         railgun: { pitch: 220, end: 220, duration: .4, noise: .35, sustain: true },
@@ -127,12 +127,19 @@
             for (const id of railguns.keys()) if (!live.has(id)) this.stopRailgun(id);
         },
         play(name, distance = 0, loop = false) {
-            if (!unlocked || masterVolume === 0 || !Object.hasOwn(effects, name) || active.size >= 8) return;
+            if (!unlocked || masterVolume === 0 || !Object.hasOwn(effects, name)) return;
             if (!Number.isFinite(distance)) return;
             const volume = Math.pow(Math.max(0, 1 - Math.max(0, distance) / 600), 2);
             if (volume === 0) return;
             const audio = context();
             if (!audio || audio.state !== "running") return;
+            if (active.size >= 8) {
+                if (name !== "round-start") return;
+                // Make room for the round cue, preferring a one-shot over a sustained beam.
+                const oldest = [...active].find(voice => !voice.loop) || active.values().next().value;
+                active.delete(oldest);
+                oldest.stop();
+            }
             const source = audio.createBufferSource();
             const gain = audio.createGain();
             gain.gain.value = volume;
@@ -141,13 +148,18 @@
             source.connect(gain);
             gain.connect(masterGain);
             active.add(source);
-            source.onended = () => { active.delete(source); source.disconnect(); gain.disconnect(); };
-            source.start();
             let stopped = false;
-            return {
+            const voice = {
                 stop() { if (stopped) return; stopped = true; source.stop(); },
                 setDistance(value) { gain.gain.value = Math.pow(Math.max(0, 1 - value / 600), 2); }
             };
+            source.onended = () => {
+                stopped = true;
+                active.delete(source); source.disconnect(); gain.disconnect();
+                for (const [id, current] of railguns) if (current.voice === voice) railguns.delete(id);
+            };
+            source.start();
+            return voice;
         }
     };
 })();
