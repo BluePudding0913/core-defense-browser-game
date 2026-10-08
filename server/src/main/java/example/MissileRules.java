@@ -5,7 +5,7 @@ final class MissileRules {
     static final double DELAY = 2;
     static final int COST = 400;
     static double cooldown() { return WeaponCatalog.stats("rocket").cooldown(); }
-    static double damage() { return WeaponCatalog.stats("rocket").damage(); }
+    static double damage() { return WeaponCatalog.stats("rocket").damage() * .8; }
     static double radius() { return WeaponCatalog.find("rocket").blastRadius(); }
     static boolean validTarget(double x, double y, java.util.Set<String> unlocked) {
         return Double.isFinite(x) && Double.isFinite(y) && GameMap.canOccupy(x, y, 0, unlocked);

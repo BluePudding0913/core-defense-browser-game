@@ -50,7 +50,7 @@ class HackerArsenalTest {
         game.handleMessage(player, "MOVE:1:0"); advance(.2); assertEquals(GameMap.MISSILE_COMPUTER.x(), player.x);
         player.down = true; advance(.05); assertFalse(player.missileControl);
     }
-    @Test void missileHitsAfterTwoSecondsWithRocketDpsAndSharedCooldown() {
+    @Test void missileHitsAfterTwoSecondsWithReducedDamageAndSharedCooldown() {
         Enemy center = enemy(1020, 1900), edge = enemy(1020 + MissileRules.radius() * .5, 1900);
         game.handleMessage(player, "COMPUTER"); game.handleMessage(player, "MISSILE:1020:1900");
         assertEquals(1, game.missiles.size()); assertEquals(MissileRules.cooldown(), player.missileCooldown);
@@ -59,10 +59,10 @@ class HackerArsenalTest {
         assertEquals(1600, player.credits, "cooldown rejection must not charge again");
         game.handleMessage(player, "COMPUTER"); advance(1.95);
         assertEquals(10000, center.hp); advance(.05);
-        assertEquals(10000 - MissileRules.damage(), center.hp, .001);
-        assertEquals(10000 - MissileRules.damage() * .75, edge.hp, .001);
+        assertEquals(7600, center.hp, .001);
+        assertEquals(8200, edge.hp, .001);
         assertTrue(game.missiles.isEmpty());
-        assertEquals(WeaponCatalog.stats("rocket").damage() / WeaponCatalog.stats("rocket").cooldown(), MissileRules.damage() / MissileRules.cooldown());
+        assertEquals(3000, WeaponCatalog.stats("rocket").damage(), "handheld rocket damage is unchanged");
     }
     @Test void invalidCoordinatesAndLockedTilesCannotLaunchOrConsumeCooldown() {
         game.handleMessage(player, "COMPUTER");
