@@ -87,8 +87,8 @@ class RailgunTest {
 
     @Test void wallBlocksDamageAndDeathStopsBeam() {
         player.x = 220; player.y = 860;
-        Enemy blocked = enemy(1, "grunt", 780, 860);
-        game.handleMessage(player, "FIRE:820:860:1"); advance(1.7);
+        Enemy blocked = enemy(1, "grunt", 940, 860);
+        game.handleMessage(player, "FIRE:1000:860:1"); advance(1.7);
         assertEquals(20000, blocked.hp);
         player.down = true; advance(.05);
         assertEquals(0, player.railgunRemaining);

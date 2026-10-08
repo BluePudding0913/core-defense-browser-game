@@ -15,6 +15,20 @@ import org.junit.jupiter.api.Test;
 
 class GameMapTest {
     @Test
+    void heavyArmsHasMoreRoomLeftEntranceAndShopsAlongTopWall() {
+        var area = GameMap.AREAS.stream().filter(unit -> unit.id().equals("heavy-arms-area")).findFirst().orElseThrow();
+        assertEquals(19 * 12 + 8, area.tiles().size());
+        var spawn = GameMap.SPAWN_POINTS.stream().filter(unit -> unit.id().equals("area-heavy-arms-area")).findFirst().orElseThrow();
+        assertEquals(100, spawn.x());
+        assertTrue(spawn.y() >= 900 && spawn.y() <= 1020);
+        for (String weapon : List.of("rocket", "railgun", "flamethrower")) {
+            var shop = GameMap.SHOP_UNITS.stream().filter(unit -> unit.item().equals(weapon)).findFirst().orElseThrow();
+            assertEquals(740, shop.y());
+        }
+        assertEquals(740, GameMap.MISSILE_COMPUTER.y());
+    }
+
+    @Test
     void everyCellUsesTheFullGridForCoordinatesAndCollision() {
         Set<String> allAreas = GameMap.AREAS.stream().map(UnlockArea::id).collect(Collectors.toSet());
         for (int row = 0; row < GameMap.TILE_MAP.rows().size(); row++) {

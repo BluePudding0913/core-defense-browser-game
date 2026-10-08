@@ -53,6 +53,7 @@ for(const [rescuer,target,expected] of [['ally','other',0],['me','other',1],['al
 }
 console.log('UI regressions passed: revive visibility, locked floors, terminal paths');
 
+context.window = {coreKeySettings: {getJobEffect: () => "f"}};
 context.jobAbilityButton = { classList: { toggle() {} } };
 context.teleportUseButton = { classList: { toggle() {} } };
 context.roundElement = {};
@@ -75,3 +76,18 @@ assert.match(context.teamElement.innerHTML, /<span>CPU 2<\/span>/);
 assert.match(context.teamElement.innerHTML, /&lt;Guest&gt;/);
 assert.doesNotMatch(context.teamElement.innerHTML, /CPU[34]|Host/);
 console.log('CPU HUD names passed: server numbering and escaped player names');
+const self = {id:'me', job:'healer', hp:100, credits:25, weapon:'pistol', buildItems:{}, cooldown:0};
+context.getMe = () => self;
+Object.assign(context, {
+    JOBS: {healer: {name:'Healer'}}, selfJob: {}, selfCredits: {},
+    healthHeart: {style: {setProperty() {}}, classList:{toggle() {}}, setAttribute() {}},
+    weaponName: {}, weaponAmmo: {}, weaponIcon: {}, weaponCooldown: {},
+    weaponButton: {style:{setProperty() {}}, classList:{toggle() {}}},
+    WeaponUI: require('../weapon-ui.js'), WEAPON_FIELDS: {pistol:{name:'PISTOL', capacity:0}},
+    BUILD_INFO: {}, ammoForWeapon: () => '∞', updateInventory() {},
+    placementSelection: () => null, findNearestInteraction: () => null,
+    interactLabel: {}, interactButton: {classList:{toggle() {}}}, clamp:(v,a,b)=>Math.max(a,Math.min(v,b)),
+});
+vm.runInContext('updateHud()', context);
+assert.equal(context.selfJob.textContent, 'Healer');
+assert.equal(context.selfCredits.textContent, '25G');

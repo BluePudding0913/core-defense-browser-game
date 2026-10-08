@@ -5,6 +5,37 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 class BreakerMapTest {
+    @Test void controlledDroneRepairsFromItsPositionAndRejectsRemoteLockedOrOccludedBreakers() {
+        var game = new GameSession(new GameEventSink() {
+            public void broadcast(String message) { }
+            public void send(Player player, String message) { }
+        });
+        var player = game.connectPlayer("drone-breaker");
+        game.phase = GamePhase.PREPARING;
+        player.job = "drone"; player.x = 1020; player.y = 1900;
+        player.drone = new Drone(); player.drone.active = player.drone.controlled = true;
+        var breaker = GameMap.BREAKER_TERMINALS.stream().filter(unit -> unit.requiredArea() != null).findFirst().orElseThrow();
+        player.drone.x = breaker.x(); player.drone.y = breaker.y();
+        game.blackoutActive = true; game.trippedBreakers.add(breaker.id());
+        game.handleMessage(player, "BREAKER:" + breaker.id());
+        assertTrue(game.trippedBreakers.contains(breaker.id()), "locked area");
+        game.unlockedAreas.add(breaker.requiredArea());
+        player.drone.x = player.x; player.drone.y = player.y;
+        game.handleMessage(player, "BREAKER:" + breaker.id());
+        assertTrue(game.trippedBreakers.contains(breaker.id()), "remote drone");
+        player.drone.x = breaker.x(); player.drone.y = breaker.y(); player.down = true;
+        game.handleMessage(player, "BREAKER:" + breaker.id());
+        assertTrue(game.trippedBreakers.contains(breaker.id()), "downed operator");
+        player.down = false;
+        game.handleMessage(player, "BREAKER:" + breaker.id());
+        assertFalse(game.blackoutActive); assertFalse(game.trippedBreakers.contains(breaker.id()));
+        assertTrue(player.drone.controlled, "repair keeps the drone view");
+        assertEquals(1020, player.x); assertEquals(1900, player.y);
+        assertTrue(DroneRules.canInteract(95, true));
+        assertFalse(DroneRules.canInteract(95.01, true));
+        assertFalse(DroneRules.canInteract(30, false));
+    }
+
     @Test void onlyNearbyUnlockedHackerCanOpenAndMapNeverLaunchesMissiles() throws Exception {
         var game = new GameSession(new GameEventSink() {
             public void broadcast(String message) { }

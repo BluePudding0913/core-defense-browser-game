@@ -217,7 +217,7 @@ final class GameSession {
     private void handleCommand(Player player, String message) {
         String[] parts = message.split(":", 4);
         if (canMove() && DroneRules.controlling(player)
-                && !Set.of("MOVE", "FIRE", "ATTACK", "JOB_ABILITY", "DRONE_RECOVER", "HELLO").contains(parts[0])) return;
+                && !Set.of("MOVE", "FIRE", "ATTACK", "JOB_ABILITY", "DRONE_RECOVER", "BREAKER", "HELLO").contains(parts[0])) return;
         if (player.missileControl && !Set.of("MISSILE", "COMPUTER", "HELLO").contains(parts[0])) return;
         switch (parts[0]) {
             case "HELLO" -> updateName(player, parts);
@@ -250,8 +250,7 @@ final class GameSession {
             case "DRONE_MOUNT" -> { if (parts.length > 1) mountDrone(player, parts[1]); }
             case "DRONE_LAUNCH" -> {
                 if (parts.length > 1 && canMove() && !player.down && !player.movingCore
-                        && player.job.equals("drone") && "drone".equals(player.selectedBuild)
-                        && player.buildItemCount("drone") > 0
+                        && player.job.equals("drone") && (player.drone == null || !player.drone.active)
                         && (parts[1].equals("none") || DroneRules.mountable(parts[1]) && player.weapons.owns(parts[1]))) {
                     mountDrone(player, parts[1]);
                     launchDrone(player);
@@ -498,11 +497,11 @@ final class GameSession {
             return;
         }
         if (player.job.equals("drone")) {
-            if (player.drone == null || !player.drone.active || !"controller".equals(player.selectedBuild)) return;
+            if (player.drone == null || !player.drone.active) return;
             boolean next = !player.drone.controlled;
             releaseDroneControl(player);
             player.drone.controlled = next;
-            player.selectedBuild = "controller";
+            if (next) player.selectedBuild = null;
             cancelAction(player);
             return;
         }
@@ -573,7 +572,7 @@ final class GameSession {
 
     private void launchDrone(Player player) {
         if (!player.job.equals("drone") || player.down || player.movingCore || !canMove()
-                || !"drone".equals(player.selectedBuild) || player.buildItemCount("drone") <= 0) return;
+                || player.drone != null && player.drone.active) return;
         if (player.drone == null) player.drone = new Drone();
         Drone drone = player.drone;
         if (drone.hp <= 0) {
@@ -596,7 +595,7 @@ final class GameSession {
             player.equipWeapon(available);
         }
         drone.attackers.clear();
-        player.selectedBuild = "controller";
+        player.selectedBuild = null;
         player.firing = player.dashHeld = player.dashing = false;
         player.stopRailgun(); cancelAction(player);
     }
@@ -622,7 +621,6 @@ final class GameSession {
                 || !DroneRules.canRecover(distance(player.x, player.y, player.drone.x, player.drone.y),
                     GameMap.hasClearLine(player.x, player.y, player.drone.x, player.drone.y))) return;
         recallDrone(player);
-        player.selectedBuild = "drone";
     }
 
     private void recallDrone(Player player) {
@@ -631,7 +629,6 @@ final class GameSession {
         player.drone.active = false;
         player.drone.controlled = false;
         player.drone.attackers.clear();
-        if ("controller".equals(player.selectedBuild)) player.selectedBuild = null;
     }
 
     private void damageDrone(Player owner, double damage) {
@@ -2600,7 +2597,7 @@ final class GameSession {
         if (type.equals("none")) {
             releaseCarriedCore(player);
             player.selectedBuild = null;
-        } else if ((type.equals("teleporter") || type.equals("drone") || type.equals("controller") || BUILD_RECIPES.containsKey(type) || type.endsWith("Factory")) && player.buildItemCount(type) > 0) {
+        } else if ((type.equals("teleporter") || BUILD_RECIPES.containsKey(type) || type.endsWith("Factory")) && player.buildItemCount(type) > 0) {
             releaseCarriedCore(player);
             player.selectedBuild = type;
             player.firing = player.secondaryFiring = false;
@@ -2710,7 +2707,6 @@ final class GameSession {
 
     private void placeInFacingTile(Player player) {
         if (!canUseFacilities() || player.down) return;
-        if ("drone".equals(player.selectedBuild)) { launchDrone(player); return; }
         MapPoint origin = GameMap.snapToTile(player.x, player.y);
         double targetX = origin.x() + player.facingX * GameMap.TILE_SIZE;
         double targetY = origin.y() + player.facingY * GameMap.TILE_SIZE;
@@ -2972,7 +2968,11 @@ final class GameSession {
             gameEffects.feedback(player, "電力は正常です");
             return;
         }
-        if (!canInteract(player, breaker.x(), breaker.y(), 95)) {
+        boolean nearby = DroneRules.controlling(player)
+                ? DroneRules.canInteract(distance(player.drone.x, player.drone.y, breaker.x(), breaker.y()),
+                    hasInteractionPath(player.drone.x, player.drone.y, breaker.x(), breaker.y()))
+                : canInteract(player, breaker.x(), breaker.y(), 95);
+        if (!nearby) {
             gameEffects.feedback(player, "ブレーカーに近づいてください");
             return;
         }
@@ -3179,14 +3179,17 @@ final class GameSession {
     }
 
     private boolean canInteract(Player player, double x, double y, double range) {
-        double separation = distance(player.x, player.y, x, y);
-        if (separation > range) return false;
+        return distance(player.x, player.y, x, y) <= range && hasInteractionPath(player.x, player.y, x, y);
+    }
+
+    private boolean hasInteractionPath(double originX, double originY, double x, double y) {
+        double separation = distance(originX, originY, x, y);
         // Allow only the terminal's own tile, including diagonal approaches.
         boolean mounted = !GameMap.canOccupy(x, y, 0, unlockedAreas);
         for (double step = 0; step < separation; step += 4) {
             double factor = step / Math.max(1, separation);
-            double sampleX = player.x + (x - player.x) * factor;
-            double sampleY = player.y + (y - player.y) * factor;
+            double sampleX = originX + (x - originX) * factor;
+            double sampleY = originY + (y - originY) * factor;
             if (mounted && Math.floor(sampleX / GameMap.TILE_SIZE) == Math.floor(x / GameMap.TILE_SIZE)
                     && Math.floor(sampleY / GameMap.TILE_SIZE) == Math.floor(y / GameMap.TILE_SIZE)) continue;
             if (!GameMap.canOccupy(sampleX, sampleY, 0, unlockedAreas)) return false;

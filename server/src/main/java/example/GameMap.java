@@ -290,11 +290,14 @@ final class GameMap {
                 .collect(java.util.stream.Collectors.toSet());
         for (UnlockArea area : AREAS) {
             List<MapPoint> entrances = new ArrayList<>();
+            int leftColumn = area.tiles().stream().mapToInt(AreaTile::column).min().orElse(0);
+            double centerY = area.tiles().stream().mapToDouble(tile -> TILE_MAP.center(tile).y()).average().orElse(0);
             int entranceCount = area.id().equals("recovery-room") ? DEFINITION.spawnPoints().size() : 1;
             for (int index = 0; index < entranceCount; index++) {
                 MapPoint best = null;
                 double farthest = -1;
                 for (AreaTile tile : area.tiles()) {
+                    if (area.id().equals("heavy-arms-area") && tile.column() != leftColumn) continue;
                     MapPoint center = TILE_MAP.center(tile);
                     double x = center.x(), y = center.y();
                     if (!isWallEntrance(tile) || !canOccupy(x, y, 17, allAreas)) continue;
@@ -302,6 +305,7 @@ final class GameMap {
                             ? GameSupport.distance(x, y, area.terminalX(), area.terminalY())
                             : entrances.stream().mapToDouble(point -> GameSupport.distance(x, y, point.x(), point.y()))
                                     .min().orElse(0);
+                    if (area.id().equals("heavy-arms-area")) distance = WORLD_H - Math.abs(y - centerY);
                     if (!entrances.isEmpty() && distance < TILE_SIZE * 2) continue;
                     if (distance > farthest) {
                         farthest = distance;

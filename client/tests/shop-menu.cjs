@@ -36,7 +36,7 @@ const context = vm.createContext({
     state: { rules: { medkitCapacity: 3, silverAmmo: { cost: 1, amount: 10, damageMultiplier: 1.3 } } },
     applyRules() {}, keepEndArea: () => false, hideScreenIntro() {}, window: {},
     previousPhase: 'preparing', previousRound: 1, lastCoreHp: 100,
-    performance: { now: () => 0 }, reconcileEnemySmoothing() {}, reconcileDroneSmoothing() {}, endInteractionHold() {},
+    performance: { now: () => 0 }, reconcileEnemySmoothing() {}, reconcileDroneSmoothing() {}, endInteractionHold() {}, endJobHold() {},
     CORE: {}, reconcileLocalPrediction() {}, receiveLog() {}, updateHud() {}, updateRoomLobby() {},
     menu: { classList: { add() {} } }, hud: { classList: { remove() {} } },
     inventoryMenu: { classList: { add() {} } },
@@ -56,17 +56,19 @@ const click = () => { const button = actionOptions.children[0]; if (!button.disa
 context.shop = { label: 'SHOTGUN', item: 'shotgun', cost: 450, x: 0, y: 0 };
 run('openShopPurchase(shop)');
 const weaponButton = actionOptions.children[0];
+assert(!context.actionTitle.innerHTML, "new weapon has no stock label");
 click();
 assert.equal(commands.at(-1), 'BUY:shotgun');
 assert(!classes.has('hidden'), 'purchase keeps the shop open');
 me.ownsShotgun = true; me.shotgunAmmo = 12; me.credits = 50;
 snapshot();
 assert.equal(actionOptions.children[0], weaponButton, 'snapshots preserve the button and its focus');
-assert.equal(weaponButton.innerHTML, 'FULL<small>120G</small><span class="action-stock">弾薬 12 / 12</span>');
+assert.equal(weaponButton.innerHTML, 'FULL<small>120G</small>');
 assert(weaponButton.disabled);
+assert(context.actionTitle.innerHTML.includes('SHOTGUN<span class="shop-ammo">12 / 12'));
 me.shotgunAmmo = 0; me.credits = 120;
 snapshot();
-assert.equal(weaponButton.innerHTML, 'REFILL<small>120G</small><span class="action-stock">弾薬 0 / 12</span>');
+assert.equal(weaponButton.innerHTML, 'REFILL<small>120G</small>');
 assert(!weaponButton.disabled);
 click();
 const refillStart = source.indexOf('if (message.type === "ammo-refilled") {');
@@ -100,7 +102,7 @@ context.shop = { label: 'AMMO', item: 'ammo', cost: 500, x: 0, y: 0 };
 run('openShopPurchase(shop)');
 const ammoButton = actionOptions.children[0];
 assert.equal(ammoButton.innerHTML,
-    'REFILL<small>500G</small><span class="action-stock">SHOTGUN 12 / 12\nSMG 25 / 300</span>');
+    'REFILL<small>500G</small><span class="ammo-refill-row">SHOTGUN<span class="shop-ammo">12 / 12</span></span><span class="ammo-refill-row">SMG<span class="shop-ammo">25 / 300</span></span>');
 assert(!ammoButton.innerHTML.includes('PISTOL'), 'unlimited weapons do not appear in ammo stock');
 click();
 assert.equal(commands.at(-1), 'BUY:ammo');
@@ -108,13 +110,13 @@ me.smgAmmo = 300;
 snapshot();
 assert.equal(actionOptions.children[0], ammoButton, 'ammo stock updates preserve the focused button');
 assert(ammoButton.disabled);
-assert(ammoButton.innerHTML.includes('SMG 300 / 300'), 'refilled ammo stays visible at full capacity');
+assert(ammoButton.innerHTML.includes('SMG<span class="shop-ammo">300 / 300'), 'refilled ammo stays visible at full capacity');
 me.ownsSmg = false;
 me.shotgunAmmo = 4;
 me.credits = 0;
 snapshot();
 assert(!ammoButton.innerHTML.includes('SMG'), 'unowned weapons are omitted');
-assert(ammoButton.innerHTML.includes('SHOTGUN 4 / 12'), 'stock stays visible with insufficient funds');
+assert(ammoButton.innerHTML.includes('SHOTGUN<span class="shop-ammo">4 / 12'), 'stock stays visible with insufficient funds');
 assert(ammoButton.disabled);
 me.credits = 50;
 delete context.WEAPON_FIELDS.smg;
@@ -213,7 +215,7 @@ assert(!classes.has('hidden'), 'exchange purchase keeps the shop open');
 Object.assign(me, { ownsShotgun: true, ownsPistol: false, shotgunAmmo: 12, credits: 50 });
 snapshot();
 assert.equal(actionOptions.children.length, 1, 'successful exchange returns to the owned weapon');
-assert.equal(actionOptions.children[0].innerHTML, 'FULL<small>120G</small><span class="action-stock">弾薬 12 / 12</span>');
+assert.equal(actionOptions.children[0].innerHTML, 'FULL<small>120G</small>');
 assert(actionOptions.children[0].disabled);
 // Server recipe object order must not change the workbench's presentation order.
 const craftOrder = ['block', 'barricade', 'wire', 'mine', 'turret', 'copperTurret', 'silverTurret'];
