@@ -46,10 +46,11 @@ vm.runInContext(source.slice(start,source.indexOf('// Keep button nodes alive',s
 context.updateAttackerLoadout(me);
 assert.equal(panelHidden,false); assert.equal(selects[0].value,'smg'); assert.equal(selects[1].value,'shotgun');
 assert(!selects[1].innerHTML.includes('LAUNCHER'),'only owned weapons can be assigned');
-selects[1].value='smg'; change({target:{closest:()=>selects[1]}});
-assert.equal(commands.at(-1),'SECONDARY_WEAPON:smg');
-selects[0].value='shotgun'; change({target:{closest:()=>selects[0]}});
-assert.equal(commands.at(-1),'WEAPON:shotgun');
+assert(!selects[1].innerHTML.includes('value="smg"')); assert(!selects[0].innerHTML.includes('value="shotgun"'));
+selects[1].value='bat'; change({target:{closest:()=>selects[1]}});
+assert.equal(commands.at(-1),'SECONDARY_WEAPON:bat');
+selects[0].value='pistol'; change({target:{closest:()=>selects[0]}});
+assert.equal(commands.at(-1),'WEAPON:pistol');
 me.down=true; context.updateAttackerLoadout(me); assert(selects.every(s=>s.disabled));
 const count=commands.length; change({target:{closest:()=>selects[1]}}); assert.equal(commands.length,count);
 me.down=false; me.job='healer'; context.updateAttackerLoadout(me); assert.equal(panelHidden,true);

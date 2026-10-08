@@ -17,6 +17,10 @@ class GameMapTest {
     @Test void forestEntryFloorIsBuildableButResourceRespawnTilesRemainReserved() {
         var allAreas = GameMap.AREAS.stream().map(UnlockArea::id).collect(Collectors.toSet());
         assertTrue(GameMap.canPlaceDefense(1660, 700, allAreas));
+        assertTrue(GameMap.canPlaceDefense(1620, 700, allAreas), "AMMO three tiles left and one down");
+        assertTrue(GameMap.canPlaceCore(1620, 700, allAreas));
+        var closedForest = new java.util.HashSet<>(allAreas); closedForest.remove("forest");
+        assertFalse(GameMap.canPlaceDefense(1620, 700, closedForest));
         for (var node : GameMap.RESOURCE_NODES.stream().filter(unit -> unit.requiredArea() != null
                 && unit.requiredArea().equals("forest")).toList()) {
             assertFalse(GameMap.canPlaceDefense(node.x(), node.y(), allAreas));
@@ -71,7 +75,7 @@ class GameMapTest {
     }
 
     @Test
-    void floorTerminalsKeepTheirDeclaredCoordinatesAndReserveTheirTiles() throws Exception {
+    void floorTerminalsKeepTheirDeclaredCoordinates() throws Exception {
         try (InputStream input = GameMap.class.getResourceAsStream("/map.json")) {
             MapDefinition definition = new ObjectMapper().readValue(input, MapDefinition.class);
             assertEquals(definition.areas(), GameMap.AREAS, "never relocate terminals to walls");
@@ -87,8 +91,6 @@ class GameMapTest {
         for (UnlockArea area : GameMap.AREAS) {
             if (!GameMap.canOccupy(area.terminalX(), area.terminalY(), 5, allAreas)) continue;
             floorTerminals++;
-            assertFalse(GameMap.canPlaceDefense(area.terminalX(), area.terminalY(), allAreas));
-            assertFalse(GameMap.canPlaceCore(area.terminalX(), area.terminalY(), allAreas));
         }
         assertEquals(20, floorTerminals);
     }

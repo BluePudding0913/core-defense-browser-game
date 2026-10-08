@@ -5,6 +5,44 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 class BreakerMapTest {
+    @Test void repairFromBothMapTypesRequiresAnAccessibleHackerControlSourceAndUnlockedTarget() {
+        var game = new GameSession(new GameEventSink() {
+            public void broadcast(String message) { }
+            public void send(Player player, String message) { }
+        });
+        var player = game.connectPlayer("remote-repair");
+        game.phase = GamePhase.PREPARING; game.prepTime = 1000;
+        game.players.forEach(other -> other.human = true);
+        var source = GameMap.BREAKER_TERMINALS.get(0);
+        var target = GameMap.BREAKER_TERMINALS.stream().filter(b -> !b.id().equals(source.id()) && b.requiredArea() != null).findFirst().orElseThrow();
+        game.unlockedAreas.addAll(GameMap.AREAS.stream().map(UnlockArea::id).toList());
+        player.job = "hacker"; player.x = source.x(); player.y = source.y();
+        game.blackoutActive = true; game.trippedBreakers.add(target.id());
+        game.handleMessage(player, "MAP_REPAIR:" + target.id());
+        assertTrue(game.trippedBreakers.contains(target.id()), "no map open");
+        game.handleMessage(player, "BREAKER_MAP:" + source.id());
+        game.unlockedAreas.remove(target.requiredArea());
+        game.handleMessage(player, "MAP_REPAIR:" + target.id());
+        assertTrue(game.trippedBreakers.contains(target.id()), "locked target");
+        game.unlockedAreas.add(target.requiredArea());
+        player.x = 1020; player.y = 1900;
+        game.handleMessage(player, "MAP_REPAIR:" + target.id());
+        assertTrue(game.trippedBreakers.contains(target.id()), "no longer near the map source");
+        player.x = source.x(); player.y = source.y(); player.down = true;
+        game.handleMessage(player, "MAP_REPAIR:" + target.id());
+        assertTrue(game.trippedBreakers.contains(target.id()), "downed hacker");
+        player.down = false;
+        game.handleMessage(player, "MAP_REPAIR:" + target.id());
+        assertFalse(game.blackoutActive); assertTrue(player.missileControl); assertTrue(game.missiles.isEmpty());
+        game.handleMessage(player, "COMPUTER");
+        player.x = GameMap.MISSILE_COMPUTER.x(); player.y = GameMap.MISSILE_COMPUTER.y();
+        game.handleMessage(player, "COMPUTER");
+        game.blackoutActive = true; game.trippedBreakers.add(target.id()); player.missileCooldown = 10;
+        game.handleMessage(player, "MAP_REPAIR:" + target.id());
+        assertFalse(game.blackoutActive); assertTrue(player.missileControl);
+        assertEquals(10, player.missileCooldown); assertTrue(game.missiles.isEmpty());
+    }
+
     @Test void controlledDroneRepairsFromItsPositionAndRejectsRemoteLockedOrOccludedBreakers() {
         var game = new GameSession(new GameEventSink() {
             public void broadcast(String message) { }

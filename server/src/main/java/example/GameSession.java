@@ -218,7 +218,7 @@ final class GameSession {
         String[] parts = message.split(":", 4);
         if (canMove() && DroneRules.controlling(player)
                 && !Set.of("MOVE", "FIRE", "ATTACK", "JOB_ABILITY", "DRONE_RECOVER", "BREAKER", "HELLO").contains(parts[0])) return;
-        if (player.missileControl && !Set.of("MISSILE", "COMPUTER", "HELLO").contains(parts[0])) return;
+        if (player.missileControl && !Set.of("MISSILE", "MAP_REPAIR", "COMPUTER", "HELLO").contains(parts[0])) return;
         switch (parts[0]) {
             case "HELLO" -> updateName(player, parts);
             case "START" -> {
@@ -282,6 +282,7 @@ final class GameSession {
             case "UNLOCK" -> { if (parts.length >= 2) unlockArea(player, parts[1]); }
             case "BREAKER" -> { if (parts.length >= 2) resetBreaker(player, parts[1]); }
             case "BREAKER_MAP" -> { if (parts.length >= 2) openBreakerMap(player, parts[1]); }
+            case "MAP_REPAIR" -> { if (parts.length >= 2) repairBreakerFromMap(player, parts[1]); }
             case "GATHER" -> { if (parts.length >= 2) gather(player, parts[1]); }
             case "DROP_RESOURCE" -> { if (parts.length >= 3) dropResource(player, parts); }
             case "DROP_ITEM" -> { if (parts.length >= 3 && parts[1].equals("medkit")) dropInventory(player, parts); }
@@ -434,10 +435,11 @@ final class GameSession {
         player.stopRailgun(); cancelAction(player);
         double previousMaxHp = JobRules.maxHp(player.job);
         player.secondaryFiring = false; player.stopSecondaryRailgun();
-        player.secondaryWeapon = player.weapons.owns("pistol") ? "pistol" : player.weapon;
+        player.secondaryWeapon = "bat";
         player.secondaryWeaponCooldowns.clear(); player.secondaryWeaponCooldownMaxima.clear();
         player.secondaryCooldown = player.secondaryCooldownMax = player.healRemaining = 0;
         player.job = job;
+        player.ensureDistinctWeapons();
         player.hp = player.down ? 0 : Math.min(JobRules.maxHp(job), player.hp * JobRules.maxHp(job) / previousMaxHp);
         player.decoyCooldown = 0;
         decoys.removeIf(decoy -> decoy.ownerId.equals(player.id));
@@ -2409,12 +2411,13 @@ final class GameSession {
 
     private void switchSecondaryWeapon(Player player, String weapon) {
         if (!canMove() || !player.job.equals("attacker") || player.down || player.movingCore
-                || !player.weapons.owns(weapon) || DroneRules.mounted(player, weapon)) return;
+                || weapon.equals(player.weapon) || !player.weapons.owns(weapon) || DroneRules.mounted(player, weapon)) return;
         player.equipSecondaryWeapon(weapon);
         player.secondaryFiring = false;
     }
 
     private void switchWeapon(Player player, String weapon) {
+        if (player.job.equals("attacker") && weapon.equals(player.secondaryWeapon)) return;
         if (player.weapons.owns(weapon) && !DroneRules.mounted(player, weapon)) {
             releaseCarriedCore(player);
             player.equipWeapon(weapon);
@@ -2997,6 +3000,18 @@ final class GameSession {
     }
 
     private void resetBreaker(Player player, String breakerId) {
+        resetBreaker(player, breakerId, false);
+    }
+
+    private void repairBreakerFromMap(Player player, String breakerId) {
+        if (!player.job.equals("hacker") || !player.missileControl) return;
+        boolean sourceAccessible = player.breakerControl == null ? canOperate(player, GameMap.MISSILE_COMPUTER)
+                : canOperateBreaker(player, GameMap.breakerById(player.breakerControl));
+        if (!sourceAccessible) return;
+        resetBreaker(player, breakerId, true);
+    }
+
+    private void resetBreaker(Player player, String breakerId, boolean fromMap) {
         if (!canUseFacilities() || player.down) return;
         BreakerTerminal breaker = GameMap.breakerById(breakerId);
         if (breaker == null
@@ -3006,10 +3021,10 @@ final class GameSession {
             gameEffects.feedback(player, "電力は正常です");
             return;
         }
-        boolean nearby = DroneRules.controlling(player)
+        boolean nearby = fromMap || (DroneRules.controlling(player)
                 ? DroneRules.canInteract(distance(player.drone.x, player.drone.y, breaker.x(), breaker.y()),
                     hasInteractionPath(player.drone.x, player.drone.y, breaker.x(), breaker.y()))
-                : canInteract(player, breaker.x(), breaker.y(), 95);
+                : canInteract(player, breaker.x(), breaker.y(), 95));
         if (!nearby) {
             gameEffects.feedback(player, "ブレーカーに近づいてください");
             return;
@@ -3150,7 +3165,7 @@ final class GameSession {
             player.spyRemaining = 0;
             player.drone = null;
             player.secondaryFiring = false; player.stopSecondaryRailgun();
-            player.secondaryWeapon = "pistol";
+            player.secondaryWeapon = "bat";
             player.secondaryWeaponCooldowns.clear(); player.secondaryWeaponCooldownMaxima.clear();
             player.secondaryCooldown = player.secondaryCooldownMax = player.healRemaining = 0;
             player.jobCooldown = 0;
