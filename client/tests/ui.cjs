@@ -79,12 +79,12 @@ console.log('CPU HUD names passed: server numbering and escaped player names');
 const self = {id:'me', job:'healer', hp:100, credits:25, weapon:'pistol', buildItems:{}, cooldown:0};
 context.getMe = () => self;
 Object.assign(context, {
-    JOBS: {healer: {name:'Healer'}}, selfJob: {}, selfCredits: {},
+    JOBS: {healer: {name:'Healer'}}, selfJob: {}, selfCredits: {}, jobCooldownLabel: {}, weaponSilver: {},
     healthHeart: {style: {setProperty() {}}, classList:{toggle() {}}, setAttribute() {}},
     weaponName: {}, weaponAmmo: {}, weaponIcon: {}, weaponCooldown: {},
     weaponButton: {style:{setProperty() {}}, classList:{toggle() {}}},
     WeaponUI: require('../weapon-ui.js'), WEAPON_FIELDS: {pistol:{name:'PISTOL', capacity:0}},
-    BUILD_INFO: {}, ammoForWeapon: () => '∞', updateInventory() {}, updateAttackerLoadout() {},
+    BUILD_INFO: {}, ammoForWeapon: () => '∞', updateInventory() {}, updateAttackerLoadout() {}, updateSecondaryHud() {},
     placementSelection: () => null, findNearestInteraction: () => null,
     interactLabel: {}, interactButton: {classList:{toggle() {}}}, clamp:(v,a,b)=>Math.max(a,Math.min(v,b)),
 });

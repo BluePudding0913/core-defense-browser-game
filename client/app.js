@@ -54,6 +54,8 @@ const weaponName = document.querySelector("#weapon-name");
 const weaponAmmo = document.querySelector("#weapon-ammo");
 const weaponCooldown = document.querySelector("#weapon-cooldown");
 const weaponIcon = document.querySelector("#weapon-icon");
+const weaponSilver = document.querySelector("#weapon-silver");
+const jobCooldownLabel = document.querySelector("#job-cooldown");
 const slotPopup = document.querySelector("#slot-popup");
 const actionMenu = document.querySelector("#action-menu");
 const actionTitle = document.querySelector("#action-title");
@@ -766,7 +768,6 @@ function reorderEquipment(sourceKey, targetKey) {
 
 function equipmentEntries(me) {
     const entries = WeaponUI.entries(me, WEAPON_FIELDS)
-        .filter(entry => me.job !== "attacker" || entry.value !== me.secondaryWeapon)
         .filter(entry => !(me.drone?.active && entry.value === me.drone.weapon));
     for (const [type, info] of Object.entries(BUILD_INFO)) {
         if (type === "teleporter") continue;
@@ -781,6 +782,7 @@ function equipmentEntries(me) {
 
 function selectEquipment(entry) {
     const me = getMe();
+    if (me?.job === "attacker" && entry.kind === "weapon" && entry.value === me.secondaryWeapon) return;
     if (me?.movingCore && entry.kind === "weapon") {
         showFeedback("CORE運搬中は武器を使用できません");
         return;
@@ -808,7 +810,8 @@ function cycleEquipment(direction = 1) {
     const me = getMe();
     if (!me) return;
     if (me.movingCore || me.drone?.controlled) return;
-    const entries = equipmentEntries(me).filter(entry => entry.kind !== "item");
+    const entries = equipmentEntries(me).filter(entry => entry.kind !== "item"
+        && !(me.job === "attacker" && entry.kind === "weapon" && entry.value === me.secondaryWeapon));
     const selectedKey = me.movingCore ? "core"
         : me.selectedBuild ? `build:${me.selectedBuild}` : `weapon:${me.weapon}`;
     const current = Math.max(0, entries.findIndex(entry => entry.key === selectedKey));
@@ -945,6 +948,7 @@ function updateHud() {
         healthHeart.classList.toggle("full", health === 100);
         healthHeart.setAttribute("aria-label", `体力 ${Math.ceil(health)}%`);
         selfJob.textContent = JOBS[me.job]?.name || me.job;
+        jobCooldownLabel.textContent = WeaponUI.jobCooldownLabel(me);
         selfCredits.textContent = `${me.credits}G`;
         const selectedBuild = me.selectedBuild && (me.buildItems?.[me.selectedBuild] || 0) > 0
             ? me.selectedBuild : null;
@@ -957,7 +961,7 @@ function updateHud() {
             ? `×${me.buildItems[selectedBuild]}` : ammoForWeapon(me, me.weapon);
         weaponIcon.className = `weapon-icon ${me.movingCore ? "core" : selectedBuild ? `build-${selectedBuild}` : me.weapon}`;
         weaponCooldown.textContent = showingItem ? "R TO PLACE"
-            : me.railgunCharge > 0 ? "CHARGING" : me.railgunRemaining > 0 ? "FIRING" : me.cooldown > 0 ? `${me.cooldown.toFixed(1)}s` : "READY";
+            : WeaponUI.cooldownLabel(me.cooldown, me.railgunCharge, me.railgunRemaining);
         weaponButton.style.setProperty("--cooldown-progress", `${cooldownProgress * 100}%`);
         weaponButton.classList.toggle("cooling", !showingItem && me.cooldown > 0);
         weaponButton.classList.toggle("locked", me.movingCore);
@@ -966,15 +970,17 @@ function updateHud() {
             weaponName.textContent = me.drone.weapon ? `DRONE / ${WeaponUI.name(me.drone.weapon, WEAPON_FIELDS)}` : "DRONE";
             weaponAmmo.textContent = me.drone.weapon ? ammoForWeapon(me, me.drone.weapon) : "";
             weaponIcon.className = `weapon-icon ${me.drone.weapon || "drone"}`;
-            weaponCooldown.textContent = !me.drone.weapon ? "UNARMED" : me.drone.cooldown > 0 ? `${me.drone.cooldown.toFixed(1)}s` : "READY";
+            weaponCooldown.textContent = !me.drone.weapon ? "UNARMED" : WeaponUI.cooldownLabel(me.drone.cooldown);
             weaponButton.style.setProperty("--cooldown-progress", `${(1 - me.drone.cooldown / me.drone.cooldownMax) * 100}%`);
             weaponButton.classList.toggle("cooling", me.drone.cooldown > 0);
             weaponButton.disabled = true;
         }
-        if (!showingItem || me.drone?.controlled) {
-            const silverLabel = WeaponUI.silverAmmoLabel(me, me.drone?.controlled ? me.drone.weapon : me.weapon, WEAPON_FIELDS);
-            if (silverLabel) weaponCooldown.textContent += ` · ${silverLabel}`;
-        }
+        const silverLabel = !showingItem || me.drone?.controlled
+            ? WeaponUI.silverAmmoLabel(me, me.drone?.controlled ? me.drone.weapon : me.weapon, WEAPON_FIELDS) : "";
+        weaponSilver.textContent = silverLabel;
+        weaponSilver.hidden = !silverLabel;
+        weaponButton.classList.toggle("silver-active", Boolean(silverLabel));
+        updateSecondaryHud(me);
         updateAttackerLoadout(me);
         updateInventory(me);
         const placing = Boolean(placementSelection(me));
@@ -983,6 +989,20 @@ function updateHud() {
             ? "TP" : ["core", "defense"].includes(interaction?.kind) ? "長押しで運搬" : "INTERACT";
         interactButton.classList.toggle("hidden", !placing && !interaction);
     }
+}
+
+function updateSecondaryHud(me) {
+    const panel = document.querySelector("#secondary-hud");
+    panel.classList.toggle("hidden", me.job !== "attacker" || Boolean(me.drone?.controlled));
+    if (me.job !== "attacker") return;
+    const weapon = me.secondaryWeapon || "bat";
+    document.querySelector("#secondary-name").textContent = WeaponUI.name(weapon, WEAPON_FIELDS);
+    document.querySelector("#secondary-ammo").textContent = ammoForWeapon(me, weapon);
+    document.querySelector("#secondary-cooldown").textContent = WeaponUI.cooldownLabel(
+        me.secondaryCooldown, me.secondaryRailgunCharge, me.secondaryRailgunRemaining);
+    const silver = document.querySelector("#secondary-silver");
+    silver.textContent = WeaponUI.silverAmmoLabel(me, weapon, WEAPON_FIELDS);
+    silver.hidden = !silver.textContent;
 }
 
 function updateAttackerLoadout(me) {
@@ -1021,6 +1041,7 @@ function updateInventory(me) {
         inventoryItems.innerHTML = `
             <div class="inventory-health" role="status"></div>
             <div class="inventory-section"><h3>EQUIPMENT</h3><div class="inventory-grid equipment-grid"></div></div>
+            <div class="inventory-section inventory-sub" hidden><h3>SUB</h3><div class="inventory-resource"><strong></strong><span></span></div></div>
             <div class="inventory-section"><h3>ITEMS</h3><div class="inventory-grid">
                 <div class="inventory-resource" data-item="medkit">
                     <strong>回復キット</strong><span class="item-count"></span>
@@ -1065,7 +1086,8 @@ function updateInventory(me) {
         }
         if (grid.children[index] !== button) grid.insertBefore(button, grid.children[index] || null);
         button.classList.toggle("selected", selectedKey === entry.key);
-        button.disabled = entry.kind === "item" && (me.down || me.hp >= (me.maxHp || 100));
+        button.disabled = entry.kind === "item" && (me.down || me.hp >= (me.maxHp || 100))
+            || me.job === "attacker" && entry.kind === "weapon" && entry.value === me.secondaryWeapon;
         button.querySelector("strong").textContent = `${index + 1}. ${entry.label}`;
         button.querySelector("span").textContent = entry.kind === "build" ? `×${me.buildItems[entry.value]}`
             : entry.kind === "item" ? `×${me.medkits} · 使用する`
@@ -1073,6 +1095,17 @@ function updateInventory(me) {
                 : WEAPON_FIELDS[entry.value]?.capacity > 0 ? `${ammoForWeapon(me, entry.value)} / ${WEAPON_FIELDS[entry.value].capacity}`
                     : entry.value === "pistol" ? "∞" : "";
     });
+    if (me.job === "attacker") {
+        const sub = inventoryItems.querySelector(".inventory-sub");
+        sub.hidden = false;
+        sub.querySelector("strong").textContent = WeaponUI.name(me.secondaryWeapon || "bat", WEAPON_FIELDS);
+        const definition = WEAPON_FIELDS[me.secondaryWeapon];
+        sub.querySelector("span").textContent = WeaponUI.ammo(me, me.secondaryWeapon || "bat", WEAPON_FIELDS)
+            + (definition?.capacity > 0 ? ` / ${definition.capacity}` : "");
+    } else {
+        const sub = inventoryItems.querySelector(".inventory-sub");
+        if (sub) sub.hidden = true;
+    }
     for (const type of Object.keys(RESOURCE_NAMES)) {
         const card = inventoryItems.querySelector(`[data-resource="${type}"]`);
         card.querySelector(".resource-count").textContent = `×${me[type] || 0}`;

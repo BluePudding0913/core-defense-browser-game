@@ -243,6 +243,20 @@ button, input { font: inherit; }
 #weapon-name { font: 900 1.42rem ui-monospace, monospace; letter-spacing: .08em; }
 #weapon-ammo { color: white; font: 900 1.85rem ui-monospace, monospace; }
 .weapon-cooldown { color: rgb(255 255 255 / 70%); font: 800 .86rem ui-monospace, monospace; }
+.weapon-cooldown:empty { display: none; }
+.weapon-stack { display: grid; gap: .4rem; }
+.secondary-hud { display: flex; align-items: center; flex-wrap: wrap; gap: .65rem; padding: .65rem .9rem; border: 1px solid rgb(255 255 255 / 30%); border-radius: .4rem; background: rgb(15 20 25 / 82%); font: 800 .85rem ui-monospace, monospace; }
+.secondary-hud > span { color: #aab4bd; font-size: .65rem; }
+.secondary-hud > b { margin-left: auto; }
+.secondary-hud > small { color: #b7c4ce; }
+.silver-ammo { width: fit-content; color: #d9f3ff; font: 800 .75rem ui-monospace, monospace; padding: .2rem .5rem; border: 1px solid #a1d7ef; border-radius: .25rem; background: rgb(121 216 255 / 16%); }
+.weapon.silver-active { border-color: #a1d7ef; }
+.secondary-hud > .silver-ammo { color: #d9f3ff; }
+#job-cooldown { position: absolute; top: calc(100% + 1.15rem); left: 0; white-space: nowrap; color: #92b3c5; font: 700 .7rem ui-monospace, monospace; }
+.inventory-sub[hidden], .silver-ammo[hidden] { display: none; }
+.inventory-sub .inventory-resource { display: flex; align-items: center; gap: .75rem; }
+.inventory-sub .inventory-resource span { margin-left: auto; }
+.missile-cooldown { color: #b2c4b9; font: 700 .85rem ui-monospace, monospace; }
 .weapon-icon { position: relative; width: 5.2rem; height: 2.6rem; transform: scale(2); transform-origin: center; image-rendering: pixelated; }
 .weapon-icon::before, .weapon-icon::after { content: ""; position: absolute; display: block; background: #e6e6e6; }
 .weapon-icon.drone::before { left: 1.9rem; top: .9rem; width: 1.2rem; height: .8rem; background: #ddfbff; }
