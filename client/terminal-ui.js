@@ -2,17 +2,18 @@
 
 // The targeting view uses snapshots; facility access and shots stay authoritative on the server.
 window.TerminalUI = (() => {
-    let panel, canvas, title, cooldown, current;
+    let panel, canvas, title, cooldown, enemyCount, current;
     function create() {
         panel = document.createElement("section");
         panel.id = "missile-panel";
         panel.tabIndex = -1;
         panel.setAttribute("aria-label", "ミサイル管制");
-        panel.innerHTML = '<header><strong>MISSILE SYSTEM</strong><small class="missile-cooldown" hidden></small></header><canvas id="missile-map" aria-label="着弾地点をクリック"></canvas>';
+        panel.innerHTML = '<header><strong>MISSILE SYSTEM</strong><small class="map-enemy-count" hidden></small><small class="missile-cooldown" hidden></small></header><canvas id="missile-map" aria-label="着弾地点をクリック"></canvas>';
         document.body.append(panel);
         canvas = panel.querySelector("canvas");
         title = panel.querySelector("strong");
         cooldown = panel.querySelector(".missile-cooldown");
+        enemyCount = panel.querySelector(".map-enemy-count");
         canvas.addEventListener("pointerdown", event => {
             if (!current || event.button != null && event.button !== 0) return;
             const rect = canvas.getBoundingClientRect();
@@ -50,6 +51,12 @@ window.TerminalUI = (() => {
         if (canvas.height !== map.world.height) canvas.height = map.world.height;
         const readOnly = Boolean(me.breakerControl);
         if (title) title.textContent = readOnly ? "MAP" : "MISSILE SYSTEM";
+        if (enemyCount) {
+            enemyCount.hidden = !readOnly;
+            const remaining = state.phase === "wave"
+                ? state.enemies.filter(enemy => enemy.hp > 0).length + (state.queued || 0) : 0;
+            enemyCount.textContent = `ENEMY ${remaining}`;
+        }
         if (cooldown) {
             cooldown.hidden = readOnly || !(me.missileCooldown > 0);
             cooldown.textContent = me.missileCooldown > 0 ? `${me.missileCooldown.toFixed(1)}s` : "";

@@ -256,7 +256,7 @@ button, input { font: inherit; }
 .inventory-sub[hidden], .silver-ammo[hidden] { display: none; }
 .inventory-sub .inventory-resource { display: flex; align-items: center; gap: .75rem; }
 .inventory-sub .inventory-resource span { margin-left: auto; }
-.missile-cooldown { color: #b2c4b9; font: 700 .85rem ui-monospace, monospace; }
+.missile-cooldown, .map-enemy-count { color: #b2c4b9; font: 700 .85rem ui-monospace, monospace; }
 .weapon-icon { position: relative; width: 5.2rem; height: 2.6rem; transform: scale(2); transform-origin: center; image-rendering: pixelated; }
 .weapon-icon::before, .weapon-icon::after { content: ""; position: absolute; display: block; background: #e6e6e6; }
 .weapon-icon.drone::before { left: 1.9rem; top: .9rem; width: 1.2rem; height: .8rem; background: #ddfbff; }
