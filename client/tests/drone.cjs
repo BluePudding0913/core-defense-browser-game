@@ -21,7 +21,7 @@ const context = vm.createContext({
     drawBar() {},
     distance: (a, b) => Math.hypot(a.x - b.x, a.y - b.y), hasInteractionPath: () => true,
 });
-for (const name of ['updateLocalPrediction', 'findNearestInteraction', 'canUseNearby', 'reconcileDroneSmoothing', 'drawDrones']) {
+for (const name of ['updateLocalPrediction', 'findNearestInteraction', 'canUseNearby', 'reconcileDroneSmoothing', 'droneRecoveryAvailable', 'drawDrones']) {
     vm.runInContext(extract(name), context);
 }
 vm.runInContext(fs.readFileSync('client/job-ui.js', 'utf8'), context);
@@ -75,3 +75,27 @@ context.state.players.push({ id: 'ally', drone: { active: true } });
 vm.runInContext('drawBlackout()', context);
 assert.equal(overlays.length, 4, 'another player piloting does not remove local blackout');
 console.log('Drone UI passed: selection, stationary operator, interactions, camera, rendering, relaunch and blackout immunity with restored player vision');
+
+const hints = [];
+context.ctx = new Proxy({}, { get: (_, key) => (...args) => { if (key === 'fillText') hints.push(args[0]); } });
+context.window.coreKeySettings = { getJobEffect: () => 'v' };
+const hidden = { classList: { contains: () => true } };
+context.actionMenu = context.inventoryMenu = context.howToMenu = hidden;
+context.state = { phase: 'wave', players: [me] };
+me.job = 'drone'; me.drone = { active: true, hp: 35, maxHp: 45, x: me.x + 45, y: me.y };
+for (const controlled of [false, true]) {
+    me.drone.controlled = controlled; hints.length = 0;
+    vm.runInContext('drawDrones()', context);
+    assert.deepEqual(hints, ['V：回収'], 'Both views show the configured job key at the recovery boundary');
+}
+for (const change of [
+    () => { me.drone.x = me.x + 46; },
+    () => { me.drone.x = me.x + 45; context.hasInteractionPath = () => false; },
+    () => { context.hasInteractionPath = () => true; me.down = true; },
+    () => { me.down = false; me.job = 'healer'; },
+    () => { me.job = 'drone'; me.drone.active = false; },
+]) {
+    change(); hints.length = 0; vm.runInContext('drawDrones()', context);
+    assert.equal(hints.length, 0, 'Unavailable recovery hides its prompt');
+}
+console.log('Drone recovery hint passed: both views, custom key, distance boundary, walls, down, other jobs and inactive drone');

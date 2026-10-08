@@ -477,7 +477,7 @@ final class GameSession {
         player.decoyCooldown = 0;
         decoys.removeIf(decoy -> decoy.ownerId.equals(player.id));
         player.stamina = Math.min(player.stamina, JobRules.staminaMax(job));
-        player.drone = null;
+        recallDrone(player);
         player.roomReady = false;
         player.spyRemaining = player.jobCooldown = player.scoutDashRemaining = 0;
         player.teleportPads.clear();
@@ -559,6 +559,11 @@ final class GameSession {
         }
         if (player.job.equals("drone")) {
             if (player.drone == null || !player.drone.active) return;
+            if (DroneRules.canRecover(distance(player.x, player.y, player.drone.x, player.drone.y),
+                    GameMap.hasClearLine(player.x, player.y, player.drone.x, player.drone.y))) {
+                recallDrone(player);
+                return;
+            }
             boolean next = !player.drone.controlled;
             releaseDroneControl(player);
             player.drone.controlled = next;

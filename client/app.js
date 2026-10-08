@@ -67,7 +67,7 @@ const roundIntro = document.querySelector("#round-intro");
 const howToMenu = document.querySelector("#how-to-menu");
 const howToStart = document.querySelector("#how-to-start");
 document.querySelector("#inventory-settings").addEventListener("click", () => {
-    endInteractionHold(true); endJobHold(true);
+    endInteractionHold(true);
     keys.clear(); joystick = null; dashKey = false; setDash(false);
     if (pendingMove) clearTimeout(pendingMove.timer);
     pendingMove = null;
@@ -412,7 +412,7 @@ function connect() {
             window.coreMenu?.status("別のタブで再参加しました");
             return;
         }
-        endInteractionHold(true); endJobHold(true);
+        endInteractionHold(true);
         clearTimeout(connectionAttemptTimer);
         smoothed.clear();
         predictedLocal = null;
@@ -476,7 +476,7 @@ function leaveRoom(forget = true) {
     hideScreenIntro();
     previousPhase = undefined;
     previousRound = undefined;
-    endInteractionHold(true); endJobHold(true);
+    endInteractionHold(true);
     keys.clear(); joystick = null; dashKey = false;
     if (pendingMove) clearTimeout(pendingMove.timer);
     pendingMove = null; firingPointer = null;
@@ -577,13 +577,13 @@ function receiveState(next) {
     if (getMe()?.drone?.controlled) slotPopup.classList.add("hidden");
     if (controlChanged) {
         if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
-        endInteractionHold(true); endJobHold(true);
+        endInteractionHold(true);
         closeActionMenu();
         sendMovement(true);
     }
     state.artilleryReceivedAt = performance.now();
     if (!getMe() || getMe().down || !["preparing", "wave"].includes(next.phase)) {
-        endInteractionHold(true); endJobHold(true);
+        endInteractionHold(true);
     }
     CORE.x = next.core.x;
     CORE.y = next.core.y;
@@ -738,7 +738,7 @@ const exitDialog = document.querySelector("#exit-dialog");
 document.querySelector("#leave-game").addEventListener("click", openExitDialog);
 function openExitDialog() {
     if (exitDialog.open) return;
-    endInteractionHold(true); endJobHold(true);
+    endInteractionHold(true);
     keys.clear(); joystick = null;
     dashKey = false; setDash(false);
     if (pendingMove) clearTimeout(pendingMove.timer);
@@ -824,34 +824,16 @@ function cycleEquipment(direction = 1) {
 }
 
 weaponButton.addEventListener("click", () => cycleEquipment(1));
-// A release opens the menu; holding picks up the original target directly.
-let jobHold = null;
-function beginJobHold() {
+function useJobAbility() {
     const me = getMe();
-    if (jobHold || !me || me.down || me.movingCore || me.missileControl
+    if (!me || me.down || me.movingCore || me.missileControl
             || !state || !["preparing", "wave"].includes(state.phase)
             || !inventoryMenu.classList.contains("hidden") || !howToMenu.classList.contains("hidden")
             || !actionMenu.classList.contains("hidden")) return;
-    const hold = { used: false, timer: null };
-    jobHold = hold;
-    if (me.job === "drone") {
-        hold.timer = setTimeout(() => {
-            hold.used = true;
-            if (getMe()?.drone?.active) send("DRONE_RECOVER");
-            else openDroneLaunch();
-        }, 500);
-    } else if (["healer", "spy", "tp"].includes(me.job)) {
-        hold.used = true;
-        send("JOB_ABILITY");
-    }
+    if (me.job === "drone" && !me.drone?.active) openDroneLaunch();
+    else if (["drone", "healer", "spy", "tp"].includes(me.job)) send("JOB_ABILITY");
 }
-function endJobHold(cancel = false) {
-    const hold = jobHold;
-    if (!hold) return;
-    clearTimeout(hold.timer);
-    jobHold = null;
-    if (!cancel && !hold.used && getMe()?.job === "drone" && getMe()?.drone?.active) send("JOB_ABILITY");
-}
+// A release opens the menu; holding picks up the original target directly.
 let interactionHold = null;
 function beginInteractionHold() {
     if (interactionHold || !state || !["preparing", "wave"].includes(state.phase)
@@ -920,7 +902,7 @@ howToMenu.addEventListener("pointerdown", event => {
 });
 
 function openHowTo() {
-    endInteractionHold(true); endJobHold(true);
+    endInteractionHold(true);
     howToMenu.classList.remove("hidden");
 }
 
@@ -1193,7 +1175,7 @@ inventoryItems.addEventListener("pointercancel", event => finishInventoryDrag(ev
 inventoryItems.addEventListener("lostpointercapture", event => finishInventoryDrag(event, false));
 
 function toggleInventory() {
-    endInteractionHold(true); endJobHold(true);
+    endInteractionHold(true);
     if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
     if (secondaryHeld) stopSecondaryFiring();
     if (!inventoryMenu.classList.contains("hidden")) {
@@ -1918,7 +1900,7 @@ window.addEventListener("keydown", event => {
     }
     if (key === window.coreKeySettings.getJobEffect()) {
         event.preventDefault();
-        if (!event.repeat) beginJobHold();
+        if (!event.repeat) useJobAbility();
         return;
     }
     if (key === window.coreKeySettings.getMedkit() && state && ["preparing", "wave"].includes(state.phase)) {
@@ -1951,14 +1933,14 @@ window.addEventListener("keydown", event => {
 });
 window.addEventListener("keyup", event => {
     const key = window.coreKeySettings.gameKey(event);
-    if (key === window.coreKeySettings.getJobEffect()) { endJobHold(); return; }
+    if (key === window.coreKeySettings.getJobEffect()) return;
     if (key === "r") { endInteractionHold(); return; }
     if (key === "shift") { dashKey = false; setDash(false); return; }
     keys.delete(key); sendMovement();
 });
 window.addEventListener("blur", () => {
     stopSecondaryFiring();
-    endInteractionHold(true); endJobHold(true);
+    endInteractionHold(true);
     keys.clear(); joystick = null;
     dashKey = false; setDash(false);
     if (pendingMove) clearTimeout(pendingMove.timer);
@@ -2956,6 +2938,12 @@ function drawPlayers() {
     ctx.textAlign = "left";
 }
 
+function droneRecoveryAvailable(me) {
+    return me?.job === "drone" && !me.down && !me.movingCore && me.drone?.active
+        && state && ["preparing", "wave"].includes(state.phase)
+        && distance(me, me.drone) <= me.droneRecoveryRange && hasInteractionPath(me, me.drone);
+}
+
 function drawDrones() {
     for (const owner of state.players) {
         if (!owner.drone?.active) continue;
@@ -2972,6 +2960,14 @@ function drawDrones() {
         }
         ctx.fillStyle = "#ddfbff"; ctx.fillRect(-4, -4, 8, 8);
         drawBar(-15, -23, 30, 3, owner.drone.hp / owner.drone.maxHp, "#8be8f5");
+        if (owner.id === myPlayerId && droneRecoveryAvailable(owner)
+                && actionMenu.classList.contains("hidden") && inventoryMenu.classList.contains("hidden")
+                && howToMenu.classList.contains("hidden")) {
+            ctx.font = "800 11px ui-monospace, monospace"; ctx.textAlign = "center";
+            ctx.fillStyle = "#ddfbff"; ctx.strokeStyle = "#111"; ctx.lineWidth = 3;
+            const label = `${window.coreKeySettings.getJobEffect().toUpperCase()}：回収`;
+            ctx.strokeText(label, 0, -32); ctx.fillText(label, 0, -32);
+        }
         ctx.restore();
     }
 }
