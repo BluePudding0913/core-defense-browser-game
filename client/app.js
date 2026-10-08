@@ -518,7 +518,7 @@ function acknowledgeInputs(value) {
 
 function applyRules(next) {
     if (next.rules) {
-        BUILD_INFO = { ...next.rules.recipes, teleporter: { name: "テレポーター", shopOnly: true } };
+        BUILD_INFO = { ...next.rules.recipes, teleporter: { name: "テレポーター", shopOnly: true }, drone: { name: "DRONE", shopOnly: true } };
         SHOP_UNITS.filter(shop => shop.item.endsWith("Factory")).forEach(shop => {
             BUILD_INFO[shop.item] = { name: shop.label, description: "持ち運べる製造装置", shopOnly: true };
         });
@@ -559,11 +559,12 @@ function receiveState(next) {
     if (lastCoreHp !== undefined && next.core.hp < lastCoreHp) coreHitStarted = performance.now();
     lastCoreHp = next.core.hp;
     const incomingMe = next.players.find(p => p.id === myPlayerId);
-    const controlChanged = Boolean(getMe()?.drone?.active) !== Boolean(incomingMe?.drone?.active)
+    const controlChanged = Boolean(getMe()?.drone?.controlled) !== Boolean(incomingMe?.drone?.controlled)
         || Boolean(getMe()?.missileControl) !== Boolean(incomingMe?.missileControl);
     reconcileDroneSmoothing(next);
     reconcileEnemySmoothing(next);
     state = next;
+    if (getMe()?.drone?.controlled) slotPopup.classList.add("hidden");
     if (controlChanged) {
         if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
         endInteractionHold(true);
@@ -615,7 +616,7 @@ function updateRoomLobby(snapshot) {
         <span>${player.id === snapshot.roomOwnerId ? "host" : player.ready ? "準備完了" : "準備中"}</span>
     </div>`).join("");
     const me = snapshot.players.find(player => player.id === myPlayerId);
-    jobToggle.textContent = `ジョブ:${JOBS[me?.job]?.name || "ヒーラー"}`;
+    jobToggle.textContent = `ジョブ:${JOBS[me?.job]?.name || "Healer"}`;
     const jobScroll = jobSelect.querySelector(".job-list")?.scrollTop || 0;
     const focusedJob = document.activeElement?.dataset?.job;
     jobSelect.innerHTML = window.JobUI.render(me?.job, !me, JOBS, "legacy-job-detail");
@@ -758,7 +759,8 @@ function reorderEquipment(sourceKey, targetKey) {
 }
 
 function equipmentEntries(me) {
-    const entries = WeaponUI.entries(me, WEAPON_FIELDS);
+    const entries = WeaponUI.entries(me, WEAPON_FIELDS)
+        .filter(entry => !(me.drone?.active && entry.value === me.drone.weapon));
     for (const [type, info] of Object.entries(BUILD_INFO)) {
         if ((me.buildItems?.[type] || 0) > 0) entries.push({ key: `build:${type}`, kind: "build", value: type, label: info.name });
     }
@@ -783,10 +785,10 @@ function selectEquipment(entry) {
 
 function showEquipmentPopup(selectedKey) {
     const me = getMe();
-    if (!me) return;
+    if (!me || me.drone?.controlled) return;
     const entries = equipmentEntries(me);
     slotPopup.innerHTML = entries.map((entry, index) => {
-        const amount = entry.kind === "build" ? ` ×${me.buildItems?.[entry.value] || 0}` : "";
+        const amount = entry.kind === "build" && entry.value !== "drone" ? ` ×${me.buildItems?.[entry.value] || 0}` : "";
         return `<div class="${entry.key === selectedKey ? "selected" : ""}">${index + 1}. ${escapeHtml(entry.label)}${amount}</div>`;
     }).join("");
     slotPopup.classList.remove("hidden");
@@ -797,7 +799,7 @@ function showEquipmentPopup(selectedKey) {
 function cycleEquipment(direction = 1) {
     const me = getMe();
     if (!me) return;
-    if (me.movingCore) return;
+    if (me.movingCore || me.drone?.controlled) return;
     const entries = equipmentEntries(me).filter(entry => entry.kind !== "item");
     const selectedKey = me.movingCore ? "core"
         : me.selectedBuild ? `build:${me.selectedBuild}` : `weapon:${me.weapon}`;
@@ -817,6 +819,11 @@ function beginInteractionHold() {
         ? interaction.kind === "core" ? "core" : interaction.target.id : null;
     const hold = { used: false, timer: null };
     interactionHold = hold;
+    if (getMe()?.drone?.active && actionMenu.classList.contains("hidden")
+            && (getMe().drone.controlled || !interaction || interaction.kind === "drone")) {
+        hold.interaction = interaction?.kind === "drone" ? interaction : { action: () => send("JOB_ABILITY") };
+        return;
+    }
     if (interaction?.kind === "teleporter" && actionMenu.classList.contains("hidden") && !placementSelection(getMe())) {
         hold.interaction = interaction;
         if (interaction.owned) hold.timer = setTimeout(() => {
@@ -891,16 +898,10 @@ function updateHud() {
         : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}`
             : "";
     const me = getMe();
-    jobAbilityButton.classList.toggle("hidden", me?.job !== "drone");
+    jobAbilityButton.classList.toggle("hidden", true);
     jobAbilityButton.textContent = me?.spyRemaining > 0 ? `偽装 ${Math.ceil(me.spyRemaining)}s`
         : me?.jobCooldown > 0 ? `偽装 ${Math.ceil(me.jobCooldown)}s` : "偽装";
     jobAbilityButton.disabled = !me || me.down || me.movingCore || Boolean(me.selectedBuild) || me.jobCooldown > 0;
-    if (me?.job === "drone") {
-        const broken = me.drone && me.drone.hp <= 0;
-        jobAbilityButton.textContent = me.drone?.active ? `RETURN ${Math.ceil(me.drone.hp)}HP`
-            : broken ? `REPAIR ${me.droneRepairOre}鉱石 / ${me.droneRepairCopper}銅` : "DRONE";
-        jobAbilityButton.disabled ||= Boolean(broken && (me.ore < me.droneRepairOre || me.copper < me.droneRepairCopper));
-    }
     teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">
             <div class="teammate-label">
@@ -924,7 +925,7 @@ function updateHud() {
         const cooldownProgress = showingItem ? 1 : 1 - Math.min(1, me.cooldown / cooldownMax);
         weaponName.textContent = me.movingCore ? "CORE"
             : selectedBuild ? BUILD_INFO[selectedBuild].name : me.weapon.toUpperCase();
-        weaponAmmo.textContent = me.movingCore ? "" : selectedBuild
+        weaponAmmo.textContent = me.movingCore || selectedBuild === "drone" ? "" : selectedBuild
             ? `×${me.buildItems[selectedBuild]}` : ammoForWeapon(me, me.weapon);
         weaponIcon.className = `weapon-icon ${me.movingCore ? "core" : selectedBuild ? `build-${selectedBuild}` : me.weapon}`;
         weaponCooldown.textContent = showingItem ? "R TO PLACE"
@@ -933,21 +934,27 @@ function updateHud() {
         weaponButton.classList.toggle("cooling", !showingItem && me.cooldown > 0);
         weaponButton.classList.toggle("locked", me.movingCore);
         weaponButton.disabled = me.movingCore;
-        if (me.drone?.active) {
-            weaponName.textContent = "DRONE";
-            weaponAmmo.textContent = "∞";
-            weaponIcon.className = "weapon-icon drone";
-            weaponCooldown.textContent = me.drone.cooldown > 0 ? `${me.drone.cooldown.toFixed(1)}s` : "READY";
+        if (me.drone?.controlled) {
+            weaponName.textContent = me.drone.weapon ? `DRONE / ${me.drone.weapon.toUpperCase()}` : "DRONE";
+            weaponAmmo.textContent = me.drone.weapon ? ammoForWeapon(me, me.drone.weapon) : "";
+            weaponIcon.className = `weapon-icon ${me.drone.weapon || "drone"}`;
+            weaponCooldown.textContent = !me.drone.weapon ? "UNARMED" : me.drone.cooldown > 0 ? `${me.drone.cooldown.toFixed(1)}s` : "READY";
             weaponButton.style.setProperty("--cooldown-progress", `${(1 - me.drone.cooldown / me.drone.cooldownMax) * 100}%`);
             weaponButton.classList.toggle("cooling", me.drone.cooldown > 0);
             weaponButton.disabled = true;
         }
+        if (selectedBuild === "drone") {
+            weaponCooldown.textContent = me.drone && me.drone.hp <= 0
+                ? `REPAIR ${me.droneRepairOre}鉱石 / ${me.droneRepairCopper}銅 · R` : "R TO LAUNCH";
+        }
         updateInventory(me);
         const placing = Boolean(placementSelection(me));
         const interaction = findNearestInteraction();
-        interactLabel.textContent = placing ? "PLACE" : interaction?.kind === "teleporter"
+        const launchingDrone = me.selectedBuild === "drone" && !interaction;
+        const droneViewAction = me.drone?.active && (me.drone.controlled || !interaction || interaction.kind === "drone");
+        interactLabel.textContent = droneViewAction ? interaction?.kind === "drone" ? "RECOVER" : "VIEW" : launchingDrone ? "LAUNCH" : placing ? "PLACE" : interaction?.kind === "teleporter"
             ? interaction.owned ? "TP / 長押しで回収" : "TP" : ["core", "defense"].includes(interaction?.kind) ? "長押しで運搬" : "INTERACT";
-        interactButton.classList.toggle("hidden", !placing && (!interaction || interaction.kind === "spy"));
+        interactButton.classList.toggle("hidden", !placing && (!interaction || interaction.kind === "spy") && me.selectedBuild !== "drone" && !me.drone?.active);
     }
 }
 
@@ -1003,7 +1010,8 @@ function updateInventory(me) {
         button.classList.toggle("selected", selectedKey === entry.key);
         button.disabled = entry.kind === "item" && (me.down || me.hp >= (me.maxHp || 100));
         button.querySelector("strong").textContent = `${index + 1}. ${entry.label}`;
-        button.querySelector("span").textContent = entry.kind === "build" ? `×${me.buildItems[entry.value]}`
+        button.querySelector("span").textContent = entry.value === "drone" ? ""
+            : entry.kind === "build" ? `×${me.buildItems[entry.value]}`
             : entry.kind === "item" ? `×${me.medkits} · 使用する`
             : entry.kind === "core" ? ""
                 : WEAPON_FIELDS[entry.value]?.capacity > 0 ? `${ammoForWeapon(me, entry.value)} / ${WEAPON_FIELDS[entry.value].capacity}`
@@ -1249,7 +1257,7 @@ function openNearbyActionMenu(title, options, target, range, layout = "default",
 
 function canUseNearby(target, range, showReason) {
     const me = getMe();
-    if (me?.drone?.active || me?.missileControl) return false;
+    if (me?.drone?.controlled || me?.missileControl) return false;
     if (!me || !state || !["preparing", "wave"].includes(state.phase)) return false;
     if (me.down) {
         if (showReason) showFeedback("ダウン中は利用できません");
@@ -1579,7 +1587,7 @@ canvas.addEventListener("pointercancel", event => {
 canvas.addEventListener("contextmenu", event => event.preventDefault());
 
 function startFiring(pointerId, clientX, clientY) {
-    if (getMe()?.missileControl) return;
+    if (getMe()?.selectedBuild || getMe()?.missileControl) return;
     if (getMe()?.movingCore) {
         showFeedback("CORE運搬中は武器を使用できません");
         return;
@@ -1591,7 +1599,7 @@ function startFiring(pointerId, clientX, clientY) {
 
 function updateFiringAim(clientX, clientY) {
     if (!firingPointer) return;
-    if (getMe()?.movingCore) {
+    if (getMe()?.movingCore || getMe()?.selectedBuild) {
         firingPointer = null;
         return;
     }
@@ -1611,6 +1619,7 @@ function stopFiring(clientX, clientY) {
 }
 
 function fireOnce(clientX, clientY) {
+    if (getMe()?.selectedBuild) return;
     if (getMe()?.movingCore) {
         showFeedback("CORE運搬中は武器を使用できません");
         return;
@@ -1725,8 +1734,15 @@ window.addEventListener("blur", () => {
 
 function findNearestInteraction() {
     const me = getMe();
-    if (me?.drone?.active || me?.missileControl) return null;
+    if (me?.missileControl) return null;
     if (!me || me.down || !state || !["preparing", "wave"].includes(state.phase)) return null;
+    if (me?.drone?.active) {
+        const drone = me.drone;
+        if (distance(me, drone) <= me.droneRecoveryRange && hasInteractionPath(me, drone)) {
+            return { kind: "drone", target: drone, action: () => send("DRONE_RECOVER") };
+        }
+        if (drone.controlled) return null;
+    }
     const choices = [];
     for (const owner of state.players) {
         for (const pad of owner.teleportPads || []) {
@@ -1798,12 +1814,21 @@ function toggleNearestInteraction() {
         return;
     }
     inventoryMenu.classList.add("hidden");
+    const me = getMe();
+    const interaction = findNearestInteraction();
+    if (interaction?.kind === "drone") { interaction.action(); return; }
+    if (!me?.drone?.controlled && (me?.drone?.active || me?.selectedBuild === "drone")
+            && interaction && interaction.kind !== "drone") {
+        interaction.action();
+        return;
+    }
+    if (me?.drone?.active) { send("JOB_ABILITY"); return; }
     if (placeSelectedInFront()) return;
     useNearestInteraction();
 }
 
 function placementSelection(player) {
-    if (!player || player.down) return null;
+    if (!player || player.down || player.selectedBuild === "drone") return null;
     if (player.movingCore) return { forCore: true, type: "core" };
     const type = player.selectedBuild;
     if (type && (player.buildItems?.[type] || 0) > 0) return { forCore: false, type };
@@ -1841,6 +1866,7 @@ function frontPlacementTile(player) {
 
 function placeSelectedInFront() {
     const me = getMe();
+    if (me?.selectedBuild === "drone" && !me.down) { openDroneLaunch(); return true; }
     const selection = placementSelection(me);
     if (!selection) return false;
     // The preview is advisory; only the server has the current collision state.
@@ -1851,12 +1877,28 @@ function placeSelectedInFront() {
 function nearestAt(items, point) {
     return items.slice().sort((a, b) => distance(point, a) - distance(point, b))[0];
 }
+function openDroneLaunch() {
+    const me = getMe();
+    if (!me || me.down || me.selectedBuild !== "drone" || me.drone?.active || !(me.buildItems?.drone > 0)) {
+        closeActionMenu();
+        return;
+    }
+    const broken = me.drone && me.drone.hp <= 0;
+    const unavailable = broken && (me.ore < me.droneRepairOre || me.copper < me.droneRepairCopper);
+    const options = WeaponUI.entries(me, WEAPON_FIELDS)
+        .filter(entry => WEAPON_FIELDS[entry.value].droneMountable)
+        .map(entry => ({ label: entry.label, command: `DRONE_LAUNCH:${entry.value}`, disabled: unavailable }));
+    options.push({ label: "UNARMED", command: "DRONE_LAUNCH:none", disabled: unavailable });
+    const title = broken ? `DRONE / REPAIR ${me.droneRepairOre} ORE / ${me.droneRepairCopper} COPPER` : "DRONE";
+    openNearbyActionMenu(title, options, me, 45, "default", openDroneLaunch);
+}
+
 function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
 function updateLocalPrediction(dt) {
     const serverMe = getMe();
     if (serverMe?.missileControl) return;
-    if (serverMe?.drone?.active && predictedLocal) {
+    if (serverMe?.drone?.controlled && predictedLocal) {
         predictedLocal.x = serverMe.x; predictedLocal.y = serverMe.y;
         predictedLocal.dashing = false;
         return;
@@ -1935,7 +1977,7 @@ function draw() {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const me = getMe();
-    const cameraTarget = me?.drone?.active ? smoothEntity("drone", { ...me.drone, id: me.id }) : predictedLocal || me;
+    const cameraTarget = me?.drone?.controlled ? smoothEntity("drone", { ...me.drone, id: me.id }) : predictedLocal || me;
     if (cameraTarget) {
         camera.x += (cameraTarget.x - camera.x) * .12;
         camera.y += (cameraTarget.y - camera.y) * .12;
@@ -2022,7 +2064,14 @@ function drawBlackoutSignals() {
 
 function drawBlackout() {
     const local = getMe();
-    if (local?.drone?.active || local?.missileControl) return;
+    if (local?.missileControl) return;
+    if (local?.drone?.controlled) {
+        ctx.save();
+        ctx.fillStyle = "rgba(60, 255, 110, .12)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+        return;
+    }
     const me = predictedLocal || local;
     if (!me) return;
     const x = (me.x - camera.x) * scale + canvas.width / 2;

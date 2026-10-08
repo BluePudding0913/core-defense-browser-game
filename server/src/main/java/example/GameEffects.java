@@ -26,7 +26,7 @@ final class GameEffects implements CombatEvents {
 
     public void sound(Player player, String effect, String item) {
         sink.broadcast("{\"type\":\"effect\",\"effect\":\"" + escapeJson(effect)
-                + "\",\"playerId\":\"" + escapeJson(player.id) + "\",\"weapon\":\"" + escapeJson(player.weapon)
+                + "\",\"playerId\":\"" + escapeJson(player.id) + "\",\"weapon\":\"" + escapeJson(effect.equals("shot") && DroneRules.controlling(player) ? item : player.weapon)
                 + "\",\"item\":\"" + escapeJson(item) + "\"}");
     }
 

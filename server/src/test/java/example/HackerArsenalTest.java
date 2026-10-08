@@ -25,6 +25,20 @@ class HackerArsenalTest {
         e.x = x; e.y = y; game.enemies.add(e); return e;
     }
     void advance(double seconds) { for (int i = 0; i < Math.round(seconds / .05); i++) game.update(.05); }
+    @Test void mountedFlameUsesDroneOriginAndHitsMultipleEnemies() {
+        player.job = "drone"; player.x = 1140; player.y = 1900;
+        player.weapons.grant("flamethrower");
+        player.drone = new Drone();
+        player.drone.active = player.drone.controlled = true;
+        player.drone.weapon = "flamethrower"; player.drone.x = 940; player.drone.y = 1900;
+        Enemy near = enemy(1000, 1900), far = enemy(1060, 1900);
+        int fuel = player.weapons.ammo("flamethrower");
+        game.handleMessage(player, "ATTACK:1120:1900");
+        assertEquals(10000 - WeaponCatalog.stats("flamethrower").damage(), near.hp);
+        assertEquals(near.hp, far.hp);
+        assertEquals(fuel - 1, player.weapons.ammo("flamethrower"));
+        assertTrue(player.drone.attackers.containsAll(java.util.List.of(near.id, far.id)));
+    }
     @Test void onlyNearbyHackerCanOpenUnlockedComputer() {
         player.job = "scout"; game.handleMessage(player, "COMPUTER"); assertFalse(player.missileControl);
         player.job = "hacker"; game.unlockedAreas.clear();
