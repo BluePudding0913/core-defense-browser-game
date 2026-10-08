@@ -2599,7 +2599,7 @@ function drawDroppedResources() {
         ctx.fillStyle = "#fff";
         ctx.font = "900 10px ui-monospace, monospace";
         ctx.textAlign = "center";
-        ctx.fillText(`${drop.type.toUpperCase()} ×${drop.amount}`, 0, -18);
+        ctx.fillText(drop.type.toUpperCase(), 0, -18);
         if (drop.pickupDelay > 0) {
             ctx.fillStyle = "rgb(255 255 255 / 68%)";
             ctx.font = "850 8px ui-monospace, monospace";
