@@ -6,7 +6,8 @@ final class JobRules {
     static final double TANK_AURA_RADIUS = 160;
     static final double TANK_DAMAGE_FACTOR = .75;
     static final double TANK_WALL_COOLDOWN = 20;
-    static final double TANK_WALL_DURATION = 15;
+    static final double TANK_WALL_DURATION = 20;
+    static final double TANK_WALL_HP = 2400;
     static final double SPY_DURATION = 8;
     static final double SPY_COOLDOWN = 30;
     static final double SPY_ATTACK_CONCEAL_CHANCE = .8;
@@ -28,7 +29,21 @@ final class JobRules {
         return java.util.Set.of("spy", "tp", "healer", "scout", "drone", "hacker", "tank", "attacker").contains(job);
     }
 
-    static double maxHp(String job) { return job.equals("tank") ? 150 : 100; }
+    static double maxHp(String job) { return job.equals("tank") ? 200 : 100; }
+
+    /** Two adjacent tiles across the facing direction, with either side as a placement option. */
+    static java.util.List<java.util.List<MapPoint>> tankWallPlacements(double x, double y,
+            double facingX, double facingY) {
+        MapPoint origin = GameMap.snapToTile(x, y);
+        boolean horizontal = Math.abs(facingX) >= Math.abs(facingY);
+        double dx = horizontal ? (facingX < 0 ? -1 : 1) : 0;
+        double dy = horizontal ? 0 : (facingY < 0 ? -1 : 1);
+        double tile = GameMap.TILE_SIZE;
+        MapPoint front = new MapPoint(origin.x() + dx * tile, origin.y() + dy * tile);
+        return java.util.List.of(
+                java.util.List.of(front, new MapPoint(front.x() - dy * tile, front.y() + dx * tile)),
+                java.util.List.of(front, new MapPoint(front.x() + dy * tile, front.y() - dx * tile)));
+    }
     static int targetPriority(Player player) { return player.job.equals("tank") ? 0 : 1; }
     static boolean preferTarget(Player candidate, Player current, double distance, double currentDistance) {
         return current == null || targetPriority(candidate) < targetPriority(current)
