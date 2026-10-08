@@ -233,9 +233,8 @@ class JobsTest {
         start("tp");
         assertEquals(2, player.buildItemCount("teleporter"));
         game.handleMessage(player, "JOB_ABILITY");
-        assertEquals(1, player.teleportPads.size(), "job key places without selecting an item");
-        game.handleMessage(player, "JOB_ABILITY");
-        assertTrue(player.teleportPads.isEmpty(), "job key recovers a nearby owned pad");
+        assertEquals(5, player.tpInvulnerableRemaining);
+        assertTrue(player.teleportPads.isEmpty(), "job key now activates invulnerability");
         assertEquals(2, player.buildItemCount("teleporter"));
         player.facingX = 1; player.facingY = 0;
         game.handleMessage(player, "EQUIP_BUILD:teleporter");

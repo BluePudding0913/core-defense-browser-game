@@ -69,5 +69,5 @@ for (const job of ['healer', 'tank', 'spy', 'tp']) {
 }
 me.down = true; run('beginJobHold(); endJobHold()'); assert.equal(commands.length, 0);
 me.down = false; me.job = 'tp'; me.buildItems.teleporter = 2;
-assert(!run('equipmentEntries(getMe())').some(entry => entry.value === 'teleporter'));
+assert(run('equipmentEntries(getMe())').some(entry => entry.value === 'teleporter'));
 console.log('Job controls passed: short/long press, launch, repair, abilities and drone breaker interaction');

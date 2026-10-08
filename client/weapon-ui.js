@@ -31,6 +31,7 @@ const WeaponUI = Object.freeze({
         if (player.down) return "";
         const timers = [];
         const seconds = value => `${Math.max(.1, value).toFixed(1)}s`;
+        if (player.tpInvulnerableRemaining > 0) timers.push(`INVINCIBLE ${seconds(player.tpInvulnerableRemaining)}`);
         const jobTimer = player.jobCooldown;
         if (jobTimer > 0) timers.push(seconds(jobTimer));
         if (player.job === "spy" && player.decoyCooldown > 0) timers.push(`DECOY ${seconds(player.decoyCooldown)}`);
