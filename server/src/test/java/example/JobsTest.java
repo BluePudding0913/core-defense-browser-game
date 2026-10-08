@@ -40,23 +40,23 @@ class JobsTest {
         assertEquals(JobRules.staminaMax("healer"), player.stamina);
     }
 
-    @Test void spyCooldownReadyNotifiesOnlyItsOwnerOnce() {
+    @Test void abilityCooldownsFinishWithoutSoundNotifications() {
         java.util.List<String> messages = new java.util.ArrayList<>();
-        java.util.List<Player> recipients = new java.util.ArrayList<>();
         var session = new GameSession(new GameEventSink() {
             public void broadcast(String message) { assertFalse(message.contains("ability-ready")); }
             public void send(Player recipient, String message) {
-                if (message.contains("ability-ready")) { messages.add(message); recipients.add(recipient); }
+                if (message.contains("ability-ready")) messages.add(message);
             }
         });
         var spy = session.connectPlayer("ready-test"); spy.job = "spy";
         session.phase = GamePhase.PREPARING; session.prepTime = 1000;
-        spy.jobCooldown = .1;
-        session.update(.05); assertTrue(messages.isEmpty());
-        session.update(.05); assertEquals(1, messages.size()); assertSame(spy, recipients.get(0));
-        session.update(.05); assertEquals(1, messages.size());
-        spy.job = "scout"; spy.jobCooldown = .05;
-        session.update(.05); assertEquals(1, messages.size());
+        for (String job : new String[]{"spy", "healer", "tank", "scout"}) {
+            spy.job = job; spy.jobCooldown = .1;
+            session.update(.05); assertEquals(.05, spy.jobCooldown, 1e-9);
+            session.update(.05); assertEquals(0, spy.jobCooldown);
+            session.update(.05); assertEquals(0, spy.jobCooldown);
+            assertTrue(messages.isEmpty(), job);
+        }
     }
 
     Object call(String name, Class<?>[] types, Object... args) throws Exception {

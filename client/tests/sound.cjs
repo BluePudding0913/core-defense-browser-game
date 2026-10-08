@@ -23,7 +23,7 @@ const localStorage = { getItem: key => saved.get(key) ?? null, setItem: (key, va
 vm.runInNewContext(fs.readFileSync('client/sound.js', 'utf8'), { window, localStorage });
 window.coreAudio.play('pistol'); assert.equal(contexts, 0);
 listeners.pointerdown(); assert.equal(contexts, 1);
-const names = ['pistol', 'ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket', 'missile-launch', 'missile-impact', 'bat', 'medkit', 'heal', 'build', 'pickup', 'item', 'damage', 'ability-ready', 'railgun', 'railgun-charge', 'refill', 'round-start'];
+const names = ['pistol', 'ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket', 'missile-launch', 'missile-impact', 'bat', 'medkit', 'heal', 'build', 'pickup', 'item', 'damage', 'railgun', 'railgun-charge', 'refill', 'round-start'];
 const demo = [];
 names.push('flamethrower');
 for (const name of names) {
@@ -110,9 +110,9 @@ assert.equal(played.length, 0, 'other players cannot trigger pickup SE');
 effect({ effect: 'pickup', playerId: 'me', x: 10, y: 0 });
 assert.deepEqual(played.pop(), ['pickup', 0]);
 effect({ effect: 'ability-ready', playerId: 'me' });
-assert.deepEqual(played.pop(), ['ability-ready', 0]);
+assert.equal(played.length, 0, 'cooldown completion stays silent, including legacy events');
 effect({ effect: 'ability-ready', playerId: 'other' });
-assert.equal(played.length, 0, 'cooldown readiness only sounds for its owner');
+assert.equal(played.length, 0, 'cooldown completion stays silent for other players');
 effect({ effect: 'shot', playerId: 'other', weapon: 'rifle' });
 assert.deepEqual(played.pop(), ['rifle', 300]);
 game.predictedLocal = { x: 100, y: 0 };

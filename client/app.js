@@ -1285,10 +1285,6 @@ function playSoundEffect(message) {
     }
     if (message.item === "railgun-charge" || message.effect === "shot" && message.item === "railgun") return;
     const own = message.playerId === myPlayerId;
-    if (message.effect === "ability-ready") {
-        if (own) window.coreAudio?.play("ability-ready", 0);
-        return;
-    }
     if (message.effect === "pickup" && !own) return;
     let name;
     if (message.effect === "shot") name = message.item === "railgun-charge" ? message.item : message.weapon;

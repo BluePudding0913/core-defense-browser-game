@@ -35,7 +35,7 @@ class BomberEnemyTest {
     Object invoke(String name, Class<?>[] types, Object... args) throws Exception {
         Method m = GameSession.class.getDeclaredMethod(name, types); m.setAccessible(true); return m.invoke(game, args);
     }
-    @Test void deathHitsPlayersAtFourTileBoundaryButNotBeyond() throws Exception {
+    @Test void deathHitsPlayersAtThreeTileBoundaryButNotBeyond() throws Exception {
         Enemy bomber = enemy("bomber", 0, 100);
         Player edge = player; edge.x = x + GameConfig.BOMBER_BLAST_RADIUS; edge.y = y;
         Player outside = game.players.get(1); outside.x = x + GameConfig.BOMBER_BLAST_RADIUS + 1; outside.y = y;
@@ -43,7 +43,7 @@ class BomberEnemyTest {
         assertEquals(50, edge.hp); assertEquals(100, outside.hp);
         assertEquals(100, player.credits); assertEquals(1, player.kills);
         assertEquals(1, effects.stream().filter(e -> e.contains("\"effect\":\"explosion\"")).count());
-        assertEquals(4 * GameMap.TILE_SIZE, GameConfig.BOMBER_BLAST_RADIUS);
+        assertEquals(3 * GameMap.TILE_SIZE, GameConfig.BOMBER_BLAST_RADIUS);
     }
     @Test void blastDoesNotDamageEnemiesOrChainToOtherBombers() throws Exception {
         Enemy first = enemy("bomber", 0, 100);
