@@ -106,6 +106,7 @@ final class Player {
     int wireItems;
     int mineItems;
     int barricadeItems;
+    int copperBarricadeItems, silverBarricadeItems;
     int credits;
     int droneRewardRemainder;
     final java.util.Map<String, Integer> quarryItems = new java.util.HashMap<>();
@@ -156,6 +157,8 @@ final class Player {
             case "wire" -> wireItems;
             case "mine" -> mineItems;
             case "barricade" -> barricadeItems;
+            case "copperBarricade" -> copperBarricadeItems;
+            case "silverBarricade" -> silverBarricadeItems;
             default -> quarryItems.getOrDefault(type, 0);
         };
     }
@@ -169,6 +172,8 @@ final class Player {
             case "wire" -> wireItems += amount;
             case "mine" -> mineItems += amount;
             case "barricade" -> barricadeItems += amount;
+            case "copperBarricade" -> copperBarricadeItems += amount;
+            case "silverBarricade" -> silverBarricadeItems += amount;
             default -> { if (type.endsWith("Factory")) quarryItems.merge(type, amount, Integer::sum); }
         }
     }
@@ -349,6 +354,8 @@ final class Defense {
             case "wire" -> 100;
             case "mine" -> 1;
             case "barricade" -> 1200;
+            case "copperBarricade" -> 2400;
+            case "silverBarricade" -> 4800;
             default -> 100;
         };
         this.hp = maxHp;

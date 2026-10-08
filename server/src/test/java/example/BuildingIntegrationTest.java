@@ -8,6 +8,40 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class BuildingIntegrationTest {
+    @Test void metalBarricadesCraftConsumeRepairRecoverAndPreserveDurability() throws Exception {
+        for (String type : List.of("copperBarricade", "silverBarricade")) {
+            var bench = GameMap.WORKBENCH_UNITS.get(0);
+            player.x = bench.x(); player.y = bench.y();
+            player.wood = player.ore = player.copper = player.silver = 20;
+            game.handleMessage(player, "CRAFT:" + type);
+            var recipe = GameConfig.BUILD_RECIPES.get(type);
+            assertEquals(20 - recipe.get("wood"), player.wood);
+            assertEquals(20 - recipe.get("ore"), player.ore);
+            assertEquals(20 - recipe.get("copper"), player.copper);
+            assertEquals(20 - recipe.getOrDefault("silver", 0), player.silver);
+            assertEquals(1, player.buildItemCount(type));
+            assertEquals(type, player.selectedBuild);
+            assertEquals(1, new ObjectMapper().readTree(SnapshotBuilder.build(game)).path("players").get(player.slot - 1).path("buildItems").path(type).asInt());
+            player.x = 1020; player.y = 1900; player.facingX = 1; player.facingY = 0;
+            game.handleMessage(player, "PLACE_FRONT");
+            assertEquals(0, player.buildItemCount(type));
+            var slot = game.trapSlots.get(game.trapSlots.size() - 1);
+            assertEquals(type.equals("copperBarricade") ? 2400 : 4800, slot.defense.maxHp);
+            assertTrue(BuildingRules.blocksMovement(type));
+            slot.defense.hp = 300;
+            String resource = type.equals("copperBarricade") ? "copper" : "silver";
+            int count = materialsCount(resource);
+            game.handleMessage(player, "REPAIR:" + slot.id);
+            assertEquals(count - 1, materialsCount(resource)); assertEquals(slot.defense.maxHp, slot.defense.hp);
+            slot.defense.hp = 500;
+            game.handleMessage(player, "REMOVE:" + slot.id);
+            assertEquals(1, player.buildItemCount(type));
+            game.handleMessage(player, "EQUIP_BUILD:" + type); game.handleMessage(player, "PLACE_FRONT");
+            assertEquals(500, game.trapSlots.get(game.trapSlots.size() - 1).defense.hp);
+            game.trapSlots.clear();
+        }
+    }
+    private int materialsCount(String type) { return type.equals("copper") ? player.copper : player.silver; }
     @Test void pickupPreservesSelectedBuildWeaponAndCoreWhileRecoveringInventory() {
         for (String selection : new String[]{null, "wire"}) {
             player.selectedBuild = selection; player.weapon = "pistol";

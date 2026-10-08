@@ -29,15 +29,6 @@ jobSelect.addEventListener("click", event => {
     const job = event.target.closest("[data-job]")?.dataset.job;
     if (job) send(`JOB:${job}`);
 });
-jobAbilityButton.addEventListener("pointerdown", event => {
-    if (event.button !== 0) return;
-    jobAbilityButton.setPointerCapture(event.pointerId);
-    beginJobHold();
-});
-jobAbilityButton.addEventListener("pointerup", () => endJobHold());
-jobAbilityButton.addEventListener("pointercancel", () => endJobHold(true));
-jobAbilityButton.addEventListener("lostpointercapture", () => endJobHold(true));
-jobAbilityButton.addEventListener("click", event => { if (event.detail === 0) { beginJobHold(); endJobHold(); } });
 const roomCode = document.querySelector("#room-code");
 const roomOwner = document.querySelector("#room-owner");
 const createRoomButton = document.querySelector("#create-room");
@@ -940,13 +931,6 @@ function updateHud() {
         : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}`
             : "";
     const me = getMe();
-    jobAbilityButton.classList.toggle("hidden", !["healer", "tank", "spy", "drone"].includes(me?.job));
-    const jobKey = window.coreKeySettings.getJobEffect().toUpperCase();
-    const jobLabel = me?.job === "drone" ? me.drone?.active ? "VIEW / 長押し:回収" : "長押し:出撃"
-        : me?.job === "spy" ? "偽装" : me?.job === "tank" ? "WALL" : "HEAL";
-    jobAbilityButton.textContent = `${jobKey} · ${jobLabel}${me?.jobCooldown > 0 ? ` ${Math.ceil(me.jobCooldown)}s` : ""}`;
-    jobAbilityButton.disabled = !me || me.down || me.movingCore || me.missileControl
-        || me.job !== "drone" && (Boolean(me.selectedBuild) || me.jobCooldown > 0);
     teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">
             <div class="teammate-label">
@@ -1315,7 +1299,8 @@ function openActionMenu(title, options, layout = "default") {
         if (button.innerHTML !== content) button.innerHTML = content;
         button.onclick = option.onSelect || (option.command ? () => {
             send(option.command);
-            if (!option.command.startsWith("BUY:") && !option.command.startsWith("CRAFT:")) closeActionMenu();
+            if (!option.command.startsWith("BUY:") && !option.command.startsWith("CRAFT:")
+                    && !option.command.startsWith("UPGRADE:")) closeActionMenu();
         } : null);
         if (!reuseButtons) {
             button.dataset.command = option.command || "";
@@ -1407,12 +1392,14 @@ function openSlotMenu(slot) {
     } else {
         const missing = slot.defense.maxHp - slot.defense.hp;
         const metal = ["turret", "copperTurret", "silverTurret", "wire", "mine"].includes(slot.defense.type);
+        const resource = slot.defense.type === "copperBarricade" ? "copper"
+            : slot.defense.type === "silverBarricade" ? "silver" : metal ? "ore" : "wood";
         const me = getMe();
         openNearbyActionMenu(`${slot.defense.type.toUpperCase()} — HP ${Math.ceil(slot.defense.hp)}/${Math.ceil(slot.defense.maxHp)}`, [{
             label: "REPAIR",
-            detail: slot.defense.hp >= slot.defense.maxHp ? "耐久値最大" : `${metal ? "ORE" : "WOOD"} 1`,
+            detail: slot.defense.hp >= slot.defense.maxHp ? "耐久値最大" : `${resource.toUpperCase()} 1`,
             command: `REPAIR:${slot.id}`,
-            disabled: slot.defense.hp >= slot.defense.maxHp || (metal ? me.ore : me.wood) < 1,
+            disabled: slot.defense.hp >= slot.defense.maxHp || (me[resource] || 0) < 1,
         }, {
             label: "PICK UP",
             detail: "耐久値を保ったまま回収。R長押しでも運搬できます",
@@ -1465,7 +1452,7 @@ function openCoreMenu() {
         option(`DEFENSE Lv.${core.defense + 1}`, defenseCost, "UPGRADE:defense", core.defense >= 4),
         option(`AUTO REPAIR Lv.${core.regen + 1}`, regenCost, "UPGRADE:regen", core.regen >= 4),
         { label: "MOVE CORE", detail: "運搬後、正面の色付きタイルへRで設置", command: "EQUIP_CORE" },
-    ], CORE, INTERACTION_RANGE.core);
+    ], core, INTERACTION_RANGE.core, "default", openCoreMenu);
 }
 
 function openPrepConsoleMenu() {
@@ -1580,7 +1567,7 @@ function openQuarryMenu() {
 
 function openWorkbenchMenu(workbench) {
     const me = getMe();
-    const order = { block: 0, barricade: 1, wire: 2, mine: 3, turret: 4, copperTurret: 5, silverTurret: 6 };
+    const order = { block: 0, barricade: 1, copperBarricade: 2, silverBarricade: 3, wire: 4, mine: 5, turret: 6, copperTurret: 7, silverTurret: 8 };
     openNearbyActionMenu("WORKBENCH", Object.entries(BUILD_INFO).filter(([, info]) => !info.shopOnly)
         .sort(([a], [b]) => (order[a] ?? 7) - (order[b] ?? 7)).map(([type, info]) => ({
         label: info.name,
@@ -2102,7 +2089,7 @@ function canPredictOccupy(x, y, radius, includeDefenses = true) {
             if (!symbol || !TILE_MAP.legend[symbol] || TILE_MAP.legend[symbol].solid) return false;
         }
     }
-    if (includeDefenses && state.slots.some(slot => slot.defense && ["block", "barricade"].includes(slot.defense.type)
+    if (includeDefenses && state.slots.some(slot => slot.defense && ["block", "barricade", "copperBarricade", "silverBarricade"].includes(slot.defense.type)
             && Math.hypot(x - slot.x, y - slot.y) < radius + 18)) return false;
     return true;
 }
@@ -2423,7 +2410,8 @@ function drawPlacementPreview() {
     ctx.fillStyle = valid ? "#111" : "#fff";
     ctx.font = "950 9px ui-monospace, monospace";
     ctx.textAlign = "center";
-    ctx.fillText(valid ? "R PLACE" : "BLOCKED", point.x, point.y + 3);
+    const reservedResource = (state.resources || []).some(node => distance(point, node) < 36);
+    ctx.fillText(valid ? "R PLACE" : reservedResource ? "RESOURCE" : "BLOCKED", point.x, point.y + 3);
     ctx.restore();
 }
 
@@ -2519,7 +2507,16 @@ function drawStation(station, label, color, labelColor = "#111") {
 
 function drawResources() {
     for (const node of state.resources || []) {
-        if (!node.available) continue;
+        if (!node.available) {
+            if (placementSelection(getMe())) {
+                ctx.save();
+                ctx.strokeStyle = "rgb(150 150 150 / 55%)";
+                ctx.lineWidth = 1;
+                ctx.strokeRect(node.x - 8, node.y - 6, 16, 12);
+                ctx.restore();
+            }
+            continue;
+        }
         const bob = Math.sin(performance.now() / 260 + node.x * .01) * 3;
         ctx.save();
         ctx.translate(node.x, node.y + bob);
@@ -2599,10 +2596,10 @@ function drawDefense(slot) {
         ctx.fillStyle = "#ff5964"; ctx.beginPath(); ctx.arc(slot.x, slot.y, 17, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(slot.x, slot.y, 5, 0, Math.PI * 2); ctx.fill();
     } else {
-        ctx.fillStyle = "#666"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
+        ctx.fillStyle = defense.type === "copperBarricade" ? "#986543" : defense.type === "silverBarricade" ? "#c3cbd0" : "#666"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
         ctx.strokeStyle = "#bbb"; ctx.lineWidth = 3; ctx.strokeRect(slot.x - 18, slot.y - 18, 36, 36);
     }
-    if (defense.type === "barricade") drawBar(slot.x - 14, slot.y + 10, 28, 4, defense.hp / defense.maxHp, "#fff");
+    if (["barricade", "copperBarricade", "silverBarricade"].includes(defense.type)) drawBar(slot.x - 14, slot.y + 10, 28, 4, defense.hp / defense.maxHp, "#fff");
     else if (defense.type !== "mine") drawBar(slot.x - 25, slot.y + 29, 50, 4, defense.hp / defense.maxHp, "#fff");
 }
 

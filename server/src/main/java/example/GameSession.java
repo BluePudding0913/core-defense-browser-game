@@ -1349,7 +1349,7 @@ final class GameSession {
 
             TrapSlot barricade = trapSlots.stream()
                     .filter(slot -> slot.defense != null
-                            && (slot.defense.type.equals("barricade") || slot.defense.type.equals("block"))
+                            && BuildingRules.blocksMovement(slot.defense.type)
                             && distance(enemy.x, enemy.y, slot.x, slot.y) < 52)
                     .min(Comparator.comparingDouble(slot -> distance(enemy.x, enemy.y, slot.x, slot.y)))
                     .orElse(null);
@@ -3159,7 +3159,7 @@ final class GameSession {
             player.turretItems = 0;
             player.wireItems = 0;
             player.mineItems = 0;
-            player.barricadeItems = 0;
+            player.barricadeItems = player.copperBarricadeItems = player.silverBarricadeItems = 0;
             player.credits = 0;
             player.droneRewardRemainder = 0;
             player.selectedBuild = null;
@@ -3224,7 +3224,7 @@ final class GameSession {
     private boolean canOccupy(double x, double y, double radius) {
         if (!GameMap.canOccupy(x, y, radius, unlockedAreas)) return false;
         return trapSlots.stream().noneMatch(slot -> slot.defense != null
-                && (slot.defense.type.equals("block") || slot.defense.type.equals("barricade"))
+                && BuildingRules.blocksMovement(slot.defense.type)
                 && distance(x, y, slot.x, slot.y) < radius + 18);
     }
 

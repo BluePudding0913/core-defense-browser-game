@@ -129,6 +129,8 @@ final class SnapshotBuilder {
                 case "turret" -> "タレット";
                 case "copperTurret" -> "銅タレット";
                 case "silverTurret" -> "銀タレット";
+                case "copperBarricade" -> "銅バリケード";
+                case "silverBarricade" -> "銀バリケード";
                 case "wire" -> "有刺鉄線";
                 case "mine" -> "地雷";
                 default -> "バリケード";
@@ -276,6 +278,8 @@ final class SnapshotBuilder {
                     .append(",\"wire\":").append(player.wireItems)
                     .append(",\"mine\":").append(player.mineItems)
                     .append(",\"barricade\":").append(player.barricadeItems)
+                    .append(",\"copperBarricade\":").append(player.copperBarricadeItems)
+                    .append(",\"silverBarricade\":").append(player.silverBarricadeItems)
                     .append(",\"copperTurret\":").append(player.copperTurretItems)
                     .append(",\"silverTurret\":").append(player.silverTurretItems)
                     .append(",\"teleporter\":").append(player.buildItemCount("teleporter"));
