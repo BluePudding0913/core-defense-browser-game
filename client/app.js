@@ -24,7 +24,6 @@ document.addEventListener("click", event => {
         jobToggle.setAttribute("aria-expanded", "false");
     }
 });
-const jobAbilityButton = document.querySelector("#job-ability");
 jobSelect.addEventListener("click", event => {
     const job = event.target.closest("[data-job]")?.dataset.job;
     if (job) send(`JOB:${job}`);
@@ -523,7 +522,7 @@ function acknowledgeInputs(value) {
 
 function applyRules(next) {
     if (next.rules) {
-        BUILD_INFO = { ...next.rules.recipes, teleporter: { name: "テレポーター", shopOnly: true } };
+        BUILD_INFO = { ...next.rules.recipes };
         SHOP_UNITS.filter(shop => shop.item.endsWith("Factory")).forEach(shop => {
             BUILD_INFO[shop.item] = { name: shop.label, description: "持ち運べる製造装置", shopOnly: true };
         });
@@ -769,6 +768,7 @@ function equipmentEntries(me) {
     const entries = WeaponUI.entries(me, WEAPON_FIELDS)
         .filter(entry => !(me.drone?.active && entry.value === me.drone.weapon));
     for (const [type, info] of Object.entries(BUILD_INFO)) {
+        if (type === "teleporter") continue;
         if ((me.buildItems?.[type] || 0) > 0) entries.push({ key: `build:${type}`, kind: "build", value: type, label: info.name });
     }
     if (me.movingCore) entries.push({ key: "core", kind: "core", value: "core", label: "CORE" });
@@ -831,7 +831,7 @@ function beginJobHold() {
             if (getMe()?.drone?.active) send("DRONE_RECOVER");
             else openDroneLaunch();
         }, 500);
-    } else if (["healer", "tank", "spy"].includes(me.job)) {
+    } else if (["healer", "tank", "spy", "tp"].includes(me.job)) {
         hold.used = true;
         send("JOB_ABILITY");
     }
@@ -859,10 +859,6 @@ function beginInteractionHold() {
     interactionHold = hold;
     if (interaction?.kind === "teleporter" && actionMenu.classList.contains("hidden") && !placementSelection(getMe())) {
         hold.interaction = interaction;
-        if (interaction.owned) hold.timer = setTimeout(() => {
-            hold.used = true;
-            send(`PICKUP_TELEPORT:${interaction.target.x}:${interaction.target.y}`);
-        }, 500);
     } else if (target && actionMenu.classList.contains("hidden") && !placementSelection(getMe())) {
         hold.timer = setTimeout(() => {
             hold.used = true;
@@ -982,7 +978,7 @@ function updateHud() {
         const placing = Boolean(placementSelection(me));
         const interaction = findNearestInteraction();
         interactLabel.textContent = placing ? "PLACE" : interaction?.kind === "teleporter"
-            ? interaction.owned ? "TP / 長押しで回収" : "TP" : ["core", "defense"].includes(interaction?.kind) ? "長押しで運搬" : "INTERACT";
+            ? "TP" : ["core", "defense"].includes(interaction?.kind) ? "長押しで運搬" : "INTERACT";
         interactButton.classList.toggle("hidden", !placing && !interaction);
     }
 }
@@ -1890,7 +1886,7 @@ function findNearestInteraction() {
         for (const pad of owner.teleportPads || []) {
             const separation = distance(me, pad);
             const owned = owner.id === me.id && me.job === "tp";
-            if ((!owned && owner.teleportPads.length !== 2) || separation > 45 || !hasInteractionPath(me, pad)) continue;
+            if (owner.teleportPads.length !== 2 || separation > 45 || !hasInteractionPath(me, pad)) continue;
             choices.push({ kind: "teleporter", target: pad, owned, separation,
                 action: () => { if (owner.teleportPads.length === 2) send("TELEPORT"); } });
         }

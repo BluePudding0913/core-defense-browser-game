@@ -86,7 +86,7 @@ assert.equal(prepMenu.detail, '200G / 予約 +1:00');
 assert.equal(prepMenu.disabled, false);
 assert.equal(prepMenu.command, 'EXTEND_PREP');
 
-// Teleporter R taps travel; only the owner gets a recovery hold.
+// Teleporter R taps and holds only travel; F owns placement and recovery.
 context.placementSelection = () => null;
 let teleportTarget = { kind: 'teleporter', target: { x: 1180, y: 1900 }, owned: true,
     action: () => commands.push('TELEPORT') };
@@ -94,16 +94,16 @@ context.findNearestInteraction = () => teleportTarget;
 const beforeTeleport = commands.length;
 run('beginInteractionHold(); endInteractionHold()');
 assert.equal(commands.at(-1), 'TELEPORT');
-run('beginInteractionHold()'); timer(); run('endInteractionHold()');
-assert.equal(commands.at(-1), 'PICKUP_TELEPORT:1180:1900');
-assert.equal(commands.length, beforeTeleport + 2, 'recovery release must not also teleport');
+run('beginInteractionHold()'); assert.equal(timer,null); run('endInteractionHold()');
+assert.equal(commands.at(-1), 'TELEPORT');
+assert.equal(commands.length, beforeTeleport + 2, 'R hold still travels without recovery');
 teleportTarget.owned = false;
 run('beginInteractionHold()'); assert.equal(timer, null); run('endInteractionHold()');
 assert.equal(commands.at(-1), 'TELEPORT');
 teleportTarget.owned = true;
 run('beginInteractionHold(); endInteractionHold(true)');
 assert.equal(commands.length, beforeTeleport + 3);
-console.log('Teleporter input passed: tap, owner hold, ally access and cancellation');
+console.log('Teleporter input passed: travel, no recovery hold, ally access and cancellation');
 
 // R falls back to disguise, while nearby facilities retain their interaction.
 const spyCommands = [];

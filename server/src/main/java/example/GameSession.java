@@ -486,6 +486,14 @@ final class GameSession {
 
     private void useJobAbility(Player player) {
         if (!canMove() || player.down || player.movingCore) return;
+        if (player.job.equals("tp")) {
+            MapPoint nearby = player.teleportPads.stream().filter(pad -> distance(player.x, player.y, pad.x(), pad.y()) <= 45
+                    && hasInteractionPath(player.x, player.y, pad.x(), pad.y()))
+                    .min(java.util.Comparator.comparingDouble(pad -> distance(player.x, player.y, pad.x(), pad.y()))).orElse(null);
+            if (nearby != null) pickupTeleport(player, nearby);
+            else placeTeleport(player, frontPlacementPoint(player));
+            return;
+        }
         if (player.job.equals("tank")) {
             if (player.selectedBuild != null || player.jobCooldown > 0) return;
             MapPoint origin = GameMap.snapToTile(player.x, player.y);
@@ -567,14 +575,13 @@ final class GameSession {
     }
 
     private void placeTeleport(Player player, MapPoint point) {
-        if (!player.job.equals("tp") || !"teleporter".equals(player.selectedBuild)
-                || player.buildItemCount("teleporter") <= 0) return;
+        if (!player.job.equals("tp") || player.buildItemCount("teleporter") <= 0) return;
         if (!canPlaceDefenseAt(point, null)) {
             gameEffects.feedback(player, "ここには設置できません");
             return;
         }
         player.teleportPads.add(point);
-        if (player.buildItemCount("teleporter") == 0) player.selectedBuild = null;
+        if (player.buildItemCount("teleporter") == 0 && "teleporter".equals(player.selectedBuild)) player.selectedBuild = null;
         gameEffects.sound(player, "item-use", "build");
     }
 
@@ -2728,6 +2735,12 @@ final class GameSession {
 
     private void placeInFacingTile(Player player) {
         if (!canUseFacilities() || player.down) return;
+        MapPoint point = frontPlacementPoint(player);
+        double targetX = point.x(), targetY = point.y();
+        placeInFacingPoint(player, targetX, targetY);
+    }
+
+    private MapPoint frontPlacementPoint(Player player) {
         MapPoint origin = GameMap.snapToTile(player.x, player.y);
         double targetX = origin.x() + player.facingX * GameMap.TILE_SIZE;
         double targetY = origin.y() + player.facingY * GameMap.TILE_SIZE;
@@ -2736,6 +2749,10 @@ final class GameSession {
             targetX += player.facingX * GameMap.TILE_SIZE;
             targetY += player.facingY * GameMap.TILE_SIZE;
         }
+        return GameMap.snapToTile(targetX, targetY);
+    }
+
+    private void placeInFacingPoint(Player player, double targetX, double targetY) {
         if (player.movingCore) {
             placeCore(player, new String[] {"PLACE_CORE",
                     Double.toString(targetX), Double.toString(targetY)});
