@@ -53,7 +53,7 @@ final class CombatSystem {
             }
             return;
         }
-        WeaponStats weapon = WeaponCatalog.stats(player.weapon);
+        WeaponStats weapon = JobRules.weaponStats(player.job, player.weapon);
         if (!player.weapons.consume(player.weapon)) {
             events.outOfAmmo(player);
             player.firing = false;

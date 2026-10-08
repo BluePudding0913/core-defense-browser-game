@@ -1099,7 +1099,7 @@ function updateInventory(me) {
         button.querySelector("span").textContent = entry.kind === "build" ? `×${me.buildItems[entry.value]}`
             : entry.kind === "item" ? `×${me.medkits} · 使用する`
             : entry.kind === "core" ? ""
-                : WEAPON_FIELDS[entry.value]?.capacity > 0 ? `${ammoForWeapon(me, entry.value)} / ${WEAPON_FIELDS[entry.value].capacity}`
+                : WEAPON_FIELDS[entry.value]?.capacity > 0 ? `${ammoForWeapon(me, entry.value)} / ${WeaponUI.capacity(me, WEAPON_FIELDS[entry.value])}`
                     : entry.value === "pistol" ? "∞" : "";
     });
     if (me.job === "attacker") {
@@ -1108,7 +1108,7 @@ function updateInventory(me) {
         sub.querySelector("strong").textContent = WeaponUI.name(me.secondaryWeapon || "bat", WEAPON_FIELDS);
         const definition = WEAPON_FIELDS[me.secondaryWeapon];
         sub.querySelector("span").textContent = WeaponUI.ammo(me, me.secondaryWeapon || "bat", WEAPON_FIELDS)
-            + (definition?.capacity > 0 ? ` / ${definition.capacity}` : "");
+            + (definition?.capacity > 0 ? ` / ${WeaponUI.capacity(me, definition)}` : "");
     } else {
         const sub = inventoryItems.querySelector(".inventory-sub");
         if (sub) sub.hidden = true;
@@ -1552,8 +1552,8 @@ function openShopPurchase(shop, chooseExchange = false) {
     const ownedWeapons = WeaponUI.ownedAmmoWeapons(me, WEAPON_FIELDS)
         .filter(fields => fields !== WEAPON_FIELDS[mountedWeapon]);
     const ammoFull = shop.item === "ammo" ? ownedWeapons.length > 0
-        && ownedWeapons.every(fields => me[fields.ammo] >= fields.capacity)
-        : alreadyOwned && ammo >= weaponFields.capacity;
+        && ownedWeapons.every(fields => me[fields.ammo] >= WeaponUI.capacity(me, fields))
+        : alreadyOwned && ammo >= WeaponUI.capacity(me, weaponFields);
     const price = alreadyOwned ? weaponFields.refillCost ?? WEAPON_AMMO_REFILL_COST : shop.cost;
     const unavailable = shop.item === "ammo" && ownedWeapons.length === 0;
     const weaponLimitReached = weaponFields && !alreadyOwned
@@ -1571,7 +1571,7 @@ function openShopPurchase(shop, chooseExchange = false) {
         label: mounted ? "DRONE" : ammoFull ? "FULL" : alreadyOwned || shop.item === "ammo" && !unavailable ? "REFILL"
             : unavailable ? "LOCKED" : "BUY",
         detail: `${price}G`,
-        titleAmmo: alreadyOwned && weaponFields.capacity > 0 ? `${ammo} / ${weaponFields.capacity}` : "",
+        titleAmmo: alreadyOwned && weaponFields.capacity > 0 ? `${ammo} / ${WeaponUI.capacity(me, weaponFields)}` : "",
         stock: shop.item === "ammo" ? WeaponUI.ammoStock(me, WEAPON_FIELDS) : "",
         command: weaponLimitReached ? undefined : `BUY:${shop.item}`,
         onSelect: weaponLimitReached ? () => openShopPurchase(shop, true) : undefined,
