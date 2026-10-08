@@ -936,7 +936,7 @@ function updateHud() {
         const cooldownMax = Math.max(.01, me.cooldownMax || me.cooldown || .01);
         const cooldownProgress = showingItem ? 1 : 1 - Math.min(1, me.cooldown / cooldownMax);
         weaponName.textContent = me.movingCore ? "CORE"
-            : selectedBuild ? BUILD_INFO[selectedBuild].name : me.weapon.toUpperCase();
+            : selectedBuild ? BUILD_INFO[selectedBuild].name : WeaponUI.name(me.weapon, WEAPON_FIELDS);
         weaponAmmo.textContent = me.movingCore || ["drone", "controller"].includes(selectedBuild) ? "" : selectedBuild
             ? `×${me.buildItems[selectedBuild]}` : ammoForWeapon(me, me.weapon);
         weaponIcon.className = `weapon-icon ${me.movingCore ? "core" : selectedBuild ? `build-${selectedBuild}` : me.weapon}`;
@@ -947,7 +947,7 @@ function updateHud() {
         weaponButton.classList.toggle("locked", me.movingCore);
         weaponButton.disabled = me.movingCore;
         if (me.drone?.controlled) {
-            weaponName.textContent = me.drone.weapon ? `DRONE / ${me.drone.weapon.toUpperCase()}` : "DRONE";
+            weaponName.textContent = me.drone.weapon ? `DRONE / ${WeaponUI.name(me.drone.weapon, WEAPON_FIELDS)}` : "DRONE";
             weaponAmmo.textContent = me.drone.weapon ? ammoForWeapon(me, me.drone.weapon) : "";
             weaponIcon.className = `weapon-icon ${me.drone.weapon || "drone"}`;
             weaponCooldown.textContent = !me.drone.weapon ? "UNARMED" : me.drone.cooldown > 0 ? `${me.drone.cooldown.toFixed(1)}s` : "READY";

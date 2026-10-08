@@ -116,7 +116,7 @@ final class SnapshotBuilder {
                 .append(",\"silverAmmoEligible\":").append(SilverAmmoRules.eligible(key))
                 .append(",\"owned\":\"").append(definition.ownedField())
                 .append("\",\"ammo\":\"").append(definition.ammoField())
-                .append("\",\"name\":\"").append(key).append("\"}");
+                .append("\",\"name\":\"").append(key.equals("rocket") && shop != null ? escapeJson(shop.label()) : key).append("\"}");
         }
         json.append("},\"recipes\":{");
         first = true;
