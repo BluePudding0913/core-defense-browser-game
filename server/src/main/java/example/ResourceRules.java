@@ -4,8 +4,8 @@ final class ResourceRules {
     private ResourceRules() {}
 
     static double respawnSeconds(String type, String requiredArea, String id) {
-        if ("wood".equals(type) && "forest".equals(requiredArea)) return 2;
-        if ("wood-room".equals(requiredArea) || "ore-room".equals(requiredArea)) return 3;
+        if ("wood".equals(type)) return 6;
+        if ("ore-room".equals(requiredArea)) return 3;
         // Preserve material supply while each pickup awards a single piece.
         double supplyRate = switch (type) {
             case "ore" -> 3;
