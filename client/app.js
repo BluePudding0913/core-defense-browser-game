@@ -1538,11 +1538,7 @@ function openShopPurchase(shop, chooseExchange = false) {
 }
 
 function openBreakerMenu(breaker) {
-    const options = [{ label: "MAP", command: `BREAKER_MAP:${breaker.id}` }];
-    if (state.blackoutActive && (state.trippedBreakers || []).includes(breaker.id)) {
-        options.push({ label: "RESET", command: `BREAKER:${breaker.id}` });
-    }
-    openNearbyActionMenu("BREAKER", options, breaker, INTERACTION_RANGE.breaker);
+    send(`${state.blackoutActive && (state.trippedBreakers || []).includes(breaker.id) ? "BREAKER" : "BREAKER_MAP"}:${breaker.id}`);
 }
 
 function openWoodcutterMenu() {
@@ -2099,7 +2095,7 @@ function animate(now = performance.now()) {
     lastFrameAt = now;
     updateLocalPrediction(dt);
     window.coreAudio?.syncRailguns?.(socket?.readyState === WebSocket.OPEN ? state?.players || [] : [], predictedLocal || getMe(), myPlayerId, Boolean(firingPointer), secondaryHeld);
-    window.TerminalUI?.update(state, getMe(), { map: { world: WORLD, tileMap: TILE_MAP, areas: AREAS, startingArea: STARTING_AREA }, send });
+    window.TerminalUI?.update(state, getMe(), { map: { world: WORLD, tileMap: TILE_MAP, areas: AREAS, startingArea: STARTING_AREA, breakerTerminals: BREAKER_TERMINALS }, send });
     draw();
     requestAnimationFrame(animate);
 }

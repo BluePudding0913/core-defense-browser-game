@@ -2,23 +2,28 @@
 
 // The targeting view uses snapshots; facility access and shots stay authoritative on the server.
 window.TerminalUI = (() => {
-    let panel, canvas, label, title, current;
+    let panel, canvas, title, current;
     function create() {
         panel = document.createElement("section");
         panel.id = "missile-panel";
         panel.tabIndex = -1;
         panel.setAttribute("aria-label", "ミサイル管制");
-        panel.innerHTML = '<header><strong>MISSILE · NIGHT VISION</strong><span></span></header><canvas id="missile-map" aria-label="着弾地点をクリック"></canvas>';
+        panel.innerHTML = '<header><strong>MISSILE SYSTEM</strong></header><canvas id="missile-map" aria-label="着弾地点をクリック"></canvas>';
         document.body.append(panel);
-        canvas = panel.querySelector("canvas"); label = panel.querySelector("span");
+        canvas = panel.querySelector("canvas");
         title = panel.querySelector("strong");
         canvas.addEventListener("pointerdown", event => {
-            if (!current || current.me.breakerControl || current.me.missileCooldown > 0) return;
+            if (!current || event.button != null && event.button !== 0) return;
             const rect = canvas.getBoundingClientRect();
             const ratio = Math.min(rect.width / canvas.width, rect.height / canvas.height);
             const x = (event.clientX - rect.left - (rect.width - canvas.width * ratio) / 2) / ratio;
             const y = (event.clientY - rect.top - (rect.height - canvas.height * ratio) / 2) / ratio;
             if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return;
+            const broken = (current.map.breakerTerminals || []).find(breaker =>
+                (current.state.trippedBreakers || []).includes(breaker.id)
+                && Math.abs(x - breaker.x) <= 24 && Math.abs(y - breaker.y) <= 26);
+            if (broken) { current.send(`MAP_REPAIR:${broken.id}`); return; }
+            if (current.me.breakerControl || current.me.missileCooldown > 0) return;
             current.send(`MISSILE:${x.toFixed(1)}:${y.toFixed(1)}`);
         });
         panel.addEventListener("keydown", event => {
@@ -37,17 +42,15 @@ window.TerminalUI = (() => {
         if (!panel) create();
         const opening = panel.hidden || !current;
         panel.hidden = false;
-        current = { ...options, me };
+        current = { ...options, me, state };
         if (opening) panel.focus({ preventScroll: true });
         const map = options.map;
         if (canvas.width !== map.world.width) canvas.width = map.world.width;
         if (canvas.height !== map.world.height) canvas.height = map.world.height;
         const readOnly = Boolean(me.breakerControl);
-        if (title) title.textContent = `${readOnly ? "BREAKER MAP" : "MISSILE"} · NIGHT VISION`;
+        if (title) title.textContent = readOnly ? "MAP" : "MISSILE SYSTEM";
         panel.setAttribute("aria-label", readOnly ? "ブレーカーマップ" : "ミサイル管制");
         canvas.setAttribute?.("aria-label", readOnly ? "ブレーカーの位置" : "着弾地点をクリック");
-        const status = readOnly ? "MAP ONLY" : me.missileCooldown > 0 ? `${me.missileCooldown.toFixed(1)}s` : "CLICK TARGET";
-        label.textContent = `${status} · R BACK`;
         const ctx = canvas.getContext("2d"), tiles = map.tileMap;
         ctx.fillStyle = "#07170d"; ctx.fillRect(0, 0, canvas.width, canvas.height);
         const locked = new Set(map.areas.filter(area => !state.areas[area.id]).flatMap(area => area.tiles.map(tile => `${tile.column},${tile.row}`)));
@@ -57,7 +60,8 @@ window.TerminalUI = (() => {
             ctx.fillRect(col * tiles.tileSize, row * tiles.tileSize, tiles.tileSize, tiles.tileSize);
         }
         const dot = (entity, color, radius) => { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(entity.x, entity.y, radius, 0, 2 * Math.PI); ctx.fill(); };
-        dot(state.core, "#d4ffe2", 20);
+        ctx.fillStyle = "#348fff";
+        ctx.fillRect(state.core.x - 20, state.core.y - 20, 40, 40);
         state.enemies.forEach(enemy => dot(enemy, "#ff716f", 12));
         state.players.forEach(player => { dot(player, player.down ? "#777" : "#8fffb2", 14); if (player.drone?.active) dot(player.drone, "#8cdde9", 10); });
         const tripped = new Set(state.trippedBreakers || []);
