@@ -559,6 +559,11 @@ final class GameSession {
         }
         if (player.job.equals("drone")) {
             if (player.drone == null || !player.drone.active) return;
+            if (DroneRules.canRecover(distance(player.x, player.y, player.drone.x, player.drone.y),
+                    GameMap.hasClearLine(player.x, player.y, player.drone.x, player.drone.y))) {
+                recallDrone(player);
+                return;
+            }
             boolean next = !player.drone.controlled;
             releaseDroneControl(player);
             player.drone.controlled = next;

@@ -8,7 +8,7 @@ const extract = name => {
 };
 const me = { id: 'me', job: 'drone', x: 100, y: 100, buildItems: {}, ownsPistol: true, ownsSmg: true, ownsRocket: true };
 const commands = [], menus = [];
-let timer, duration;
+
 const hidden = { classList: { contains: () => true, add() {} } };
 const context = vm.createContext({
     MISSILE_COMPUTER: null, JOB_STATION: null, getMe: () => me, myPlayerId: 'me',
@@ -20,22 +20,22 @@ const context = vm.createContext({
     }, WeaponUI: require('../weapon-ui.js'),
     openNearbyActionMenu: (title, options, target, range, layout, refresh) => menus.push({title, options, refresh}),
     closeActionMenu() {}, actionMenu: hidden, inventoryMenu: hidden, howToMenu: hidden,
-    jobHold: null, interactionHold: null,
-    setTimeout: (fn, ms) => { timer = fn; duration = ms; return 1; }, clearTimeout: () => {timer = null;},
+    interactionHold: null,
+
     state: { phase: 'wave', players: [me], slots: [], areas: {}, core: {x: 1000, y: 1000} },
     SHOP_UNITS: [], WORKBENCHES: [], PREP_CONSOLE: null, BREAKER_TERMINALS: [], AREAS: [],
     INTERACTION_RANGE: {core: 70, workbench: 70, breaker: 95}, openCoreMenu() {},
     distance: (a, b) => Math.hypot(a.x - b.x, a.y - b.y), hasInteractionPath: () => true,
 });
 for (const name of ['equipmentEntries', 'placementSelection', 'placeSelectedInFront', 'findNearestInteraction',
-        'openDroneLaunch', 'toggleNearestInteraction', 'useNearestInteraction', 'beginJobHold', 'endJobHold'])
+        'openDroneLaunch', 'toggleNearestInteraction', 'useNearestInteraction', 'useJobAbility'])
     vm.runInContext(extract(name), context);
 const run = code => vm.runInContext(code, context);
 assert.ok(!run('equipmentEntries(getMe())').some(e => ['drone', 'controller'].includes(e.value)));
 assert.equal(run('placementSelection(getMe())'), null);
 assert.equal(run('placeSelectedInFront()'), false);
-run('beginJobHold(); endJobHold()'); assert.equal(menus.length, 0);
-run('beginJobHold()'); assert.equal(duration, 500); timer(); run('endJobHold()');
+run('useJobAbility()'); assert.equal(menus.length, 1);
+
 assert.equal(commands.length, 0);
 assert.deepEqual(Array.from(menus.at(-1).options, option => option.command),
     ['DRONE_LAUNCH:pistol', 'DRONE_LAUNCH:smg', 'DRONE_LAUNCH:none']);
@@ -45,10 +45,7 @@ run('openDroneLaunch()'); assert.ok(menus.at(-1).options.every(option => option.
 me.ore = 5; me.copper = 2; menus.at(-1).refresh(); assert.ok(menus.at(-1).options.every(option => !option.disabled));
 me.drone = {active: true, controlled: true, weapon: 'smg', x: 200, y: 100};
 assert.ok(!run('equipmentEntries(getMe())').some(e => e.value === 'smg'));
-run('beginJobHold(); endJobHold()'); assert.equal(commands.pop(), 'JOB_ABILITY');
-run('beginJobHold()'); timer(); run('endJobHold()');
-assert.deepEqual(commands.splice(0), ['DRONE_RECOVER'], 'holding recovers without toggling view');
-run('beginJobHold(); endJobHold(true)'); assert.equal(commands.length, 0);
+run('useJobAbility()'); assert.equal(commands.pop(), 'JOB_ABILITY');
 me.drone.controlled = false;
 context.WORKBENCHES = [{x: 110, y: 100}]; context.openWorkbenchMenu = () => commands.push('CRAFT');
 assert.equal(run('findNearestInteraction().kind'), 'craft');
@@ -65,9 +62,9 @@ assert.equal(run('findNearestInteraction()'), null, 'locked breakers remain inac
 me.drone.active = me.drone.controlled = false;
 assert.ok(run('equipmentEntries(getMe())').some(e => e.value === 'smg'));
 for (const job of ['healer', 'spy', 'tp']) {
-    me.job = job; run('beginJobHold(); endJobHold()'); assert.equal(commands.pop(), 'JOB_ABILITY');
+    me.job = job; run('useJobAbility()'); assert.equal(commands.pop(), 'JOB_ABILITY');
 }
-me.job = 'tank'; run('beginJobHold(); endJobHold()'); assert.equal(commands.length, 0);
+me.job = 'tank'; run('useJobAbility()'); assert.equal(commands.length, 0);
 context.exitDialog = {open:false};
 const wallSource = extract('requestTankWall');
 vm.runInContext(wallSource.slice(0, wallSource.indexOf('\n}') + 2), context);
@@ -75,7 +72,7 @@ run('requestTankWall()'); assert.equal(commands.pop(), 'TANK_WALL');
 run('requestTankWall({x:120,y:240})'); assert.equal(commands.pop(), 'TANK_WALL:120.0:240.0');
 me.jobCooldown = 1; run('requestTankWall()'); assert.equal(commands.length, 0);
 me.jobCooldown = 0;
-me.down = true; run('beginJobHold(); endJobHold()'); assert.equal(commands.length, 0);
+me.down = true; run('useJobAbility()'); assert.equal(commands.length, 0);
 me.down = false; me.job = 'tp'; me.buildItems.teleporter = 2;
 assert(run('equipmentEntries(getMe())').some(entry => entry.value === 'teleporter'));
-console.log('Job controls passed: short/long press, launch, repair, abilities and drone breaker interaction');
+console.log('Job controls passed: single press, launch, repair, abilities and drone breaker interaction');
