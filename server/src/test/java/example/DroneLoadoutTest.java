@@ -214,8 +214,8 @@ class DroneLoadoutTest {
         normal.x = 1240; normal.y = 1900; game.enemies.add(normal);
         command("DRONE_RECOVER"); command("WEAPON:pistol");
         command("FIRE:1240:1889.5:1"); assertEquals(26, player.credits, "body shots still earn full gold");
-        player.droneRewardRemainder = 1;
-        game.phase = GamePhase.LOST; command("START"); assertEquals(0, player.droneRewardRemainder);
+        player.goldRewardRemainder = .5;
+        game.phase = GamePhase.LOST; command("START"); assertEquals(0, player.goldRewardRemainder);
     }
 
     @Test void mountedGunIsExclusiveToDroneUntilRecovery() {

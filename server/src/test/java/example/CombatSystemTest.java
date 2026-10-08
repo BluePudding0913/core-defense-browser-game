@@ -6,6 +6,50 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class CombatSystemTest {
+    @Test void combatRewardsUseTheWeaponMultiplierAndNeverRepeatAfterDeath() {
+        for (var weapon : WeaponCatalog.ALL) {
+            var world = new World();
+            var combat = new CombatSystem(world, new Events());
+            var player = shooter(weapon.id(), false);
+            var enemy = new Enemy(1, "grunt", GameMap.SPAWN_POINTS.get(0), 100, 0, 0, 100);
+            combat.damageEnemy(enemy, 1000, player);
+            int expected = (int) Math.round(100 * weapon.goldMultiplier());
+            assertEquals(expected, player.credits, weapon.id());
+            combat.damageEnemy(enemy, 1000, player);
+            assertEquals(expected, player.credits, weapon.id());
+        }
+    }
+
+    @Test void missilesHaveTheirOwnRewardRateRegardlessOfEquippedWeapon() {
+        for (String weapon : List.of("bat", "pistol", "railgun")) {
+            var world = new World(); world.active = true;
+            var combat = new CombatSystem(world, new Events());
+            var player = shooter(weapon, false);
+            var enemy = new Enemy(1, "grunt", GameMap.SPAWN_POINTS.get(0), 100, 0, 0, 100);
+            enemy.x = 1100; enemy.y = 1900; world.enemies.add(enemy);
+            combat.missileImpact(player, 1100, 1900);
+            assertEquals(40, player.credits, weapon);
+        }
+    }
+
+    @Test void subWeaponRewardsUseTheSubWeaponRateAndSnapshotsPublishRates() throws Exception {
+        var world = new World(); world.active = true;
+        var combat = new CombatSystem(world, new Events());
+        var player = shooter("smg", false); player.job = "attacker";
+        player.equipWeapon("bat"); player.equipSecondaryWeapon("smg");
+        var enemy = new Enemy(1, "grunt", GameMap.SPAWN_POINTS.get(0), 18, 0, 0, 100);
+        enemy.x = 1100; enemy.y = 1900; world.enemies.add(enemy);
+        combat.attackSecondary(player, 1100, 1900);
+        assertEquals(100, player.credits);
+        var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(
+                SnapshotBuilder.build(new GameSession(new GameEventSink() {
+                    public void broadcast(String message) { }
+                    public void send(Player p, String message) { }
+                })));
+        for (var weapon : WeaponCatalog.ALL) assertEquals(weapon.goldMultiplier(),
+                snapshot.path("rules").path("weapons").path(weapon.id()).path("goldMultiplier").asDouble());
+    }
+
     @Test void rightHandUsesTheSameDamageAmmoAndCooldownRulesForEveryWeaponMode() {
         for (var definition : WeaponCatalog.ALL) {
             String weapon = definition.id();
