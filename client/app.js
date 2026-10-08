@@ -1481,7 +1481,9 @@ function openQuarryMenu() {
 
 function openWorkbenchMenu(workbench) {
     const me = getMe();
-    openNearbyActionMenu("WORKBENCH", Object.entries(BUILD_INFO).filter(([, info]) => !info.shopOnly).map(([type, info]) => ({
+    const order = { block: 0, barricade: 1, wire: 2, mine: 3, turret: 4, copperTurret: 5, silverTurret: 6 };
+    openNearbyActionMenu("WORKBENCH", Object.entries(BUILD_INFO).filter(([, info]) => !info.shopOnly)
+        .sort(([a], [b]) => (order[a] ?? 7) - (order[b] ?? 7)).map(([type, info]) => ({
         label: info.name,
         detail: `${info.description} — ${Object.entries(RESOURCE_NAMES).filter(([key]) => info[key] > 0).map(([key, name]) => `${name} ${info[key]}`).join(" / ")}`,
         command: `CRAFT:${type}`,
