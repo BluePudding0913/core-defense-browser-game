@@ -519,18 +519,20 @@ final class GameSession {
         }
         if (player.job.equals("tank")) {
             if (player.selectedBuild != null || player.jobCooldown > 0) return;
-            MapPoint origin = GameMap.snapToTile(player.x, player.y);
-            MapPoint point = GameMap.snapToTile(origin.x() + player.facingX * GameMap.TILE_SIZE,
-                    origin.y() + player.facingY * GameMap.TILE_SIZE);
-            if (!canPlaceDefenseAt(point, null)) {
+            List<MapPoint> points = JobRules.tankWallPlacements(player.x, player.y, player.facingX, player.facingY)
+                    .stream().filter(candidate -> candidate.stream().allMatch(point -> canPlaceDefenseAt(point, null)))
+                    .findFirst().orElse(null);
+            if (points == null) {
                 gameEffects.feedback(player, "ここには設置できません");
                 return;
             }
-            TrapSlot wall = new TrapSlot("tank-wall-" + nextDefenseId++, "free", point.x(), point.y(), null);
-            wall.ownerId = player.id;
-            wall.defense = new Defense("barricade");
-            wall.temporaryRemaining = JobRules.TANK_WALL_DURATION;
-            trapSlots.add(wall);
+            for (MapPoint point : points) {
+                TrapSlot wall = new TrapSlot("tank-wall-" + nextDefenseId++, "free", point.x(), point.y(), null);
+                wall.ownerId = player.id;
+                wall.defense = new Defense("barricade", JobRules.TANK_WALL_HP);
+                wall.temporaryRemaining = JobRules.TANK_WALL_DURATION;
+                trapSlots.add(wall);
+            }
             player.jobCooldown = JobRules.TANK_WALL_COOLDOWN;
             gameEffects.sound(player, "item-use", "build");
             return;
