@@ -610,12 +610,11 @@ final class GameSession {
     private void useScoutDash(Player player, double targetX, double targetY) {
         if (!canMove() || !JobRules.canScoutDash(player.job, player.down, player.movingCore,
                 player.selectedBuild != null, player.railgunRemaining > 0 || player.railgunCharge > 0 || player.secondaryRailgunRemaining > 0 || player.secondaryRailgunCharge > 0,
-                player.jobCooldown, player.stamina)) return;
+                player.stamina)) return;
         MapPoint direction = JobRules.scoutDashDirection(player.x, player.y, targetX, targetY);
         if (direction == null) return;
         player.scoutDashDx = direction.x(); player.scoutDashDy = direction.y();
         player.scoutDashRemaining = JobRules.SCOUT_DASH_DURATION;
-        player.jobCooldown = JobRules.SCOUT_DASH_COOLDOWN;
         player.stamina -= JobRules.SCOUT_DASH_STAMINA;
         player.dashing = false;
         updateFacing(player, direction.x(), direction.y());

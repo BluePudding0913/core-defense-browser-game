@@ -33,9 +33,7 @@ class ScoutDashTest extends JobsTest {
         double remaining = JobRules.staminaMax(player.job) - JobRules.SCOUT_DASH_STAMINA;
         game.handleMessage(player, "SCOUT_DASH:1500:1900");
         assertEquals(remaining, player.stamina);
-        assertEquals(JobRules.SCOUT_DASH_COOLDOWN, player.jobCooldown);
-        game.handleMessage(player, "SCOUT_DASH:0:1900");
-        assertEquals(remaining, player.stamina, "repeat click cannot spend again during cooldown");
+        assertEquals(0, player.jobCooldown);
         move(.05);
         assertEquals(980, player.x, 1e-6);
         assertEquals(1900, player.y, 1e-6);
@@ -47,17 +45,16 @@ class ScoutDashTest extends JobsTest {
         assertTrue(player.x < 1100, "held movement resumes after burst");
     }
 
-    @Test void burstCanBeUsedAgainAsSoonAsMovementEnds() {
+    @Test void burstCanRestartAndChangeDirectionImmediatelyWithoutCooldown() {
         scout();
         game.handleMessage(player, "SCOUT_DASH:1500:1900");
-        assertEquals(.2, player.jobCooldown);
+        assertEquals(0, player.jobCooldown);
         game.update(.19);
-        game.handleMessage(player, "SCOUT_DASH:1500:1900");
-        assertEquals(.01, player.scoutDashRemaining, 1e-6);
-        game.update(.02);
-        game.handleMessage(player, "SCOUT_DASH:1500:1900");
+        game.handleMessage(player, "SCOUT_DASH:0:1900");
+        assertEquals(-1, player.scoutDashDx);
+        assertEquals(260, player.stamina);
         assertEquals(JobRules.SCOUT_DASH_DURATION, player.scoutDashRemaining);
-        assertEquals(.2, player.jobCooldown);
+        assertEquals(0, player.jobCooldown);
     }
 
     @Test void diagonalIsNormalizedAndLargeTickCannotExtendDistance() throws Exception {
@@ -103,7 +100,7 @@ class ScoutDashTest extends JobsTest {
         assertEquals(0, player.scoutDashRemaining);
     }
 
-    @Test void cooldownExpiresAndHumanAndCpuShareMovementRules() throws Exception {
+    @Test void humanAndCpuShareMovementRules() throws Exception {
         scout(); player.human = false;
         game.handleMessage(player, "SCOUT_DASH:1500:1900"); move(.2);
         assertEquals(1100, player.x, 1e-6);

@@ -1699,7 +1699,7 @@ function requestDecoy(point) {
 function requestScoutDash(point) {
     const me = getMe();
     if (!me || me.job !== "scout" || !["preparing", "wave"].includes(state.phase)
-            || me.down || me.movingCore || me.selectedBuild || me.jobCooldown > 0
+            || me.down || me.movingCore || me.selectedBuild
             || me.stamina < me.scoutDashStamina || me.railgunRemaining > 0 || me.railgunCharge > 0 || me.secondaryRailgunRemaining > 0 || me.secondaryRailgunCharge > 0
             || exitDialog.open || !howToMenu.classList.contains("hidden")
             || !inventoryMenu.classList.contains("hidden") || !actionMenu.classList.contains("hidden")) return;

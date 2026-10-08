@@ -39,7 +39,6 @@ const WeaponUI = Object.freeze({
         add("TP無敵", player.tpInvulnerableRemaining);
         add("蘇生後の無敵", player.reviveInvulnerableRemaining);
         add("ミサイル", player.missileCooldown);
-        add("スカウト移動", player.scoutDashRemaining);
         return timers;
     },
     ownedAmmoWeapons(player, definitions) {

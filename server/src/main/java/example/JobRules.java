@@ -21,7 +21,6 @@ final class JobRules {
     static final double SPY_ATTACK_CONCEAL_CHANCE = .8;
     static final double SCOUT_DASH_DURATION = .2;
     static final double SCOUT_DASH_SPEED = 800;
-    static final double SCOUT_DASH_COOLDOWN = SCOUT_DASH_DURATION;
     static final double SCOUT_DASH_STAMINA = 20;
     static final double SCOUT_DASH_STEP = 4;
 
@@ -77,9 +76,9 @@ final class JobRules {
     static double staminaMax(String job) { return job.equals("scout") ? 300 : 100; }
     static double reviveSeconds(String job) { return job.equals("healer") ? 2 : 4; }
     static boolean canScoutDash(String job, boolean down, boolean carrying, boolean placing,
-            boolean railgunBusy, double cooldown, double stamina) {
+            boolean railgunBusy, double stamina) {
         return job.equals("scout") && !down && !carrying && !placing && !railgunBusy
-                && cooldown <= 0 && stamina >= SCOUT_DASH_STAMINA;
+                && stamina >= SCOUT_DASH_STAMINA;
     }
 
     static MapPoint scoutDashDirection(double x, double y, double targetX, double targetY) {

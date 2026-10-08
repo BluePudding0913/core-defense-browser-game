@@ -43,6 +43,7 @@ me.job = 'healer'; context.updateSecondaryHud(me);
 assert(field('#secondary-hud').hidden);
 assert.deepEqual(WeaponUI.jobCooldowns({job:'spy',jobCooldown:18,decoyCooldown:2}).map(timer=>timer.seconds), ['18.0','2.0']);
 assert.deepEqual(WeaponUI.jobCooldowns({job:'healer',jobCooldown:0}), []);
+assert.deepEqual(WeaponUI.jobCooldowns({job:'scout',jobCooldown:0,scoutDashRemaining:.2}), [], 'active burst is not a cooldown');
 assert.deepEqual(WeaponUI.jobCooldowns({job:'tank',jobCooldown:4,down:true}), []);
 assert.deepEqual(WeaponUI.jobCooldowns({job:'tp',jobCooldown:19,tpInvulnerableRemaining:4}).map(timer=>timer.seconds), ['19.0','4.0']);
 assert.equal(WeaponUI.cooldownLabel(0, 1.2), 'CHARGE 1.2s');
