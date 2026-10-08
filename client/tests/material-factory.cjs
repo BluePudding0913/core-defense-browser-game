@@ -95,7 +95,7 @@ assert.equal(vm.runInContext('findNearestInteraction().owned', context), false);
 state.players[0].teleportPads.pop();
 assert.notEqual(vm.runInContext('findNearestInteraction().kind', context), 'teleporter', 'allies cannot use unfinished pairs');
 me.id='owner'; me.job='tp';
-assert.equal(vm.runInContext('findNearestInteraction().owned', context), true, 'owner can recover an unfinished pair');
+assert.notEqual(vm.runInContext('findNearestInteraction().kind', context), 'teleporter', 'unfinished own pairs use F for recovery');
 context.hasInteractionPath = () => false;
 assert.equal(vm.runInContext('findNearestInteraction()', context), null, 'walls prevent interaction');
 console.log('Teleporter inventory and proximity passed: equipment, placement, ally use and owner recovery');
