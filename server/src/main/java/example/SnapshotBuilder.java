@@ -189,6 +189,7 @@ final class SnapshotBuilder {
                     .append(",\"tankAuraRadius\":").append(JobRules.TANK_AURA_RADIUS)
                     .append(",\"decoyCooldown\":").append(roundOne(player.decoyCooldown))
                     .append(",\"tpInvulnerableRemaining\":").append(roundOne(player.tpInvulnerableRemaining))
+                    .append(",\"reviveInvulnerableRemaining\":").append(roundOne(player.reviveInvulnerableRemaining))
                     .append(",\"medbayHealing\":").append(game.isMedbayHealing(player))
                     .append(",\"facingX\":").append(player.facingX)
                     .append(",\"facingY\":").append(player.facingY);
