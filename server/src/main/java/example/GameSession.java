@@ -460,7 +460,7 @@ final class GameSession {
                 || !canOperate(player, GameMap.MISSILE_COMPUTER) || !MissileRules.validTarget(x, y, unlockedAreas)) return;
         missiles.add(new MissileStrike(player, x, y));
         player.missileCooldown = MissileRules.cooldown();
-        gameEffects.sound(player, "shot", "rocket");
+        gameEffects.sound(player, "missile-launch", "missile-launch");
     }
 
     private boolean canOperateBreaker(Player player, BreakerTerminal breaker) {
@@ -482,6 +482,7 @@ final class GameSession {
             strike.remaining -= dt;
             if (strike.remaining > 1e-9) continue;
             combat.missileImpact(strike.owner, strike.x, strike.y);
+            gameEffects.missileImpact(strike.x, strike.y);
             missiles.remove(strike);
         }
     }

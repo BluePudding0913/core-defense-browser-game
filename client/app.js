@@ -1223,6 +1223,19 @@ function showFeedback(text) {
 function playSoundEffect(message) {
     const me = getMe();
     if (!me) return;
+    if (message.effect === "missile-launch") {
+        window.coreAudio?.play("missile-launch", 0);
+        return;
+    }
+    if (message.effect === "missile-impact") {
+        window.coreAudio?.play("missile-impact", 0);
+        document.body.animate?.([
+            { transform: "translate(0, 0)" }, { transform: "translate(-2px, 1px)" },
+            { transform: "translate(2px, -1px)" }, { transform: "translate(-1px, 1px)" },
+            { transform: "translate(1px, 0)" }, { transform: "translate(0, 0)" },
+        ], { duration: 220, easing: "ease-out" });
+        return;
+    }
     if (message.item === "railgun-charge" || message.effect === "shot" && message.item === "railgun") return;
     const own = message.playerId === myPlayerId;
     if (message.effect === "ability-ready") {

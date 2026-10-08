@@ -40,6 +40,11 @@ final class GameEffects implements CombatEvents {
                 + ",\"y\":" + roundOne(y) + ",\"radius\":" + radius + "}");
     }
 
+    void missileImpact(double x, double y) {
+        sink.broadcast("{\"type\":\"effect\",\"effect\":\"missile-impact\",\"x\":" + roundOne(x)
+                + ",\"y\":" + roundOne(y) + "}");
+    }
+
     public void feedback(Player player, String message) {
         if (player.human) sink.send(player, "{\"type\":\"feedback\",\"message\":\""
                 + escapeJson(message) + "\"}");
