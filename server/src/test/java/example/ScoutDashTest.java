@@ -17,20 +17,34 @@ class ScoutDashTest extends JobsTest {
 
     @Test void clickDirectionOverridesMovementAndCostsStaminaOnce() throws Exception {
         scout(); player.moveX = -1; player.dashHeld = true;
+        double remaining = JobRules.staminaMax(player.job) - JobRules.SCOUT_DASH_STAMINA;
         game.handleMessage(player, "SCOUT_DASH:1500:1900");
-        assertEquals(80, player.stamina);
-        assertEquals(3, player.jobCooldown);
+        assertEquals(remaining, player.stamina);
+        assertEquals(JobRules.SCOUT_DASH_COOLDOWN, player.jobCooldown);
         game.handleMessage(player, "SCOUT_DASH:0:1900");
-        assertEquals(80, player.stamina, "repeat click cannot spend again during cooldown");
+        assertEquals(remaining, player.stamina, "repeat click cannot spend again during cooldown");
         move(.05);
         assertEquals(980, player.x, 1e-6);
         assertEquals(1900, player.y, 1e-6);
-        assertEquals(80, player.stamina, "sprint does not drain stamina during burst");
+        assertEquals(remaining, player.stamina, "sprint does not drain stamina during burst");
         move(.15);
         assertEquals(1100, player.x, 1e-6);
         assertEquals(0, player.scoutDashRemaining, 1e-6);
         move(.1);
         assertTrue(player.x < 1100, "held movement resumes after burst");
+    }
+
+    @Test void burstCanBeUsedAgainAfterEightTenthsOfASecond() {
+        scout();
+        game.handleMessage(player, "SCOUT_DASH:1500:1900");
+        assertEquals(.8, player.jobCooldown);
+        game.update(.79);
+        game.handleMessage(player, "SCOUT_DASH:1500:1900");
+        assertEquals(0, player.scoutDashRemaining);
+        game.update(.02);
+        game.handleMessage(player, "SCOUT_DASH:1500:1900");
+        assertEquals(JobRules.SCOUT_DASH_DURATION, player.scoutDashRemaining);
+        assertEquals(.8, player.jobCooldown);
     }
 
     @Test void diagonalIsNormalizedAndLargeTickCannotExtendDistance() throws Exception {

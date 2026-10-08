@@ -16,6 +16,7 @@
         bat: { pitch: 150, end: 40, duration: .14, noise: .4 },
         medkit: { notes: [440, 554, 659, 880], duration: .36 },
         heal: { notes: [523, 659, 784], duration: .24 },
+        "ability-ready": { notes: [659, 880, 1175], duration: .3 },
         build: { notes: [180, 270, 360], duration: .18, noise: .12 },
         pickup: { notes: [880, 1320], duration: .12 },
         item: { notes: [660, 880], duration: .16 },

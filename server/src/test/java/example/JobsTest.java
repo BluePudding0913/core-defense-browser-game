@@ -26,6 +26,39 @@ class JobsTest {
         player.x = 1140; player.y = 1900;
     }
 
+    @Test void scoutStartsWithHigherCapacityAndRecoversUpToIt() throws Exception {
+        start("scout");
+        assertEquals(150, player.stamina);
+        player.stamina = 145;
+        call("updatePlayers", new Class<?>[]{double.class}, 1.0);
+        assertEquals(JobRules.staminaMax("scout"), player.stamina);
+        assertTrue(SnapshotBuilder.build(game).contains("\"staminaMax\":150.0"));
+        player.x = GameMap.JOB_STATION.x(); player.y = GameMap.JOB_STATION.y();
+        game.unlockedAreas.add("recovery-room");
+        game.handleMessage(player, "JOB:healer");
+        assertEquals("healer", player.job);
+        assertEquals(JobRules.staminaMax("healer"), player.stamina);
+    }
+
+    @Test void spyCooldownReadyNotifiesOnlyItsOwnerOnce() {
+        java.util.List<String> messages = new java.util.ArrayList<>();
+        java.util.List<Player> recipients = new java.util.ArrayList<>();
+        var session = new GameSession(new GameEventSink() {
+            public void broadcast(String message) { assertFalse(message.contains("ability-ready")); }
+            public void send(Player recipient, String message) {
+                if (message.contains("ability-ready")) { messages.add(message); recipients.add(recipient); }
+            }
+        });
+        var spy = session.connectPlayer("ready-test"); spy.job = "spy";
+        session.phase = GamePhase.PREPARING; session.prepTime = 1000;
+        spy.jobCooldown = .1;
+        session.update(.05); assertTrue(messages.isEmpty());
+        session.update(.05); assertEquals(1, messages.size()); assertSame(spy, recipients.get(0));
+        session.update(.05); assertEquals(1, messages.size());
+        spy.job = "scout"; spy.jobCooldown = .05;
+        session.update(.05); assertEquals(1, messages.size());
+    }
+
     Object call(String name, Class<?>[] types, Object... args) throws Exception {
         Method method = GameSession.class.getDeclaredMethod(name, types);
         method.setAccessible(true);
@@ -71,6 +104,7 @@ class JobsTest {
 
     @Test void scoutMovesFasterAndUsesLessStaminaWithCpuAndHumanRules() throws Exception {
         start("scout");
+        player.stamina = 100;
         player.moveX = 1; player.dashHeld = true;
         call("updatePlayers", new Class<?>[]{double.class}, .1);
         assertEquals(1170.5, player.x, 1e-6);

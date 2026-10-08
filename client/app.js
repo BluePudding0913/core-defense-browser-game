@@ -1160,6 +1160,10 @@ function playSoundEffect(message) {
     if (!me) return;
     if (message.item === "railgun-charge" || message.weapon === "railgun") return;
     const own = message.playerId === myPlayerId;
+    if (message.effect === "ability-ready") {
+        if (own) window.coreAudio?.play("ability-ready", 0);
+        return;
+    }
     if (message.effect === "pickup" && !own) return;
     let name;
     if (message.effect === "shot") name = message.item === "railgun-charge" ? message.item : message.weapon;
@@ -1881,7 +1885,7 @@ function updateLocalPrediction(dt) {
             predictedLocal.dashing = false;
         }
     } else {
-        predictedLocal.stamina = Math.min(100, predictedLocal.stamina + (serverMe.staminaRecovery ?? 24) * dt);
+        predictedLocal.stamina = Math.min(serverMe.staminaMax ?? 100, predictedLocal.stamina + (serverMe.staminaRecovery ?? 24) * dt);
     }
 
     const speed = serverMe.railgunRemaining > 0 ? 155 * .3 : serverMe.railgunCharge > 0 ? 155 * .6 : serverMe.down ? 45 : serverMe.movingCore ? 82 : predictedLocal.dashing ? (serverMe.dashSpeed ?? 265) : 155;

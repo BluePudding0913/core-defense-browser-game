@@ -156,6 +156,7 @@ final class GameSession {
             if (!rejoining) {
                 assigned.drone = null;
                 assigned.job = JobRules.DEFAULT;
+                assigned.stamina = Math.min(assigned.stamina, JobRules.staminaMax(assigned.job));
                 assigned.spyRemaining = assigned.jobCooldown = assigned.scoutDashRemaining = 0;
                 assigned.teleportPads.clear();
                 assigned.sessionId = reconnectId;
@@ -278,7 +279,10 @@ final class GameSession {
             player.missileCooldown = Math.max(0, player.missileCooldown - dt);
             if (!canOperate(player, GameMap.MISSILE_COMPUTER) || !player.job.equals("hacker")) player.missileControl = false;
             player.spyRemaining = Math.max(0, player.spyRemaining - dt);
+            double previousJobCooldown = player.jobCooldown;
             player.jobCooldown = Math.max(0, player.jobCooldown - dt);
+            if (player.job.equals("spy") && previousJobCooldown > 0 && player.jobCooldown == 0 && canMove())
+                gameEffects.abilityReady(player);
             player.teleportCooldown = Math.max(0, player.teleportCooldown - dt);
             player.weaponCooldowns.replaceAll((weapon, remaining) -> Math.max(0, remaining - dt));
             player.cooldown = Math.max(0, player.cooldown - dt);
@@ -389,6 +393,7 @@ final class GameSession {
         player.firing = player.dashing = player.dashHeld = player.missileControl = false;
         player.stopRailgun(); cancelAction(player);
         player.job = job;
+        player.stamina = Math.min(player.stamina, JobRules.staminaMax(job));
         player.drone = null;
         player.roomReady = false;
         player.spyRemaining = player.jobCooldown = player.scoutDashRemaining = 0;
@@ -736,7 +741,7 @@ final class GameSession {
                     player.dashing = false;
                 }
             } else {
-                player.stamina = Math.min(100, player.stamina + JobRules.staminaRecovery(player.job) * dt);
+                player.stamina = Math.min(JobRules.staminaMax(player.job), player.stamina + JobRules.staminaRecovery(player.job) * dt);
             }
             double speed = player.down ? 45 : player.movingCore ? 82 : player.dashing ? JobRules.dashSpeed(player.job) : 155;
             if (player.railgunRemaining > 0) speed = 155 * .3;
@@ -2877,7 +2882,7 @@ final class GameSession {
             player.scoutDashRemaining = 0;
             player.dashExhausted = false;
             player.missileControl = false; player.missileCooldown = 0;
-            player.stamina = 100;
+            player.stamina = JobRules.staminaMax(player.job);
             player.spyCheckedEnemies.clear(); player.spyHostileEnemies.clear();
             player.spyRemaining = 0;
             player.drone = null;
