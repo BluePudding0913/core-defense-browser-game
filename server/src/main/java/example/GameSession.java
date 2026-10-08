@@ -904,14 +904,7 @@ final class GameSession {
             int amount = 1;
             addResource(collector, node.type, amount);
             node.available = false;
-            // Preserve material supply while each pickup awards a single piece.
-            double supplyRate = switch (node.type) {
-                case "ore" -> 3;
-                case "copper" -> 2;
-                default -> 1;
-            };
-            boolean openingRoom = "wood-room".equals(node.requiredArea) || "ore-room".equals(node.requiredArea);
-            node.respawnTimer = openingRoom ? 3 : (7 + Math.floorMod(node.id.hashCode(), 5)) / supplyRate;
+            node.respawnTimer = ResourceRules.respawnSeconds(node.type, node.requiredArea, node.id);
             events.broadcast("{\"type\":\"effect\",\"effect\":\"pickup\",\"resource\":\""
                     + node.type + "\",\"amount\":" + amount + ",\"playerId\":\"" + collector.id + "\",\"x\":"
                     + roundOne(node.x) + ",\"y\":" + roundOne(node.y) + "}");
