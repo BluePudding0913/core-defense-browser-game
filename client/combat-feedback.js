@@ -1,22 +1,13 @@
-/* Local combat labels are grouped independently from individual hit animations. */
+/* Each local hit keeps its own reward label, independently from hit animations. */
 const CombatFeedback = (() => {
     let popups = [];
     function add(effect, now, playerId) {
         if (effect.effect !== "hit" || effect.playerId !== playerId
                 || !(effect.credits > 0 || effect.headshot)) return;
         popups = popups.filter(popup => now - popup.updated < 900);
-        const matches = popup => now - popup.updated < 900;
-        const nearby = popup => Math.hypot(popup.x - effect.x, popup.y - effect.y) < 48;
-        let popup = popups.findLast(popup => matches(popup) && popup.enemyId != null && popup.enemyId === effect.enemyId)
-            || popups.findLast(popup => matches(popup) && popup.enemyId == null && effect.enemyId == null && nearby(popup));
-        if (!popup) {
-            popup = {x:effect.x, y:effect.y, enemyId:effect.enemyId, credits:0, headshot:false, created:now};
-            popups.push(popup);
-        }
-        popup.credits += Math.max(0, effect.credits || 0);
-        popup.headshot ||= Boolean(effect.headshot);
-        if (effect.headshot) popup.headshotAt = now;
-        popup.x = effect.x; popup.y = effect.y; popup.updated = now;
+        popups.push({x:effect.x, y:effect.y, enemyId:effect.enemyId,
+            credits:Math.max(0, effect.credits || 0), headshot:Boolean(effect.headshot),
+            headshotAt:now, created:now, updated:now});
         if (popups.length > 30) popups.shift();
     }
     function layout(now) {

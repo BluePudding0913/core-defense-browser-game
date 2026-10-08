@@ -54,7 +54,7 @@ window.TerminalUI = (() => {
         const livingEnemies = state.enemies.filter(enemy => enemy.hp > 0);
         if (title) title.textContent = readOnly ? "MAP" : "MISSILE SYSTEM";
         if (enemyCount) {
-            enemyCount.hidden = !readOnly;
+            enemyCount.hidden = false;
             const remaining = state.phase === "wave"
                 ? livingEnemies.length + (state.queued || 0) : 0;
             enemyCount.textContent = `ENEMY ${remaining}`;
