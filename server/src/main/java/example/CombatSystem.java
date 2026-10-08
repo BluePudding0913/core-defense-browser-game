@@ -419,7 +419,7 @@ final class CombatSystem {
 
     private boolean isHeadshot(Enemy enemy, Player player, double originX, double originY, double directionX,
             double directionY, WeaponStats weapon, double shotDistance) {
-        if (WeaponCatalog.find(shotWeapon(player)).mode() == WeaponCatalog.AttackMode.MELEE || enemy.type.equals("explosionBoss")) return false;
+        if (WeaponCatalog.find(shotWeapon(player)).mode() == WeaponCatalog.AttackMode.MELEE) return false;
         double radius = enemyRadius(enemy);
         double headX = enemy.x;
         double headY = enemy.y - radius * 0.5;
@@ -462,7 +462,6 @@ final class CombatSystem {
 
     private double damageEnemy(Enemy enemy, double damage, Player player, String weapon) {
         if (enemy.hp <= 0) return 0;
-        if (enemy.type.equals("explosionBoss")) damage *= .001;
         if (droneShot != null && droneShot.owner == player && damage > 0) droneShot.drone.attackers.add(enemy.id);
         double dealt = Math.min(enemy.hp, damage);
         enemy.hp -= dealt;

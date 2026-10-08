@@ -1210,10 +1210,10 @@ final class GameSession {
                 wardenSpawned = true;
             }
             case "explosionBoss" -> {
-                hp = 500_000_000;
+                hp = 2200 + round * 60;
                 speed = 24;
                 damage = 0;
-                reward = 0;
+                reward = 650;
                 explosionBossSpawned = true;
             }
             case "bomber" -> {
@@ -1373,12 +1373,15 @@ final class GameSession {
         if (!enemies.isEmpty()) enemyNavigation.prepare(coreX, coreY, unlockedAreas);
         long remaining = queuedEnemies + queuedBosses + enemies.stream()
                 .filter(e -> e.hp > 0 && !e.type.equals("explosionBoss")).count();
-        List<Enemy> explodedBosses = new ArrayList<>();
+        List<Enemy> defeatedExplosionBosses = new ArrayList<>();
         for (Enemy enemy : enemies) {
-            if (enemy.hp <= 0) continue;
+            if (enemy.hp <= 0) {
+                if (enemy.type.equals("explosionBoss") && !enemy.offspringSpawned) defeatedExplosionBosses.add(enemy);
+                continue;
+            }
             if (enemy.type.equals("explosionBoss")) {
                 updateExplosionBoss(enemy, dt, remaining);
-                if (enemy.exploded) explodedBosses.add(enemy);
+                if (enemy.exploded) defeatedExplosionBosses.add(enemy);
                 continue;
             }
             enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
@@ -1490,11 +1493,13 @@ final class GameSession {
                         moveSpeed * enemy.slow * dt);
             }
         }
-        // Add offspring after iteration so each explosion spawns exactly one batch safely.
-        for (Enemy boss : explodedBosses) spawnExplosionBossRunners(boss);
+        // Add offspring after iteration for both combat deaths and timed explosions.
+        for (Enemy boss : defeatedExplosionBosses) spawnExplosionBossRunners(boss);
     }
 
     private void spawnExplosionBossRunners(Enemy boss) {
+        if (boss.offspringSpawned) return;
+        boss.offspringSpawned = true;
         SpawnPoint entrance = GameMap.spawnById(boss.spawnId);
         SpawnPoint remains = new SpawnPoint(entrance.id(), entrance.name(), boss.x, boss.y,
                 entrance.lane(), entrance.enemyBias(), entrance.speedMultiplier(), entrance.targetPriority(),
