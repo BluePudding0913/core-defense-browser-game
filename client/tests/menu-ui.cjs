@@ -22,9 +22,13 @@ const root = { get innerHTML() { return markup; }, set innerHTML(value) {
     addEventListener: (event, handler) => handlers[event] = handler };
 const body = { classList: { add() {}, remove() {}, toggle() {} }, append(script) { assert.equal(script.src, 'app.js'); } };
 const saved = new Map(), styles = new Map();
-const context = { document: { querySelector: () => root, body, createElement: () => ({}),
+const toast = { hidden: true, textContent: '' }, toastTimers = new Map();
+let toastTimerId = 0;
+const context = { document: { querySelector: selector => selector === '#settings-toast' ? toast : root, body, createElement: () => ({}),
         documentElement: { style: { setProperty: (key, value) => styles.set(key, value) } } },
     location: { search: '' }, URLSearchParams, localStorage: { getItem: key => saved.get(key), setItem: (key, value) => saved.set(key, value) },
+    setTimeout: (callback, delay) => { const id = ++toastTimerId; toastTimers.set(id, {callback, delay}); return id; },
+    clearTimeout: id => toastTimers.delete(id),
     FormData: class { constructor(form) { this.data = form.data; } get(key) { return this.data[key]; } },
     window: { coreGame: { match: (...args) => calls.push(args), send: command => calls.push(command), leave: () => calls.push('leave') } } };
 vm.runInNewContext(fs.readFileSync('client/pointer-settings.js', 'utf8'), context);
@@ -304,7 +308,15 @@ assert.equal(medkitInput.value, 'Q');
 assert.equal(saved.get('core-defense-medkit-key'), 'q');
 handlers.keydown({ target: medkitInput, key: 'w', preventDefault() {} });
 assert.equal(medkitInput.value, 'Q');
-assert.equal(field('#medkit-key-status').textContent, 'このキーは使用できません');
+assert.equal(toast.textContent, 'このキーは使用できません');
+assert.equal(toast.hidden, false);
+assert.doesNotMatch(root.innerHTML, /-key-status|このキーは使用できません|保存しました/);
+assert.equal(toastTimers.size, 1, 'Repeated key presses replace the existing toast timeout');
+const notice = [...toastTimers.values()][0];
+assert.equal(notice.delay, 2000);
+notice.callback(); assert.equal(toast.hidden, true); assert.equal(toast.textContent, '');
+handlers.keydown({ target: medkitInput, key: 'q', preventDefault() {} });
+assert.equal(toast.textContent, '保存しました'); assert.equal(toast.hidden, false);
 assert.match(root.innerHTML, /type="color" name="pointer-color" value="#0078ff"/);
 assert.match(root.innerHTML, /type="range" name="pointer-size"[^>]*value="6"/);
 handlers.input({ target: { name: 'pointer-color', value: '#ff9900' } });
@@ -314,6 +326,7 @@ assert.equal(styles.get('--pointer-size'), '20px');
 assert.equal(field('#pointer-size-value').textContent, '20px');
 assert.deepEqual(JSON.parse(saved.get('core-defense-pointer')), { color: '#ff9900', size: 20, shape: 'dot' });
 click('home'); click('settings');
+assert.equal(toast.hidden, true, 'Leaving settings clears the toast');
 assert.match(root.innerHTML, /name="pointer-color" value="#ff9900"/);
 assert.match(root.innerHTML, /name="pointer-size"[^>]*value="20"/);
 assert(!matchButton.disabled, 'saved name enables confirmation even without a connection');

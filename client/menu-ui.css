@@ -46,4 +46,6 @@
 
 #menu-ui .ui-pointer-settings select { margin-left: auto; min-width: 3rem; color: #fff; background: #181818; border: 1px solid #666; padding: .25rem; }
 .ui-defense-result { text-align: center; font-weight: 700; }
+.ui-settings-toast { position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 20; width: max-content; max-width: calc(100vw - 32px); padding: .75rem 1rem; border: 1px solid #555; border-radius: .5rem; background: #242424; color: #fff; box-shadow: 0 4px 16px #0008; font-size: .85rem; text-align: center; pointer-events: none; }
+.ui-settings-toast[hidden] { display: none; }
 .ui-defense-result small { display: block; margin-top: .35rem; font: .85rem ui-monospace, monospace; opacity: .7; }
