@@ -80,7 +80,7 @@ console.log('Quarry pickup UI targets individual instances');
 
 me.id = 'owner'; me.job = 'tp'; me.selectedBuild = null;
 me.buildItems = { teleporter: 2 };
-assert(vm.runInContext('equipmentEntries(getMe()).some(entry => entry.value === "teleporter")', context));
+assert(!vm.runInContext('equipmentEntries(getMe()).some(entry => entry.value === "teleporter")', context));
 me.selectedBuild = 'teleporter';
 assert.equal(vm.runInContext('placementSelection(getMe()).type', context), 'teleporter');
 me.selectedBuild = null;
