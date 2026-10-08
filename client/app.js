@@ -947,7 +947,7 @@ function updateHud() {
         const interaction = findNearestInteraction();
         interactLabel.textContent = placing ? "PLACE" : interaction?.kind === "teleporter"
             ? interaction.owned ? "TP / 長押しで回収" : "TP" : ["core", "defense"].includes(interaction?.kind) ? "長押しで運搬" : "INTERACT";
-        interactButton.classList.toggle("hidden", !placing && !interaction);
+        interactButton.classList.toggle("hidden", !placing && (!interaction || interaction.kind === "spy"));
     }
 }
 
@@ -2634,7 +2634,7 @@ function drawMedbayParticles(player, position) {
 
 function drawInteractionPrompt() {
     const interaction = findNearestInteraction();
-    if (!interaction || !actionMenu.classList.contains("hidden")) return;
+    if (!interaction || interaction.kind === "spy" || !actionMenu.classList.contains("hidden")) return;
     const x = interaction.target.x;
     const y = interaction.target.y - 34;
     ctx.save();
