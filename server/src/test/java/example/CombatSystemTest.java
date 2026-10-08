@@ -21,12 +21,12 @@ class CombatSystemTest {
                     combat.attackAt(player, 1100, 1900);
                     if (weapon.equals("railgun")) combat.updateRailgun(player, GameConfig.RAILGUN_CHARGE + .1);
                 } else {
-                    player.job = "attacker"; player.equipWeapon("pistol");
+                    player.equipWeapon(weapon.equals("pistol") ? "bat" : "pistol"); player.job = "attacker";
                     player.equipSecondaryWeapon(weapon); player.secondaryFiring = true;
                     player.secondaryAimX = 1100; player.secondaryAimY = 1900;
                     combat.attackSecondary(player, 1100, 1900);
                     if (weapon.equals("railgun")) combat.updateSecondaryRailgun(player, GameConfig.RAILGUN_CHARGE + .1);
-                    assertEquals("pistol", player.weapon, weapon);
+                    assertEquals(weapon.equals("pistol") ? "bat" : "pistol", player.weapon, weapon);
                     assertEquals(0, player.cooldown, weapon);
                     if (!weapon.equals("railgun")) assertEquals(definition.stats().cooldown(), player.secondaryCooldown, weapon);
                 }
@@ -128,7 +128,7 @@ class CombatSystemTest {
     @Test void secondaryPistolAndDroneShareSilverAmmoWithTheOwner() {
         var world = new World(); world.active = true;
         var combat = new CombatSystem(world, new Events());
-        var player = shooter("smg", true); player.job = "attacker";
+        var player = shooter("smg", true); player.job = "attacker"; player.equipSecondaryWeapon("pistol");
         var enemy = target(world, 1, 1100);
         combat.attackSecondary(player, 1400, 1900);
         assertEquals(9, player.weapons.silverAmmo());

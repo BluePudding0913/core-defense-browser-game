@@ -102,12 +102,12 @@ final class CombatSystem {
     }
 
     void attackSecondary(Player player, double aimX, double aimY) {
-        if (!player.job.equals("attacker") || !player.weapons.owns(player.secondaryWeapon)) return;
+        if (!player.job.equals("attacker") || player.weapon.equals(player.secondaryWeapon) || !player.weapons.owns(player.secondaryWeapon)) return;
         withSecondaryHand(player, () -> attackAt(player, aimX, aimY));
     }
 
     void updateSecondaryRailgun(Player player, double dt) {
-        if (!player.job.equals("attacker") || !player.weapons.owns(player.secondaryWeapon)) {
+        if (!player.job.equals("attacker") || player.weapon.equals(player.secondaryWeapon) || !player.weapons.owns(player.secondaryWeapon)) {
             player.secondaryFiring = false;
             player.stopSecondaryRailgun();
             return;
