@@ -95,16 +95,73 @@ class TankDecoyTest {
 
     @Test void wallOnlyConsumesCooldownOnValidPlacementCannotBeRecoveredAndExpires() throws Exception {
         start("tank"); player.facingX = 1; player.facingY = 0;
-        game.handleMessage(player, "JOB_ABILITY"); assertEquals(1, game.trapSlots.size());
+        game.handleMessage(player, "JOB_ABILITY"); assertEquals(2, game.trapSlots.size());
         TrapSlot wall = game.trapSlots.get(0); assertEquals("barricade", wall.defense.type);
+        for (TrapSlot segment : game.trapSlots) {
+            assertEquals(2400, segment.defense.hp);
+            assertEquals(2400, segment.defense.maxHp);
+            assertEquals(player.id, segment.ownerId);
+            assertEquals(20, segment.temporaryRemaining);
+        }
+        var slots = new ObjectMapper().readTree(SnapshotBuilder.build(game)).get("slots");
+        assertEquals(2, slots.size());
+        assertEquals(2400, slots.get(0).get("defense").get("maxHp").asDouble());
         assertEquals(JobRules.TANK_WALL_COOLDOWN, player.jobCooldown);
         call("removeDefense", new Class<?>[]{Player.class, String.class}, player, wall.id);
-        assertEquals(1, game.trapSlots.size()); assertEquals(0, player.barricadeItems);
-        game.handleMessage(player, "JOB_ABILITY"); assertEquals(1, game.trapSlots.size());
+        assertEquals(2, game.trapSlots.size()); assertEquals(0, player.barricadeItems);
+        game.handleMessage(player, "JOB_ABILITY"); assertEquals(2, game.trapSlots.size());
         player.jobCooldown = 0; game.handleMessage(player, "JOB_ABILITY");
-        assertEquals(0, player.jobCooldown); assertEquals(1, game.trapSlots.size());
-        call("updateJobEquipment", new Class<?>[]{double.class}, JobRules.TANK_WALL_DURATION);
+        assertEquals(0, player.jobCooldown); assertEquals(2, game.trapSlots.size());
+        call("updateJobEquipment", new Class<?>[]{double.class}, 15.0);
+        assertEquals(2, game.trapSlots.size());
+        call("updateJobEquipment", new Class<?>[]{double.class}, 5.0);
         assertTrue(game.trapSlots.isEmpty());
+    }
+
+    @Test void wallFootprintStaysAdjacentAndPerpendicularIncludingDiagonalAim() {
+        for (MapPoint facing : List.of(new MapPoint(1, 0), new MapPoint(-1, 0),
+                new MapPoint(0, 1), new MapPoint(0, -1), new MapPoint(.6, .8))) {
+            var candidates = JobRules.tankWallPlacements(1140, 1900, facing.x(), facing.y());
+            MapPoint origin = GameMap.snapToTile(1140, 1900);
+            for (var points : candidates) {
+                MapPoint front = points.get(0), side = points.get(1);
+                assertEquals(GameMap.TILE_SIZE, GameSupport.distance(front.x(), front.y(), side.x(), side.y()));
+                assertEquals(GameMap.TILE_SIZE, GameSupport.distance(origin.x(), origin.y(), front.x(), front.y()));
+                assertEquals(0, (front.x() - origin.x()) * (side.x() - front.x())
+                        + (front.y() - origin.y()) * (side.y() - front.y()), 1e-9);
+            }
+        }
+    }
+
+    @Test void wallTriesOtherSideAndNeverPlacesPartialWallWhenBothSidesAreOccupied() {
+        start("tank"); player.facingX = 1; player.facingY = 0;
+        var candidates = JobRules.tankWallPlacements(player.x, player.y, 1, 0);
+        Player ally = new Player(1);
+        ally.x = candidates.get(0).get(1).x(); ally.y = candidates.get(0).get(1).y();
+        game.players.add(ally);
+        game.handleMessage(player, "JOB_ABILITY");
+        assertEquals(2, game.trapSlots.size());
+        assertEquals(candidates.get(1).get(1).y(), game.trapSlots.get(1).y);
+        game.trapSlots.clear(); player.jobCooldown = 0;
+        Player other = new Player(2);
+        other.x = candidates.get(1).get(1).x(); other.y = candidates.get(1).get(1).y();
+        game.players.add(other);
+        game.handleMessage(player, "JOB_ABILITY");
+        assertTrue(game.trapSlots.isEmpty());
+        assertEquals(0, player.jobCooldown);
+    }
+
+    @Test void destroyingOneWallSegmentKeepsOtherUntilExpiry() throws Exception {
+        start("tank"); player.facingX = 1; player.facingY = 0;
+        game.handleMessage(player, "JOB_ABILITY");
+        TrapSlot survivor = game.trapSlots.get(1);
+        game.trapSlots.get(0).defense.hp = 0;
+        call("updateJobEquipment", new Class<?>[]{double.class}, 1.0);
+        assertEquals(List.of(survivor), game.trapSlots);
+        assertEquals(19, survivor.temporaryRemaining);
+        call("updateJobEquipment", new Class<?>[]{double.class}, 19.0);
+        assertTrue(game.trapSlots.isEmpty());
+        assertEquals(1200, new Defense("barricade").maxHp);
     }
     @Test void decoyLaunchPreservesDisguiseAndAttractsMeleeAndArtillery() throws Exception {
         start("spy"); game.handleMessage(player, "JOB_ABILITY");
