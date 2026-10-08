@@ -40,6 +40,7 @@ final class GameSession {
     private static final double BOT_REACTION_SECONDS = 1.5;
     int roundEnemyTotal;
     double elapsedSeconds;
+    double victoryMoveRemaining;
     private boolean explosionBossSpawned;
     private boolean wardenSpawned;
 
@@ -362,7 +363,13 @@ final class GameSession {
                 combat.attackAt(player, player.aimX, player.aimY);
             }
         }
-        if (phase == GamePhase.LOBBY || phase == GamePhase.WON || phase == GamePhase.LOST) return;
+        if (phase == GamePhase.WON) {
+            double movementTime = Math.min(dt, victoryMoveRemaining);
+            if (movementTime > 0) updatePlayers(movementTime);
+            victoryMoveRemaining = Math.max(0, victoryMoveRemaining - dt);
+            return;
+        }
+        if (phase == GamePhase.LOBBY || phase == GamePhase.LOST) return;
         elapsedSeconds += dt;
 
         updateBots(dt);
@@ -430,7 +437,7 @@ final class GameSession {
     }
 
     private void handleMove(Player player, String[] parts) {
-        if (parts.length < 3 || !canMove()) return;
+        if (parts.length < 3 || !(canMove() || phase == GamePhase.WON && victoryMoveRemaining > 0)) return;
         double x = Double.parseDouble(parts[1]);
         double y = Double.parseDouble(parts[2]);
         if (!Double.isFinite(x) || !Double.isFinite(y)) return;
@@ -884,6 +891,7 @@ final class GameSession {
         }
         if (round >= MAX_ROUNDS) {
             phase = GamePhase.WON;
+            victoryMoveRemaining = 10;
             setNotice("すべての敵を倒しました。防衛成功です");
             return;
         }
@@ -951,6 +959,7 @@ final class GameSession {
 
     private void updatePlayers(double dt) {
         for (Player player : players) {
+            if (phase == GamePhase.WON && (!player.human || player.down)) continue;
             if (player.missileControl) continue;
             if (DroneRules.controlling(player)) {
                 Drone drone = player.drone;
@@ -3258,6 +3267,7 @@ final class GameSession {
 
     private void resetWorld() {
         elapsedSeconds = 0;
+        victoryMoveRemaining = 0;
         explosionBossSpawned = false;
         wardenSpawned = false;
         roundEnemyTotal = 0;
