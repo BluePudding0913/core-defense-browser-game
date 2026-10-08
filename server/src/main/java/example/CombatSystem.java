@@ -187,13 +187,18 @@ final class CombatSystem {
         double range = GameMap.distanceToWall(x, y, dx, dy, weapon.range(), world.unlockedAreas());
         events.hit(player.id, weaponId, x, y, x + dx * range, y + dy * range, 0, false, 0, false, null);
         for (Enemy enemy : List.copyOf(world.enemies())) {
-            if (enemy.hp <= 0 || !isInsideAttack(enemy, x, y, dx, dy, weapon, range)
+            if (enemy.hp <= 0 || !FlameRules.contains(enemy.x, enemy.y, enemyRadius(enemy), x, y, dx, dy, range)
                     || !GameMap.hasClearLine(x, y, enemy.x, enemy.y, world.unlockedAreas())) continue;
             int credits = player.credits;
             double dealt = damageEnemy(enemy, enemy.shieldedDamage(weapon.damage(), x, y), player);
             events.hit(player.id, weaponId, x, y, enemy.x, enemy.y, dealt, enemy.hp <= 0, player.credits - credits, false, enemy.id);
         }
-        for (Player target : friendlyRayTargets(player, x, y, dx, dy, weapon, range)) world.damagePlayer(target, weapon.damage());
+        for (Player target : world.players()) {
+            if (JobRules.canHitDisguisedAlly(player, target)
+                    && FlameRules.contains(target.x, target.y, 12, x, y, dx, dy, range)
+                    && GameMap.hasClearLine(x, y, target.x, target.y, world.unlockedAreas()))
+                world.damagePlayer(target, weapon.damage());
+        }
     }
 
     private record DroneShot(Player owner, String weapon, double x, double y, Drone drone) { }

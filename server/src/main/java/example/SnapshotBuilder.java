@@ -120,7 +120,7 @@ final class SnapshotBuilder {
                 .append("\",\"ammo\":\"").append(definition.ammoField())
                 .append("\",\"name\":\"").append(key.equals("rocket") && shop != null ? escapeJson(shop.label()) : key).append("\"}");
         }
-        json.append("},\"recipes\":{");
+        json.append("},\"flameHalfAngle\":").append(FlameRules.HALF_ANGLE).append(",\"recipes\":{");
         first = true;
         for (var entry : GameConfig.BUILD_RECIPES.entrySet()) {
             if (!first) json.append(',');

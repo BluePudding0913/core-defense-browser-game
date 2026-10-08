@@ -20,7 +20,7 @@ rightClick(); assert.equal(commands.at(-1), 'SCOUT_DASH:1500.0:1900.0');
 const count = commands.length;
 handlers.mousedown({ button: 0 }); assert.equal(commands.length, count, 'left click does not dash');
 for (const blocked of [{ job: 'healer' }, { down: true }, { movingCore: true }, { selectedBuild: 'block' },
-    { jobCooldown: 1 }, { stamina: 19 }, { railgunCharge: 1 }]) {
+    { stamina: 19 }, { railgunCharge: 1 }]) {
     const before = { ...me }; Object.assign(me, blocked); rightClick();
     assert.equal(commands.length, count); Object.keys(me).forEach(key => delete me[key]); Object.assign(me, before);
 }
@@ -67,3 +67,7 @@ me.staminaMax = 100;
 vm.runInContext('updateLocalPrediction(1)', context);
 assert.equal(context.predictedLocal.stamina, 100, 'prediction respects a lower capacity after changing job');
 console.log('Scout dash passed: right click, rejection states, snapshot prediction, stamina, collision sweep, normalized range');
+me.job='scout'; me.jobCooldown=1; me.stamina=100; me.scoutDashRemaining=.2;
+const beforeRepeat=commands.length;
+rightClick(); rightClick();
+assert.equal(commands.length,beforeRepeat+2,'active movement and an old job timer never prevent another click');
