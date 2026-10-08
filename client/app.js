@@ -2663,7 +2663,7 @@ function smoothEntity(prefix, entity) {
 
 function enemyRadius(enemy) {
     return ({ boss: 42, warlord: 44, titan: 48, warden: 44, brute: 28, armored: 30,
-        siege: 32, champion: 26, runner: 16, hunter: 18, tiny: 3, shield: 24, bomber: 20, artillery: 22, explosionBoss: 42 })[enemy.type] || 21;
+        siege: 32, champion: 26, runner: 16, hunter: 18, ghost: 18, tiny: 3, shield: 24, bomber: 20, artillery: 22, explosionBoss: 42 })[enemy.type] || 21;
 }
 
 function drawArtilleryShells() {
@@ -2695,6 +2695,17 @@ function drawEnemies() {
         if (enemy.hp <= 0) continue;
         if (typeof WardenUI !== "undefined") WardenUI.draw(ctx, enemy);
         const p = smoothEntity("enemy", enemy), radius = enemyRadius(enemy);
+        if (enemy.type === "ghost") {
+            ctx.save();
+            ctx.strokeStyle = "rgb(220 230 235 / 6%)"; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = "rgb(235 242 245 / 9%)";
+            ctx.beginPath();
+            ctx.arc(p.x - radius * .3, p.y - 3, 2, 0, Math.PI * 2);
+            ctx.arc(p.x + radius * .3, p.y - 3, 2, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+            continue;
+        }
         const recentHit = hitEffects.find(effect => effect.effect === "hit" && effect.damage > 0
             && performance.now() - effect.started < 260
             && effect.enemyId === enemy.id);
