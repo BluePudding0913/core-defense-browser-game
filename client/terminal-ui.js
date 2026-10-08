@@ -30,7 +30,8 @@ window.TerminalUI = (() => {
         });
         panel.addEventListener("keydown", event => {
             event.stopPropagation();
-            if (event.key === "Escape" || event.key.toLowerCase() === "r") {
+            const key = window.coreKeySettings?.gameKey(event) || event.key.toLowerCase();
+            if (["escape", "r", "e"].includes(key)) {
                 event.preventDefault();
                 if (current && !event.repeat) current.send("COMPUTER");
             }
