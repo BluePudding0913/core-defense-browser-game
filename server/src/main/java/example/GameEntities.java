@@ -249,6 +249,7 @@ final class Enemy {
     double hp;
     double attackCooldown;
     double specialCooldown;
+    final WardenRules.State warden;
     boolean exploded;
     double fuse = -1;
     double slow = 1;
@@ -276,6 +277,7 @@ final class Enemy {
     Enemy(int id, String type, SpawnPoint spawn, double hp, double speed, double damage, int reward) {
         this.id = id;
         this.type = type;
+        this.warden = type.equals("warden") ? new WardenRules.State() : null;
         this.lane = spawn.lane();
         this.spawnId = spawn.id();
         this.x = spawn.x();
@@ -305,7 +307,7 @@ final class Enemy {
     }
 
     boolean isBoss() {
-        return type.equals("boss") || type.equals("warlord") || type.equals("titan") || type.equals("explosionBoss");
+        return type.equals("boss") || type.equals("warlord") || type.equals("titan") || type.equals("explosionBoss") || type.equals("warden");
     }
 
     void faceToward(double targetX, double targetY) {

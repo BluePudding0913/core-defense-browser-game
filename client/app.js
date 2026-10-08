@@ -2649,7 +2649,7 @@ function smoothEntity(prefix, entity) {
 }
 
 function enemyRadius(enemy) {
-    return ({ boss: 42, warlord: 44, titan: 48, brute: 28, armored: 30,
+    return ({ boss: 42, warlord: 44, titan: 48, warden: 44, brute: 28, armored: 30,
         siege: 32, champion: 26, runner: 16, hunter: 18, tiny: 3, shield: 24, bomber: 20, artillery: 22, explosionBoss: 42 })[enemy.type] || 21;
 }
 
@@ -2680,6 +2680,7 @@ function drawEnemies() {
         warlord: "#4d3030", titan: "#34253f", tiny: "#a9bd75", shield: "#466c80", bomber: "#dd7b32", artillery: "#65803c" };
     for (const enemy of state.enemies) {
         if (enemy.hp <= 0) continue;
+        if (typeof WardenUI !== "undefined") WardenUI.draw(ctx, enemy);
         const p = smoothEntity("enemy", enemy), radius = enemyRadius(enemy);
         const recentHit = hitEffects.find(effect => effect.effect === "hit" && effect.damage > 0
             && performance.now() - effect.started < 260
@@ -2701,7 +2702,8 @@ function drawEnemies() {
             // Integrate a frequency rising from 0.5 Hz to 5 Hz for a continuous blink phase.
             flashing = Math.sin(2 * Math.PI * (.5 * elapsed + .075 * elapsed * elapsed)) > 0;
         }
-        ctx.fillStyle = explosionBoss ? (flashing ? "#b52b32" : "#080808") : colors[enemy.type] || colors.grunt;
+        ctx.fillStyle = enemy.type === "warden" ? ["#4c5965", "#73563e", "#8b343b"][(enemy.bossPhase || 1) - 1]
+            : explosionBoss ? (flashing ? "#b52b32" : "#080808") : colors[enemy.type] || colors.grunt;
         ctx.beginPath();
         if (explosionBoss) {
             for (let i = 0; i < 6; i++) {
@@ -2712,7 +2714,7 @@ function drawEnemies() {
             ctx.closePath();
         } else ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
         ctx.fill();
-        const isBoss = ["boss", "warlord", "titan"].includes(enemy.type);
+        const isBoss = ["boss", "warlord", "titan", "warden"].includes(enemy.type);
         ctx.strokeStyle = isBoss ? "#fff" : "#c8c8c8"; ctx.lineWidth = isBoss ? 5 : Math.min(2, radius / 3); ctx.stroke();
         const eyeRadius = Math.min(3, radius * .2), eyeOffset = Math.min(3, radius * .5);
         ctx.fillStyle = explosionBoss ? "#ff1527" : "#fff"; ctx.beginPath(); ctx.arc(p.x - radius * .3, p.y - eyeOffset, eyeRadius, 0, Math.PI * 2); ctx.arc(p.x + radius * .3, p.y - eyeOffset, eyeRadius, 0, Math.PI * 2); ctx.fill();

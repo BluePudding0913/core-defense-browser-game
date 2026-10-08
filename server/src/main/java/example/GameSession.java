@@ -40,6 +40,7 @@ final class GameSession {
     private static final double BOT_REACTION_SECONDS = 1.5;
     int roundEnemyTotal;
     private boolean explosionBossSpawned;
+    private boolean wardenSpawned;
 
     static int ammoRefillCost() {
         return 120;
@@ -104,6 +105,7 @@ final class GameSession {
     private final GameEventSink events;
     private final GameEffects gameEffects;
     final CombatSystem combat;
+    private final WardenCombatSystem.World wardenWorld;
     private final List<String> activeLanes = new ArrayList<>();
     private final Random random = new Random();
     private final EnemyTravel laterFeatureTravel = new EnemyTravel();
@@ -118,6 +120,23 @@ final class GameSession {
     GameSession(GameEventSink events) {
         this.events = events;
         this.gameEffects = new GameEffects(events);
+        this.wardenWorld = new WardenCombatSystem.World() {
+            public List<Player> players() { return players; }
+            public List<TrapSlot> defenses() { return trapSlots; }
+            public List<Decoy> decoys() { return decoys; }
+            public double coreX() { return coreX; }
+            public double coreY() { return coreY; }
+            public boolean canTravel(double x, double y, double toX, double toY) {
+                return canEnemyTravel(x, y, toX, toY) && canOccupy(toX, toY, 17);
+            }
+            public boolean clearLine(double x, double y, double toX, double toY) {
+                return GameMap.hasClearLine(x, y, toX, toY, unlockedAreas);
+            }
+            public void damagePlayer(Player player, double damage) { GameSession.this.damagePlayer(player, damage); }
+            public void damageDrone(Player player, double damage) { GameSession.this.damageDrone(player, damage); }
+            public void damageCore(double damage) { GameSession.this.damageCore(damage); }
+            public void pulse(double x, double y, double radius) { gameEffects.explosion(x, y, radius); }
+        };
         this.combat = new CombatSystem(new CombatSystem.World() {
             public boolean canAttack() { return canMove(); }
             public Set<String> unlockedAreas() { return unlockedAreas; }
@@ -796,6 +815,7 @@ final class GameSession {
         queuedEnemies = (int) Math.round(queuedEnemies * 0.8);
         roundEnemyTotal = queuedEnemies + queuedBosses;
         explosionBossSpawned = false;
+        wardenSpawned = false;
         // Reserve one simultaneous swarm within the regular population on selected late rounds.
         queuedTinyEnemies = round >= 40 && (round - 40) % 3 == 0
                 ? Math.min(queuedEnemies, (int) Math.round((48 + (round - 40) * 4) * 0.8)) : 0;
@@ -1077,6 +1097,7 @@ final class GameSession {
             SpawnPoint spawn = nextRoundSpawn();
             if (queuedBosses > 0 && queuedEnemies <= queuedBosses * 2) {
                 String bossType = isExplosionBossRound() && !explosionBossSpawned ? "explosionBoss"
+                        : WardenRules.appearsInRound(round) && !wardenSpawned ? "warden"
                         : round >= 40 ? "titan" : round >= 24 ? "warlord" : "boss";
                 spawnEnemy(bossType, spawn);
                 queuedBosses--;
@@ -1180,6 +1201,13 @@ final class GameSession {
         double damage;
         int reward;
         switch (type) {
+            case "warden" -> {
+                hp = 1600 + round * 50;
+                speed = 44;
+                damage = 38 + round * .6;
+                reward = 600;
+                wardenSpawned = true;
+            }
             case "explosionBoss" -> {
                 hp = 500_000_000;
                 speed = 24;
@@ -1356,6 +1384,9 @@ final class GameSession {
             enemy.pathTimer -= dt;
             updateEnemyWander(enemy, dt);
             if (enemy.type.equals("artillery") && updateArtillery(enemy, dt)) continue;
+            double moveSpeed = enemy.speed * (enemy.warden == null ? 1
+                    : WardenRules.movementMultiplier(WardenRules.phase(enemy.hp, enemy.maxHp)));
+            if (enemy.warden != null && WardenCombatSystem.update(enemy, dt, wardenTarget(enemy), wardenWorld)) continue;
 
             TrapSlot barricade = trapSlots.stream()
                     .filter(slot -> slot.defense != null
@@ -1378,7 +1409,7 @@ final class GameSession {
                         decoyTarget.hp -= enemy.damage;
                         enemy.attackCooldown = .9;
                     }
-                } else moveEnemyToward(enemy, decoyTarget.x, decoyTarget.y, enemy.speed * enemy.slow * dt);
+                } else moveEnemyToward(enemy, decoyTarget.x, decoyTarget.y, moveSpeed * enemy.slow * dt);
                 continue;
             }
             Player playerTarget = enemyNavigation.visiblePlayer(enemy, players, dt);
@@ -1393,12 +1424,12 @@ final class GameSession {
                         damageDrone(droneTarget, enemy.damage);
                         enemy.attackCooldown = .9;
                     }
-                } else moveEnemyToward(enemy, drone.x, drone.y, enemy.speed * enemy.slow * dt);
+                } else moveEnemyToward(enemy, drone.x, drone.y, moveSpeed * enemy.slow * dt);
                 continue;
             }
 
             advanceEnemyRoute(enemy);
-            if (enemy.isBoss()) {
+            if (enemy.isBoss() && enemy.warden == null) {
                 enemy.specialCooldown = Math.max(0, enemy.specialCooldown - dt);
                 if (enemy.specialCooldown <= 0
                         && distance(enemy.x, enemy.y, coreX, coreY) <= 260) {
@@ -1424,7 +1455,7 @@ final class GameSession {
                 enemy.navigationTimer = 0;
                 double targetDistance = distance(enemy.x, enemy.y, defenseTarget.x, defenseTarget.y);
                 if (targetDistance <= 38) attackDefense(enemy, defenseTarget);
-                else moveEnemyToward(enemy, defenseTarget.x, defenseTarget.y, enemy.speed * enemy.slow * dt);
+                else moveEnemyToward(enemy, defenseTarget.x, defenseTarget.y, moveSpeed * enemy.slow * dt);
                 continue;
             }
             if (playerTarget != null) {
@@ -1440,7 +1471,7 @@ final class GameSession {
                 } else {
                     // Follow the last visible position until the next perception check.
                     // A player ducking behind a wall must not trigger per-enemy path searches.
-                    moveEnemyDirect(enemy, enemy.visiblePlayerX, enemy.visiblePlayerY, enemy.speed * enemy.slow * dt);
+                    moveEnemyDirect(enemy, enemy.visiblePlayerX, enemy.visiblePlayerY, moveSpeed * enemy.slow * dt);
                 }
                 continue;
             }
@@ -1455,7 +1486,7 @@ final class GameSession {
             } else {
                 MapPoint target = enemyNavigation.coreTarget(enemy, dt);
                 moveEnemyDirect(enemy, target.x(), target.y(),
-                        enemy.speed * enemy.slow * dt);
+                        moveSpeed * enemy.slow * dt);
             }
         }
         // Add offspring after iteration so each explosion spawns exactly one batch safely.
@@ -1468,6 +1499,19 @@ final class GameSession {
                 entrance.lane(), entrance.enemyBias(), entrance.speedMultiplier(), entrance.targetPriority(),
                 List.of(new MapPoint(coreX, coreY)));
         for (int i = 0; i < 5; i++) spawnEnemy("runner", remains);
+    }
+
+    private MapPoint wardenTarget(Enemy enemy) {
+        if (enemy.warden.action != WardenRules.Action.IDLE || enemy.specialCooldown > 0
+                || WardenRules.phase(enemy.hp, enemy.maxHp) < 2) return null;
+        Decoy decoy = DecoyRules.target(enemy, decoys,
+                (x, y) -> GameMap.hasClearLine(enemy.x, enemy.y, x, y, unlockedAreas));
+        if (decoy != null) return new MapPoint(decoy.x, decoy.y);
+        Player player = nearestPlayer(enemy, 520);
+        Player drone = DroneRules.target(enemy, players);
+        if (drone != null && (player == null || !player.job.equals("tank")))
+            return new MapPoint(drone.drone.x, drone.drone.y);
+        return player == null ? new MapPoint(coreX, coreY) : new MapPoint(player.x, player.y);
     }
 
     private void updateExplosionBoss(Enemy enemy, double dt, long remaining) {
@@ -1909,7 +1953,7 @@ final class GameSession {
         double score = 1_050 - Math.min(1_050, distance(enemy.x, enemy.y, coreX, coreY));
         score += enemy.routeIndex * 85;
         score += switch (enemy.type) {
-            case "boss", "warlord", "titan" -> 460;
+            case "boss", "warlord", "titan", "warden" -> 460;
             case "champion" -> 260;
             case "siege" -> 240;
             case "artillery" -> 250;
@@ -3131,6 +3175,7 @@ final class GameSession {
 
     private void resetWorld() {
         explosionBossSpawned = false;
+        wardenSpawned = false;
         roundEnemyTotal = 0;
         phase = GamePhase.LOBBY;
         round = 0;

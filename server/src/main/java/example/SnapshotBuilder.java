@@ -338,6 +338,14 @@ final class SnapshotBuilder {
             json.append(",\"y\":").append(roundOne(enemy.y))
                     .append(",\"hp\":").append(enemy.type.equals("explosionBoss") ? enemy.hp : roundOne(enemy.hp));
             json.append(",\"maxHp\":").append(roundOne(enemy.maxHp));
+            if (enemy.warden != null) {
+                json.append(",\"bossPhase\":").append(WardenRules.phase(enemy.hp, enemy.maxHp))
+                        .append(",\"bossAction\":\"").append(enemy.warden.action.name()).append('"')
+                        .append(",\"actionRemaining\":").append(roundOne(enemy.warden.remaining))
+                        .append(",\"targetX\":").append(roundOne(enemy.warden.targetX))
+                        .append(",\"targetY\":").append(roundOne(enemy.warden.targetY))
+                        .append(",\"pulseRadius\":").append(WardenRules.PULSE_RADIUS);
+            }
             if (enemy.type.equals("explosionBoss")) json.append(",\"fuse\":").append(enemy.fuse);
             if (enemy.type.equals("shield")) {
                 json.append(",\"facingX\":").append(enemy.facingX)
