@@ -1286,7 +1286,8 @@ function openActionMenu(title, options, layout = "default") {
         if (button.innerHTML !== content) button.innerHTML = content;
         button.onclick = option.onSelect || (option.command ? () => {
             send(option.command);
-            if (!option.command.startsWith("BUY:") && !option.command.startsWith("CRAFT:")) closeActionMenu();
+            if (!option.command.startsWith("BUY:") && !option.command.startsWith("CRAFT:")
+                    && !option.command.startsWith("UPGRADE:")) closeActionMenu();
         } : null);
         if (!reuseButtons) {
             button.dataset.command = option.command || "";
@@ -1436,7 +1437,7 @@ function openCoreMenu() {
         option(`DEFENSE Lv.${core.defense + 1}`, defenseCost, "UPGRADE:defense", core.defense >= 4),
         option(`AUTO REPAIR Lv.${core.regen + 1}`, regenCost, "UPGRADE:regen", core.regen >= 4),
         { label: "MOVE CORE", detail: "運搬後、正面の色付きタイルへRで設置", command: "EQUIP_CORE" },
-    ], CORE, INTERACTION_RANGE.core);
+    ], core, INTERACTION_RANGE.core, "default", openCoreMenu);
 }
 
 function openPrepConsoleMenu() {
