@@ -100,6 +100,21 @@ final class CombatSystem {
         }
     }
 
+    void attackSecondary(Player player, double aimX, double aimY) {
+        if (!world.canAttack() || !player.job.equals("attacker") || player.down || player.movingCore
+                || player.selectedBuild != null || player.secondaryCooldown > 0) return;
+        var stats = WeaponCatalog.stats("pistol");
+        player.secondaryCooldown = stats.cooldown();
+        secondaryShooter = player;
+        try {
+            events.sound(player, "shot", "pistol");
+            double angle = Math.atan2(aimY - player.y, aimX - player.x);
+            fireRay(player, stats, Math.cos(angle), Math.sin(angle));
+        } finally { secondaryShooter = null; }
+    }
+
+    private Player secondaryShooter;
+
     void missileImpact(Player player, double x, double y) {
         events.explosion(x, y, MissileRules.radius());
         for (Enemy enemy : List.copyOf(world.enemies())) {
@@ -129,7 +144,7 @@ final class CombatSystem {
 
     private record DroneShot(Player owner, String weapon, double x, double y, Drone drone) { }
     private DroneShot droneShot;
-    private String shotWeapon(Player p) { return droneShot != null && droneShot.owner == p ? droneShot.weapon : p.weapon; }
+    private String shotWeapon(Player p) { return droneShot != null && droneShot.owner == p ? droneShot.weapon : secondaryShooter == p ? "pistol" : p.weapon; }
     private double shotX(Player p) { return droneShot != null && droneShot.owner == p ? droneShot.x : p.x; }
     private double shotY(Player p) { return droneShot != null && droneShot.owner == p ? droneShot.y : p.y; }
 

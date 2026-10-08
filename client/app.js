@@ -336,6 +336,10 @@ function connect() {
         let message;
         try { message = JSON.parse(data); } catch { return; }
         if (message.type === "error" || message.type === "feedback") window.coreMenu?.status(message.message);
+        if (message.type === "purchase-complete") {
+            window.coreAudio?.play("purchase", 0);
+            if (message.closeMenu) closeActionMenu();
+        }
         if (message.type === "ammo-refilled") {
             if (!activeMenuAccess?.refresh) closeActionMenu();
             inventoryMenu.classList.add("hidden");
@@ -1167,7 +1171,7 @@ function showFeedback(text) {
 function playSoundEffect(message) {
     const me = getMe();
     if (!me) return;
-    if (message.item === "railgun-charge" || message.weapon === "railgun") return;
+    if (message.item === "railgun-charge" || message.effect === "shot" && message.item === "railgun") return;
     const own = message.playerId === myPlayerId;
     if (message.effect === "ability-ready") {
         if (own) window.coreAudio?.play("ability-ready", 0);
@@ -1550,7 +1554,12 @@ canvas.addEventListener("mousedown", event => {
     if (event.button !== 2) return;
     event.preventDefault();
     canvas.focus({ preventScroll: true });
-    requestScoutDash(worldFromScreen(event.clientX, event.clientY));
+    if (getMe()?.job === "attacker" && !getMe().down && !getMe().movingCore && !getMe().selectedBuild
+            && !exitDialog.open && howToMenu.classList.contains("hidden") && ["preparing", "wave"].includes(state?.phase)
+            && actionMenu.classList.contains("hidden") && inventoryMenu.classList.contains("hidden")) {
+        const p = worldFromScreen(event.clientX, event.clientY);
+        send(`SECONDARY_FIRE:${p.x.toFixed(1)}:${p.y.toFixed(1)}:1`);
+    } else requestScoutDash(worldFromScreen(event.clientX, event.clientY));
 });
 
 canvas.addEventListener("pointerdown", event => {
@@ -1590,6 +1599,13 @@ canvas.addEventListener("pointercancel", event => {
     if (joystick?.id === event.pointerId) { joystick = null; sendMovement(); }
     if (pendingMove?.id === event.pointerId) { clearTimeout(pendingMove.timer); pendingMove = null; }
     if (firingPointer?.id === event.pointerId) stopFiring(event.clientX, event.clientY);
+});
+window.addEventListener("mouseup", event => { if (event.button === 2) send("SECONDARY_FIRE:0:0:0"); });
+canvas.addEventListener("mousemove", event => {
+    if (getMe()?.job === "attacker" && (event.buttons & 2)) {
+        const p = worldFromScreen(event.clientX, event.clientY);
+        send(`SECONDARY_FIRE:${p.x.toFixed(1)}:${p.y.toFixed(1)}:1`);
+    }
 });
 canvas.addEventListener("contextmenu", event => event.preventDefault());
 
@@ -1730,6 +1746,7 @@ window.addEventListener("keyup", event => {
     keys.delete(key); sendMovement();
 });
 window.addEventListener("blur", () => {
+    send("SECONDARY_FIRE:0:0:0");
     endInteractionHold(true);
     keys.clear(); joystick = null;
     dashKey = false; setDash(false);
@@ -1801,6 +1818,11 @@ function findNearestInteraction() {
     }
     const nearest = choices.sort((a, b) => a.separation - b.separation)[0];
     if (nearest) return nearest;
+    if (me.job === "healer" && !me.movingCore && !placementSelection(me)) return {
+        kind: "healer", target: me,
+        label: me.jobCooldown > 0 ? Math.ceil(me.jobCooldown) + "s" : "回復エリア",
+        action: () => send("JOB_ABILITY")
+    };
     if (me.job === "spy" && !me.movingCore && !placementSelection(me)) return {
         kind: "spy", target: me,
         label: me.spyRemaining > 0 ? "偽装中" : me.jobCooldown > 0 ? Math.ceil(me.jobCooldown) + "s" : "偽装",
@@ -2003,6 +2025,7 @@ function draw() {
         drawResources();
         drawDroppedResources();
         drawTrapSlots();
+        drawHealingAreas();
         drawTeleportPads();
         drawArtilleryShells();
         drawMissiles();
@@ -2605,6 +2628,21 @@ function drawTeleportPads() {
     }
 }
 
+function drawHealingAreas() {
+    for (const p of state.players) {
+        if (!(p.healRemaining > 0)) continue;
+        const h = p.healHalfSize;
+        ctx.save(); ctx.fillStyle = "rgba(92,235,160,.15)"; ctx.strokeStyle = "#5ceba0"; ctx.lineWidth = 1;
+        ctx.fillRect(p.healX - h, p.healY - h, h * 2, h * 2);
+        ctx.strokeRect(p.healX - h, p.healY - h, h * 2, h * 2);
+        for (let i = 1; i < 3; i++) {
+            ctx.beginPath(); ctx.moveTo(p.healX - h + i * h * 2 / 3, p.healY - h); ctx.lineTo(p.healX - h + i * h * 2 / 3, p.healY + h);
+            ctx.moveTo(p.healX - h, p.healY - h + i * h * 2 / 3); ctx.lineTo(p.healX + h, p.healY - h + i * h * 2 / 3); ctx.stroke();
+        }
+        ctx.restore();
+    }
+}
+
 function drawPlayers() {
     for (const player of state.players) {
         const isLocal = player.id === myPlayerId && predictedLocal;
@@ -2626,6 +2664,12 @@ function drawPlayers() {
             ctx.restore();
         }
         ctx.fillStyle = hit || player.down ? "#ff5964" : player.id === myPlayerId ? "#79d8ff" : "#454545";
+        if (player.job === "attacker" && !player.down) {
+            ctx.fillStyle = "#b5b5b5";
+            ctx.fillRect(-12, -3, 4, 12); ctx.fillRect(8, -3, 4, 12);
+            ctx.fillStyle = "#454545";
+            ctx.fillRect(-12, -3, 4, 4); ctx.fillRect(8, -3, 4, 4);
+        }
         const playerSize = 10;
         const disguised = player.spyRemaining > 0 && !player.down;
         if (disguised) {

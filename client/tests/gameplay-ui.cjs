@@ -123,7 +123,7 @@ spyContext.state.core = { x: 1000, y: 1000 };
 spy.down = true;
 assert.equal(vm.runInContext('findNearestInteraction()', spyContext), null);
 spy.down = false; spy.job = 'healer';
-assert.equal(vm.runInContext('findNearestInteraction()', spyContext), null);
+assert.equal(vm.runInContext('findNearestInteraction().kind', spyContext), 'healer');
 console.log('Spy interaction passed: R disguise, nearby facility priority, down and other jobs');
 
 me.drone = { active: true, controlled: true };

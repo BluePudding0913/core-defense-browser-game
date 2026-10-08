@@ -12,10 +12,16 @@ final class JobRules {
     static final double SCOUT_DASH_STAMINA = 20;
     static final double SCOUT_DASH_STEP = 4;
 
+    static final double HEAL_DURATION = 10, HEAL_COOLDOWN = 30, HEAL_PER_SECOND = 5;
+    static final double HEAL_HALF_SIZE = GameMap.TILE_SIZE * 1.5;
+    static boolean insideHealingArea(double x, double y, double centerX, double centerY) {
+        return Math.abs(x - centerX) < HEAL_HALF_SIZE && Math.abs(y - centerY) < HEAL_HALF_SIZE;
+    }
+
     private JobRules() { }
 
     static boolean valid(String job) {
-        return java.util.Set.of("spy", "tp", "healer", "scout", "drone", "hacker").contains(job);
+        return java.util.Set.of("spy", "tp", "healer", "scout", "drone", "hacker", "attacker").contains(job);
     }
 
     static double dashSpeed(String job) { return job.equals("scout") ? 305 : 265; }

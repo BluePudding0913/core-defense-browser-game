@@ -65,6 +65,10 @@ final class Player {
 
     final WeaponInventory weapons = new WeaponInventory();
 
+    double healRemaining, healX, healY;
+    double secondaryCooldown;
+    boolean secondaryFiring;
+    double secondaryAimX, secondaryAimY;
     boolean firing;
     double aimX;
     double aimY;
