@@ -18,6 +18,7 @@
         heal: { notes: [523, 659, 784], duration: .24 },
         "ability-ready": { notes: [659, 880, 1175], duration: .3 },
         build: { notes: [180, 270, 360], duration: .18, noise: .12 },
+        purchase: { notes: [659, 988, 1318], duration: .18 },
         pickup: { notes: [880, 1320], duration: .12 },
         item: { notes: [660, 880], duration: .16 },
         railgun: { pitch: 220, end: 220, duration: .4, noise: .35, sustain: true },

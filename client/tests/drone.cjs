@@ -38,6 +38,7 @@ assert.equal(context.smoothed.get('drone-self').x, 1300);
 context.state = { players: [me] };
 for (const name of ['drawWorld', 'drawAreas', 'drawBreakers', 'drawPlacementPreview', 'drawCore', 'drawShops', 'drawResources', 'drawDroppedResources', 'drawTrapSlots', 'drawTeleportPads', 'drawArtilleryShells', 'drawMissiles', 'drawEnemies', 'drawRailguns', 'drawPlayers', 'drawInteractionPrompt', 'drawHitEffects', 'drawDamageEdges', 'drawJoystick']) context[name] = () => {};
 vm.runInContext(extract('draw'), context);
+vm.runInContext(extract('drawHealingAreas'), context);
 vm.runInContext('draw()', context);
 assert.ok(cameraUsesDrone);
 assert.ok(context.camera.x > 1140);
