@@ -119,6 +119,35 @@ class TankDecoyTest {
         assertTrue(game.trapSlots.isEmpty());
     }
 
+    @Test void cursorPositionSelectsWallAxisEvenWhenPlayerFacesAnotherDirection() {
+        start("tank"); player.facingX = -1; player.facingY = 0;
+        game.handleMessage(player, "TANK_WALL:1180:1700");
+        assertEquals(2, game.trapSlots.size());
+        assertEquals(game.trapSlots.get(0).y, game.trapSlots.get(1).y);
+        assertTrue(game.trapSlots.get(0).y < player.y);
+        game.trapSlots.clear(); player.jobCooldown = 0;
+        game.handleMessage(player, "TANK_WALL:1340:1940");
+        assertEquals(2, game.trapSlots.size());
+        assertEquals(game.trapSlots.get(0).x, game.trapSlots.get(1).x);
+        assertTrue(game.trapSlots.get(0).x > player.x);
+        game.trapSlots.clear(); player.jobCooldown = 0;
+        game.handleMessage(player, "TANK_WALL:1140:1900");
+        game.handleMessage(player, "TANK_WALL:NaN:1900");
+        assertTrue(game.trapSlots.isEmpty()); assertEquals(0, player.jobCooldown);
+    }
+
+    @Test void temporaryWallsStayNoninteractiveUntilTheirLastFractionOfASecond() throws Exception {
+        start("tank"); game.handleMessage(player, "TANK_WALL:1340:1900");
+        var wall = game.trapSlots.get(0); wall.defense.hp = 100; wall.temporaryRemaining = .01;
+        player.wood = 10;
+        game.handleMessage(player, "CARRY_NEAREST:" + wall.id);
+        game.handleMessage(player, "REPAIR:" + wall.id);
+        assertEquals(2, game.trapSlots.size()); assertEquals(100, wall.defense.hp); assertEquals(10, player.wood);
+        var slots = new ObjectMapper().readTree(SnapshotBuilder.build(game)).path("slots");
+        assertTrue(slots.get(0).path("temporary").asBoolean());
+        assertEquals(0, slots.get(0).path("temporaryRemaining").asDouble());
+    }
+
     @Test void wallFootprintStaysAdjacentAndPerpendicularIncludingDiagonalAim() {
         for (MapPoint facing : List.of(new MapPoint(1, 0), new MapPoint(-1, 0),
                 new MapPoint(0, 1), new MapPoint(0, -1), new MapPoint(.6, .8))) {

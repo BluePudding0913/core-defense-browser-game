@@ -72,6 +72,7 @@ context.exitDialog = {open:false};
 const wallSource = extract('requestTankWall');
 vm.runInContext(wallSource.slice(0, wallSource.indexOf('\n}') + 2), context);
 run('requestTankWall()'); assert.equal(commands.pop(), 'TANK_WALL');
+run('requestTankWall({x:120,y:240})'); assert.equal(commands.pop(), 'TANK_WALL:120.0:240.0');
 me.jobCooldown = 1; run('requestTankWall()'); assert.equal(commands.length, 0);
 me.jobCooldown = 0;
 me.down = true; run('beginJobHold(); endJobHold()'); assert.equal(commands.length, 0);

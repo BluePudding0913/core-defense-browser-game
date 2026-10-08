@@ -1316,6 +1316,14 @@ function reconcileLocalPrediction(snapshot) {
         predictedLocal = { x: serverMe.x, y: serverMe.y, stamina: serverMe.stamina, dashing: serverMe.dashing, exhausted: false };
         localFacing = { x: serverMe.facingX, y: serverMe.facingY };
     }
+    if (predictedLocal.down && !serverMe.down) {
+        predictedLocal.x = serverMe.x; predictedLocal.y = serverMe.y;
+        predictedLocal.stamina = serverMe.stamina;
+        predictedLocal.dashing = false;
+        predictedLocal.revivePauseUntil = performance.now() + 120;
+        sendMovement(true);
+    }
+    predictedLocal.down = Boolean(serverMe.down);
     const errorX = serverMe.x - predictedLocal.x;
     const errorY = serverMe.y - predictedLocal.y;
     const error = Math.hypot(errorX, errorY);
@@ -1698,13 +1706,13 @@ function requestScoutDash(point) {
     send(`SCOUT_DASH:${point.x.toFixed(1)}:${point.y.toFixed(1)}`);
 }
 
-function requestTankWall() {
+function requestTankWall(point) {
     const me = getMe();
     if (!me || me.job !== "tank" || !["preparing", "wave"].includes(state?.phase)
             || me.down || me.movingCore || me.selectedBuild || me.jobCooldown > 0 || exitDialog.open
             || !howToMenu.classList.contains("hidden") || !inventoryMenu.classList.contains("hidden")
             || !actionMenu.classList.contains("hidden")) return;
-    send("TANK_WALL");
+    send(point ? `TANK_WALL:${point.x.toFixed(1)}:${point.y.toFixed(1)}` : "TANK_WALL");
 }
 
 // Mouse down also fires when the left button is held, allowing a dash while shooting.
@@ -1725,7 +1733,7 @@ canvas.addEventListener("mousedown", event => {
         secondaryHeld = true;
         send(`SECONDARY_FIRE:${p.x.toFixed(1)}:${p.y.toFixed(1)}:1`);
     } else {
-        requestTankWall();
+        requestTankWall(worldFromScreen(event.clientX, event.clientY));
         requestScoutDash(worldFromScreen(event.clientX, event.clientY));
         requestDecoy(worldFromScreen(event.clientX, event.clientY));
     }
@@ -1859,6 +1867,7 @@ function sendMovement(force = false) {
     if (keys.has("s") || keys.has("arrowdown")) y += 1;
     if (keys.has("a") || keys.has("arrowleft")) x -= 1;
     if (keys.has("d") || keys.has("arrowright")) x += 1;
+    if (predictedLocal?.revivePauseUntil && performance.now() < predictedLocal.revivePauseUntil) x = y = 0;
     const length = Math.hypot(x, y);
     if (length > 1) { x /= length; y /= length; }
     localMove.x = Number(x.toFixed(2));
@@ -2001,7 +2010,7 @@ function findNearestInteraction() {
         add("factory", unit, 70, "PICK UP", () => openNearbyActionMenu("QUARRY", [{
             label: "PICK UP", detail: "回収して持ち運ぶ", command: "PICKUP_FACTORY:" + unit.id,
         }], unit, 70)));
-    state.slots.filter(slot => slot.defense)
+    state.slots.filter(slot => slot.defense && !slot.temporary && !(slot.temporaryRemaining > 0))
         .forEach(slot => add("defense", slot, INTERACTION_RANGE.trapSlot, "MANAGE", () => openSlotMenu(slot)));
     SHOP_UNITS.forEach(shop => add("shop", shop, INTERACTION_RANGE.shop,
         shop.label, () => openShopPurchase(shop)));
@@ -2133,6 +2142,11 @@ function updateLocalPrediction(dt) {
         return;
     }
     if (!predictedLocal || !serverMe || !["preparing", "wave"].includes(state.phase)) return;
+    if (predictedLocal.revivePauseUntil) {
+        if (performance.now() < predictedLocal.revivePauseUntil) return;
+        predictedLocal.revivePauseUntil = 0;
+        sendMovement(true);
+    }
     if (predictedLocal.scoutDashRemaining > 0 && !serverMe.down && !serverMe.movingCore
             && !serverMe.selectedBuild && !(serverMe.railgunRemaining > 0 || serverMe.railgunCharge > 0 || serverMe.secondaryRailgunRemaining > 0 || serverMe.secondaryRailgunCharge > 0)) {
         const travel = serverMe.scoutDashSpeed * Math.min(dt, predictedLocal.scoutDashRemaining);
@@ -2909,10 +2923,12 @@ function drawPlayers() {
         }
         ctx.fillStyle = hit || player.down ? "#ff5964" : player.id === myPlayerId ? "#79d8ff" : "#454545";
         if (player.job === "attacker" && !player.down) {
+            ctx.save();
             ctx.fillStyle = "#b5b5b5";
             ctx.fillRect(-12, -3, 4, 12); ctx.fillRect(8, -3, 4, 12);
             ctx.fillStyle = "#454545";
             ctx.fillRect(-12, -3, 4, 4); ctx.fillRect(8, -3, 4, 4);
+            ctx.restore();
         }
         const playerSize = 10;
         const disguised = player.spyRemaining > 0 && !player.down;
