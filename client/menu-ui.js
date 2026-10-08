@@ -11,6 +11,19 @@ document.body.append(gameScript);
 
 function mountMenu() {
     const root = document.querySelector("#menu-ui");
+    const keyToast = document.querySelector("#settings-toast");
+    let keyToastTimer;
+    function hideKeyToast() {
+        clearTimeout(keyToastTimer);
+        keyToast.hidden = true;
+        keyToast.textContent = "";
+    }
+    function showKeyToast(message) {
+        clearTimeout(keyToastTimer);
+        keyToast.hidden = false;
+        keyToast.textContent = message;
+        keyToastTimer = setTimeout(hideKeyToast, 2000);
+    }
     const escape = value => String(value).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
     let name = "", view = "guest", renderedView;
     let snapshot, selfId, busy = false, connected = false, lastLobby = "", quickRequested = false;
@@ -33,7 +46,7 @@ function mountMenu() {
         if (view === "guest" || view === "settings") content = `${view === "guest" ? "<h2>プレイヤー設定</h2>" : ""}<form data-form="name" novalidate><input name="name" maxlength="16" placeholder="ゲストプレイヤー名" aria-label="ゲストプレイヤー名" autocomplete="nickname" value="${escape(name)}"><button>決定</button></form>`;
         if (view === "settings") {
             const pointer = window.corePointerSettings.get();
-            content = content.replace("<button>決定</button></form>", `<fieldset class="ui-pointer-settings"><legend>音量</legend><label>SE<input type="range" name="volume" aria-label="SE音量" min="0" max="100" step="1" value="${Math.round(window.coreAudio.getVolume() * 100)}"><output id="volume-value">${Math.round(window.coreAudio.getVolume() * 100)}%</output></label></fieldset><fieldset class="ui-pointer-settings"><legend>ポインター</legend><label>形<select name="pointer-shape">${[["dot", "●"], ["cross", "×"], ["plus", "+"]].map(([value, label]) => `<option value="${value}" ${pointer.shape === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><label>色<input type="color" name="pointer-color" value="${pointer.color}"></label><label>大きさ<input type="range" name="pointer-size" min="4" max="32" step="1" value="${pointer.size}"><output id="pointer-size-value">${pointer.size}px</output></label><div class="ui-pointer-preview" aria-label="ポインターのプレビュー"><span></span></div></fieldset><fieldset class="ui-pointer-settings"><legend>キー割り当て</legend><label>回復キット<input name="medkit-key" aria-label="回復キットのキー" readonly value="${escape(window.coreKeySettings.getMedkit().toUpperCase())}"></label><small id="medkit-key-status" role="status"></small><label>ジョブ効果<input name="job-effect-key" aria-label="ジョブ効果のキー" readonly value="${escape(window.coreKeySettings.getJobEffect().toUpperCase())}"></label><small id="job-effect-key-status" role="status"></small><label>ドローン自爆<input name="drone-self-destruct-key" aria-label="ドローン自爆のキー" readonly value="${escape(window.coreKeySettings.getDroneSelfDestruct().toUpperCase())}"></label><small id="drone-self-destruct-key-status" role="status"></small></fieldset><button type="submit" class="ui-back">決定</button></form>`);
+            content = content.replace("<button>決定</button></form>", `<fieldset class="ui-pointer-settings"><legend>音量</legend><label>SE<input type="range" name="volume" aria-label="SE音量" min="0" max="100" step="1" value="${Math.round(window.coreAudio.getVolume() * 100)}"><output id="volume-value">${Math.round(window.coreAudio.getVolume() * 100)}%</output></label></fieldset><fieldset class="ui-pointer-settings"><legend>ポインター</legend><label>形<select name="pointer-shape">${[["dot", "●"], ["cross", "×"], ["plus", "+"]].map(([value, label]) => `<option value="${value}" ${pointer.shape === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><label>色<input type="color" name="pointer-color" value="${pointer.color}"></label><label>大きさ<input type="range" name="pointer-size" min="4" max="32" step="1" value="${pointer.size}"><output id="pointer-size-value">${pointer.size}px</output></label><div class="ui-pointer-preview" aria-label="ポインターのプレビュー"><span></span></div></fieldset><fieldset class="ui-pointer-settings"><legend>キー割り当て</legend><label>回復キット<input name="medkit-key" aria-label="回復キットのキー" readonly value="${escape(window.coreKeySettings.getMedkit().toUpperCase())}"></label><label>ジョブ効果<input name="job-effect-key" aria-label="ジョブ効果のキー" readonly value="${escape(window.coreKeySettings.getJobEffect().toUpperCase())}"></label><label>ドローン自爆<input name="drone-self-destruct-key" aria-label="ドローン自爆のキー" readonly value="${escape(window.coreKeySettings.getDroneSelfDestruct().toUpperCase())}"></label></fieldset><button type="submit" class="ui-back">決定</button></form>`);
         }
         if (view === "settings" && inGameSettings) content = content.replace(/<input name="name"[^>]*>/, "").replace('data-form="name"', 'data-form="game-settings"');
         if (view === "home") content = `<h1>CORE DEFENSE</h1><nav aria-label="メインメニュー">${window.coreReconnect?.saved() ? button("resume", "前のゲームに戻る") : ""}${button("quick", "クイックマッチ")}${button("phrase", "合言葉")}${back("settings").replace("戻る", "設定")}</nav><p class="ui-match-result" role="status"></p>`;
@@ -64,7 +77,7 @@ function mountMenu() {
         updateMatchResult();
         if (focus) (root.querySelector("input") || root.querySelector("button"))?.focus();
     }
-    function go(next) { jobOpen = false; view = next; quickRequested = false; matchResult = ""; render(next !== "settings"); }
+    function go(next) { hideKeyToast(); jobOpen = false; view = next; quickRequested = false; matchResult = ""; render(next !== "settings"); }
     function updateMatchResult() {
         const result = root.querySelector('.ui-match-result');
         if (!result) return;
@@ -140,6 +153,7 @@ function mountMenu() {
         }
     };
     function closeGameSettings() {
+        hideKeyToast();
         const onClose = settingsReturn;
         inGameSettings = false; settingsReturn = null; renderedView = null; view = "lobby";
         root.hidden = true;
@@ -178,7 +192,7 @@ function mountMenu() {
         const drone = event.target.name === "drone-self-destruct-key";
         const saved = drone ? settings.setDroneSelfDestruct(key) : job ? settings.setJobEffect(key) : settings.setMedkit(key);
         event.target.value = (drone ? settings.getDroneSelfDestruct() : job ? settings.getJobEffect() : settings.getMedkit()).toUpperCase();
-        root.querySelector(drone ? "#drone-self-destruct-key-status" : job ? "#job-effect-key-status" : "#medkit-key-status").textContent = saved ? "保存しました" : "このキーは使用できません";
+        showKeyToast(saved ? "保存しました" : "このキーは使用できません");
     });
     root.addEventListener("input", event => {
         if (view === "settings" && event.target.name === "volume") {
