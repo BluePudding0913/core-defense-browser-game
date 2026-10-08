@@ -2446,7 +2446,7 @@ final class GameSession {
             else gameEffects.feedback(player,"お金が足りません");
             return;
         }
-        ShopUnit shop = GameMap.shopByItem(item.equals("silverAmmo") ? "ammo" : item);
+        ShopUnit shop = GameMap.shopByItem(item);
         if (shop == null || !isPointUnlocked(shop.x(), shop.y())
                 || !canInteract(player, shop.x(), shop.y(), 70)) {
             gameEffects.feedback(player, "ショップに近づいてください");
@@ -2466,15 +2466,6 @@ final class GameSession {
             return;
         }
         switch (item) {
-            case "silverAmmo" -> {
-                if (!player.weapons.buySilverAmmo(player.silver)) {
-                    gameEffects.feedback(player, "銀が足りません");
-                    return;
-                }
-                player.silver -= SilverAmmoRules.COST;
-                gameEffects.purchased(player, item, false);
-                gameEffects.feedback(player, "銀弾を" + SilverAmmoRules.PACK_SIZE + "発購入しました");
-            }
             case "ammo" -> {
                 List<String> owned = WeaponCatalog.ALL.stream().filter(WeaponCatalog.Definition::usesAmmo)
                         .map(WeaponCatalog.Definition::id).filter(player.weapons::owns)
@@ -2604,13 +2595,24 @@ final class GameSession {
     }
 
     private void craft(Player player, String type) {
-        if (!canUseFacilities() || player.down || !BUILD_RECIPES.containsKey(type)) return;
+        if (!canUseFacilities() || player.down
+                || !(type.equals("silverAmmo") || BUILD_RECIPES.containsKey(type))) return;
         boolean nearWorkbench = GameMap.WORKBENCH_UNITS.stream()
                 .filter(workbench -> workbench.requiredArea() == null
                         || unlockedAreas.contains(workbench.requiredArea()))
                 .anyMatch(workbench -> canInteract(player, workbench.x(), workbench.y(), 110));
         if (!nearWorkbench) {
             gameEffects.feedback(player, "作業台に近づいてください");
+            return;
+        }
+        if (type.equals("silverAmmo")) {
+            if (!player.weapons.buySilverAmmo(player.silver)) {
+                gameEffects.feedback(player, "銀が足りません");
+                return;
+            }
+            player.silver -= SilverAmmoRules.COST;
+            gameEffects.purchased(player, type, false);
+            gameEffects.feedback(player, "銀弾を" + SilverAmmoRules.PACK_SIZE + "発製作しました");
             return;
         }
         var recipe = BUILD_RECIPES.get(type);
