@@ -158,7 +158,7 @@ final class CombatSystem {
             if (enemy.hp <= 0 || separation > MissileRules.radius()
                     || !GameMap.hasClearLine(x, y, enemy.x, enemy.y, world.unlockedAreas())) continue;
             int credits = player.credits;
-            double dealt = damageEnemy(enemy, MissileRules.damage() * (1 - .5 * separation / MissileRules.radius()), player);
+            double dealt = damageEnemy(enemy, MissileRules.damage() * (1 - .5 * separation / MissileRules.radius()), player, "missile");
             events.hit(player.id, "rocket", x, y, enemy.x, enemy.y, dealt, enemy.hp <= 0, player.credits - credits, false, enemy.id);
         }
     }
@@ -384,7 +384,7 @@ final class CombatSystem {
             double damage = weapon.damage() * (headshot ? 2 : 1);
             if (WeaponCatalog.find(shotWeapon(player)).mode() != WeaponCatalog.AttackMode.MELEE) damage = hit.shieldedDamage(damage, originX, originY);
             double dealt = damageEnemy(hit, damage, player);
-            if (headshot) awardCredits(player, 3);
+            if (headshot) awardCredits(player, 3, shotWeapon(player));
             knockbackEnemy(originX, originY, hit, weapon.knockback());
             events.hit(player.id, shotWeapon(player), shotX(player), shotY(player), hit.x, hit.y,
                     dealt, hit.hp <= 0, player.credits - creditsBeforeHit, headshot, hit.id);
@@ -456,6 +456,10 @@ final class CombatSystem {
     }
 
     double damageEnemy(Enemy enemy, double damage, Player player) {
+        return damageEnemy(enemy, damage, player, player == null ? null : shotWeapon(player));
+    }
+
+    private double damageEnemy(Enemy enemy, double damage, Player player, String weapon) {
         if (enemy.hp <= 0) return 0;
         if (enemy.type.equals("explosionBoss")) damage *= .001;
         if (droneShot != null && droneShot.owner == player && damage > 0) droneShot.drone.attackers.add(enemy.id);
@@ -468,7 +472,7 @@ final class CombatSystem {
                     (int) Math.floor(enemy.creditProgress + 1e-9));
             int payout = earnedCredits - enemy.paidCredits;
             if (payout > 0) {
-                awardCredits(player, payout);
+                awardCredits(player, payout, weapon);
                 enemy.paidCredits += payout;
             }
             if (enemy.hp <= 0) player.kills++;
@@ -478,13 +482,11 @@ final class CombatSystem {
         return damage;
     }
 
-    private void awardCredits(Player player, int amount) {
-        if (droneShot != null && droneShot.owner == player) {
-            // Carry half-gold between payouts so small hits and odd bonuses still earn half overall.
-            int total = amount + player.droneRewardRemainder;
-            player.credits += total / 2;
-            player.droneRewardRemainder = total % 2;
-        } else player.credits += amount;
+    private void awardCredits(Player player, int amount, String weapon) {
+        var payout = GoldRewardRules.payout(amount, weapon,
+                droneShot != null && droneShot.owner == player, player.goldRewardRemainder);
+        player.credits += payout.credits();
+        player.goldRewardRemainder = payout.remainder();
     }
 
     private void knockbackEnemy(double fromX, double fromY, Enemy enemy, double amount) {

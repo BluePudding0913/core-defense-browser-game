@@ -24,6 +24,9 @@ TankのHP上限・防御エリア・標的優先は`JobRules`、スパイのデ�
 | 状態の所有・更新順序・成功した建築操作の反映 | `GameSession` |
 | 資源の種類・区画に応じた再生成間隔 | `ResourceRules` |
 | 銀弾の対象武器・製作単位・火力倍率 | `SilverAmmoRules` |
+| 武器別報酬倍率・ドローン半減・端数繰越 | `WeaponCatalog`・`GoldRewardRules` |
+
+戦闘のゴールドは従来のダメージ比例報酬とHSボーナスに武器別倍率を適用する。BAT 1.5、SHOTGUN 1.2、PISTOL・SMG・RIFLE 1.0、REVOLVER 0.95、RICOCHET・LMG 0.9、SNIPER 0.85、FLAMETHROWER 0.7、LAUNCHER 0.6、RAILGUN 0.55、MISSILE 0.4。ミサイルは装備武器と独立する。ドローンはさらに半減し、プレイヤーごとの端数を繰り越して連射や小額報酬を失わない。人間・CPU・左右の武器は同じCombatSystemを使い、SnapshotBuilderが倍率と実際の獲得金額を配信する。ラウンド報酬は武器に依存しない。
 
 木材はResourceRulesで1地点あたり6秒の再生成間隔を共用する。WOODCUTTERは4地点、WOOD ROOMは2地点で、地点数によって全体の供給量を変える。GameSessionが拾得・タイマー・再生成を反映する。
 

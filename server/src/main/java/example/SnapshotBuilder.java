@@ -114,6 +114,7 @@ final class SnapshotBuilder {
                 .append(",\"blastRadius\":").append(definition.blastRadius())
                 .append(",\"droneMountable\":").append(DroneRules.mountable(key))
                 .append(",\"silverAmmoEligible\":").append(SilverAmmoRules.eligible(key))
+                .append(",\"goldMultiplier\":").append(definition.goldMultiplier())
                 .append(",\"owned\":\"").append(definition.ownedField())
                 .append("\",\"ammo\":\"").append(definition.ammoField())
                 .append("\",\"name\":\"").append(key.equals("rocket") && shop != null ? escapeJson(shop.label()) : key).append("\"}");

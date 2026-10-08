@@ -3196,7 +3196,7 @@ final class GameSession {
             player.mineItems = 0;
             player.barricadeItems = player.copperBarricadeItems = player.silverBarricadeItems = 0;
             player.credits = 0;
-            player.droneRewardRemainder = 0;
+            player.goldRewardRemainder = 0;
             player.selectedBuild = null;
             player.movingCore = false;
             player.kills = 0;
