@@ -449,7 +449,7 @@ final class CombatSystem {
             case "artillery" -> 22;
             case "siege" -> 32;
             case "champion" -> 26;
-            case "hunter" -> 18;
+            case "hunter", "ghost" -> 18;
             case "brute" -> 28;
             case "runner" -> 16;
             default -> 21;

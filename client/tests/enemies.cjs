@@ -7,9 +7,9 @@ function extract(name) {
     const end = source.indexOf('\nfunction ', begin + 1);
     return source.slice(begin, end < 0 ? undefined : end);
 }
-const labels = [], bars = [], bodies = [], vertices = [], fills = [];
+const labels = [], bars = [], bodies = [], vertices = [], fills = [], strokes = [];
 const ctx = {
-    beginPath() {}, fill() { fills.push(this.fillStyle); }, stroke() {}, save() {}, restore() {},
+    beginPath() {}, fill() { fills.push(this.fillStyle); }, stroke() { strokes.push(this.strokeStyle); }, save() {}, restore() {},
     moveTo(x, y) { vertices.push([x, y]); }, lineTo(x, y) { vertices.push([x, y]); }, closePath() {},
     arc(x, y, radius, start, end) { bodies.push({ radius, color: this.fillStyle, start, end }); },
     fillText(text) { labels.push(text); },
@@ -107,3 +107,17 @@ assert.equal(flashes([hit, { ...hit, enemyId: 9801 }]), 2, 'Area attacks flash e
 context.state.enemies[0].hp = 0;
 assert.equal(flashes([hit]), 0, 'Dead targets do not transfer their flash');
 console.log('Enemy hit effects passed: exact target, adjacent and overlapping enemies, movement, misses, expiration and area damage');
+
+for (const effects of [[], [{ effect: 'hit', enemyId: 123, damage: 20, started: 1000 }]]) {
+    context.hitEffects = effects;
+    context.state.enemies = [{ id: 123, type: 'ghost', x: 100, y: 100, hp: 500, maxHp: 1000 }];
+    labels.length = bars.length = bodies.length = fills.length = strokes.length = 0;
+    vm.runInContext('drawEnemies()', context);
+    assert.equal(bodies[0].radius, 18);
+    assert.equal(bodies.length, 3, 'Only outline and two eyes');
+    assert.deepEqual(strokes, ['rgb(220 230 235 / 6%)']);
+    assert.deepEqual(fills, ['rgb(235 242 245 / 9%)'], 'No body fill or hit flash');
+    assert.equal(labels.length, 0);
+    assert.equal(bars.length, 0);
+}
+console.log('Ghost display passed: transparent body, faint outline and eyes, no name, health bar or bright hit flash');

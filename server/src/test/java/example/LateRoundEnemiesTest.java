@@ -34,7 +34,7 @@ class LateRoundEnemiesTest {
         var field = GameSession.class.getDeclaredField("random");
         field.setAccessible(true);
         ((Random) field.get(game)).setSeed(20261006L);
-        Map<String, Integer> unlocks = Map.of("shield", 7, "armored", 10, "artillery", 12, "hunter", 18, "siege", 26, "champion", 34);
+        Map<String, Integer> unlocks = Map.of("shield", 7, "armored", 10, "artillery", 12, "hunter", 18, "ghost", 18, "siege", 26, "champion", 34);
         for (int round = 1; round <= 50; round++) {
             game.round = round;
             Set<String> seen = new HashSet<>();
@@ -68,6 +68,46 @@ class LateRoundEnemiesTest {
         assertTrue(champion.reward > brute.reward);
         var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
         assertEquals("champion", snapshot.path("enemies").get(5).path("type").asText());
+    }
+
+    @Test void ghostsMatchHuntersAndRemainDamageable() throws Exception {
+        for (int round : new int[]{18, 30, 50}) {
+            game.enemies.clear(); game.round = round;
+            Enemy hunter = spawn("hunter"), ghost = spawn("ghost");
+            assertEquals(hunter.maxHp, ghost.maxHp);
+            assertEquals(hunter.speed, ghost.speed);
+            assertEquals(hunter.damage, ghost.damage);
+            assertEquals(hunter.reward, ghost.reward);
+            assertEquals("players", ghost.targetPriority);
+            assertFalse(ghost.isBoss());
+            var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
+            assertEquals("ghost", snapshot.path("enemies").get(1).path("type").asText());
+            ghost.x = 100; ghost.y = 0;
+            var stats = GameSession.weaponStats("pistol");
+            assertTrue(CombatSystem.isInsideAttack(ghost, 0., 0., 1., 0., stats, 200.));
+            assertFalse(CombatSystem.isInsideAttack(ghost, 0., 24., 1., 0., stats, 200.));
+            double hp = ghost.hp;
+            game.combat.damageEnemy(ghost, 20, null);
+            assertEquals(hp - 20, ghost.hp);
+        }
+    }
+
+    @Test void ghostAndHunterSpawnRatesMatchAtEarlyAndLateRounds() throws Exception {
+        var field = GameSession.class.getDeclaredField("random");
+        field.setAccessible(true);
+        for (int round : new int[]{18, 26, 40, 50}) {
+            game.round = round;
+            ((Random) field.get(game)).setSeed(20261009L);
+            int hunters = 0, ghosts = 0;
+            for (int i = 0; i < 10000; i++) {
+                String type = (String) invoke("selectEnemyType", new Class<?>[]{SpawnPoint.class}, GameMap.SPAWN_POINTS.get(0));
+                if (type.equals("hunter")) hunters++;
+                if (type.equals("ghost")) ghosts++;
+            }
+            // Bombers take 10% first; each then gets a 16% elite interval.
+            assertEquals(.144, hunters / 10000., .015, "Hunters at R" + round);
+            assertEquals(.144, ghosts / 10000., .015, "Ghosts at R" + round);
+        }
     }
 
     @Test void tinyEnemiesRequirePreciseAimButRemainDamageable() throws Exception {
