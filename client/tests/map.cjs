@@ -10,6 +10,7 @@ const context = vm.createContext({
     WOODCUTTER: map.stations.woodcutter, QUARRY: map.stations.quarry,
     WORKBENCHES: map.workbenchUnits, SHOP_UNITS: map.shopUnits,
     BREAKER_TERMINALS: map.breakerTerminals, PREP_CONSOLE: map.prepConsole,
+    MISSILE_COMPUTER: map.missileComputer, JOB_STATION: map.jobStation,
     SPAWN_POINTS: map.spawnPoints, myPlayerId: 'me',
     state: { areas: Object.fromEntries(map.areas.map(a => [a.id, true])),
         core: map.core, resources: map.resourceNodes, slots: [], players: [], enemies: [] },
@@ -45,8 +46,10 @@ for (const point of [{ x: NaN, y: 1900 }, { x: Infinity, y: 1900 }, { x: 1020, y
 assert(!run('canPredictOccupy(1020,1900,-1)'));
 for (const area of map.areas) {
     context.point = { x: area.terminalX, y: area.terminalY };
+    context.state.areas[area.id] = false;
     assert(!run('canBuildAt(point)'), area.id);
     assert(!run('canBuildAt(point, true)'), area.id);
+    context.state.areas[area.id] = true;
 }
 context.state.areas['entry-room'] = false;
 for (const station of map.medBayUnits) {
