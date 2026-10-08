@@ -344,10 +344,7 @@ final class GameSession {
             player.reviveInvulnerableRemaining = Math.max(0, player.reviveInvulnerableRemaining - dt);
             if (player.reviveInvulnerableRemaining < 1e-9) player.reviveInvulnerableRemaining = 0;
             player.decoyCooldown = Math.max(0, player.decoyCooldown - dt);
-            double previousJobCooldown = player.jobCooldown;
             player.jobCooldown = Math.max(0, player.jobCooldown - dt);
-            if ((player.job.equals("spy") || player.job.equals("healer")) && previousJobCooldown > 0 && player.jobCooldown == 0 && canMove())
-                gameEffects.abilityReady(player);
             player.teleportCooldown = Math.max(0, player.teleportCooldown - dt);
             player.weaponCooldowns.replaceAll((weapon, remaining) -> Math.max(0, remaining - dt));
             player.cooldown = Math.max(0, player.cooldown - dt);
