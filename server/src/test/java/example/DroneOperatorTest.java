@@ -46,8 +46,7 @@ class DroneOperatorTest {
             player.drone.x = player.x; player.drone.y = player.y;
             game.handleMessage(player, "DRONE_RECOVER");
         } else {
-            game.handleMessage(player, "EQUIP_BUILD:drone");
-            game.handleMessage(player, "PLACE_FRONT");
+            game.handleMessage(player, "DRONE_LAUNCH:" + (player.drone == null ? "pistol" : player.drone.weapon.isEmpty() ? "none" : player.drone.weapon));
         }
     }
 
@@ -176,7 +175,7 @@ class DroneOperatorTest {
         game.handleMessage(player, "EQUIP_BUILD:block");
         call("updateRevives", 5);
         assertTrue(ally.down); assertNull(player.actionTarget);
-        assertEquals(50, player.hp); assertEquals(1, player.medkits); assertEquals("controller", player.selectedBuild);
+        assertEquals(50, player.hp); assertEquals(1, player.medkits); assertNull(player.selectedBuild);
     }
 
     @Test void snapshotContainsDroneAndAuthoritativeRepairCost() throws Exception {

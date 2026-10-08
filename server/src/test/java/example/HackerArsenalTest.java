@@ -37,6 +37,7 @@ class HackerArsenalTest {
         game.handleMessage(player, "ATTACK:1120:1900");
         assertEquals(10000 - WeaponCatalog.stats("flamethrower").damage(), near.hp);
         assertEquals(near.hp, far.hp);
+        assertEquals(260, WeaponCatalog.stats("flamethrower").range());
         assertEquals(fuel - 1, player.weapons.ammo("flamethrower"));
         assertTrue(player.drone.attackers.containsAll(java.util.List.of(near.id, far.id)));
     }
@@ -71,20 +72,20 @@ class HackerArsenalTest {
         assertTrue(game.missiles.isEmpty()); assertEquals(0, player.missileCooldown);
         assertEquals(2000, player.credits, "invalid targets must not charge");
     }
-    @Test void missileIsFreeAndCanFireAgainOnlyAfterThirtySeconds() {
+    @Test void missileIsFreeAndCanFireAgainOnlyAfterTenSeconds() {
         game.handleMessage(player, "COMPUTER");
         player.credits = 0;
         game.handleMessage(player, "MISSILE:1020:1900");
-        assertEquals(1, game.missiles.size()); assertEquals(30, player.missileCooldown);
+        assertEquals(1, game.missiles.size()); assertEquals(10, player.missileCooldown);
         assertEquals(0, player.credits);
-        advance(29);
+        advance(9);
         assertEquals(1, player.missileCooldown, 1e-9);
         game.handleMessage(player, "MISSILE:1020:1900");
         assertTrue(game.missiles.isEmpty(), "shot during cooldown must be rejected");
         advance(1);
         game.handleMessage(player, "MISSILE:1020:1900");
         assertEquals(1, game.missiles.size()); assertEquals(0, player.credits);
-        assertEquals(30, player.missileCooldown);
+        assertEquals(10, player.missileCooldown);
         game.handleMessage(player, "COMPUTER"); assertFalse(player.missileControl);
     }
     @Test void recoveryStationAllowsChangingJobOnlyNearUnlockedDevice() {
@@ -100,13 +101,16 @@ class HackerArsenalTest {
     }
     @Test void flameDamagesMultipleEnemiesConsumesFuelAndStopsAtWalls() {
         player.weapons.grant("flamethrower"); player.equipWeapon("flamethrower");
-        Enemy near = enemy(player.x + 60, player.y), far = enemy(player.x + 120, player.y);
-        game.handleMessage(player, "FIRE:700:860:1");
+        player.x = 220; player.y = 940;
+        Enemy near = enemy(player.x + 60, player.y), far = enemy(player.x + 240, player.y);
+        Enemy outside = enemy(player.x + 300, player.y);
+        game.handleMessage(player, "FIRE:800:940:1");
         assertEquals(10000 - WeaponCatalog.stats("flamethrower").damage(), near.hp);
         assertEquals(near.hp, far.hp);
         assertEquals(WeaponCatalog.capacity("flamethrower") - 1, player.weapons.ammo("flamethrower"));
-        game.handleMessage(player, "FIRE:700:860:0"); advance(.1);
-        Enemy wall = enemy(780, 860); game.handleMessage(player, "FIRE:900:860:1");
+        game.handleMessage(player, "FIRE:800:940:0"); advance(.1);
+        player.x = 780; player.y = 940;
+        Enemy wall = enemy(940, 940); game.handleMessage(player, "FIRE:1000:940:1");
         assertEquals(10000, wall.hp);
         player.weapons.setAmmo("flamethrower", 0); advance(.1); assertFalse(player.firing);
     }

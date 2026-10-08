@@ -17,7 +17,7 @@ const context = vm.createContext({
     clearTimeout: () => { timer = null; },
     performance: { now: () => now },
     applyRules() {}, keepEndArea: () => now < 10000,
-    window: {}, reconcileEnemySmoothing() {}, reconcileDroneSmoothing() {}, getMe: () => ({}), endInteractionHold() {},
+    window: {}, reconcileEnemySmoothing() {}, reconcileDroneSmoothing() {}, getMe: () => ({}), endInteractionHold() {}, endJobHold() {},
     CORE: {}, reconcileLocalPrediction() {}, receiveLog() {}, updateHud() {},
     updateWorkbenchMaterials() {}, updateRoomLobby() {}, closeActionMenu() {},
     menu: { classList: { add() {}, remove() {} } },

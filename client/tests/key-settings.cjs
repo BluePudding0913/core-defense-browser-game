@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const source = fs.readFileSync('client/key-settings.js', 'utf8');
 function load(stored, blocked = false) {
     const context = { window: {}, localStorage: {
-        getItem() { if (blocked) throw Error('blocked'); return stored; },
+        getItem(key) { if (key !== "core-defense-medkit-key") return null; if (blocked) throw Error('blocked'); return stored; },
         setItem(key, value) { if (blocked) throw Error('blocked'); stored = value; },
     } };
     vm.runInNewContext(source, context);
@@ -24,3 +24,9 @@ const blocked = load(null, true);
 assert(blocked.api.setMedkit('q'));
 assert.equal(blocked.api.getMedkit(), 'q');
 console.log('Key settings checks passed');
+
+assert.equal(settings.api.getJobEffect(), "f");
+assert.equal(settings.api.setMedkit("f"), false);
+assert.equal(settings.api.setJobEffect("F2"), false);
+assert.equal(settings.api.setJobEffect("g"), true);
+assert.equal(settings.api.setMedkit("g"), false);

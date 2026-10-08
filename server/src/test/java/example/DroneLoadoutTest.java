@@ -24,7 +24,7 @@ class DroneLoadoutTest {
         player.x = 1140; player.y = 1900; game.prepTime = 1000;
     }
     void command(String c) { game.handleMessage(player, c); }
-    void launch() { command("EQUIP_BUILD:drone"); command("PLACE_FRONT"); }
+    void launch() { command("DRONE_LAUNCH:" + (player.drone == null ? "pistol" : player.drone.weapon.isEmpty() ? "none" : player.drone.weapon)); }
     void updatePlayers() throws Exception {
         Method m = GameSession.class.getDeclaredMethod("updatePlayers", double.class);
         m.setAccessible(true); m.invoke(game, .1);
@@ -51,37 +51,31 @@ class DroneLoadoutTest {
         assertEquals(credits - GameSession.ammoRefillCost(), player.credits);
     }
 
-    @Test void controllerExistsOnlyDuringDeploymentAndStillAllowsDroneFire() throws Exception {
+    @Test void deploymentUsesJobCommandsWithoutInventoryItemsAndAllowsDroneFire() throws Exception {
         command("EQUIP_BUILD:controller"); assertNull(player.selectedBuild);
-        grant("smg", 9); command("DRONE_MOUNT:smg"); launch();
-        assertEquals("controller", player.selectedBuild);
+        assertEquals(0, player.buildItemCount("drone"));
+        grant("smg", 9); command("DRONE_LAUNCH:smg");
+        assertNull(player.selectedBuild);
         command("FIRE:1300:1900:1"); assertEquals(8, player.weapons.ammo("smg"));
         command("FIRE:1300:1900:0");
-        var snapshot = new ObjectMapper().readTree(SnapshotBuilder.build(game));
-        assertEquals(1, snapshot.get("players").get(0).get("buildItems").get("controller").asInt());
+        var items = new ObjectMapper().readTree(SnapshotBuilder.build(game)).get("players").get(0).get("buildItems");
+        assertFalse(items.has("controller")); assertFalse(items.has("drone"));
         command("JOB_ABILITY"); assertFalse(player.drone.controlled);
-        command("FIRE:1300:1900:1"); assertFalse(player.firing, "body cannot shoot while holding controller");
-        command("DRONE_RECOVER");
-        assertEquals(0, player.buildItemCount("controller")); assertEquals("drone", player.selectedBuild);
+        command("DRONE_RECOVER"); assertNull(player.selectedBuild);
+        assertFalse(player.drone.active);
     }
 
-    @Test void droneIsAnItemAndLaunchRequiresSelectingItThenR() {
-        assertEquals(1, player.buildItemCount("drone"));
-        command("JOB_ABILITY"); command("PLACE_FRONT"); assertNull(player.drone);
-        launch(); assertTrue(DroneRules.controlling(player)); assertEquals(0, player.buildItemCount("drone"));
-        assertEquals("controller", player.selectedBuild);
-        assertEquals(1, player.buildItemCount("controller"));
-        command("EQUIP_BUILD:drone"); assertEquals("controller", player.selectedBuild);
-    }
     @Test void switchingViewsLeavesDroneDeployedAndRoutesMovementCorrectly() throws Exception {
         launch(); command("MOVE:1:0"); updatePlayers();
         double droneX = player.drone.x; assertEquals(1161, droneX); assertEquals(1140, player.x);
         command("JOB_ABILITY"); assertTrue(player.drone.active); assertFalse(player.drone.controlled);
         command("MOVE:1:0"); updatePlayers(); assertEquals(1155.5, player.x); assertEquals(droneX, player.drone.x);
         command("WEAPON:bat"); command("JOB_ABILITY");
-        assertFalse(player.drone.controlled, "view switching requires the controller");
-        command("EQUIP_BUILD:controller"); command("JOB_ABILITY");
+        assertTrue(player.drone.controlled, "view switching does not require an item");
         assertTrue(player.drone.controlled); assertEquals(0, player.moveX);
+        command("JOB_ABILITY");
+        player.blockItems = 1; command("EQUIP_BUILD:block"); assertEquals("block", player.selectedBuild);
+        command("JOB_ABILITY"); assertTrue(player.drone.controlled); assertNull(player.selectedBuild);
     }
     @Test void viewSwitchNeverRecoversRemoteDroneAndNearRecoveryPreservesHp() {
         launch(); player.drone.x = 1300; player.drone.hp = 35; player.drone.attackers.add(5);
@@ -91,7 +85,7 @@ class DroneLoadoutTest {
         player.drone.x = 1186; command("DRONE_RECOVER"); assertTrue(player.drone.active);
         player.drone.x = 1185; command("DRONE_RECOVER");
         assertFalse(player.drone.active); assertFalse(player.drone.controlled);
-        assertEquals(1, player.buildItemCount("drone")); assertEquals("drone", player.selectedBuild);
+        assertEquals(0, player.buildItemCount("drone")); assertNull(player.selectedBuild);
         assertEquals(0, player.buildItemCount("controller"));
         assertEquals(35, player.drone.hp); assertTrue(player.drone.attackers.isEmpty());
     }
@@ -140,7 +134,7 @@ class DroneLoadoutTest {
     @Test void snapshotPublishesInventoryViewWeaponAndMountRestrictions() throws Exception {
         grant("rifle", 3); command("DRONE_MOUNT:rifle"); launch();
         var root = new ObjectMapper().readTree(SnapshotBuilder.build(game));
-        var p = root.get("players").get(0); assertEquals(0, p.get("buildItems").get("drone").asInt());
+        var p = root.get("players").get(0); assertFalse(p.get("buildItems").has("drone"));
         assertTrue(p.get("drone").get("controlled").asBoolean()); assertEquals("rifle", p.get("drone").get("weapon").asText());
         assertTrue(root.get("rules").get("weapons").get("smg").get("droneMountable").asBoolean());
         assertFalse(root.get("rules").get("weapons").get("rocket").get("droneMountable").asBoolean());
@@ -179,37 +173,27 @@ class DroneLoadoutTest {
     }
 
     @Test void preflightChoiceAtomicallyMountsAndLaunchesOnlyAnOwnedAllowedGun() {
-        grant("smg", 9); command("DRONE_LAUNCH:smg"); assertNull(player.drone);
-        command("EQUIP_BUILD:drone");
+        grant("smg", 9);
         command("DRONE_LAUNCH:rifle"); command("DRONE_LAUNCH:rocket"); assertNull(player.drone);
         command("DRONE_LAUNCH:smg");
         assertTrue(player.drone.controlled); assertEquals("smg", player.drone.weapon);
-        assertEquals(9, player.weapons.ammo("smg")); assertEquals("controller", player.selectedBuild);
+        assertEquals(9, player.weapons.ammo("smg")); assertNull(player.selectedBuild);
         command("DRONE_LAUNCH:pistol"); assertEquals("smg", player.drone.weapon);
     }
 
     @Test void preflightRepairNeedsMaterialsAndHonorsUnarmedChoice() {
         player.drone = new Drone(); player.drone.hp = 0;
-        command("EQUIP_BUILD:drone"); command("DRONE_LAUNCH:none"); assertFalse(player.drone.active);
+        command("DRONE_LAUNCH:none"); assertFalse(player.drone.active);
         player.ore = DroneRules.REPAIR_ORE; player.copper = DroneRules.REPAIR_COPPER;
         command("DRONE_LAUNCH:none"); assertTrue(player.drone.active); assertEquals("", player.drone.weapon);
         assertEquals(0, player.ore); assertEquals(0, player.copper);
     }
 
-    @Test void selectedDroneBlocksPreviousGunAndStopsHeldFireButDeployedDroneCanShoot() {
-        grant("smg", 5); command("WEAPON:smg"); Enemy target = enemy(1, 1200);
-        command("FIRE:1400:1900:1"); assertEquals(4, player.weapons.ammo("smg"));
-        command("EQUIP_BUILD:drone"); assertFalse(player.firing);
-        double hp = target.hp; effects.clear();
-        command("FIRE:1400:1900:1"); command("ATTACK"); game.update(.5);
-        game.combat.attackAt(player, 1400, 1900);
-        assertFalse(player.firing); assertEquals(hp, target.hp); assertEquals(4, player.weapons.ammo("smg"));
-        assertEquals(0, player.cooldown);
-        assertTrue(effects.stream().noneMatch(s -> s.contains("\"effect\":\"shot\"") || s.contains("\"effect\":\"hit\"")));
-        command("EQUIP_BUILD:none"); command("FIRE:1400:1900:1");
-        assertEquals(3, player.weapons.ammo("smg")); assertTrue(target.hp < hp);
-        command("EQUIP_BUILD:drone"); command("DRONE_LAUNCH:smg");
-        command("FIRE:1400:1900:1"); assertEquals(2, player.weapons.ammo("smg"));
+    @Test void launchingStopsHeldBodyFireAndStartsWithAnUnselectedBuild() {
+        grant("smg", 5); command("WEAPON:smg");
+        command("FIRE:1400:1900:1"); assertTrue(player.firing);
+        command("DRONE_LAUNCH:smg"); assertFalse(player.firing); assertNull(player.selectedBuild);
+        command("FIRE:1400:1900:1"); assertEquals(3, player.weapons.ammo("smg"));
     }
 
     @Test void droneHalvesKillAndHeadshotGoldCarriesOddAmountsAndReportsActualPayout() {
@@ -235,7 +219,7 @@ class DroneLoadoutTest {
     }
 
     @Test void mountedGunIsExclusiveToDroneUntilRecovery() {
-        grant("smg", 9); command("WEAPON:smg"); command("EQUIP_BUILD:drone"); command("DRONE_LAUNCH:smg");
+        grant("smg", 9); command("WEAPON:smg"); command("DRONE_LAUNCH:smg");
         assertEquals("pistol", player.weapon); assertTrue(player.weapons.owns("smg"));
         Enemy target = enemy(1, 1240);
         command("FIRE:1240:1900:1"); assertEquals(8, player.weapons.ammo("smg"));

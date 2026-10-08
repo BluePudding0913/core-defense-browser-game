@@ -23,7 +23,7 @@ const localStorage = { getItem: key => saved.get(key) ?? null, setItem: (key, va
 vm.runInNewContext(fs.readFileSync('client/sound.js', 'utf8'), { window, localStorage });
 window.coreAudio.play('pistol'); assert.equal(contexts, 0);
 listeners.pointerdown(); assert.equal(contexts, 1);
-const names = ['pistol', 'ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket', 'bat', 'medkit', 'heal', 'build', 'pickup', 'item', 'ability-ready', 'railgun', 'railgun-charge'];
+const names = ['pistol', 'ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket', 'bat', 'medkit', 'heal', 'build', 'pickup', 'item', 'damage', 'ability-ready', 'railgun', 'railgun-charge'];
 const demo = [];
 for (const name of names) {
     window.coreAudio.play(name);
@@ -86,6 +86,10 @@ const game = vm.createContext({
 });
 vm.runInContext(app.slice(start, app.indexOf('\nfunction ', start + 1)), game);
 function effect(message) { game.message = message; vm.runInContext('playSoundEffect(message)', game); }
+effect({ effect: 'player-hit', playerId: 'me' });
+assert.deepEqual(played.pop(), ['damage', 0]);
+effect({ effect: 'player-hit', playerId: 'other' });
+assert.equal(played.length, 0);
 effect({ effect: 'pickup', playerId: 'other', x: 10, y: 0 });
 assert.equal(played.length, 0, 'other players cannot trigger pickup SE');
 effect({ effect: 'pickup', playerId: 'me', x: 10, y: 0 });

@@ -109,6 +109,7 @@ class TankDecoyTest {
     @Test void decoyLaunchPreservesDisguiseAndAttractsMeleeAndArtillery() throws Exception {
         start("spy"); game.handleMessage(player, "JOB_ABILITY");
         game.handleMessage(player, "DECOY:1400:1900"); assertEquals(1, game.decoys.size());
+        assertEquals(3, player.decoyCooldown);
         assertEquals(JobRules.SPY_DURATION, player.spyRemaining);
         game.handleMessage(player, "DECOY:1400:1900"); assertEquals(1, game.decoys.size());
         Decoy decoy = game.decoys.get(0);
@@ -131,6 +132,21 @@ class TankDecoyTest {
         assertNull(DecoyRules.target(enemy, List.of(decoy), (x, y) -> false));
         decoy.hp = 0; assertNull(DecoyRules.target(enemy, List.of(decoy), (x, y) -> true));
         decoy.hp = 45; decoy.remaining = 0; assertNull(DecoyRules.target(enemy, List.of(decoy), (x, y) -> true));
+    }
+    @Test void decoyUsesClickedDirectionAndCanLaunchAgainAfterThreeSeconds() {
+        start("spy");
+        game.handleMessage(player, "DECOY:1240:2000");
+        Decoy original = game.decoys.get(0);
+        DecoyRules.advance(original, .1, (x, y) -> true);
+        assertEquals(1140 + 50 / Math.sqrt(2), original.x, 1e-6);
+        assertEquals(1900 + 50 / Math.sqrt(2), original.y, 1e-6);
+        player.decoyCooldown = .01;
+        game.handleMessage(player, "DECOY:1040:1900"); assertSame(original, game.decoys.get(0));
+        player.decoyCooldown = 0;
+        game.handleMessage(player, "DECOY:1040:1900");
+        assertNotSame(original, game.decoys.get(0)); assertEquals(3, player.decoyCooldown);
+        DecoyRules.advance(game.decoys.get(0), .1, (x, y) -> true);
+        assertEquals(1090, game.decoys.get(0).x); assertEquals(1900, game.decoys.get(0).y);
     }
     @Test void invalidDecoyLaunchesDoNotConsumeCooldown() {
         start("spy");

@@ -46,7 +46,7 @@ const context = {
     setTimeout: () => 1, clearTimeout: () => {}, smoothed: new Map(),
     predictedLocal: null, localMove: {}, dashRequested: false, pendingInputs: [], lastMove: '',
     hitEffects: [], state: undefined, myPlayerId: undefined,
-    closeActionMenu: () => {}, endInteractionHold: () => {}, renderRoomList: () => {}, showFeedback: () => {},
+    closeActionMenu: () => {}, endInteractionHold: () => {}, endJobHold: () => {}, renderRoomList: () => {}, showFeedback: () => {},
     send: () => {}, getMe: () => null, escapeHtml: s => s
 };
 for (const name of ['nameInput', 'createRoomButton', 'joinRoomsButton', 'refreshRoomsButton',

@@ -30,6 +30,10 @@ final class DroneRules {
         return range <= RECOVERY_RANGE && clearLine;
     }
 
+    static boolean canInteract(double range, boolean clearLine) {
+        return range <= 95 && clearLine;
+    }
+
     static Player target(Enemy enemy, List<Player> players) {
         return players.stream().filter(p -> p.drone != null && p.drone.active && p.drone.hp > 0
                 && p.drone.attackers.contains(enemy.id))
