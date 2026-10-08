@@ -22,7 +22,7 @@ final class GameConfig {
     static double goldMultiplier(int currentRound) {
         return 1 + Math.max(0, currentRound - 10) * .1;
     }
-    static final double RECONNECT_GRACE_SECONDS = 30;
+    static final double RECONNECT_GRACE_SECONDS = 600;
     static final double GATHER_COOLDOWN_SECONDS = 3.5;
     // Fixed terminal prices keep later weapons accessible without long saving periods.
     static final Map<String, Integer> AREA_UNLOCK_COSTS = Map.ofEntries(

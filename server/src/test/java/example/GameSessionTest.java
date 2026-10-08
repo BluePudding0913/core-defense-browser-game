@@ -805,6 +805,44 @@ class GameSessionTest {
     }
 
     @Test
+    void explicitExitImmediatelyReleasesThePlayerSlot() {
+        game.disconnectPlayer(player, false);
+
+        assertFalse(player.human);
+        assertNull(player.sessionId);
+        assertEquals(0, player.reconnectGrace);
+        assertEquals("CPU 1", player.name);
+        assertSame(player, game.connectPlayer("another-session"));
+    }
+
+    @Test
+    void browserReturnKeepsInventoryBeyondTheOldThirtySecondLimit() {
+        player.credits = 1234;
+        player.weapons.setOwned("shotgun", true);
+        game.disconnectPlayer(player);
+        game.update(31);
+        assertEquals("test-session-a", player.sessionId);
+        assertSame(player, game.connectPlayer("test-session-a"));
+        assertEquals(1234, player.credits);
+        assertTrue(player.weapons.owns("shotgun"));
+        game.disconnectPlayer(player);
+        game.update(GameConfig.RECONNECT_GRACE_SECONDS + 1);
+        assertNull(player.sessionId);
+    }
+
+    @Test
+    void returningAfterGameOverDoesNotResetEveryoneInventory() {
+        player.credits = 1234;
+        player.weapons.setOwned("shotgun", true);
+        game.disconnectPlayer(player);
+        game.phase = GamePhase.LOST;
+        assertSame(player, game.connectPlayer("test-session-a"));
+        assertEquals(GamePhase.LOST, game.phase);
+        assertEquals(1234, player.credits);
+        assertTrue(player.weapons.owns("shotgun"));
+    }
+
+    @Test
     void enemyFollowsTheEntryCorridorBeforeTurningTowardTheCore() {
         startWave();
         game.players.forEach(candidate -> candidate.human = true);

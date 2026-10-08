@@ -36,7 +36,7 @@ function mountMenu() {
             content = content.replace("<button>決定</button></form>", `<fieldset class="ui-pointer-settings"><legend>音量</legend><label>SE<input type="range" name="volume" aria-label="SE音量" min="0" max="100" step="1" value="${Math.round(window.coreAudio.getVolume() * 100)}"><output id="volume-value">${Math.round(window.coreAudio.getVolume() * 100)}%</output></label></fieldset><fieldset class="ui-pointer-settings"><legend>ポインター</legend><label>形<select name="pointer-shape">${[["dot", "●"], ["cross", "×"], ["plus", "+"]].map(([value, label]) => `<option value="${value}" ${pointer.shape === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><label>色<input type="color" name="pointer-color" value="${pointer.color}"></label><label>大きさ<input type="range" name="pointer-size" min="4" max="32" step="1" value="${pointer.size}"><output id="pointer-size-value">${pointer.size}px</output></label><div class="ui-pointer-preview" aria-label="ポインターのプレビュー"><span></span></div></fieldset><fieldset class="ui-pointer-settings"><legend>キー割り当て</legend><label>回復キット<input name="medkit-key" aria-label="回復キットのキー" readonly value="${escape(window.coreKeySettings.getMedkit().toUpperCase())}"></label><small id="medkit-key-status" role="status"></small></fieldset><button type="submit" class="ui-back">決定</button></form>`);
         }
         if (view === "settings" && inGameSettings) content = content.replace(/<input name="name"[^>]*>/, "").replace('data-form="name"', 'data-form="game-settings"');
-        if (view === "home") content = `<h1>CORE DEFENSE</h1><nav aria-label="メインメニュー">${button("quick", "クイックマッチ")}${button("phrase", "合言葉")}${back("settings").replace("戻る", "設定")}</nav>`;
+        if (view === "home") content = `<h1>CORE DEFENSE</h1><nav aria-label="メインメニュー">${window.coreReconnect?.saved() ? button("resume", "前のゲームに戻る") : ""}${button("quick", "クイックマッチ")}${button("phrase", "合言葉")}${back("settings").replace("戻る", "設定")}</nav><p class="ui-match-result" role="status"></p>`;
         if (view === "phrase") content = `<nav aria-label="合言葉">${button("create", "ルーム作成")}${button("search", "ルーム検索")}</nav>${back("home")}`;
         if (view === "quick-error") content = `<p class="ui-connection-error" role="alert">接続できません</p>${back("home")}`;
         if (view === "create" || view === "search") content = `<p class="ui-match-result" role="status"></p><form data-form="${view}" novalidate><input name="password" maxlength="32" placeholder="合言葉" aria-label="合言葉" autocomplete="off"><button ${disabled()}>${view === "create" ? "作成" : "決定"}</button></form>${back("phrase")}`;
@@ -71,6 +71,7 @@ function mountMenu() {
     }
     function updateMatchButtons() {
         root.querySelectorAll('[data-action="quick"]').forEach(b => b.disabled = busy);
+        root.querySelectorAll('[data-action="resume"]').forEach(b => b.disabled = busy || !connected);
         root.querySelectorAll('form').forEach(form => {
             if (form.dataset.form === "game-settings") { form.querySelector("button").disabled = false; return; }
             const empty = !form.querySelector('input').value.trim();
@@ -81,7 +82,7 @@ function mountMenu() {
     function status(text) {
         busy = false;
         if (quickRequested && text) { view = "quick-error"; render(); return; }
-        if (["create", "search"].includes(view) && text) {
+        if (["home", "create", "search"].includes(view) && text) {
             matchResult = view === "search" && text.includes("参加できるルームが見つかりません") ? "見つかりませんでした" : text;
             updateMatchResult();
         }
@@ -101,6 +102,7 @@ function mountMenu() {
     }
     window.coreMenu = {
         phrase: "",
+        refreshResume() { if (view === "home") render(); },
         settingsOpen() { return inGameSettings; },
         openSettings(onClose) {
             if (!snapshot || !["preparing", "wave"].includes(snapshot.phase)) return;
@@ -214,6 +216,10 @@ function mountMenu() {
         if (["home", "phrase", "create", "search", "settings"].includes(action)) go(action);
         if (action === "quick") {
             try { match("quick"); } catch (error) { status(error.message); }
+        }
+        if (action === "resume") {
+            busy = true; matchResult = ""; updateMatchButtons(); updateMatchResult();
+            try { window.coreGame.resume(); } catch (error) { status(error.message); }
         }
         if (action === "job") window.coreGame.send(`JOB:${target.dataset.job}`);
         if (action === "start") window.coreGame.send("START");
