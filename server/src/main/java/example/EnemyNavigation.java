@@ -114,7 +114,7 @@ final class EnemyNavigation {
             Player target = null;
             double best = range;
             for (Player player : players) {
-                if (player.down) continue;
+                if (player.down || JobRules.concealedFrom(player, enemy)) continue;
                 double distance = GameSupport.distance(enemy.x, enemy.y, player.x, player.y);
                 if (distance <= best && GameMap.hasClearLine(enemy.x, enemy.y, player.x, player.y)) {
                     best = distance;
@@ -138,7 +138,8 @@ final class EnemyNavigation {
             }
         }
         Player target = enemy.visiblePlayer;
-        return target != null && !target.down && players.contains(target) ? target : null;
+        return target != null && !target.down && !JobRules.concealedFrom(target, enemy)
+                && players.contains(target) ? target : null;
     }
 
     private int cellAt(double x, double y) {

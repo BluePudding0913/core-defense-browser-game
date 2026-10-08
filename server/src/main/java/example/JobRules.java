@@ -5,6 +5,7 @@ final class JobRules {
     static final String DEFAULT = "healer";
     static final double SPY_DURATION = 8;
     static final double SPY_COOLDOWN = 30;
+    static final double SPY_ATTACK_CONCEAL_CHANCE = .8;
     static final double SCOUT_DASH_DURATION = .2;
     static final double SCOUT_DASH_SPEED = 800;
     static final double SCOUT_DASH_COOLDOWN = 3;
@@ -47,6 +48,23 @@ final class JobRules {
     }
     static boolean disguised(Player player) {
         return player.job.equals("spy") && !player.down && player.spyRemaining > 0;
+    }
+
+    static boolean concealedFrom(Player player, Enemy enemy) {
+        return disguised(player) && !player.spyHostileEnemies.contains(enemy.id);
+    }
+
+    static void recordSpyAttack(Player player, Enemy enemy, java.util.function.DoubleSupplier random) {
+        if (!disguised(player) || enemy.hp <= 0 || !player.spyCheckedEnemies.add(enemy.id)) return;
+        if (random.getAsDouble() >= SPY_ATTACK_CONCEAL_CHANCE) {
+            player.spyHostileEnemies.add(enemy.id);
+            enemy.perceptionTimer = 0;
+        }
+    }
+
+    static boolean avoidsContactDamage(Player player, Enemy enemy) {
+        return concealedFrom(player, enemy)
+                || (player.job.equals("scout") && !player.down && player.scoutDashRemaining > 0);
     }
 
     static boolean avoidsContactDamage(Player player) {

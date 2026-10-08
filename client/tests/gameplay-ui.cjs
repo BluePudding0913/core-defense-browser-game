@@ -99,3 +99,29 @@ teleportTarget.owned = true;
 run('beginInteractionHold(); endInteractionHold(true)');
 assert.equal(commands.length, beforeTeleport + 3);
 console.log('Teleporter input passed: tap, owner hold, ally access and cancellation');
+
+// R falls back to disguise, while nearby facilities retain their interaction.
+const spyCommands = [];
+const spy = { id: 1, job: 'spy', x: 0, y: 0, spyRemaining: 0, jobCooldown: 0 };
+const spyContext = vm.createContext({
+    getMe: () => spy,
+    state: { phase: 'wave', players: [spy], areas: {}, factories: [], slots: [], core: { x: 1000, y: 1000 } },
+    MISSILE_COMPUTER: null, JOB_STATION: null, PREP_CONSOLE: null,
+    SHOP_UNITS: [], WORKBENCHES: [], BREAKER_TERMINALS: [], AREAS: [],
+    INTERACTION_RANGE: { core: 70, trapSlot: 70, shop: 70, workbench: 70 },
+    distance: (a, b) => Math.hypot(a.x-b.x, a.y-b.y), hasInteractionPath: () => true,
+    placementSelection: () => null, send: command => spyCommands.push(command),
+    openCoreMenu() {}, openJobStation() {}, openShopPurchase() {},
+});
+vm.runInContext(extract('findNearestInteraction') + '\n' + extract('useNearestInteraction'), spyContext);
+assert.equal(vm.runInContext('findNearestInteraction().kind', spyContext), 'spy');
+vm.runInContext('useNearestInteraction()', spyContext);
+assert.deepEqual(spyCommands, ['JOB_ABILITY']);
+spyContext.state.core = { x: 20, y: 0 };
+assert.equal(vm.runInContext('findNearestInteraction().kind', spyContext), 'core');
+spyContext.state.core = { x: 1000, y: 1000 };
+spy.down = true;
+assert.equal(vm.runInContext('findNearestInteraction()', spyContext), null);
+spy.down = false; spy.job = 'healer';
+assert.equal(vm.runInContext('findNearestInteraction()', spyContext), null);
+console.log('Spy interaction passed: R disguise, nearby facility priority, down and other jobs');

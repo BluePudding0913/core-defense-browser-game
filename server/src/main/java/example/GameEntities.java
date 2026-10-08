@@ -27,6 +27,8 @@ final class Player {
     double stamina;
     String job = JobRules.DEFAULT;
     double spyRemaining;
+    final java.util.Set<Integer> spyCheckedEnemies = new java.util.HashSet<>();
+    final java.util.Set<Integer> spyHostileEnemies = new java.util.HashSet<>();
     double scoutDashRemaining, scoutDashDx, scoutDashDy;
     double jobCooldown;
     Drone drone;

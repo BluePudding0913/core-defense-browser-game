@@ -22,9 +22,14 @@ final class CombatSystem {
     }
     private final World world;
     private final CombatEvents events;
+    private final java.util.function.DoubleSupplier random;
     CombatSystem(World world, CombatEvents events) {
+        this(world, events, Math::random);
+    }
+    CombatSystem(World world, CombatEvents events, java.util.function.DoubleSupplier random) {
         this.world = world;
         this.events = events;
+        this.random = random;
     }
 
     void attackAt(Player player, double aimX, double aimY) {
@@ -385,6 +390,7 @@ final class CombatSystem {
         double dealt = Math.min(enemy.hp, damage);
         enemy.hp -= dealt;
         if (player != null && dealt > 0) {
+            JobRules.recordSpyAttack(player, enemy, random);
             enemy.creditProgress += enemy.reward * dealt / enemy.maxHp;
             int earnedCredits = Math.min(enemy.reward,
                     (int) Math.floor(enemy.creditProgress + 1e-9));

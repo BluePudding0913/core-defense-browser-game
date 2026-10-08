@@ -65,6 +65,18 @@ const inventoryItems = document.querySelector("#inventory-items");
 const roundIntro = document.querySelector("#round-intro");
 const howToMenu = document.querySelector("#how-to-menu");
 const howToStart = document.querySelector("#how-to-start");
+document.querySelector("#inventory-settings").addEventListener("click", () => {
+    endInteractionHold(true);
+    keys.clear(); joystick = null; dashKey = false; setDash(false);
+    if (pendingMove) clearTimeout(pendingMove.timer);
+    pendingMove = null;
+    if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
+    sendMovement(true);
+    inventoryMenu.classList.add("hidden");
+    window.coreMenu?.openSettings(() => {
+        if (["preparing", "wave"].includes(state?.phase)) toggleInventory();
+    });
+});
 const howToInventory = document.querySelector("#how-to-inventory");
 const howToClose = document.querySelector("#how-to-close");
 const URL_PARAMETERS = new URLSearchParams(window.location.search);
@@ -879,7 +891,7 @@ function updateHud() {
         : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}`
             : "";
     const me = getMe();
-    jobAbilityButton.classList.toggle("hidden", !["spy", "drone"].includes(me?.job));
+    jobAbilityButton.classList.toggle("hidden", me?.job !== "drone");
     jobAbilityButton.textContent = me?.spyRemaining > 0 ? `偽装 ${Math.ceil(me.spyRemaining)}s`
         : me?.jobCooldown > 0 ? `偽装 ${Math.ceil(me.jobCooldown)}s` : "偽装";
     jobAbilityButton.disabled = !me || me.down || me.movingCore || Boolean(me.selectedBuild) || me.jobCooldown > 0;
@@ -1646,7 +1658,7 @@ function isTypingTarget(target) {
 }
 
 window.addEventListener("keydown", event => {
-    if (exitDialog.open) return;
+    if (exitDialog.open || window.coreMenu?.settingsOpen?.()) return;
     if (isTypingTarget(event.target)) return;
     const key = window.coreKeySettings.gameKey(event);
     if (!howToMenu.classList.contains("hidden")) {
@@ -1760,7 +1772,14 @@ function findNearestInteraction() {
         const terminal = { x: area.terminalX, y: area.terminalY };
         add("area", terminal, INTERACTION_RANGE.areaTerminal, "UNLOCK", () => openUnlockMenu(area));
     }
-    return choices.sort((a, b) => a.separation - b.separation)[0] || null;
+    const nearest = choices.sort((a, b) => a.separation - b.separation)[0];
+    if (nearest) return nearest;
+    if (me.job === "spy" && !me.movingCore && !placementSelection(me)) return {
+        kind: "spy", target: me,
+        label: me.spyRemaining > 0 ? "偽装中" : me.jobCooldown > 0 ? Math.ceil(me.jobCooldown) + "s" : "偽装",
+        action: () => send("JOB_ABILITY")
+    };
+    return null;
 }
 
 function useNearestInteraction() {

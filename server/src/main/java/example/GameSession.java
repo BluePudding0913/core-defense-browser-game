@@ -127,7 +127,7 @@ final class GameSession {
             public void onEnemyDefeated(Enemy enemy) {
                 if (enemy.type.equals("bomber")) explodeBomber(enemy);
             }
-        }, gameEffects);
+        }, gameEffects, random::nextDouble);
         for (int slot = 1; slot <= PLAYER_COUNT; slot++) players.add(new Player(slot));
         resetWorld();
     }
@@ -445,6 +445,7 @@ final class GameSession {
         }
         if (player.job.equals("spy")) {
             if (player.jobCooldown > 0) return;
+            player.spyCheckedEnemies.clear(); player.spyHostileEnemies.clear();
             player.spyRemaining = JobRules.SPY_DURATION;
             player.jobCooldown = JobRules.SPY_COOLDOWN;
         }
@@ -1233,7 +1234,7 @@ final class GameSession {
                 if (targetDistance <= 36) {
                     if (!GameMap.hasClearLine(enemy.x, enemy.y, playerTarget.x, playerTarget.y)) continue;
                     if (enemy.attackCooldown <= 0) {
-                        if (!JobRules.avoidsContactDamage(playerTarget)) damagePlayer(playerTarget, enemy.damage);
+                        if (!JobRules.avoidsContactDamage(playerTarget, enemy)) damagePlayer(playerTarget, enemy.damage);
                         enemy.attackCooldown = 0.9;
                     }
                 } else {
@@ -1354,7 +1355,7 @@ final class GameSession {
             return true;
         }
         Player target = players.stream()
-                .filter(player -> !player.down && !JobRules.disguised(player) && canArtilleryAim(enemy, player.x, player.y))
+                .filter(player -> !player.down && !JobRules.concealedFrom(player, enemy) && canArtilleryAim(enemy, player.x, player.y))
                 .min(Comparator.comparingDouble(player -> distance(enemy.x, enemy.y, player.x, player.y)))
                 .orElse(null);
         TrapSlot defense = target == null ? trapSlots.stream()
@@ -1452,7 +1453,7 @@ final class GameSession {
 
     private Player nearestPlayer(Enemy enemy, double range) {
         return players.stream()
-                .filter(player -> !player.down && !JobRules.disguised(player)
+                .filter(player -> !player.down && !JobRules.concealedFrom(player, enemy)
                         && distance(enemy.x, enemy.y, player.x, player.y) <= range)
                 .min(Comparator.comparingDouble(player -> distance(enemy.x, enemy.y, player.x, player.y)))
                 .orElse(null);
@@ -2877,6 +2878,7 @@ final class GameSession {
             player.dashExhausted = false;
             player.missileControl = false; player.missileCooldown = 0;
             player.stamina = 100;
+            player.spyCheckedEnemies.clear(); player.spyHostileEnemies.clear();
             player.spyRemaining = 0;
             player.drone = null;
             player.jobCooldown = 0;

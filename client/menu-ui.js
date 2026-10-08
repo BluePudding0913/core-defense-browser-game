@@ -15,6 +15,7 @@ function mountMenu() {
     let name = "", view = "guest", renderedView;
     let snapshot, selfId, busy = false, connected = false, lastLobby = "", quickRequested = false;
     let matchResult = "", jobOpen = false;
+    let inGameSettings = false, settingsReturn = null;
     try { name = localStorage.getItem("core-defense-guest-name")?.trim() || ""; } catch { /* Optional storage. */ }
     if (name) view = "home";
     const back = to => `<button type="button" class="ui-back" data-action="${to}">戻る</button>`;
@@ -34,6 +35,7 @@ function mountMenu() {
             const pointer = window.corePointerSettings.get();
             content = content.replace("<button>決定</button></form>", `<fieldset class="ui-pointer-settings"><legend>音量</legend><label>SE<input type="range" name="volume" aria-label="SE音量" min="0" max="100" step="1" value="${Math.round(window.coreAudio.getVolume() * 100)}"><output id="volume-value">${Math.round(window.coreAudio.getVolume() * 100)}%</output></label></fieldset><fieldset class="ui-pointer-settings"><legend>ポインター</legend><label>形<select name="pointer-shape">${[["dot", "●"], ["cross", "×"], ["plus", "+"]].map(([value, label]) => `<option value="${value}" ${pointer.shape === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><label>色<input type="color" name="pointer-color" value="${pointer.color}"></label><label>大きさ<input type="range" name="pointer-size" min="4" max="32" step="1" value="${pointer.size}"><output id="pointer-size-value">${pointer.size}px</output></label><div class="ui-pointer-preview" aria-label="ポインターのプレビュー"><span></span></div></fieldset><fieldset class="ui-pointer-settings"><legend>キー割り当て</legend><label>回復キット<input name="medkit-key" aria-label="回復キットのキー" readonly value="${escape(window.coreKeySettings.getMedkit().toUpperCase())}"></label><small id="medkit-key-status" role="status"></small></fieldset><button type="submit" class="ui-back">決定</button></form>`);
         }
+        if (view === "settings" && inGameSettings) content = content.replace(/<input name="name"[^>]*>/, "").replace('data-form="name"', 'data-form="game-settings"');
         if (view === "home") content = `<h1>CORE DEFENSE</h1><nav aria-label="メインメニュー">${button("quick", "クイックマッチ")}${button("phrase", "合言葉")}${back("settings").replace("戻る", "設定")}</nav>`;
         if (view === "phrase") content = `<nav aria-label="合言葉">${button("create", "ルーム作成")}${button("search", "ルーム検索")}</nav>${back("home")}`;
         if (view === "quick-error") content = `<p class="ui-connection-error" role="alert">接続できません</p>${back("home")}`;
@@ -70,6 +72,7 @@ function mountMenu() {
     function updateMatchButtons() {
         root.querySelectorAll('[data-action="quick"]').forEach(b => b.disabled = busy);
         root.querySelectorAll('form').forEach(form => {
+            if (form.dataset.form === "game-settings") { form.querySelector("button").disabled = false; return; }
             const empty = !form.querySelector('input').value.trim();
             form.querySelector('button').disabled = empty
                 || (form.dataset.form !== "name" && (busy || !connected));
@@ -98,11 +101,19 @@ function mountMenu() {
     }
     window.coreMenu = {
         phrase: "",
-        exited() { window.coreMenu.phrase = ""; snapshot = null; lastLobby = ""; quickRequested = false; root.hidden = false; document.body.classList.add("menu-preview"); go("home"); },
+        settingsOpen() { return inGameSettings; },
+        openSettings(onClose) {
+            if (!snapshot || !["preparing", "wave"].includes(snapshot.phase)) return;
+            inGameSettings = true; settingsReturn = onClose; renderedView = null;
+            root.hidden = false; document.body.classList.remove("menu-preview"); go("settings");
+            root.querySelector('[name="volume"]')?.focus();
+        },
+        exited() { inGameSettings = false; settingsReturn = null; window.coreMenu.phrase = ""; snapshot = null; lastLobby = ""; quickRequested = false; root.hidden = false; document.body.classList.add("menu-preview"); go("home"); },
         status,
         rejected() { connected = false; busy = false; snapshot = null; lastLobby = ""; view = quickRequested ? "quick-error" : window.coreMenu.phrase ? (view === "create" ? "create" : "search") : "home"; render(); },
         connected() { connected = true; status(); },
         disconnected() {
+            if (inGameSettings) { inGameSettings = false; settingsReturn = null; renderedView = null; view = "home"; }
             if (["create", "search"].includes(view)) matchResult = "接続できません";
             connected = false; busy = false; lastLobby = ""; jobOpen = false;
             if (quickRequested) view = "quick-error";
@@ -113,7 +124,8 @@ function mountMenu() {
             quickRequested = false;
             snapshot = next; selfId = id; connected = true; busy = false;
             const playing = ["preparing", "wave"].includes(next.phase) || keepArea;
-            root.hidden = playing;
+            if (!playing) { inGameSettings = false; settingsReturn = null; }
+            root.hidden = playing && !inGameSettings;
             document.body.classList.toggle("menu-preview", !playing);
             if (playing) { jobOpen = false; lastLobby = ""; return; }
             const signature = JSON.stringify([id, next.roomId, next.privateRoom, next.phase, next.roomOwnerId, next.allReady,
@@ -123,7 +135,20 @@ function mountMenu() {
             render();
         }
     };
+    function closeGameSettings() {
+        const onClose = settingsReturn;
+        inGameSettings = false; settingsReturn = null; renderedView = null; view = "lobby";
+        root.hidden = true;
+        onClose?.();
+    }
+    root.addEventListener("change", event => {
+        if (view === "settings" && event.target.name === "volume") window.coreAudio.play("pistol");
+    });
     root.addEventListener("keydown", event => {
+        if (inGameSettings) {
+            event.stopPropagation();
+            if (event.key === "Escape") { event.preventDefault(); closeGameSettings(); return; }
+        }
         if (event.key === "Escape" && jobOpen) {
             setJobOpen(false);
             root.querySelector('[data-action="toggle-job"]')?.focus();
@@ -159,6 +184,7 @@ function mountMenu() {
         event.preventDefault();
         const form = event.target, data = new FormData(form);
         try {
+            if (form.dataset.form === "game-settings") { closeGameSettings(); return; }
             if (form.dataset.form === "name") {
                 const value = String(data.get("name") || "").trim().slice(0, 16);
                 if (!value) return;

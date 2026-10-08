@@ -313,3 +313,38 @@ for (const phase of ['won', 'lost']) {
     context.window.coreMenu.snapshot({ ...state, phase }, 'p1', false);
     assert(!root.hidden, 'result menu appears after the delay');
 }
+
+const previewed = [];
+context.window.coreAudio.play = name => previewed.push([name, context.window.coreAudio.getVolume()]);
+const playingState = { ...state, phase: 'wave' };
+context.window.coreMenu.snapshot(playingState, 'p1');
+let returnedToInventory = 0;
+context.window.coreMenu.openSettings(() => returnedToInventory++);
+assert.equal(root.hidden, false);
+assert(context.window.coreMenu.settingsOpen());
+assert.match(root.innerHTML, /data-form="game-settings"/);
+assert.doesNotMatch(root.innerHTML, /name="name"|ゲストプレイヤー名/);
+assert.match(root.innerHTML, /name="volume"|name="pointer-shape"|name="medkit-key"/);
+const playingRenders = renderCount;
+context.window.coreMenu.snapshot(playingState, 'p1');
+assert(!root.hidden, 'snapshots leave game settings open');
+assert.equal(renderCount, playingRenders, 'settings input remains stable during gameplay');
+handlers.input({ target: {name:'volume',value:'42'} });
+assert.equal(previewed.length, 0, 'dragging the slider does not repeatedly play audio');
+handlers.change({ target: {name:'volume',value:'42'} });
+assert.deepEqual(previewed.pop(), ['pistol', .42], 'release previews the selected volume');
+handlers.change({ target: {name:'pointer-size',value:'8'} });
+assert.equal(previewed.length, 0);
+const preservedName = saved.get('core-defense-guest-name');
+submit('game-settings', {name:'Unexpected name'});
+assert.equal(saved.get('core-defense-guest-name'), preservedName);
+assert(root.hidden); assert.equal(returnedToInventory,1);
+context.window.coreMenu.openSettings(() => returnedToInventory++);
+let stopped = false;
+handlers.keydown({key:'Escape',target:{},preventDefault(){},stopPropagation(){stopped=true;}});
+assert(stopped); assert(root.hidden); assert.equal(returnedToInventory,2);
+context.window.coreMenu.openSettings();
+context.window.coreMenu.disconnected();
+assert(!context.window.coreMenu.settingsOpen());
+assert.match(root.innerHTML,/メインメニュー/);
+console.log('In-game settings passed: no name edit, snapshot persistence, slider release preview, return, keyboard isolation, disconnect');
