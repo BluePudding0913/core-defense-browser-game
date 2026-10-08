@@ -195,6 +195,8 @@ class QuarryInstancesTest {
         assertEquals(1, teammate.buildItemCount("woodFactory"));
         game.handleMessage(teammate, "PICKUP_FACTORY:" + first.id);
         assertEquals(1, teammate.buildItemCount("woodFactory"), "Stale pickup cannot duplicate inventory");
+        assertNull(teammate.selectedBuild, "pickup keeps the equipped weapon selected");
+        game.handleMessage(teammate, "EQUIP_BUILD:woodFactory");
         MaterialFactory replacement = deploy(teammate, 980);
         assertEquals(0, replacement.elapsed); assertNotEquals(first.id, replacement.id);
         moveAway(); game.update(4); assertEquals(0, replacement.elapsed - 4);

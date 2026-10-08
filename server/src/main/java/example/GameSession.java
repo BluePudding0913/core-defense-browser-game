@@ -184,6 +184,7 @@ final class GameSession {
         player.human = false;
         releaseDroneControl(player);
         player.missileControl = false;
+        player.breakerControl = null;
         player.roomReady = false;
         if (!allowReconnect) player.sessionId = null;
         player.reconnectGrace = player.sessionId == null ? 0 : RECONNECT_GRACE_SECONDS;
@@ -232,9 +233,10 @@ final class GameSession {
                 }
             }
             case "COMPUTER" -> {
-                if (player.missileControl) player.missileControl = false;
+                if (player.missileControl) { player.missileControl = false; player.breakerControl = null; }
                 else if (player.job.equals("hacker") && canOperate(player, GameMap.MISSILE_COMPUTER)) {
                     player.missileControl = true;
+                    player.breakerControl = null;
                     player.moveX = player.moveY = 0;
                     player.firing = player.dashHeld = player.dashing = false;
                     player.stopRailgun(); cancelAction(player);
@@ -279,6 +281,7 @@ final class GameSession {
             case "EXTEND_PREP" -> extendPrepTime(player);
             case "UNLOCK" -> { if (parts.length >= 2) unlockArea(player, parts[1]); }
             case "BREAKER" -> { if (parts.length >= 2) resetBreaker(player, parts[1]); }
+            case "BREAKER_MAP" -> { if (parts.length >= 2) openBreakerMap(player, parts[1]); }
             case "GATHER" -> { if (parts.length >= 2) gather(player, parts[1]); }
             case "DROP_RESOURCE" -> { if (parts.length >= 3) dropResource(player, parts); }
             case "DROP_ITEM" -> { if (parts.length >= 3 && parts[1].equals("medkit")) dropInventory(player, parts); }
@@ -300,7 +303,11 @@ final class GameSession {
             if (!canMove()) recallDrone(player);
             if (player.drone != null) player.drone.cooldown = Math.max(0, player.drone.cooldown - dt);
             player.missileCooldown = Math.max(0, player.missileCooldown - dt);
-            if (!canOperate(player, GameMap.MISSILE_COMPUTER) || !player.job.equals("hacker")) player.missileControl = false;
+            if (!player.job.equals("hacker") || (player.breakerControl == null
+                    ? !canOperate(player, GameMap.MISSILE_COMPUTER)
+                    : !canOperateBreaker(player, GameMap.breakerById(player.breakerControl)))) {
+                player.missileControl = false; player.breakerControl = null;
+            }
             player.spyRemaining = Math.max(0, player.spyRemaining - dt);
             player.decoyCooldown = Math.max(0, player.decoyCooldown - dt);
             double previousJobCooldown = player.jobCooldown;
@@ -419,6 +426,7 @@ final class GameSession {
                 || !(phase == GamePhase.LOBBY || phase == GamePhase.WON || phase == GamePhase.LOST || canOperate(player, GameMap.JOB_STATION))) return;
         if (player.job.equals(job)) return;
         player.firing = player.dashing = player.dashHeld = player.missileControl = false;
+        player.breakerControl = null;
         player.stopRailgun(); cancelAction(player);
         double previousMaxHp = JobRules.maxHp(player.job);
         player.secondaryFiring = false; player.secondaryCooldown = player.healRemaining = 0;
@@ -439,11 +447,25 @@ final class GameSession {
     }
 
     private void launchMissile(Player player, double x, double y) {
-        if (!player.missileControl || !player.job.equals("hacker") || player.missileCooldown > 0
+        if (!player.missileControl || player.breakerControl != null || !player.job.equals("hacker") || player.missileCooldown > 0
                 || !canOperate(player, GameMap.MISSILE_COMPUTER) || !MissileRules.validTarget(x, y, unlockedAreas)) return;
         missiles.add(new MissileStrike(player, x, y));
         player.missileCooldown = MissileRules.cooldown();
         gameEffects.sound(player, "shot", "rocket");
+    }
+
+    private boolean canOperateBreaker(Player player, BreakerTerminal breaker) {
+        return breaker != null && canUseFacilities() && !player.down && !player.movingCore && player.selectedBuild == null
+                && (breaker.requiredArea() == null || unlockedAreas.contains(breaker.requiredArea()))
+                && canInteract(player, breaker.x(), breaker.y(), 95);
+    }
+
+    private void openBreakerMap(Player player, String id) {
+        if (!player.job.equals("hacker") || !canOperateBreaker(player, GameMap.breakerById(id))) return;
+        player.missileControl = true; player.breakerControl = id;
+        player.moveX = player.moveY = 0;
+        player.firing = player.secondaryFiring = player.dashHeld = player.dashing = false;
+        player.stopRailgun(); cancelAction(player);
     }
 
     private void updateMissiles(double dt) {
@@ -633,7 +655,6 @@ final class GameSession {
                     distance(player.x, player.y, point.x(), point.y()),
                     GameMap.hasClearLine(player.x, player.y, point.x(), point.y()))) return;
         player.teleportPads.remove(point);
-        player.selectedBuild = "teleporter";
         gameEffects.feedback(player, "テレポーターを回収しました");
     }
 
@@ -2735,8 +2756,6 @@ final class GameSession {
         factories.remove(factory);
         String item = factory.shop.item();
         player.addBuildItem(item, 1);
-        player.selectedBuild = item;
-        releaseCarriedCore(player);
         gameEffects.feedback(player, "製造装置を回収しました");
     }
 
@@ -2820,11 +2839,8 @@ final class GameSession {
         TrapSlot slot = slotById(slotId);
         if (slot == null || slot.defense == null || slot.temporaryRemaining > 0
                 || !canInteract(player, slot.x, slot.y, 100)) return;
-        String type = slot.defense.type;
         trapSlots.remove(slot);
         player.recoverDefense(slot.defense);
-        player.selectedBuild = type;
-        releaseCarriedCore(player);
         gameEffects.feedback(player, "設備を回収しました");
     }
 
@@ -3090,7 +3106,7 @@ final class GameSession {
             player.dashing = false;
             player.scoutDashRemaining = 0;
             player.dashExhausted = false;
-            player.missileControl = false; player.missileCooldown = 0;
+            player.missileControl = false; player.breakerControl = null; player.missileCooldown = 0;
             player.stamina = JobRules.staminaMax(player.job);
             player.spyCheckedEnemies.clear(); player.spyHostileEnemies.clear();
             player.spyRemaining = 0;

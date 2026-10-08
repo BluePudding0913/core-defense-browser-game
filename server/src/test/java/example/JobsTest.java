@@ -258,10 +258,11 @@ class JobsTest {
         game.handleMessage(player, "PICKUP_TELEPORT:1180:1820");
         assertEquals(1, player.teleportPads.size());
         assertEquals(1, player.buildItemCount("teleporter"));
-        assertEquals("teleporter", player.selectedBuild);
+        assertNull(player.selectedBuild);
         game.handleMessage(player, "PICKUP_TELEPORT:1180:1820");
         assertEquals(1, player.buildItemCount("teleporter"), "repeating recovery cannot duplicate items");
         ally.x = 820;
+        game.handleMessage(player, "EQUIP_BUILD:teleporter");
         game.handleMessage(player, "PLACE_FRONT");
         assertEquals(2, player.teleportPads.size());
         player.x = 1180;

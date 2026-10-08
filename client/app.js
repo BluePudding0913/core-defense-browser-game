@@ -1490,6 +1490,14 @@ function openShopPurchase(shop, chooseExchange = false) {
     openNearbyActionMenu(shop.label, options, shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
 }
 
+function openBreakerMenu(breaker) {
+    const options = [{ label: "MAP", command: `BREAKER_MAP:${breaker.id}` }];
+    if (state.blackoutActive && (state.trippedBreakers || []).includes(breaker.id)) {
+        options.push({ label: "RESET", command: `BREAKER:${breaker.id}` });
+    }
+    openNearbyActionMenu("BREAKER", options, breaker, INTERACTION_RANGE.breaker);
+}
+
 function openWoodcutterMenu() {
     const me = getMe();
     openNearbyActionMenu("WOODCUTTER", [{
@@ -1849,7 +1857,11 @@ function findNearestInteraction() {
         add("prep-console", PREP_CONSOLE, 95, "+1:00", openPrepConsoleMenu);
     }
     add("core", state.core, INTERACTION_RANGE.core, "CORE", openCoreMenu);
-    if (state.blackoutActive) {
+    if (me.job === "hacker") {
+        BREAKER_TERMINALS.filter(breaker => !breaker.requiredArea || state.areas[breaker.requiredArea])
+            .forEach(breaker => add("breaker", breaker, INTERACTION_RANGE.breaker,
+                "BREAKER", () => openBreakerMenu(breaker)));
+    } else if (state.blackoutActive) {
         const tripped = new Set(state.trippedBreakers || []);
         BREAKER_TERMINALS
             .filter(breaker => tripped.has(breaker.id)

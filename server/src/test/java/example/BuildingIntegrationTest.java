@@ -8,6 +8,22 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class BuildingIntegrationTest {
+    @Test void pickupPreservesSelectedBuildWeaponAndCoreWhileRecoveringInventory() {
+        for (String selection : new String[]{null, "wire"}) {
+            player.selectedBuild = selection; player.weapon = "pistol";
+            var slot = new TrapSlot("pickup-" + selection, "free", 1060, 1900, null);
+            slot.defense = new Defense("block"); game.trapSlots.add(slot);
+            int before = player.blockItems;
+            game.handleMessage(player, "REMOVE:" + slot.id);
+            assertEquals(before + 1, player.blockItems); assertEquals(selection, player.selectedBuild);
+            assertEquals("pistol", player.weapon); assertFalse(game.trapSlots.contains(slot));
+        }
+        player.movingCore = true; player.selectedBuild = null;
+        var slot = new TrapSlot("pickup-core", "free", 1060, 1900, null);
+        slot.defense = new Defense("block"); game.trapSlots.add(slot);
+        game.handleMessage(player, "REMOVE:" + slot.id);
+        assertTrue(player.movingCore); assertNull(player.selectedBuild);
+    }
     final List<String> broadcasts = new ArrayList<>();
     final List<String> feedback = new ArrayList<>();
     GameSession game;
