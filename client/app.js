@@ -29,15 +29,6 @@ jobSelect.addEventListener("click", event => {
     const job = event.target.closest("[data-job]")?.dataset.job;
     if (job) send(`JOB:${job}`);
 });
-jobAbilityButton.addEventListener("pointerdown", event => {
-    if (event.button !== 0) return;
-    jobAbilityButton.setPointerCapture(event.pointerId);
-    beginJobHold();
-});
-jobAbilityButton.addEventListener("pointerup", () => endJobHold());
-jobAbilityButton.addEventListener("pointercancel", () => endJobHold(true));
-jobAbilityButton.addEventListener("lostpointercapture", () => endJobHold(true));
-jobAbilityButton.addEventListener("click", event => { if (event.detail === 0) { beginJobHold(); endJobHold(); } });
 const roomCode = document.querySelector("#room-code");
 const roomOwner = document.querySelector("#room-owner");
 const createRoomButton = document.querySelector("#create-room");
@@ -940,13 +931,6 @@ function updateHud() {
         : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}`
             : "";
     const me = getMe();
-    jobAbilityButton.classList.toggle("hidden", !["healer", "tank", "spy", "drone"].includes(me?.job));
-    const jobKey = window.coreKeySettings.getJobEffect().toUpperCase();
-    const jobLabel = me?.job === "drone" ? me.drone?.active ? "VIEW / 長押し:回収" : "長押し:出撃"
-        : me?.job === "spy" ? "偽装" : me?.job === "tank" ? "WALL" : "HEAL";
-    jobAbilityButton.textContent = `${jobKey} · ${jobLabel}${me?.jobCooldown > 0 ? ` ${Math.ceil(me.jobCooldown)}s` : ""}`;
-    jobAbilityButton.disabled = !me || me.down || me.movingCore || me.missileControl
-        || me.job !== "drone" && (Boolean(me.selectedBuild) || me.jobCooldown > 0);
     teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">
             <div class="teammate-label">
