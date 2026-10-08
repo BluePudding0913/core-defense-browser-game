@@ -2293,7 +2293,8 @@ final class GameSession {
         switch (item) {
             case "ammo" -> {
                 List<String> owned = WeaponCatalog.ALL.stream().filter(WeaponCatalog.Definition::usesAmmo)
-                        .map(WeaponCatalog.Definition::id).filter(player.weapons::owns).toList();
+                        .map(WeaponCatalog.Definition::id).filter(player.weapons::owns)
+                        .filter(weapon -> !DroneRules.mounted(player, weapon)).toList();
                 if (owned.isEmpty()) {
                     gameEffects.feedback(player, "弾薬を使う武器を持っていません");
                     return;
@@ -2314,6 +2315,10 @@ final class GameSession {
     }
 
     private void buyOrRefillWeapon(Player player, ShopUnit shop, String item, String outgoing) {
+        if (DroneRules.mounted(player, item) || outgoing != null && DroneRules.mounted(player, outgoing)) {
+            gameEffects.feedback(player, "ドローンを回収してください");
+            return;
+        }
         if (player.weapons.owns(item)) {
             int capacity = weaponAmmoCapacity(item);
             if (weaponAmmo(player, item) >= capacity) {

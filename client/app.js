@@ -1428,7 +1428,10 @@ function openShopPurchase(shop, chooseExchange = false) {
     const weaponFields = WEAPON_FIELDS[shop.item];
     const alreadyOwned = Boolean(weaponFields && WeaponUI.owns(me, weaponFields));
     const ammo = alreadyOwned ? me[weaponFields.ammo] : 0;
-    const ownedWeapons = WeaponUI.ownedAmmoWeapons(me, WEAPON_FIELDS);
+    const mountedWeapon = me.drone?.active ? me.drone.weapon : null;
+    const mounted = shop.item === mountedWeapon;
+    const ownedWeapons = WeaponUI.ownedAmmoWeapons(me, WEAPON_FIELDS)
+        .filter(fields => fields !== WEAPON_FIELDS[mountedWeapon]);
     const ammoFull = shop.item === "ammo" ? ownedWeapons.length > 0
         && ownedWeapons.every(fields => me[fields.ammo] >= fields.capacity)
         : alreadyOwned && ammo >= weaponFields.capacity;
@@ -1438,7 +1441,7 @@ function openShopPurchase(shop, chooseExchange = false) {
         && WeaponUI.atLimit(me, WEAPON_FIELDS, state.rules.weaponLimit);
     if (weaponLimitReached && chooseExchange) {
         openNearbyActionMenu(shop.label, WeaponUI.entries(me, WEAPON_FIELDS)
-            .filter(entry => entry.value !== "bat").map(entry => ({
+            .filter(entry => entry.value !== "bat" && entry.value !== mountedWeapon).map(entry => ({
                 label: `交換: ${entry.label}`,
                 command: `BUY:${shop.item}:${entry.value}`,
                 disabled: me.credits < price,
@@ -1446,12 +1449,12 @@ function openShopPurchase(shop, chooseExchange = false) {
         return;
     }
     openNearbyActionMenu(shop.label, [{
-        label: ammoFull ? "FULL" : alreadyOwned || shop.item === "ammo" && !unavailable ? "REFILL"
+        label: mounted ? "DRONE" : ammoFull ? "FULL" : alreadyOwned || shop.item === "ammo" && !unavailable ? "REFILL"
             : unavailable ? "LOCKED" : "BUY",
         detail: `${price}G`,
         command: weaponLimitReached ? undefined : `BUY:${shop.item}`,
         onSelect: weaponLimitReached ? () => openShopPurchase(shop, true) : undefined,
-        disabled: ammoFull || unavailable || me.credits < price,
+        disabled: mounted || ammoFull || unavailable || me.credits < price,
     }], shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
 }
 

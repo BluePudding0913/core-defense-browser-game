@@ -35,6 +35,22 @@ class DroneLoadoutTest {
     }
     void grant(String id, int ammo) { player.weapons.setOwned(id, true); player.weapons.setAmmo(id, ammo); }
 
+    @Test void deployedWeaponCannotBeRefilledIndividuallyOrByAmmoUnitButRecoveryUnlocksIt() {
+        grant("smg", 2); command("DRONE_MOUNT:smg"); launch(); command("JOB_ABILITY");
+        player.credits = 1000;
+        ShopUnit smgShop = GameMap.shopByItem("smg"); player.x = smgShop.x(); player.y = smgShop.y();
+        command("BUY:smg"); assertEquals(2, player.weapons.ammo("smg")); assertEquals(1000, player.credits);
+        ShopUnit ammoShop = GameMap.shopByItem("ammo"); player.x = ammoShop.x(); player.y = ammoShop.y();
+        player.weapons.setAmmo("pistol", 1); command("BUY:ammo");
+        assertEquals(2, player.weapons.ammo("smg"));
+        assertEquals(WeaponCatalog.capacity("pistol"), player.weapons.ammo("pistol"));
+        int credits = player.credits; command("BUY:ammo"); assertEquals(credits, player.credits);
+        player.drone.active = false;
+        player.x = smgShop.x(); player.y = smgShop.y(); command("BUY:smg");
+        assertEquals(WeaponCatalog.capacity("smg"), player.weapons.ammo("smg"));
+        assertEquals(credits - GameSession.ammoRefillCost(), player.credits);
+    }
+
     @Test void droneIsAnItemAndLaunchRequiresSelectingItThenR() {
         assertEquals(1, player.buildItemCount("drone"));
         command("JOB_ABILITY"); command("PLACE_FRONT"); assertNull(player.drone);
