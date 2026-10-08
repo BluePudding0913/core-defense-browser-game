@@ -37,6 +37,7 @@ final class Player {
     String breakerControl;
     double missileCooldown;
     double teleportCooldown;
+    double tpInvulnerableRemaining;
     final java.util.List<MapPoint> teleportPads = new java.util.ArrayList<>();
     String weapon = "pistol";
     double cooldown;

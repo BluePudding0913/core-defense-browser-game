@@ -3,6 +3,10 @@ package example;
 /** Shared job rules for humans and CPU players. No UI or transport dependencies. */
 final class JobRules {
     static final String DEFAULT = "healer";
+    static final double TP_INVULNERABLE_DURATION = 5, TP_INVULNERABLE_COOLDOWN = 20;
+    static boolean invulnerable(Player player) {
+        return player.job.equals("tp") && !player.down && player.tpInvulnerableRemaining > 0;
+    }
     static final double TANK_AURA_RADIUS = 160;
     static final double TANK_DAMAGE_FACTOR = .75;
     static final double TANK_WALL_COOLDOWN = 20;
