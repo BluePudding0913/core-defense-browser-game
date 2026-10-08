@@ -1378,12 +1378,14 @@ function openSlotMenu(slot) {
     } else {
         const missing = slot.defense.maxHp - slot.defense.hp;
         const metal = ["turret", "copperTurret", "silverTurret", "wire", "mine"].includes(slot.defense.type);
+        const resource = slot.defense.type === "copperBarricade" ? "copper"
+            : slot.defense.type === "silverBarricade" ? "silver" : metal ? "ore" : "wood";
         const me = getMe();
         openNearbyActionMenu(`${slot.defense.type.toUpperCase()} — HP ${Math.ceil(slot.defense.hp)}/${Math.ceil(slot.defense.maxHp)}`, [{
             label: "REPAIR",
-            detail: slot.defense.hp >= slot.defense.maxHp ? "耐久値最大" : `${metal ? "ORE" : "WOOD"} 1`,
+            detail: slot.defense.hp >= slot.defense.maxHp ? "耐久値最大" : `${resource.toUpperCase()} 1`,
             command: `REPAIR:${slot.id}`,
-            disabled: slot.defense.hp >= slot.defense.maxHp || (metal ? me.ore : me.wood) < 1,
+            disabled: slot.defense.hp >= slot.defense.maxHp || (me[resource] || 0) < 1,
         }, {
             label: "PICK UP",
             detail: "耐久値を保ったまま回収。R長押しでも運搬できます",
@@ -1551,7 +1553,7 @@ function openQuarryMenu() {
 
 function openWorkbenchMenu(workbench) {
     const me = getMe();
-    const order = { block: 0, barricade: 1, wire: 2, mine: 3, turret: 4, copperTurret: 5, silverTurret: 6 };
+    const order = { block: 0, barricade: 1, copperBarricade: 2, silverBarricade: 3, wire: 4, mine: 5, turret: 6, copperTurret: 7, silverTurret: 8 };
     openNearbyActionMenu("WORKBENCH", Object.entries(BUILD_INFO).filter(([, info]) => !info.shopOnly)
         .sort(([a], [b]) => (order[a] ?? 7) - (order[b] ?? 7)).map(([type, info]) => ({
         label: info.name,
@@ -2057,7 +2059,7 @@ function canPredictOccupy(x, y, radius, includeDefenses = true) {
             if (!symbol || !TILE_MAP.legend[symbol] || TILE_MAP.legend[symbol].solid) return false;
         }
     }
-    if (includeDefenses && state.slots.some(slot => slot.defense && ["block", "barricade"].includes(slot.defense.type)
+    if (includeDefenses && state.slots.some(slot => slot.defense && ["block", "barricade", "copperBarricade", "silverBarricade"].includes(slot.defense.type)
             && Math.hypot(x - slot.x, y - slot.y) < radius + 18)) return false;
     return true;
 }
@@ -2554,10 +2556,10 @@ function drawDefense(slot) {
         ctx.fillStyle = "#ff5964"; ctx.beginPath(); ctx.arc(slot.x, slot.y, 17, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(slot.x, slot.y, 5, 0, Math.PI * 2); ctx.fill();
     } else {
-        ctx.fillStyle = "#666"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
+        ctx.fillStyle = defense.type === "copperBarricade" ? "#986543" : defense.type === "silverBarricade" ? "#c3cbd0" : "#666"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
         ctx.strokeStyle = "#bbb"; ctx.lineWidth = 3; ctx.strokeRect(slot.x - 18, slot.y - 18, 36, 36);
     }
-    if (defense.type === "barricade") drawBar(slot.x - 14, slot.y + 10, 28, 4, defense.hp / defense.maxHp, "#fff");
+    if (["barricade", "copperBarricade", "silverBarricade"].includes(defense.type)) drawBar(slot.x - 14, slot.y + 10, 28, 4, defense.hp / defense.maxHp, "#fff");
     else if (defense.type !== "mine") drawBar(slot.x - 25, slot.y + 29, 50, 4, defense.hp / defense.maxHp, "#fff");
 }
 

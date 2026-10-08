@@ -708,3 +708,6 @@ button, input { font: inherit; }
 #self-job { position: absolute; top: 100%; left: 0; white-space: nowrap; color: #cbd3d8; font-size: .75rem; }
 .shop-ammo { color: #9ca6ad; font-size: .8em; font-weight: normal; margin-left: .45em; }
 .ammo-refill-row { display: block; margin-top: .25rem; font-size: .85rem; }
+
+.weapon-icon.build-copperBarricade::before, .weapon-icon.build-silverBarricade::before { left: .25rem; top: .45rem; width: 4.5rem; height: 1.75rem; border: .14rem solid #ddd; background: repeating-linear-gradient(0deg, #986543 0 .4rem, #c28e65 .4rem .62rem); }
+.weapon-icon.build-silverBarricade::before { background: repeating-linear-gradient(0deg, #89949d 0 .4rem, #dce4ea .4rem .62rem); }

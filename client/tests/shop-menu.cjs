@@ -218,7 +218,7 @@ assert.equal(actionOptions.children.length, 1, 'successful exchange returns to t
 assert.equal(actionOptions.children[0].innerHTML, 'FULL<small>120G</small>');
 assert(actionOptions.children[0].disabled);
 // Server recipe object order must not change the workbench's presentation order.
-const craftOrder = ['block', 'barricade', 'wire', 'mine', 'turret', 'copperTurret', 'silverTurret'];
+const craftOrder = ['block', 'barricade', 'copperBarricade', 'silverBarricade', 'wire', 'mine', 'turret', 'copperTurret', 'silverTurret'];
 context.BUILD_INFO = Object.fromEntries([...craftOrder].reverse().map(type => [type, { name: type, wood: 1 }]));
 context.BUILD_INFO.silverFactory = { name: 'QUARRY S', shopOnly: true };
 me.wood = 10;
