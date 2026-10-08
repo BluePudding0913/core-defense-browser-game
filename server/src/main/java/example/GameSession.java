@@ -441,6 +441,10 @@ final class GameSession {
     private void launchMissile(Player player, double x, double y) {
         if (!player.missileControl || !player.job.equals("hacker") || player.missileCooldown > 0
                 || !canOperate(player, GameMap.MISSILE_COMPUTER) || !MissileRules.validTarget(x, y, unlockedAreas)) return;
+        if (!spend(player, MissileRules.COST)) {
+            gameEffects.feedback(player, "お金が足りません");
+            return;
+        }
         missiles.add(new MissileStrike(player, x, y));
         player.missileCooldown = MissileRules.cooldown();
         gameEffects.sound(player, "shot", "rocket");

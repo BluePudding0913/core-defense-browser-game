@@ -33,6 +33,11 @@ me.down = true; run('beginInteractionHold()'); assert.equal(timer, null);
 me.down = false; context.placementSelection = () => ({ forCore: true });
 run('beginInteractionHold(); endInteractionHold()');
 assert.equal(menuOpens, 2); assert.equal(commands.length, 1);
+me.missileControl = true;
+run('beginInteractionHold()'); assert.equal(timer, null, 'missile exit does not start a carry timer');
+run('endInteractionHold()'); assert.equal(commands.pop(), 'COMPUTER', 'R closes missile view without panel focus');
+run('beginInteractionHold(); endInteractionHold(true)'); assert.equal(commands.length, 1);
+me.missileControl = false;
 
 context.WEAPON_FIELDS = { smg: {} }; context.BUILD_INFO = {}; context.WEAPON_AMMO_REFILL_COST = undefined;
 vm.runInContext(extract('applyRules'), context);

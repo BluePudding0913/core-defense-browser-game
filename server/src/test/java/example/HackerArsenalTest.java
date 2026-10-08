@@ -18,6 +18,7 @@ class HackerArsenalTest {
         game.players.forEach(p -> p.human = true);
         game.unlockedAreas.addAll(GameMap.AREAS.stream().map(UnlockArea::id).toList());
         player.job = "hacker";
+        player.credits = 2000;
         player.x = GameMap.MISSILE_COMPUTER.x(); player.y = GameMap.MISSILE_COMPUTER.y();
     }
     Enemy enemy(double x, double y) {
@@ -53,7 +54,9 @@ class HackerArsenalTest {
         Enemy center = enemy(1020, 1900), edge = enemy(1020 + MissileRules.radius() * .5, 1900);
         game.handleMessage(player, "COMPUTER"); game.handleMessage(player, "MISSILE:1020:1900");
         assertEquals(1, game.missiles.size()); assertEquals(MissileRules.cooldown(), player.missileCooldown);
+        assertEquals(1600, player.credits);
         game.handleMessage(player, "MISSILE:1020:1900"); assertEquals(1, game.missiles.size());
+        assertEquals(1600, player.credits, "cooldown rejection must not charge again");
         game.handleMessage(player, "COMPUTER"); advance(1.95);
         assertEquals(10000, center.hp); advance(.05);
         assertEquals(10000 - MissileRules.damage(), center.hp, .001);
@@ -66,6 +69,18 @@ class HackerArsenalTest {
         for (String command : new String[]{"MISSILE:NaN:100", "MISSILE:Infinity:100", "MISSILE:-1:100", "MISSILE:10:10"}) game.handleMessage(player, command);
         game.unlockedAreas.remove("entry-room"); game.handleMessage(player, "MISSILE:1020:1500");
         assertTrue(game.missiles.isEmpty()); assertEquals(0, player.missileCooldown);
+        assertEquals(2000, player.credits, "invalid targets must not charge");
+    }
+    @Test void missileRequiresFourHundredGoldAndExitWorksWithoutFunds() {
+        game.handleMessage(player, "COMPUTER");
+        player.credits = 399;
+        game.handleMessage(player, "MISSILE:1020:1900");
+        assertTrue(game.missiles.isEmpty()); assertEquals(0, player.missileCooldown);
+        assertEquals(399, player.credits);
+        player.credits = 400;
+        game.handleMessage(player, "MISSILE:1020:1900");
+        assertEquals(1, game.missiles.size()); assertEquals(0, player.credits);
+        game.handleMessage(player, "COMPUTER"); assertFalse(player.missileControl);
     }
     @Test void recoveryStationAllowsChangingJobOnlyNearUnlockedDevice() {
         game.handleMessage(player, "JOB:scout"); assertEquals("hacker", player.job);
@@ -94,6 +109,7 @@ class HackerArsenalTest {
         game.handleMessage(player, "COMPUTER"); game.handleMessage(player, "MISSILE:1020:1900");
         var state = new ObjectMapper().readTree(SnapshotBuilder.build(game));
         assertTrue(state.path("players").get(0).path("missileControl").asBoolean());
+        assertEquals(400, state.path("players").get(0).path("missileCost").asInt());
         assertEquals(1, state.path("missiles").size());
         assertEquals(MissileRules.DELAY, state.path("missiles").get(0).path("remaining").asDouble());
         assertEquals(WeaponCatalog.capacity("railgun"), state.path("rules").path("weapons").path("railgun").path("capacity").asInt());
