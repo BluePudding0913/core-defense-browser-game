@@ -213,4 +213,16 @@ snapshot();
 assert.equal(actionOptions.children.length, 1, 'successful exchange returns to the owned weapon');
 assert.equal(actionOptions.children[0].innerHTML, 'FULL<small>120G</small><span class="action-stock">弾薬 12 / 12</span>');
 assert(actionOptions.children[0].disabled);
-console.log('Shop/workbench menu passed: purchases/refills/crafts stay open, live availability, stable buttons and closing');
+// Server recipe object order must not change the workbench's presentation order.
+const craftOrder = ['block', 'barricade', 'wire', 'mine', 'turret', 'copperTurret', 'silverTurret'];
+context.BUILD_INFO = Object.fromEntries([...craftOrder].reverse().map(type => [type, { name: type, wood: 1 }]));
+context.BUILD_INFO.silverFactory = { name: 'QUARRY S', shopOnly: true };
+me.wood = 10;
+run('openWorkbenchMenu(workbench)');
+assert.deepEqual(actionOptions.children.map(button => button.dataset.command), craftOrder.map(type => `CRAFT:${type}`));
+const orderedButtons = [...actionOptions.children];
+snapshot();
+assert.deepEqual(actionOptions.children, orderedButtons, 'refresh keeps the ordered buttons and focus');
+actionOptions.children[1].click();
+assert.equal(commands.at(-1), 'CRAFT:barricade', 'sorted buttons still craft the selected item');
+console.log('Shop/workbench menu passed: purchases/refills/crafts stay open, live availability, stable buttons, craft order and closing');

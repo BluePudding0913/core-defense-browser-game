@@ -86,9 +86,9 @@ class QuarryInstancesTest {
         assertFalse(snapshot.path("factories").get(0).has("capacity"));
     }
 
-    @Test void eachInstanceProducesIndependentlyAndEachMaterialUsesSlowerRate() {
+    @Test void eachInstanceProducesIndependentlyAtItsMaterialRate() {
         String[] items = {"woodFactory", "oreFactory", "copperFactory", "silverFactory"};
-        double[] intervals = {10, 10, 16, 24};
+        double[] intervals = {10, 10, 16, 12};
         for (int i = 0; i < items.length; i++) {
             MaterialFactory machine = new MaterialFactory("test", GameMap.shopByItem(items[i]), new MapPoint(980, 1820));
             assertEquals(intervals[i], machine.interval);
@@ -101,6 +101,22 @@ class QuarryInstancesTest {
         assertEquals(1, game.droppedResources.size());
         assertEquals(0, first.elapsed); assertEquals(6, second.elapsed);
         game.update(4); assertEquals(2, game.droppedResources.size());
+    }
+
+    @Test void silverProducesEveryTwelveSecondsAndReportsItsInterval() throws Exception {
+        buy("silverFactory", 1);
+        MaterialFactory factory = deploy(buyer, 980); moveAway();
+        game.update(11.5);
+        assertTrue(game.droppedResources.isEmpty());
+        game.update(.5);
+        assertEquals(1, game.droppedResources.size());
+        assertEquals("silver", game.droppedResources.get(0).type);
+        assertEquals(1, game.droppedResources.get(0).amount);
+        game.update(12);
+        assertEquals(2, game.droppedResources.size());
+        var snapshot = new ObjectMapper().readTree(SnapshotBuilder.build(game));
+        assertEquals(12, snapshot.path("factories").get(0).path("interval").asDouble());
+        assertEquals(factory.id, snapshot.path("factories").get(0).path("id").asText());
     }
 
     @Test void dropsUseDistinctEmptyUnlockedTilesWithinThreeByThreeAndCanBeCollected() {
