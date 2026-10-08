@@ -243,10 +243,52 @@ class DroneOperatorTest {
         assertEquals(DroneRules.HP, player.drone.hp);
     }
 
+    @Test void jobChangesKeepDestroyedDroneAndRequireRepairAfterReturning() throws Exception {
+        for (boolean selfDestruct : List.of(true, false)) {
+            player.weapons.setOwned("pistol", true); player.drone = null;
+            player.ore = player.copper = 0;
+            launch(); Drone original = player.drone;
+            if (selfDestruct) game.handleMessage(player, "DRONE_SELF_DESTRUCT");
+            else {
+                Method damage = GameSession.class.getDeclaredMethod("damageDrone", Player.class, double.class);
+                damage.setAccessible(true); damage.invoke(game, player, DroneRules.HP);
+            }
+            player.x = GameMap.JOB_STATION.x(); player.y = GameMap.JOB_STATION.y();
+            game.handleMessage(player, "JOB:healer");
+            assertEquals("healer", player.job); assertSame(original, player.drone);
+            game.handleMessage(player, "JOB:drone");
+            assertEquals("drone", player.job); assertSame(original, player.drone);
+            assertEquals(0, original.hp); assertFalse(player.weapons.owns("pistol"));
+            game.handleMessage(player, "DRONE_LAUNCH:none");
+            assertFalse(original.active); assertEquals(0, original.hp);
+            var snapshot = new ObjectMapper().readTree(SnapshotBuilder.build(game));
+            assertEquals(0, snapshot.path("players").get(0).path("drone").path("hp").asDouble());
+            player.ore = DroneRules.REPAIR_ORE; player.copper = DroneRules.REPAIR_COPPER;
+            game.handleMessage(player, "DRONE_LAUNCH:none");
+            assertTrue(original.active); assertEquals(DroneRules.HP, original.hp);
+            assertEquals(0, player.ore); assertEquals(0, player.copper);
+            original.x = player.x; original.y = player.y;
+            game.handleMessage(player, "DRONE_RECOVER");
+        }
+    }
+
+    @Test void jobChangesRecallDroneWithoutHealingOrRestoringLostWeapons() {
+        launch(); Drone original = player.drone;
+        original.hp = 12; original.controlled = false; original.attackers.add(123);
+        player.x = GameMap.JOB_STATION.x(); player.y = GameMap.JOB_STATION.y();
+        game.handleMessage(player, "JOB:healer");
+        assertEquals("healer", player.job); assertSame(original, player.drone);
+        assertFalse(original.active); assertFalse(original.controlled); assertTrue(original.attackers.isEmpty());
+        game.handleMessage(player, "JOB:drone");
+        assertEquals("drone", player.job); assertEquals(12, original.hp);
+        launch(); assertTrue(original.active); assertEquals(12, original.hp);
+        assertEquals("pistol", original.weapon);
+    }
+
     @Test void matchEndAllowsJobSelectionAndRestartWhileDroneWasActive() {
         launch(); game.phase = GamePhase.WON;
         game.handleMessage(player, "JOB:healer");
-        assertEquals("healer", player.job); assertNull(player.drone);
+        assertEquals("healer", player.job); assertNotNull(player.drone); assertFalse(player.drone.active);
         game.handleMessage(player, "JOB:drone");
         game.handleMessage(player, "START");
         assertEquals(GamePhase.PREPARING, game.phase);

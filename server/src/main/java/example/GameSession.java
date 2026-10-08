@@ -477,7 +477,7 @@ final class GameSession {
         player.decoyCooldown = 0;
         decoys.removeIf(decoy -> decoy.ownerId.equals(player.id));
         player.stamina = Math.min(player.stamina, JobRules.staminaMax(job));
-        player.drone = null;
+        recallDrone(player);
         player.roomReady = false;
         player.spyRemaining = player.jobCooldown = player.scoutDashRemaining = 0;
         player.teleportPads.clear();
