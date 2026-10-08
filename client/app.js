@@ -1853,9 +1853,18 @@ function isTypingTarget(target) {
 }
 
 window.addEventListener("keydown", event => {
-    if (exitDialog.open || window.coreMenu?.settingsOpen?.()) return;
+    if (window.coreMenu?.settingsOpen?.()) {
+        if (window.coreKeySettings.gameKey(event) === "e" && !isTypingTarget(event.target)) {
+            event.preventDefault(); if (!event.repeat) window.coreMenu.closeSettings?.();
+        }
+        return;
+    }
     if (isTypingTarget(event.target)) return;
     const key = window.coreKeySettings.gameKey(event);
+    if (exitDialog.open) {
+        if (key === "e") { event.preventDefault(); if (!event.repeat) exitDialog.close("cancel"); }
+        return;
+    }
     if (!howToMenu.classList.contains("hidden")) {
         if (["escape", "e"].includes(key)) closeHowTo();
         event.preventDefault();
@@ -1887,7 +1896,11 @@ window.addEventListener("keydown", event => {
     }
     if (key === "e") {
         event.preventDefault();
-        if (!event.repeat) toggleInventory();
+        if (!event.repeat) {
+            if (getMe()?.missileControl) send("COMPUTER");
+            else if (!actionMenu.classList.contains("hidden")) closeActionMenu();
+            else toggleInventory();
+        }
         return;
     }
     if (key === "r") {
