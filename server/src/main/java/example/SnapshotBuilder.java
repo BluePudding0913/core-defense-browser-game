@@ -342,6 +342,8 @@ final class SnapshotBuilder {
                 json.append(",\"bossPhase\":").append(WardenRules.phase(enemy.hp, enemy.maxHp))
                         .append(",\"bossAction\":\"").append(enemy.warden.action.name()).append('"')
                         .append(",\"actionRemaining\":").append(roundOne(enemy.warden.remaining))
+                        .append(",\"actionDuration\":").append(enemy.warden.action == WardenRules.Action.PULSE_WARNING
+                                ? WardenRules.PULSE_WARNING : WardenRules.CHARGE_WARNING)
                         .append(",\"targetX\":").append(roundOne(enemy.warden.targetX))
                         .append(",\"targetY\":").append(roundOne(enemy.warden.targetY))
                         .append(",\"pulseRadius\":").append(WardenRules.PULSE_RADIUS);

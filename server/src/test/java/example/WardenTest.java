@@ -83,6 +83,7 @@ class WardenTest {
         assertEquals("PULSE_WARNING", snapshot.path("bossAction").asText());
         assertEquals(160, snapshot.path("pulseRadius").asInt());
         assertEquals(1.2, snapshot.path("actionRemaining").asDouble());
+        assertEquals(1.2, snapshot.path("actionDuration").asDouble());
     }
     @Test void defeatingBossCancelsAPendingPulse() throws Exception {
         boss.hp = 300; boss.warden.nextPulse = true; player.x = 1120;

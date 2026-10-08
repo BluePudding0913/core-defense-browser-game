@@ -7,7 +7,7 @@ ui.draw(ctx, enemy);
 assert(calls.some(c => c[0] === 'lineTo' && c[1] === 1380 && c[2] === 1900));
 assert(calls.some(c => c[0] === 'lineWidth' && c[1] === 84));
 calls.length = 0;
-ui.draw(ctx, {...enemy,bossAction:'PULSE_WARNING',pulseRadius:160,actionRemaining:.6});
+ui.draw(ctx, {...enemy,bossAction:'PULSE_WARNING',pulseRadius:160,actionRemaining:.6,actionDuration:1.2});
 assert(calls.some(c => c[0] === 'arc' && c[3] === 160));
 assert.equal(calls.filter(c => c[0] === 'arc').length, 2);
 assert.equal(calls[0][0], 'save'); assert.equal(calls.at(-1)[0], 'restore');

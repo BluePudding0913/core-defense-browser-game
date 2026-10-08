@@ -13,7 +13,7 @@ const WardenUI = (() => {
             const radius = enemy.pulseRadius;
             ctx.lineWidth = 2;
             ctx.beginPath(); ctx.arc(enemy.x, enemy.y, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-            const progress = Math.max(0, Math.min(1, 1 - enemy.actionRemaining / 1.2));
+            const progress = Math.max(0, Math.min(1, 1 - enemy.actionRemaining / enemy.actionDuration));
             ctx.lineWidth = 4;
             ctx.beginPath(); ctx.arc(enemy.x, enemy.y, radius, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2); ctx.stroke();
         } else {
