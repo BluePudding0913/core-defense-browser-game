@@ -12,7 +12,7 @@ window.TerminalUI = (() => {
         document.body.append(panel);
         canvas = panel.querySelector("canvas"); label = panel.querySelector("span");
         canvas.addEventListener("pointerdown", event => {
-            if (!current || current.me.missileCooldown > 0 || current.me.credits < current.me.missileCost) return;
+            if (!current || current.me.missileCooldown > 0) return;
             const rect = canvas.getBoundingClientRect();
             const ratio = Math.min(rect.width / canvas.width, rect.height / canvas.height);
             const x = (event.clientX - rect.left - (rect.width - canvas.width * ratio) / 2) / ratio;
@@ -41,9 +41,8 @@ window.TerminalUI = (() => {
         const map = options.map;
         if (canvas.width !== map.world.width) canvas.width = map.world.width;
         if (canvas.height !== map.world.height) canvas.height = map.world.height;
-        const status = me.missileCooldown > 0 ? `${me.missileCooldown.toFixed(1)}s`
-            : me.credits < me.missileCost ? "NO GOLD" : "CLICK TARGET";
-        label.textContent = `${me.missileCost}G · ${status} · R BACK`;
+        const status = me.missileCooldown > 0 ? `${me.missileCooldown.toFixed(1)}s` : "CLICK TARGET";
+        label.textContent = `${status} · R BACK`;
         const ctx = canvas.getContext("2d"), tiles = map.tileMap;
         ctx.fillStyle = "#07170d"; ctx.fillRect(0, 0, canvas.width, canvas.height);
         const locked = new Set(map.areas.filter(area => !state.areas[area.id]).flatMap(area => area.tiles.map(tile => `${tile.column},${tile.row}`)));
