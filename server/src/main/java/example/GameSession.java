@@ -1584,7 +1584,8 @@ final class GameSession {
         for (Player target : players) {
             if (target.drone != null && target.drone.active && target.drone.attackers.contains(bomber.id)
                     && inBomberBlast(bomber, target.drone.x, target.drone.y, radius)) damageDrone(target, bomber.damage);
-            if (!target.down && inBomberBlast(bomber, target.x, target.y, radius)) damagePlayer(target, bomber.damage);
+            if (!target.down && inBomberBlast(bomber, target.x, target.y, radius))
+                damagePlayer(target, JobRules.maxHp(target.job) * GameConfig.BOMBER_PLAYER_DAMAGE_FRACTION);
         }
         for (TrapSlot slot : trapSlots) {
             if (slot.defense != null && inBomberBlast(bomber, slot.x, slot.y, radius)) {
