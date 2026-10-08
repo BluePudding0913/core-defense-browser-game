@@ -2,16 +2,17 @@
 
 // The targeting view uses snapshots; facility access and shots stay authoritative on the server.
 window.TerminalUI = (() => {
-    let panel, canvas, title, current;
+    let panel, canvas, title, cooldown, current;
     function create() {
         panel = document.createElement("section");
         panel.id = "missile-panel";
         panel.tabIndex = -1;
         panel.setAttribute("aria-label", "ミサイル管制");
-        panel.innerHTML = '<header><strong>MISSILE SYSTEM</strong></header><canvas id="missile-map" aria-label="着弾地点をクリック"></canvas>';
+        panel.innerHTML = '<header><strong>MISSILE SYSTEM</strong><small class="missile-cooldown" hidden></small></header><canvas id="missile-map" aria-label="着弾地点をクリック"></canvas>';
         document.body.append(panel);
         canvas = panel.querySelector("canvas");
         title = panel.querySelector("strong");
+        cooldown = panel.querySelector(".missile-cooldown");
         canvas.addEventListener("pointerdown", event => {
             if (!current || event.button != null && event.button !== 0) return;
             const rect = canvas.getBoundingClientRect();
@@ -49,6 +50,10 @@ window.TerminalUI = (() => {
         if (canvas.height !== map.world.height) canvas.height = map.world.height;
         const readOnly = Boolean(me.breakerControl);
         if (title) title.textContent = readOnly ? "MAP" : "MISSILE SYSTEM";
+        if (cooldown) {
+            cooldown.hidden = readOnly || !(me.missileCooldown > 0);
+            cooldown.textContent = me.missileCooldown > 0 ? `${me.missileCooldown.toFixed(1)}s` : "";
+        }
         panel.setAttribute("aria-label", readOnly ? "ブレーカーマップ" : "ミサイル管制");
         canvas.setAttribute?.("aria-label", readOnly ? "ブレーカーの位置" : "着弾地点をクリック");
         const ctx = canvas.getContext("2d"), tiles = map.tileMap;
@@ -60,19 +65,19 @@ window.TerminalUI = (() => {
             ctx.fillRect(col * tiles.tileSize, row * tiles.tileSize, tiles.tileSize, tiles.tileSize);
         }
         const dot = (entity, color, radius) => { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(entity.x, entity.y, radius, 0, 2 * Math.PI); ctx.fill(); };
-        ctx.fillStyle = "#348fff";
+        ctx.fillStyle = "#79d8ff";
         ctx.fillRect(state.core.x - 20, state.core.y - 20, 40, 40);
         state.enemies.forEach(enemy => dot(enemy, "#ff716f", 12));
         state.players.forEach(player => { dot(player, player.down ? "#777" : "#8fffb2", 14); if (player.drone?.active) dot(player.drone, "#8cdde9", 10); });
         const tripped = new Set(state.trippedBreakers || []);
         for (const breaker of map.breakerTerminals || []) {
             const broken = tripped.has(breaker.id);
-            ctx.fillStyle = broken ? "#ffb347" : "#77dbe0";
+            ctx.fillStyle = "#969da3";
             ctx.fillRect(breaker.x - 12, breaker.y - 14, 24, 28);
-            ctx.strokeStyle = "#fff"; ctx.lineWidth = broken ? 4 : 2;
+            ctx.strokeStyle = broken ? "#ffb347" : "#cbd0d4"; ctx.lineWidth = broken ? 4 : 2;
             ctx.strokeRect(breaker.x - 12, breaker.y - 14, 24, 28);
             ctx.font = "bold 18px sans-serif"; ctx.textAlign = "center";
-            ctx.fillText(broken ? "RESET" : "BREAKER", breaker.x, breaker.y - 24);
+            if (broken) { ctx.fillStyle = "#ffb347"; ctx.fillText("RESET", breaker.x, breaker.y - 24); }
         }
         for (const strike of state.missiles || []) {
             ctx.strokeStyle = "#f6de83"; ctx.lineWidth = 4;

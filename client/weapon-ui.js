@@ -19,6 +19,21 @@ const WeaponUI = Object.freeze({
         return definitions[id]?.silverAmmoEligible && player.silverAmmo > 0
             ? `銀弾 ${player.silverAmmo}` : "";
     },
+    cooldownLabel(cooldown, charge = 0, firing = 0) {
+        if (charge > 0) return `CHARGE ${charge.toFixed(1)}s`;
+        if (firing > 0) return `FIRE ${firing.toFixed(1)}s`;
+        return cooldown > 0 ? `${Math.max(.1, cooldown).toFixed(1)}s` : "";
+    },
+    jobCooldownLabel(player) {
+        if (player.down) return "";
+        const timers = [];
+        const seconds = value => `${Math.max(.1, value).toFixed(1)}s`;
+        const jobTimer = player.jobCooldown;
+        if (jobTimer > 0) timers.push(seconds(jobTimer));
+        if (player.job === "spy" && player.decoyCooldown > 0) timers.push(`DECOY ${seconds(player.decoyCooldown)}`);
+        if (player.teleportCooldown > 0) timers.push(`TP ${seconds(player.teleportCooldown)}`);
+        return timers.join(" · ");
+    },
     ownedAmmoWeapons(player, definitions) {
         return Object.values(definitions).filter(definition => definition.capacity > 0 && this.owns(player, definition));
     },
