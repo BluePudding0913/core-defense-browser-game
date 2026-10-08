@@ -1,0 +1,31 @@
+const assert = require('node:assert/strict'), fs = require('node:fs'), vm = require('node:vm');
+const feedback = require('../combat-feedback.js');
+const hit = (credits, enemyId = 1, x = 100, y = 100, headshot = false) =>
+    ({effect:'hit',playerId:'me',credits,enemyId,x,y,headshot});
+feedback.add(hit(4), 0, 'me'); feedback.add(hit(4), 100, 'me'); feedback.add(hit(4), 200, 'me');
+let labels = feedback.layout(250);
+assert.equal(labels.length, 1); assert.equal(labels[0].text, '+12G');
+feedback.add(hit(7,2,120,100,true), 250, 'me');
+labels = feedback.layout(300);
+assert.equal(labels.length, 1); assert.equal(labels[0].text, '+19G'); assert(labels[0].headshot);
+feedback.add({...hit(100),playerId:'ally'}, 300, 'me');
+assert.equal(feedback.layout(300)[0].text, '+19G', 'only own gold is displayed');
+feedback.add(hit(5,3,100,100), 700, 'me');
+labels = feedback.layout(700);
+assert.equal(labels.length, 2); assert(Math.abs(labels[0].y-labels[1].y) >= 30);
+assert.equal(feedback.layout(1600).length, 0, 'labels expire after the last receipt');
+feedback.add(hit(0,4,100,100,true), 1700, 'me');
+const texts = [];
+feedback.draw({save(){},restore(){},strokeText(){},fillText(text,x,y){texts.push({text,x,y,color:this.fillStyle,font:this.font});}}, 1700);
+assert.equal(texts.length, 1); assert.equal(texts[0].text, 'HS');
+assert.equal(texts[0].color, '#ff5964'); assert(texts[0].font.includes('9px'));
+feedback.reset(); assert.equal(feedback.layout(1800).length, 0);
+const source = fs.readFileSync('client/app.js','utf8');
+const start = source.indexOf('if (message.type === "ammo-refilled")');
+const end = source.indexOf('\n        if (message.type === "error"',start);
+const sounds = [];
+vm.runInNewContext(source.slice(start,end), {message:{type:'ammo-refilled'},
+    window:{coreAudio:{play:(...args)=>sounds.push(args)}},activeMenuAccess:{refresh(){}},
+    inventoryMenu:{classList:{add(){}}},closeActionMenu(){assert.fail('refill retains the shop');}});
+assert.deepEqual(sounds, [['refill',0]]);
+console.log('Combat feedback passed: burst grouping, separate label placement, expiry, red HS and refill sound');

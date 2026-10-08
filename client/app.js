@@ -342,6 +342,7 @@ function connect() {
             if (message.closeMenu) closeActionMenu();
         }
         if (message.type === "ammo-refilled") {
+            window.coreAudio?.play("refill", 0);
             if (!activeMenuAccess?.refresh) closeActionMenu();
             inventoryMenu.classList.add("hidden");
         }
@@ -390,6 +391,7 @@ function connect() {
             playSoundEffect(message);
         }
         if (message.type === "effect" && ["hit", "core-pulse", "pickup", "player-hit", "player-down", "explosion", "acid-impact"].includes(message.effect)) {
+            if (typeof CombatFeedback !== "undefined") CombatFeedback.add(message, performance.now(), myPlayerId);
             hitEffects.push({ ...message, started: performance.now() });
             if (hitEffects.length > 100) hitEffects.shift();
         }
@@ -455,6 +457,7 @@ function enterRoom(roomId, options = {}) {
     if (typeof roomId !== "string" || !roomId) return;
     setMenuView("lobby");
     hitEffects = [];
+    if (typeof CombatFeedback !== "undefined") CombatFeedback.reset();
     state = undefined;
     myPlayerId = undefined;
     roomBrowser.classList.add("hidden");
@@ -481,6 +484,7 @@ function leaveRoom(forget = true) {
     window.coreMenu?.exited();
     setMenuView("home");
     hitEffects = [];
+    if (typeof CombatFeedback !== "undefined") CombatFeedback.reset();
     state = undefined;
     myPlayerId = undefined;
     predictedLocal = null;
@@ -3027,29 +3031,8 @@ function drawHitEffects() {
             }
             ctx.restore();
         }
-        if (effect.credits > 0 && effect.playerId === myPlayerId && age < 900) {
-            const progress = age / 900;
-            ctx.save();
-            ctx.globalAlpha = 1 - progress;
-            ctx.fillStyle = "#79d8ff";
-            ctx.shadowColor = "#79d8ff";
-            ctx.shadowBlur = 8;
-            ctx.font = "950 13px ui-monospace, monospace";
-            ctx.textAlign = "center";
-            ctx.fillText(`+${effect.credits}G`, effect.x, effect.y - 24 - progress * 24);
-            ctx.restore();
-        }
-        if (effect.headshot && effect.playerId === myPlayerId && age < 700) {
-            const progress = age / 700;
-            ctx.save();
-            ctx.globalAlpha = 1 - progress;
-            ctx.fillStyle = "#ff5964";
-            ctx.font = "950 11px ui-monospace, monospace";
-            ctx.textAlign = "center";
-            ctx.fillText("HEADSHOT", effect.x, effect.y - 42 - progress * 20);
-            ctx.restore();
-        }
     }
+    if (typeof CombatFeedback !== "undefined") CombatFeedback.draw(ctx, now);
     ctx.textAlign = "left";
 }
 
