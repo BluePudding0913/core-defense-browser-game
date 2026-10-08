@@ -14,7 +14,7 @@
         rocket: { pitch: 140, end: 28, duration: .42, noise: .8 },
         "missile-launch": { pitch: 1100, end: 220, duration: 1.6, noise: .72, whoosh: true },
         "missile-impact": { pitch: 55, end: 18, duration: 1.05, noise: .88, rumble: true },
-        flamethrower: { pitch: 80, end: 60, duration: .18, noise: .2, rumble: true },
+        flamethrower: { pitch: 80, end: 60, duration: .18, noise: .2, rumble: true, amplitude: .24 },
         bat: { pitch: 150, end: 40, duration: .14, noise: .4 },
         medkit: { notes: [440, 554, 659, 880], duration: .36 },
         heal: { notes: [523, 659, 784], duration: .24 },
@@ -22,7 +22,7 @@
         purchase: { notes: [659, 988, 1318], duration: .18 },
         refill: { notes: [330, 440, 660], duration: .2, noise: .12 },
         damage: { pitch: 220, end: 55, duration: .1, noise: .35, rumble: true },
-        "round-start": { notes: [130, 195], duration: .6, noise: .15, rumble: true },
+        "round-start": { notes: [130, 195], duration: .6, noise: .15, rumble: true, amplitude: .24 },
         pickup: { notes: [880, 1320], duration: .12 },
         item: { notes: [660, 880], duration: .16 },
         railgun: { pitch: 220, end: 220, duration: .4, noise: .35, sustain: true },
@@ -88,7 +88,7 @@
                 : effect.rumble ? Math.pow(1 - progress, 1.3) : effect.charge ? .25 + progress * .75
                 : effect.notes ? .7 : effect.sustain ? .8 : Math.pow(1 - progress, 2);
             const air = effect.whoosh || effect.rumble ? Math.max(-1, Math.min(1, filteredNoise * (effect.rumble ? 3 : 1.7))) : noise;
-            samples[i] = (pulse * (1 - mix) + air * mix) * attack * release * envelope * .16;
+            samples[i] = (pulse * (1 - mix) + air * mix) * attack * release * envelope * (effect.amplitude ?? .16);
         }
         buffers.set(name, buffer);
         return buffer;
