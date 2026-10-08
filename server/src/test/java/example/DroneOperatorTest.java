@@ -176,7 +176,7 @@ class DroneOperatorTest {
         game.handleMessage(player, "EQUIP_BUILD:block");
         call("updateRevives", 5);
         assertTrue(ally.down); assertNull(player.actionTarget);
-        assertEquals(50, player.hp); assertEquals(1, player.medkits); assertNull(player.selectedBuild);
+        assertEquals(50, player.hp); assertEquals(1, player.medkits); assertEquals("controller", player.selectedBuild);
     }
 
     @Test void snapshotContainsDroneAndAuthoritativeRepairCost() throws Exception {

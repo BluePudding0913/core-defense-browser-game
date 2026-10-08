@@ -29,7 +29,7 @@ assert.equal(context.window.JobUI.catalog.drone.name, 'Drone Operator');
 vm.runInContext('updateLocalPrediction(.1)', context);
 assert.equal(context.predictedLocal.x, me.x);
 assert.equal(context.predictedLocal.dashing, false);
-assert.equal(vm.runInContext('findNearestInteraction()', context), null);
+assert.equal(vm.runInContext('findNearestInteraction().kind', context), 'drone-view');
 assert.equal(vm.runInContext('canUseNearby({}, 100, false)', context), false);
 context.state = { players: [{ id: 'self', drone: null }] };
 context.next = { players: [me] };
