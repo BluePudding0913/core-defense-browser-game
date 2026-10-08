@@ -823,6 +823,10 @@ function beginInteractionHold() {
     if (interactionHold || !state || !["preparing", "wave"].includes(state.phase)
             || getMe()?.down || !inventoryMenu.classList.contains("hidden")
             || !howToMenu.classList.contains("hidden")) return;
+    if (getMe()?.missileControl) {
+        interactionHold = { used: false, timer: null, interaction: { action: () => send("COMPUTER") } };
+        return;
+    }
     const interaction = findNearestInteraction();
     const target = ["core", "defense"].includes(interaction?.kind)
         ? interaction.kind === "core" ? "core" : interaction.target.id : null;

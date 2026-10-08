@@ -6,13 +6,13 @@ window.TerminalUI = (() => {
     function create() {
         panel = document.createElement("section");
         panel.id = "missile-panel";
+        panel.tabIndex = -1;
         panel.setAttribute("aria-label", "ミサイル管制");
-        panel.innerHTML = '<header><strong>MISSILE · NIGHT VISION</strong><span></span><button type="button">RETURN</button></header><canvas id="missile-map" aria-label="着弾地点をクリック"></canvas>';
+        panel.innerHTML = '<header><strong>MISSILE · NIGHT VISION</strong><span></span></header><canvas id="missile-map" aria-label="着弾地点をクリック"></canvas>';
         document.body.append(panel);
         canvas = panel.querySelector("canvas"); label = panel.querySelector("span");
-        panel.querySelector("button").onclick = () => current.send("COMPUTER");
         canvas.addEventListener("pointerdown", event => {
-            if (!current || current.me.missileCooldown > 0) return;
+            if (!current || current.me.missileCooldown > 0 || current.me.credits < current.me.missileCost) return;
             const rect = canvas.getBoundingClientRect();
             const ratio = Math.min(rect.width / canvas.width, rect.height / canvas.height);
             const x = (event.clientX - rect.left - (rect.width - canvas.width * ratio) / 2) / ratio;
@@ -22,7 +22,10 @@ window.TerminalUI = (() => {
         });
         panel.addEventListener("keydown", event => {
             event.stopPropagation();
-            if (event.key === "Escape" || event.key.toLowerCase() === "r") { event.preventDefault(); current.send("COMPUTER"); }
+            if (event.key === "Escape" || event.key.toLowerCase() === "r") {
+                event.preventDefault();
+                if (current && !event.repeat) current.send("COMPUTER");
+            }
         });
     }
     function update(state, me, options) {
@@ -34,11 +37,13 @@ window.TerminalUI = (() => {
         const opening = panel.hidden || !current;
         panel.hidden = false;
         current = { ...options, me };
-        if (opening) panel.querySelector("button").focus({ preventScroll: true });
+        if (opening) panel.focus({ preventScroll: true });
         const map = options.map;
         if (canvas.width !== map.world.width) canvas.width = map.world.width;
         if (canvas.height !== map.world.height) canvas.height = map.world.height;
-        label.textContent = me.missileCooldown > 0 ? `${me.missileCooldown.toFixed(1)}s` : "READY · CLICK TARGET";
+        const status = me.missileCooldown > 0 ? `${me.missileCooldown.toFixed(1)}s`
+            : me.credits < me.missileCost ? "NO GOLD" : "CLICK TARGET";
+        label.textContent = `${me.missileCost}G · ${status} · R BACK`;
         const ctx = canvas.getContext("2d"), tiles = map.tileMap;
         ctx.fillStyle = "#07170d"; ctx.fillRect(0, 0, canvas.width, canvas.height);
         const locked = new Set(map.areas.filter(area => !state.areas[area.id]).flatMap(area => area.tiles.map(tile => `${tile.column},${tile.row}`)));

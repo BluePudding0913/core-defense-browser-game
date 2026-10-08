@@ -223,6 +223,7 @@ final class SnapshotBuilder {
             // Keep the existing wire fields for browser/reconnect compatibility.
             json.append(",\"missileControl\":").append(player.missileControl)
                 .append(",\"missileCooldown\":").append(roundOne(player.missileCooldown))
+                .append(",\"missileCost\":").append(MissileRules.COST)
                 .append(",\"missileDelay\":").append(MissileRules.DELAY);
             json.append(",\"drone\":");
             if (player.drone == null) json.append("null");

@@ -3,7 +3,7 @@
 <link rel="stylesheet" href="../style.css"><link rel="stylesheet" href="../job-ui.css">
 <body><script src="../terminal-ui.js"></script><script>
 fetch('../../shared/map.json').then(response => response.json()).then(map => {
-    const me = { id: 'test', x: map.missileComputer.x, y: map.missileComputer.y, missileControl: true, missileCooldown: 0 };
+    const me = { id: 'test', x: map.missileComputer.x, y: map.missileComputer.y, missileControl: true, missileCooldown: 0, missileCost: 400, credits: 2000 };
     const state = { phase: 'wave', blackoutActive: true, areas: Object.fromEntries(map.areas.map(area => [area.id, true])),
         core: map.core, players: [me], enemies: [{x:1020,y:1500},{x:1200,y:1140},{x:420,y:260}], missiles: [] };
     const options = { map, send(command) {
