@@ -25,7 +25,8 @@ const state={phase:'wave',blackoutActive:true,trippedBreakers:[map.breakerTermin
 window.TerminalUI.update(state,me,{map,send:cmd=>sent.push(cmd)});
 assert.equal(canvas.width,map.world.width); assert.equal(canvas.height,map.world.height);assert(draws>100);
 assert.equal(cooldown.hidden,true);
-assert.equal(enemyCount.hidden,true,'enemy count is shown in hacker MAP');
+assert.equal(enemyCount.hidden,false,'enemy count is shown in missile control');
+assert.equal(enemyCount.textContent,'ENEMY 0');
 assert(focused);assert(!panel.innerHTML.includes('<button'));assert(!panel.innerHTML.includes('<span>'));
 assert(markers.some(marker=>marker.text==='RESET'&&marker.x===map.breakerTerminals[0].x));
 assert.equal(markers.length,1);
@@ -55,6 +56,14 @@ assert.equal(enemyCount.textContent,'ENEMY 6','includes waiting enemies and igno
 assert(arcs.some(p=>p.x===100&&p.radius===12)); assert(!arcs.some(p=>p.x===120),'defeated enemies disappear from map');
 assert(arcs.some(p=>p.x===300&&p.radius===22),'own location gets an outline');
 assert(arcs.some(p=>p.x===350&&p.radius===14),'allies keep smaller markers');
+me.breakerControl=null;
+window.TerminalUI.update(state,me,{map,send:cmd=>sent.push(cmd)});
+assert.equal(title.textContent,'MISSILE SYSTEM');
+assert.equal(enemyCount.hidden,false); assert.equal(enemyCount.textContent,'ENEMY 6','missile control shares the breaker enemy count');
+assert.equal(cooldown.hidden,false,'missile cooldown remains visible alongside the enemy count');
+state.phase='preparing';window.TerminalUI.update(state,me,{map,send:cmd=>sent.push(cmd)});
+assert.equal(enemyCount.textContent,'ENEMY 0','missile preparation has no remaining enemies');
+state.phase='wave';me.breakerControl=map.breakerTerminals[0].id;
 state.enemies[0].hp=0;state.queued=3;
 window.TerminalUI.update(state,me,{map,send:cmd=>sent.push(cmd)});assert.equal(enemyCount.textContent,'ENEMY 3');
 state.phase='preparing';window.TerminalUI.update(state,me,{map,send:cmd=>sent.push(cmd)});
