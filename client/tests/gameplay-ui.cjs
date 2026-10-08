@@ -22,6 +22,28 @@ const context = vm.createContext({
 });
 for (const name of ['beginInteractionHold', 'endInteractionHold']) vm.runInContext(extract(name), context);
 const run = text => vm.runInContext(text, context);
+// Wheel events bubbling from machine panels must keep native scrolling.
+let wheelHandler;
+const wheelDirections = [];
+context.window = { addEventListener: (name, handler) => {
+    assert.equal(name, 'wheel'); wheelHandler = handler;
+} };
+context.cycleEquipment = direction => wheelDirections.push(direction);
+const wheelStart = source.indexOf('window.addEventListener("wheel",');
+vm.runInContext(source.slice(wheelStart, source.indexOf('\nactionClose.', wheelStart)), context);
+for (const menu of ['actionMenu', 'inventoryMenu', 'howToMenu']) {
+    context[menu].classList.contains = () => false;
+    wheelHandler({ deltaY: 1, preventDefault() { assert.fail('menu scrolling must remain enabled'); } });
+    context[menu].classList.contains = () => true;
+}
+me.missileControl = true;
+wheelHandler({ deltaY: 1, preventDefault() { assert.fail('map wheel must not cycle weapons'); } });
+me.missileControl = false;
+assert.equal(wheelDirections.length, 0);
+let prevented = 0;
+for (const deltaY of [1, -1]) wheelHandler({ deltaY, preventDefault() { prevented++; } });
+assert.deepEqual(wheelDirections, [1, -1]);
+assert.equal(prevented, 2);
 run('beginInteractionHold(); endInteractionHold()');
 assert.equal(menuOpens, 1); assert.equal(commands.length, 0);
 run('beginInteractionHold(); beginInteractionHold()');
