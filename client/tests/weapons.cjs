@@ -55,6 +55,16 @@ for (const rule of Object.values(context.rules.weapons)) if (me[rule.owned]) me[
 vm.runInContext('openShopPurchase(shop)', context);
 assert.equal(options[0].label, 'FULL');
 assert(options[0].disabled);
+me.drone = { active: true, weapon: 'smg' }; me.smgAmmo = 0;
+vm.runInContext('openShopPurchase(shop)', context);
+assert.equal(options[0].label, 'FULL', 'AMMO status excludes deployed drone ammunition');
+context.droneShop = map.shopUnits.find(shop => shop.item === 'smg');
+vm.runInContext('openShopPurchase(droneShop)', context);
+assert.equal(options[0].label, 'DRONE'); assert(options[0].disabled);
+me.drone.active = false;
+vm.runInContext('openShopPurchase(droneShop)', context);
+assert.equal(options[0].label, 'REFILL'); assert(!options[0].disabled);
+delete me.drone;
 me.ownsRailgun = me.ownsRicochet = me.ownsSmg = me.ownsRevolver = me.ownsLmg = me.ownsRocket = false;
 vm.runInContext('openShopPurchase(shop)', context);
 assert.equal(options[0].label, 'LOCKED');

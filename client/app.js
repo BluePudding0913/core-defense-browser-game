@@ -29,7 +29,11 @@ jobSelect.addEventListener("click", event => {
     const job = event.target.closest("[data-job]")?.dataset.job;
     if (job) send(`JOB:${job}`);
 });
-jobAbilityButton.addEventListener("click", () => send("JOB_ABILITY"));
+jobAbilityButton.addEventListener("click", () => {
+    const me = getMe();
+    if (me?.job === "spy") requestDecoy({ x: me.x + me.facingX * 260, y: me.y + me.facingY * 260 });
+    else send("JOB_ABILITY");
+});
 const roomCode = document.querySelector("#room-code");
 const roomOwner = document.querySelector("#room-owner");
 const createRoomButton = document.querySelector("#create-room");
@@ -903,22 +907,21 @@ function updateHud() {
         : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}`
             : "";
     const me = getMe();
-    jobAbilityButton.classList.toggle("hidden", true);
-    jobAbilityButton.textContent = me?.spyRemaining > 0 ? `偽装 ${Math.ceil(me.spyRemaining)}s`
-        : me?.jobCooldown > 0 ? `偽装 ${Math.ceil(me.jobCooldown)}s` : "偽装";
-    jobAbilityButton.disabled = !me || me.down || me.movingCore || Boolean(me.selectedBuild) || me.jobCooldown > 0;
+    jobAbilityButton.classList.toggle("hidden", me?.job !== "spy");
+    jobAbilityButton.textContent = me?.decoyCooldown > 0 ? `DECOY ${Math.ceil(me.decoyCooldown)}s` : "DECOY";
+    jobAbilityButton.disabled = !me || me.down || me.movingCore || Boolean(me.selectedBuild) || me.decoyCooldown > 0;
     teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">
             <div class="teammate-label">
                 <span>${player.id === myPlayerId ? "YOU" : escapeHtml(player.name)}</span>
                 <span class="player-stats">${player.down ? "DOWN" : ""}<b>${player.credits}G</b></span>
             </div>
-            <div class="hp-line"><span style="width:${player.hp}%"></span></div>
+            <div class="hp-line"><span style="width:${100 * player.hp / (player.maxHp || 100)}%"></span></div>
             ${me?.job === "scout" ? window.JobUI.renderAllyIntel(player, AREAS, areaContains, STARTING_AREA) : ""}
         </div>`).join("");
     selfVitals.classList.toggle("hidden", !me);
     if (me) {
-        const health = clamp(me.hp, 0, 100);
+        const health = clamp(100 * me.hp / (me.maxHp || 100), 0, 100);
         healthHeart.style.setProperty("--health", `${health}%`);
         healthHeart.classList.toggle("full", health === 100);
         healthHeart.setAttribute("aria-label", `体力 ${Math.ceil(health)}%`);
@@ -1347,6 +1350,7 @@ function openSlotMenu(slot) {
             label: "PICK UP",
             detail: "耐久値を保ったまま回収。R長押しでも運搬できます",
             command: `REMOVE:${slot.id}`,
+            disabled: slot.temporaryRemaining > 0,
         }], slot, INTERACTION_RANGE.trapSlot);
     }
 }
@@ -1434,7 +1438,10 @@ function openShopPurchase(shop, chooseExchange = false) {
     const weaponFields = WEAPON_FIELDS[shop.item];
     const alreadyOwned = Boolean(weaponFields && WeaponUI.owns(me, weaponFields));
     const ammo = alreadyOwned ? me[weaponFields.ammo] : 0;
-    const ownedWeapons = WeaponUI.ownedAmmoWeapons(me, WEAPON_FIELDS);
+    const mountedWeapon = me.drone?.active ? me.drone.weapon : null;
+    const mounted = shop.item === mountedWeapon;
+    const ownedWeapons = WeaponUI.ownedAmmoWeapons(me, WEAPON_FIELDS)
+        .filter(fields => fields !== WEAPON_FIELDS[mountedWeapon]);
     const ammoFull = shop.item === "ammo" ? ownedWeapons.length > 0
         && ownedWeapons.every(fields => me[fields.ammo] >= fields.capacity)
         : alreadyOwned && ammo >= weaponFields.capacity;
@@ -1444,7 +1451,7 @@ function openShopPurchase(shop, chooseExchange = false) {
         && WeaponUI.atLimit(me, WEAPON_FIELDS, state.rules.weaponLimit);
     if (weaponLimitReached && chooseExchange) {
         openNearbyActionMenu(shop.label, WeaponUI.entries(me, WEAPON_FIELDS)
-            .filter(entry => entry.value !== "bat").map(entry => ({
+            .filter(entry => entry.value !== "bat" && entry.value !== mountedWeapon).map(entry => ({
                 label: `交換: ${entry.label}`,
                 command: `BUY:${shop.item}:${entry.value}`,
                 disabled: me.credits < price,
@@ -1452,14 +1459,14 @@ function openShopPurchase(shop, chooseExchange = false) {
         return;
     }
     openNearbyActionMenu(shop.label, [{
-        label: ammoFull ? "FULL" : alreadyOwned || shop.item === "ammo" && !unavailable ? "REFILL"
+        label: mounted ? "DRONE" : ammoFull ? "FULL" : alreadyOwned || shop.item === "ammo" && !unavailable ? "REFILL"
             : unavailable ? "LOCKED" : "BUY",
         detail: `${price}G`,
         stock: shop.item === "ammo" ? WeaponUI.ammoStock(me, WEAPON_FIELDS)
             : weaponFields?.capacity > 0 ? `弾薬 ${ammo} / ${weaponFields.capacity}` : "",
         command: weaponLimitReached ? undefined : `BUY:${shop.item}`,
         onSelect: weaponLimitReached ? () => openShopPurchase(shop, true) : undefined,
-        disabled: ammoFull || unavailable || me.credits < price,
+        disabled: mounted || ammoFull || unavailable || me.credits < price,
     }], shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
 }
 
@@ -1539,6 +1546,16 @@ function worldFromScreen(clientX, clientY) {
     return { x: camera.x + (px - canvas.width / 2) / scale, y: camera.y + (py - canvas.height / 2) / scale };
 }
 
+function requestDecoy(point) {
+    const me = getMe();
+    if (!me || me.job !== "spy" || !["preparing", "wave"].includes(state.phase)
+            || me.down || me.movingCore || me.selectedBuild || me.decoyCooldown > 0
+            || me.railgunRemaining > 0 || me.railgunCharge > 0 || exitDialog.open
+            || !howToMenu.classList.contains("hidden") || !inventoryMenu.classList.contains("hidden")
+            || !actionMenu.classList.contains("hidden")) return;
+    send(`DECOY:${point.x.toFixed(1)}:${point.y.toFixed(1)}`);
+}
+
 function requestScoutDash(point) {
     const me = getMe();
     if (!me || me.job !== "scout" || !["preparing", "wave"].includes(state.phase)
@@ -1559,7 +1576,10 @@ canvas.addEventListener("mousedown", event => {
             && actionMenu.classList.contains("hidden") && inventoryMenu.classList.contains("hidden")) {
         const p = worldFromScreen(event.clientX, event.clientY);
         send(`SECONDARY_FIRE:${p.x.toFixed(1)}:${p.y.toFixed(1)}:1`);
-    } else requestScoutDash(worldFromScreen(event.clientX, event.clientY));
+    } else {
+        requestScoutDash(worldFromScreen(event.clientX, event.clientY));
+        requestDecoy(worldFromScreen(event.clientX, event.clientY));
+    }
 });
 
 canvas.addEventListener("pointerdown", event => {
@@ -1718,7 +1738,7 @@ window.addEventListener("keydown", event => {
     if (key === window.coreKeySettings.getMedkit() && state && ["preparing", "wave"].includes(state.phase)) {
         event.preventDefault();
         const me = getMe();
-        if (!event.repeat && me && !me.down && me.medkits > 0 && me.hp < 100) send("USE:medkit");
+        if (!event.repeat && me && !me.down && me.medkits > 0 && me.hp < (me.maxHp || 100)) send("USE:medkit");
         return;
     }
     if (key === "e") {
@@ -1818,6 +1838,11 @@ function findNearestInteraction() {
     }
     const nearest = choices.sort((a, b) => a.separation - b.separation)[0];
     if (nearest) return nearest;
+    if (me.job === "tank" && !me.movingCore && !placementSelection(me)) return {
+        kind: "tank", target: me,
+        label: me.jobCooldown > 0 ? Math.ceil(me.jobCooldown) + "s" : "WALL",
+        action: () => send("JOB_ABILITY")
+    };
     if (me.job === "healer" && !me.movingCore && !placementSelection(me)) return {
         kind: "healer", target: me,
         label: me.jobCooldown > 0 ? Math.ceil(me.jobCooldown) + "s" : "回復エリア",
@@ -2644,9 +2669,27 @@ function drawHealingAreas() {
 }
 
 function drawPlayers() {
+    for (const decoy of state.decoys || []) {
+        if (decoy.hp <= 0) continue;
+        ctx.save();
+        ctx.globalAlpha = .65;
+        ctx.fillStyle = "#eecb65";
+        ctx.fillRect(decoy.x - 9, decoy.y - 9, 18, 18);
+        ctx.strokeStyle = "#fff0b1";
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.arc(decoy.x, decoy.y, 18, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+        drawBar(decoy.x - 15, decoy.y - 23, 30, 3, decoy.hp / decoy.maxHp, "#eecb65");
+    }
     for (const player of state.players) {
         const isLocal = player.id === myPlayerId && predictedLocal;
         const p = isLocal ? predictedLocal : smoothEntity("player", player);
+        if (player.job === "tank" && !player.down) {
+            ctx.save();
+            ctx.strokeStyle = "#7acba855";
+            ctx.beginPath(); ctx.arc(p.x, p.y, player.tankAuraRadius, 0, Math.PI * 2); ctx.stroke();
+            ctx.restore();
+        }
         const rescuers = state.players.filter(worker => worker.action === player.id);
         if (player.down && rescuers.length && (player.id === myPlayerId || rescuers.some(worker => worker.id === myPlayerId))) drawReviveEffect(p.x, p.y, Math.max(...rescuers.map(worker => worker.actionProgress / (worker.reviveSeconds ?? 4))));
         ctx.save();
@@ -2717,7 +2760,7 @@ function drawDrones() {
 }
 
 function drawMedbayParticles(player, position) {
-    if (!player.medbayHealing || player.down || player.hp >= 100) return;
+    if (!player.medbayHealing || player.down || player.hp >= (player.maxHp || 100)) return;
     const time = performance.now() / 1200;
     for (let index = 0; index < 4; index++) {
         const progress = (time + index * .25) % 1;

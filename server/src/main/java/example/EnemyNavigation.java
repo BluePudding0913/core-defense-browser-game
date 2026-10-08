@@ -116,7 +116,8 @@ final class EnemyNavigation {
             for (Player player : players) {
                 if (player.down || JobRules.concealedFrom(player, enemy)) continue;
                 double distance = GameSupport.distance(enemy.x, enemy.y, player.x, player.y);
-                if (distance <= best && GameMap.hasClearLine(enemy.x, enemy.y, player.x, player.y)) {
+                if (distance <= range && JobRules.preferTarget(player, target, distance, best)
+                        && GameMap.hasClearLine(enemy.x, enemy.y, player.x, player.y)) {
                     best = distance;
                     target = player;
                 }

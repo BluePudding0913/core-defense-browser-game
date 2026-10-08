@@ -5,7 +5,8 @@ window.JobUI = (() => {
     const catalog = Object.freeze({
         healer: { name: "Healer", description: "ダウンした味方を素早くリバイブする。Rで3×3の回復エリアを10秒展開する。" },
         attacker: { name: "Attacker", description: "二丁持ち。左クリックで装備武器、右クリックでサブのピストルを撃つ。" },
-        spy: { name: "Spy", description: "Rで敵に偽装し、認識と通常攻撃を避ける。攻撃した敵にも80%の確率で気づかれない。偽装中は味方の弾と範囲攻撃も受ける。" },
+        spy: { name: "Spy", description: "Rで偽装。右クリックで敵を引きつけるデコイを発射。偽装中は味方の弾も受ける。" },
+        tank: { name: "Tank", description: "HP150。周囲の味方の被ダメージを25%軽減し、優先して狙われる。Rで一時的な壁を設置。" },
         tp: { name: "TP", description: "テレポーターを2台所持。Rで設置・移動、R長押しで自分の装置を回収。味方全員が利用可能。" },
         scout: { name: "Scout", description: "味方の位置とジョブを確認できる。右クリックした方向へ高速移動。ダッシュが少し速くなり、スタミナも長持ちし、素早く回復する。" },
         hacker: { name: "Hacker", description: "重火器エリアのコンピュータからミサイルを発射。暗視マップで着弾地点を指定する。" },

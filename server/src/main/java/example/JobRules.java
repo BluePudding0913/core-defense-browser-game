@@ -3,6 +3,10 @@ package example;
 /** Shared job rules for humans and CPU players. No UI or transport dependencies. */
 final class JobRules {
     static final String DEFAULT = "healer";
+    static final double TANK_AURA_RADIUS = 160;
+    static final double TANK_DAMAGE_FACTOR = .75;
+    static final double TANK_WALL_COOLDOWN = 20;
+    static final double TANK_WALL_DURATION = 15;
     static final double SPY_DURATION = 8;
     static final double SPY_COOLDOWN = 30;
     static final double SPY_ATTACK_CONCEAL_CHANCE = .8;
@@ -21,7 +25,20 @@ final class JobRules {
     private JobRules() { }
 
     static boolean valid(String job) {
-        return java.util.Set.of("spy", "tp", "healer", "scout", "drone", "hacker", "attacker").contains(job);
+        return java.util.Set.of("spy", "tp", "healer", "scout", "drone", "hacker", "tank", "attacker").contains(job);
+    }
+
+    static double maxHp(String job) { return job.equals("tank") ? 150 : 100; }
+    static int targetPriority(Player player) { return player.job.equals("tank") ? 0 : 1; }
+    static boolean preferTarget(Player candidate, Player current, double distance, double currentDistance) {
+        return current == null || targetPriority(candidate) < targetPriority(current)
+                || targetPriority(candidate) == targetPriority(current) && distance < currentDistance;
+    }
+    static boolean protectedByTank(Player target, java.util.List<Player> players,
+            java.util.function.BiPredicate<Player, Player> clearLine) {
+        return players.stream().anyMatch(tank -> tank.job.equals("tank") && !tank.down
+                && GameSupport.distance(target.x, target.y, tank.x, tank.y) <= TANK_AURA_RADIUS
+                && clearLine.test(target, tank));
     }
 
     static double dashSpeed(String job) { return job.equals("scout") ? 305 : 265; }
