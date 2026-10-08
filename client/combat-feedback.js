@@ -38,16 +38,15 @@ const CombatFeedback = (() => {
     function draw(ctx, now) {
         for (const popup of layout(now)) {
             ctx.save(); ctx.globalAlpha = popup.alpha;
-            ctx.textAlign = "center"; ctx.lineWidth = 3; ctx.strokeStyle = "#101820";
+            ctx.textAlign = "center";
             if (popup.text) {
                 ctx.font = "900 11px ui-monospace, monospace";
                 ctx.fillStyle = "#79d8ff";
-                ctx.strokeText(popup.text, popup.x, popup.y); ctx.fillText(popup.text, popup.x, popup.y);
+                ctx.fillText(popup.text, popup.x, popup.y);
             }
             if (popup.headshot) {
                 ctx.font = "900 9px ui-monospace, monospace";
                 ctx.fillStyle = "#ff5964";
-                ctx.strokeText("HS", popup.x, popup.y - (popup.text ? 14 : 0));
                 ctx.fillText("HS", popup.x, popup.y - (popup.text ? 14 : 0));
             }
             ctx.restore();
