@@ -587,8 +587,9 @@ function receiveState(next) {
     }
     CORE.x = next.core.x;
     CORE.y = next.core.y;
-    if (beginsRound) showRoundIntro(next.round);
-    else if (endsDefense) showScreenIntro(next.phase === "won" ? "防衛成功" : "防衛失敗", 2000);
+    if (beginsRound) { showRoundIntro(next.round); window.coreAudio?.play("round-start"); }
+    else if (endsDefense) showScreenIntro(next.phase === "won" ? "防衛成功" : "防衛失敗", 2000,
+        `TIME ${formatMatchTime(next.elapsedSeconds)}`);
     else if (!["wave", "won", "lost"].includes(next.phase)) hideScreenIntro();
     previousRound = next.round;
     previousPhase = next.phase;
@@ -641,8 +642,8 @@ function updateRoomLobby(snapshot) {
     startButton.classList.toggle("hidden", !isOwner);
     startButton.textContent = snapshot.phase === "lobby" ? "開始" : "もう一度プレイ";
     startButton.disabled = !isOwner || !snapshot.allReady;
-    menuStatus.textContent = snapshot.phase === "won" ? "防衛成功"
-        : snapshot.phase === "lost" ? "防衛失敗"
+    menuStatus.textContent = snapshot.phase === "won" ? `防衛成功 · TIME ${formatMatchTime(snapshot.elapsedSeconds)}`
+        : snapshot.phase === "lost" ? `防衛失敗 · TIME ${formatMatchTime(snapshot.elapsedSeconds)}`
             : "";
 }
 
@@ -683,10 +684,11 @@ function hideScreenIntro() {
     roundIntro.classList.remove("show");
 }
 
-function showScreenIntro(text, delay = 0) {
+function showScreenIntro(text, delay = 0, detail = "") {
     hideScreenIntro();
     const show = () => {
         roundIntro.textContent = text;
+        roundIntro.dataset.detail = detail;
         void roundIntro.offsetWidth;
         roundIntro.classList.add("show");
         roundIntroTimer = setTimeout(() => roundIntro.classList.remove("show"), 2400);
@@ -838,7 +840,7 @@ function beginJobHold() {
             if (getMe()?.drone?.active) send("DRONE_RECOVER");
             else openDroneLaunch();
         }, 500);
-    } else if (["healer", "tank", "spy", "tp"].includes(me.job)) {
+    } else if (["healer", "spy", "tp"].includes(me.job)) {
         hold.used = true;
         send("JOB_ABILITY");
     }
@@ -1003,6 +1005,9 @@ function updateSecondaryHud(me) {
     panel.classList.toggle("hidden", me.job !== "attacker" || Boolean(me.drone?.controlled));
     if (me.job !== "attacker") return;
     const weapon = me.secondaryWeapon || "bat";
+    document.querySelector("#secondary-icon").className = `weapon-icon ${weapon}`;
+    const progress = 1 - Math.min(1, (me.secondaryCooldown || 0) / Math.max(.01, me.secondaryCooldownMax || me.secondaryCooldown || .01));
+    panel.style.setProperty("--cooldown-progress", `${progress * 100}%`);
     document.querySelector("#secondary-name").textContent = WeaponUI.name(weapon, WEAPON_FIELDS);
     document.querySelector("#secondary-ammo").textContent = ammoForWeapon(me, weapon);
     document.querySelector("#secondary-cooldown").textContent = WeaponUI.cooldownLabel(
@@ -1692,6 +1697,15 @@ function requestScoutDash(point) {
     send(`SCOUT_DASH:${point.x.toFixed(1)}:${point.y.toFixed(1)}`);
 }
 
+function requestTankWall() {
+    const me = getMe();
+    if (!me || me.job !== "tank" || !["preparing", "wave"].includes(state?.phase)
+            || me.down || me.movingCore || me.selectedBuild || me.jobCooldown > 0 || exitDialog.open
+            || !howToMenu.classList.contains("hidden") || !inventoryMenu.classList.contains("hidden")
+            || !actionMenu.classList.contains("hidden")) return;
+    send("TANK_WALL");
+}
+
 // Mouse down also fires when the left button is held, allowing a dash while shooting.
 canvas.addEventListener("mousedown", event => {
     if (!state || !getMe()) return;
@@ -1710,6 +1724,7 @@ canvas.addEventListener("mousedown", event => {
         secondaryHeld = true;
         send(`SECONDARY_FIRE:${p.x.toFixed(1)}:${p.y.toFixed(1)}:1`);
     } else {
+        requestTankWall();
         requestScoutDash(worldFromScreen(event.clientX, event.clientY));
         requestDecoy(worldFromScreen(event.clientX, event.clientY));
     }

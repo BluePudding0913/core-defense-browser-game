@@ -39,6 +39,7 @@ interface GameEventSink {
 final class GameSession {
     private static final double BOT_REACTION_SECONDS = 1.5;
     int roundEnemyTotal;
+    double elapsedSeconds;
     private boolean explosionBossSpawned;
     private boolean wardenSpawned;
 
@@ -264,7 +265,8 @@ final class GameSession {
             }
             case "MISSILE" -> { if (parts.length >= 3) launchMissile(player, Double.parseDouble(parts[1]), Double.parseDouble(parts[2])); }
             case "JOB" -> { if (parts.length >= 2) selectJob(player, parts[1]); }
-            case "JOB_ABILITY" -> useJobAbility(player);
+            case "JOB_ABILITY" -> { if (!player.job.equals("tank")) useJobAbility(player); }
+            case "TANK_WALL" -> { if (player.job.equals("tank")) useJobAbility(player); }
             case "DECOY" -> { if (parts.length >= 3) launchDecoy(player, Double.parseDouble(parts[1]), Double.parseDouble(parts[2])); }
             case "DRONE_RECOVER" -> recoverDrone(player);
             case "DRONE_SELF_DESTRUCT" -> selfDestructDrone(player);
@@ -355,6 +357,7 @@ final class GameSession {
             }
         }
         if (phase == GamePhase.LOBBY || phase == GamePhase.WON || phase == GamePhase.LOST) return;
+        elapsedSeconds += dt;
 
         updateBots(dt);
         updatePlayers(dt);
@@ -867,7 +870,11 @@ final class GameSession {
             return;
         }
         int reward = (int) Math.round((18 + round * 3) * GameConfig.goldMultiplier(round));
-        players.forEach(player -> player.credits += reward);
+        players.forEach(player -> {
+            var payout = GoldRewardRules.payout(reward, null, false, player.goldRewardRemainder, player.job);
+            player.credits += payout.credits();
+            player.goldRewardRemainder = payout.remainder();
+        });
         phase = GamePhase.PREPARING;
         prepTime = GameConfig.prepSeconds(round + 1) + nextPrepBonusSeconds;
         nextPrepBonusSeconds = 0;
@@ -3231,6 +3238,7 @@ final class GameSession {
     }
 
     private void resetWorld() {
+        elapsedSeconds = 0;
         explosionBossSpawned = false;
         wardenSpawned = false;
         roundEnemyTotal = 0;

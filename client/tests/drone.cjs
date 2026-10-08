@@ -11,7 +11,7 @@ function extract(name) {
 const me = { id: 'self', x: 1140, y: 1900, droneRecoveryRange: 45, drone: { active: true, controlled: true, x: 1300, y: 1900, hp: 45, maxHp: 45 } };
 let cameraUsesDrone = false, droneBodies = 0;
 const context = vm.createContext({
-    window: {}, BREAKER_TERMINALS: [], getMe: () => me, state: { phase: 'wave', players: [me] }, myPlayerId: 'self',
+    window: {}, placementSelection: () => null, BREAKER_TERMINALS: [], getMe: () => me, state: { phase: 'wave', players: [me] }, myPlayerId: 'self',
     predictedLocal: { x: 1200, y: 1900, dashing: true }, smoothed: new Map(),
     smoothEntity: (kind, p) => { cameraUsesDrone ||= kind === 'drone'; return p; },
     camera: { x: 1140, y: 1900 }, scale: 1, WORLD: { width: 4000, height: 4000 },
