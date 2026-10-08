@@ -58,6 +58,8 @@ final class GameConfig {
             "wire", Map.of("wood", 2, "ore", 4),
             "mine", Map.of("wood", 1, "ore", 5),
             "barricade", Map.of("wood", 6, "ore", 2),
+            "copperBarricade", Map.of("wood", 6, "ore", 4, "copper", 4),
+            "silverBarricade", Map.of("wood", 6, "ore", 6, "copper", 4, "silver", 4),
             "copperTurret", Map.of("wood", 4, "ore", 6, "copper", 5),
             "silverTurret", Map.of("wood", 4, "ore", 8, "copper", 4, "silver", 8));
 
