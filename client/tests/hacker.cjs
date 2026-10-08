@@ -40,6 +40,8 @@ assert.equal(cooldown.textContent,'9.8s');
 me.missileCooldown=0;click({clientX:500,clientY:250});assert.equal(sent.pop(),'MISSILE:1040.0:1040.0','zero gold still allows targeting');
 keydown({key:'r',repeat:true,stopPropagation(){},preventDefault(){}});assert.equal(sent.length,0);
 keydown({key:'r',repeat:false,stopPropagation(){},preventDefault(){}});assert.equal(sent.pop(),'COMPUTER');
+keydown({key:'E',repeat:false,stopPropagation(){},preventDefault(){}});assert.equal(sent.pop(),'COMPUTER');
+keydown({key:'e',repeat:true,stopPropagation(){},preventDefault(){}});assert.equal(sent.length,0);
 me.breakerControl=map.breakerTerminals[0].id; markers=[];
 me.missileCooldown=4;
 window.TerminalUI.update(state,me,{map,send:cmd=>sent.push(cmd)});

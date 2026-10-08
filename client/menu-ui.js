@@ -104,6 +104,7 @@ function mountMenu() {
         phrase: "",
         refreshResume() { if (view === "home") render(); },
         settingsOpen() { return inGameSettings; },
+        closeSettings() { if (inGameSettings) closeGameSettings(); },
         openSettings(onClose) {
             if (!snapshot || !["preparing", "wave"].includes(snapshot.phase)) return;
             inGameSettings = true; settingsReturn = onClose; renderedView = null;
@@ -147,13 +148,24 @@ function mountMenu() {
         if (view === "settings" && event.target.name === "volume") window.coreAudio.play("pistol");
     });
     root.addEventListener("keydown", event => {
+        const key = window.coreKeySettings.gameKey(event);
+        const typing = event.target.isContentEditable || event.target.tagName === "TEXTAREA"
+            || event.target.tagName === "INPUT" && !event.target.readOnly
+                && !["range", "color", "button", "checkbox", "radio", "submit"].includes(event.target.type);
+        const closeKey = key === "escape" || key === "e" && !typing && !event.ctrlKey && !event.altKey && !event.metaKey;
         if (inGameSettings) {
             event.stopPropagation();
-            if (event.key === "Escape") { event.preventDefault(); closeGameSettings(); return; }
+            if (closeKey) { event.preventDefault(); if (!event.repeat) closeGameSettings(); return; }
         }
-        if (event.key === "Escape" && jobOpen) {
-            setJobOpen(false);
+        if (closeKey && jobOpen) {
+            event.preventDefault(); event.stopPropagation();
+            if (!event.repeat) setJobOpen(false);
             root.querySelector('[data-action="toggle-job"]')?.focus();
+            return;
+        }
+        if (closeKey && ["settings", "create", "search"].includes(view)) {
+            event.preventDefault(); event.stopPropagation();
+            if (!event.repeat) go("home");
             return;
         }
         if (view !== "settings" || !["medkit-key", "job-effect-key"].includes(event.target.name)) return;
@@ -162,7 +174,6 @@ function mountMenu() {
         if (event.repeat || event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return;
         const settings = window.coreKeySettings;
         const job = event.target.name === "job-effect-key";
-        const key = settings.gameKey(event);
         const saved = job ? settings.setJobEffect(key) : settings.setMedkit(key);
         event.target.value = (job ? settings.getJobEffect() : settings.getMedkit()).toUpperCase();
         root.querySelector(job ? "#job-effect-key-status" : "#medkit-key-status").textContent = saved ? "保存しました" : "このキーは使用できません";

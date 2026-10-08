@@ -43,6 +43,11 @@ key('keydown', { key: 'w', code: 'KeyW' });
 key('keydown', { key: 'r', code: 'KeyR' });
 assert.equal(commands.length, settingsCommandCount, 'in-game settings block movement and interaction');
 context.window.coreMenu.settingsOpen = () => false;
+let settingsClosed=0;
+context.window.coreMenu.closeSettings=()=>settingsClosed++;
+context.window.coreMenu.settingsOpen=()=>true;
+key('keydown',{code:'KeyE'});assert.equal(settingsClosed,1,'E also closes unfocused game settings');
+context.window.coreMenu.settingsOpen=()=>false;
 let focused = false, captured = false;
 context.canvas = {
     addEventListener: (type, handler) => { handlers[type] = handler; },
@@ -70,3 +75,18 @@ assert(!commands.some(c => c.startsWith('JOB_')), 'old key is released after rem
 commands.length = 0;
 key('keydown', {code: 'KeyG'}); key('keyup', {code: 'KeyG'});
 assert.deepEqual(commands, ['JOB_BEGIN', 'JOB_END']);
+let shopOpen = true, mapOpen = false;
+context.actionMenu = {classList:{contains:()=>!shopOpen}};
+context.closeActionMenu = () => {shopOpen=false;commands.push('CLOSE_SHOP');};
+context.toggleInventory = () => commands.push('TOGGLE_INVENTORY');
+context.getMe = () => ({missileControl:mapOpen});
+commands.length=0;
+key('keydown',{code:'KeyE'});assert.deepEqual(commands,['CLOSE_SHOP'],'E closes a shop without opening inventory');
+key('keydown',{code:'KeyE',repeat:true});assert.equal(commands.length,1,'held E does not open another UI');
+key('keydown',{code:'KeyE'});assert.equal(commands.at(-1),'TOGGLE_INVENTORY');
+mapOpen=true;key('keydown',{code:'KeyE'});assert.equal(commands.at(-1),'COMPUTER','unfocused map also closes with E');
+mapOpen=false;context.exitDialog.open=true;
+context.exitDialog.close=value=>{assert.equal(value,'cancel');context.exitDialog.open=false;commands.push('CANCEL_EXIT');};
+key('keydown',{code:'KeyE'});assert.equal(commands.at(-1),'CANCEL_EXIT');
+const beforeTyping=commands.length;
+key('keydown',{code:'KeyE',target:new HTMLInputElement()});assert.equal(commands.length,beforeTyping);

@@ -1853,9 +1853,18 @@ function isTypingTarget(target) {
 }
 
 window.addEventListener("keydown", event => {
-    if (exitDialog.open || window.coreMenu?.settingsOpen?.()) return;
+    if (window.coreMenu?.settingsOpen?.()) {
+        if (window.coreKeySettings.gameKey(event) === "e" && !isTypingTarget(event.target)) {
+            event.preventDefault(); if (!event.repeat) window.coreMenu.closeSettings?.();
+        }
+        return;
+    }
     if (isTypingTarget(event.target)) return;
     const key = window.coreKeySettings.gameKey(event);
+    if (exitDialog.open) {
+        if (key === "e") { event.preventDefault(); if (!event.repeat) exitDialog.close("cancel"); }
+        return;
+    }
     if (!howToMenu.classList.contains("hidden")) {
         if (["escape", "e"].includes(key)) closeHowTo();
         event.preventDefault();
@@ -1887,7 +1896,11 @@ window.addEventListener("keydown", event => {
     }
     if (key === "e") {
         event.preventDefault();
-        if (!event.repeat) toggleInventory();
+        if (!event.repeat) {
+            if (getMe()?.missileControl) send("COMPUTER");
+            else if (!actionMenu.classList.contains("hidden")) closeActionMenu();
+            else toggleInventory();
+        }
         return;
     }
     if (key === "r") {
@@ -2599,7 +2612,7 @@ function drawDroppedResources() {
         ctx.fillStyle = "#fff";
         ctx.font = "900 10px ui-monospace, monospace";
         ctx.textAlign = "center";
-        ctx.fillText(`${drop.type.toUpperCase()} ×${drop.amount}`, 0, -18);
+        ctx.fillText(drop.type.toUpperCase(), 0, -18);
         if (drop.pickupDelay > 0) {
             ctx.fillStyle = "rgb(255 255 255 / 68%)";
             ctx.font = "850 8px ui-monospace, monospace";
