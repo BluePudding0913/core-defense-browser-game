@@ -14,6 +14,22 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class GameMapTest {
+    @Test void sniperRoomExpansionOpensWithItsRoomAndKeepsTheHeavyArmsCorridorSeparate() {
+        UnlockArea sniper = GameMap.areaById("sniper-room");
+        assertEquals(32, sniper.tiles().size());
+        var added = new java.util.ArrayList<AreaTile>();
+        for (int row = 12; row <= 15; row++) added.add(new AreaTile(8, row));
+        for (int row = 16; row <= 17; row++) for (int col = 2; col <= 3; col++) added.add(new AreaTile(col, row));
+        for (AreaTile tile : added) {
+            assertTrue(sniper.tiles().contains(tile));
+            double x = tile.column() * GameMap.TILE_SIZE + 20, y = tile.row() * GameMap.TILE_SIZE + 20;
+            assertFalse(GameMap.canOccupy(x, y, 5, Set.of()));
+            assertTrue(GameMap.canOccupy(x, y, 17, Set.of(sniper.id())));
+        }
+        assertFalse(GameMap.canOccupy(220, 660, 5, Set.of(sniper.id())));
+        assertTrue(GameMap.areaById("heavy-arms-area").tiles().contains(new AreaTile(5, 16)));
+    }
+
     @Test void forestEntryFloorIsBuildableButResourceRespawnTilesRemainReserved() {
         var allAreas = GameMap.AREAS.stream().map(UnlockArea::id).collect(Collectors.toSet());
         assertTrue(GameMap.canPlaceDefense(1660, 700, allAreas));
