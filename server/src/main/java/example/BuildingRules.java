@@ -33,9 +33,14 @@ final class BuildingRules {
     }
 
     static RepairPlan repair(String type, double hp, double maxHp, Materials materials) {
-        String resource = METAL_DEFENSES.contains(type) ? "ore" : "wood";
+        String resource = type.equals("copperBarricade") ? "copper" : type.equals("silverBarricade") ? "silver"
+                : METAL_DEFENSES.contains(type) ? "ore" : "wood";
         return new RepairPlan(hp >= maxHp ? RepairStatus.FULL
                 : materials.count(resource) < 1 ? RepairStatus.MISSING_MATERIAL : RepairStatus.READY, resource);
+    }
+
+    static boolean blocksMovement(String type) {
+        return Set.of("block", "barricade", "copperBarricade", "silverBarricade").contains(type);
     }
 
     static boolean canPlaceDefense(MapPoint point, boolean terrainAllowed, PlacementState state, TrapSlot ignored) {

@@ -59,10 +59,10 @@ assert.equal(context.predictedLocal.x, 1100); assert.equal(context.predictedLoca
 context.dashRequested = false;
 context.WORLD = { width: 3000, height: 3000 };
 context.clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-me.staminaMax = 150; me.staminaRecovery = 40;
-context.predictedLocal.stamina = 145;
+me.staminaMax = 300; me.staminaRecovery = 40;
+context.predictedLocal.stamina = 295;
 vm.runInContext('updateLocalPrediction(1)', context);
-assert.equal(context.predictedLocal.stamina, 150, 'prediction uses the server stamina capacity above 100');
+assert.equal(context.predictedLocal.stamina, 300, 'prediction uses the server stamina capacity above 100');
 me.staminaMax = 100;
 vm.runInContext('updateLocalPrediction(1)', context);
 assert.equal(context.predictedLocal.stamina, 100, 'prediction respects a lower capacity after changing job');
