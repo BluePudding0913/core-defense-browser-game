@@ -720,7 +720,7 @@ final class GameSession {
             owner.weaponCooldownMaxima.remove(weapon);
             owner.drone.weapon = "";
             recallDrone(owner);
-            gameEffects.feedback(owner, "ドローン破壊 / 修復が必要");
+            gameEffects.feedback(owner, "ドローンが壊れました");
         }
     }
 
