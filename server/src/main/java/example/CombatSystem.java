@@ -33,6 +33,7 @@ final class CombatSystem {
     }
 
     void attackAt(Player player, double aimX, double aimY) {
+        if (JobRules.invulnerable(player)) return;
         if (DroneRules.controlling(player)) {
             attackDrone(player, aimX, aimY);
             return;
@@ -52,7 +53,7 @@ final class CombatSystem {
             }
             return;
         }
-        WeaponStats weapon = WeaponCatalog.stats(player.weapon);
+        WeaponStats weapon = JobRules.weaponStats(player.job, player.weapon);
         if (!player.weapons.consume(player.weapon)) {
             events.outOfAmmo(player);
             player.firing = false;
@@ -236,6 +237,7 @@ final class CombatSystem {
     }
 
     void updateRailgun(Player player, double dt) {
+        if (JobRules.invulnerable(player)) { player.stopRailgun(); return; }
         if (DroneRules.controlling(player) || DroneRules.mounted(player, player.weapon) || !player.weapon.equals("railgun") || !player.firing || player.down
                 || player.movingCore || player.selectedBuild != null || !world.canAttack()) {
             player.stopRailgun();

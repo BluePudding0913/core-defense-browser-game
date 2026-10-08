@@ -528,7 +528,7 @@ function acknowledgeInputs(value) {
 
 function applyRules(next) {
     if (next.rules) {
-        BUILD_INFO = { ...next.rules.recipes };
+        BUILD_INFO = { ...next.rules.recipes, teleporter: { name: "TP", shopOnly: true } };
         SHOP_UNITS.filter(shop => shop.item.endsWith("Factory")).forEach(shop => {
             BUILD_INFO[shop.item] = { name: shop.label, description: "持ち運べる製造装置", shopOnly: true };
         });
@@ -774,7 +774,6 @@ function equipmentEntries(me) {
     const entries = WeaponUI.entries(me, WEAPON_FIELDS)
         .filter(entry => !(me.drone?.active && entry.value === me.drone.weapon));
     for (const [type, info] of Object.entries(BUILD_INFO)) {
-        if (type === "teleporter") continue;
         if ((me.buildItems?.[type] || 0) > 0) entries.push({ key: `build:${type}`, kind: "build", value: type, label: info.name });
     }
     if (me.movingCore) entries.push({ key: "core", kind: "core", value: "core", label: "CORE" });
@@ -867,6 +866,10 @@ function beginInteractionHold() {
     interactionHold = hold;
     if (interaction?.kind === "teleporter" && actionMenu.classList.contains("hidden") && !placementSelection(getMe())) {
         hold.interaction = interaction;
+        if (interaction.owned) hold.timer = setTimeout(() => {
+            hold.used = true;
+            send(`PICKUP_TELEPORT:${interaction.target.x}:${interaction.target.y}`);
+        }, 500);
     } else if (target && actionMenu.classList.contains("hidden") && !placementSelection(getMe())) {
         hold.timer = setTimeout(() => {
             hold.used = true;
@@ -990,7 +993,7 @@ function updateHud() {
         const placing = Boolean(placementSelection(me));
         const interaction = findNearestInteraction();
         interactLabel.textContent = placing ? "PLACE" : interaction?.kind === "teleporter"
-            ? "TP" : ["core", "defense"].includes(interaction?.kind) ? "長押しで運搬" : "INTERACT";
+            ? interaction.owned ? "TP / 長押しで回収" : "TP" : ["core", "defense"].includes(interaction?.kind) ? "長押しで運搬" : "INTERACT";
         interactButton.classList.toggle("hidden", !placing && !interaction);
     }
 }
@@ -1096,7 +1099,7 @@ function updateInventory(me) {
         button.querySelector("span").textContent = entry.kind === "build" ? `×${me.buildItems[entry.value]}`
             : entry.kind === "item" ? `×${me.medkits} · 使用する`
             : entry.kind === "core" ? ""
-                : WEAPON_FIELDS[entry.value]?.capacity > 0 ? `${ammoForWeapon(me, entry.value)} / ${WEAPON_FIELDS[entry.value].capacity}`
+                : WEAPON_FIELDS[entry.value]?.capacity > 0 ? `${ammoForWeapon(me, entry.value)} / ${WeaponUI.capacity(me, WEAPON_FIELDS[entry.value])}`
                     : entry.value === "pistol" ? "∞" : "";
     });
     if (me.job === "attacker") {
@@ -1105,7 +1108,7 @@ function updateInventory(me) {
         sub.querySelector("strong").textContent = WeaponUI.name(me.secondaryWeapon || "bat", WEAPON_FIELDS);
         const definition = WEAPON_FIELDS[me.secondaryWeapon];
         sub.querySelector("span").textContent = WeaponUI.ammo(me, me.secondaryWeapon || "bat", WEAPON_FIELDS)
-            + (definition?.capacity > 0 ? ` / ${definition.capacity}` : "");
+            + (definition?.capacity > 0 ? ` / ${WeaponUI.capacity(me, definition)}` : "");
     } else {
         const sub = inventoryItems.querySelector(".inventory-sub");
         if (sub) sub.hidden = true;
@@ -1549,8 +1552,8 @@ function openShopPurchase(shop, chooseExchange = false) {
     const ownedWeapons = WeaponUI.ownedAmmoWeapons(me, WEAPON_FIELDS)
         .filter(fields => fields !== WEAPON_FIELDS[mountedWeapon]);
     const ammoFull = shop.item === "ammo" ? ownedWeapons.length > 0
-        && ownedWeapons.every(fields => me[fields.ammo] >= fields.capacity)
-        : alreadyOwned && ammo >= weaponFields.capacity;
+        && ownedWeapons.every(fields => me[fields.ammo] >= WeaponUI.capacity(me, fields))
+        : alreadyOwned && ammo >= WeaponUI.capacity(me, weaponFields);
     const price = alreadyOwned ? weaponFields.refillCost ?? WEAPON_AMMO_REFILL_COST : shop.cost;
     const unavailable = shop.item === "ammo" && ownedWeapons.length === 0;
     const weaponLimitReached = weaponFields && !alreadyOwned
@@ -1568,7 +1571,7 @@ function openShopPurchase(shop, chooseExchange = false) {
         label: mounted ? "DRONE" : ammoFull ? "FULL" : alreadyOwned || shop.item === "ammo" && !unavailable ? "REFILL"
             : unavailable ? "LOCKED" : "BUY",
         detail: `${price}G`,
-        titleAmmo: alreadyOwned && weaponFields.capacity > 0 ? `${ammo} / ${weaponFields.capacity}` : "",
+        titleAmmo: alreadyOwned && weaponFields.capacity > 0 ? `${ammo} / ${WeaponUI.capacity(me, weaponFields)}` : "",
         stock: shop.item === "ammo" ? WeaponUI.ammoStock(me, WEAPON_FIELDS) : "",
         command: weaponLimitReached ? undefined : `BUY:${shop.item}`,
         onSelect: weaponLimitReached ? () => openShopPurchase(shop, true) : undefined,
@@ -1769,6 +1772,7 @@ canvas.addEventListener("mousemove", event => {
 canvas.addEventListener("contextmenu", event => event.preventDefault());
 
 function startFiring(pointerId, clientX, clientY) {
+    if (getMe()?.tpInvulnerableRemaining > 0) return;
     if (getMe()?.selectedBuild || getMe()?.missileControl) return;
     if (getMe()?.movingCore) {
         showFeedback("CORE運搬中は武器を使用できません");
@@ -1781,7 +1785,7 @@ function startFiring(pointerId, clientX, clientY) {
 
 function updateFiringAim(clientX, clientY) {
     if (!firingPointer) return;
-    if (getMe()?.movingCore || getMe()?.selectedBuild) {
+    if (getMe()?.tpInvulnerableRemaining > 0 || getMe()?.movingCore || getMe()?.selectedBuild) {
         firingPointer = null;
         return;
     }
@@ -1801,6 +1805,7 @@ function stopFiring(clientX, clientY) {
 }
 
 function fireOnce(clientX, clientY) {
+    if (getMe()?.tpInvulnerableRemaining > 0) return;
     if (getMe()?.selectedBuild) return;
     if (getMe()?.movingCore) {
         showFeedback("CORE運搬中は武器を使用できません");
@@ -1945,6 +1950,9 @@ function findNearestInteraction() {
     const me = getMe();
     if (me?.missileControl) return null;
     if (!me || me.down || !state || !["preparing", "wave"].includes(state.phase)) return null;
+    if (placementSelection(me)?.type === "teleporter") {
+        return { kind: "placement", target: frontPlacementTile(me), label: "PLACE", action: placeSelectedInFront };
+    }
     if (me.drone?.controlled) {
         const tripped = new Set(state.trippedBreakers || []);
         const breaker = BREAKER_TERMINALS.filter(target => state.blackoutActive && tripped.has(target.id)
@@ -1958,7 +1966,7 @@ function findNearestInteraction() {
         for (const pad of owner.teleportPads || []) {
             const separation = distance(me, pad);
             const owned = owner.id === me.id && me.job === "tp";
-            if (owner.teleportPads.length !== 2 || separation > 45 || !hasInteractionPath(me, pad)) continue;
+            if ((!owned && owner.teleportPads.length !== 2) || separation > 45 || !hasInteractionPath(me, pad)) continue;
             choices.push({ kind: "teleporter", target: pad, owned, separation,
                 action: () => { if (owner.teleportPads.length === 2) send("TELEPORT"); } });
         }
@@ -2018,6 +2026,12 @@ function useNearestInteraction() {
 }
 
 function toggleNearestInteraction() {
+    if (placementSelection(getMe())?.type === "teleporter") {
+        closeActionMenu();
+        inventoryMenu.classList.add("hidden");
+        placeSelectedInFront();
+        return;
+    }
     if (!actionMenu.classList.contains("hidden")) {
         closeActionMenu();
         return;
@@ -2853,6 +2867,10 @@ function drawPlayers() {
             ctx.strokeStyle = "#7acba822";
             ctx.beginPath(); ctx.arc(p.x, p.y, player.tankAuraRadius, 0, Math.PI * 2); ctx.stroke();
             ctx.restore();
+        }
+        if (player.tpInvulnerableRemaining > 0 && !player.down) {
+            ctx.save(); ctx.strokeStyle = "#aa83ff"; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(p.x, p.y, 24, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
         }
         const rescuers = state.players.filter(worker => worker.action === player.id);
         if (player.down && rescuers.length && (player.id === myPlayerId || rescuers.some(worker => worker.id === myPlayerId))) drawReviveEffect(p.x, p.y, Math.max(...rescuers.map(worker => worker.actionProgress / (worker.reviveSeconds ?? 4))));

@@ -178,6 +178,7 @@ final class GameSession {
                 assigned.job = JobRules.DEFAULT;
                 assigned.hp = Math.min(assigned.hp, JobRules.maxHp(assigned.job));
                 assigned.decoyCooldown = 0;
+                assigned.tpInvulnerableRemaining = 0;
                 String assignedId = assigned.id;
                 decoys.removeIf(decoy -> decoy.ownerId.equals(assignedId));
                 assigned.stamina = Math.min(assigned.stamina, JobRules.staminaMax(assigned.job));
@@ -330,6 +331,7 @@ final class GameSession {
                 player.missileControl = false; player.breakerControl = null;
             }
             player.spyRemaining = Math.max(0, player.spyRemaining - dt);
+            player.tpInvulnerableRemaining = Math.max(0, player.tpInvulnerableRemaining - dt);
             player.decoyCooldown = Math.max(0, player.decoyCooldown - dt);
             double previousJobCooldown = player.jobCooldown;
             player.jobCooldown = Math.max(0, player.jobCooldown - dt);
@@ -459,6 +461,8 @@ final class GameSession {
         player.secondaryWeaponCooldowns.clear(); player.secondaryWeaponCooldownMaxima.clear();
         player.secondaryCooldown = player.secondaryCooldownMax = player.healRemaining = 0;
         player.job = job;
+        player.tpInvulnerableRemaining = 0;
+        player.weapons.clampAmmoToCapacity();
         player.ensureDistinctWeapons();
         player.hp = player.down ? 0 : Math.min(JobRules.maxHp(job), player.hp * JobRules.maxHp(job) / previousMaxHp);
         player.decoyCooldown = 0;
@@ -510,27 +514,30 @@ final class GameSession {
     private void useJobAbility(Player player) {
         if (!canMove() || player.down || player.movingCore) return;
         if (player.job.equals("tp")) {
-            MapPoint nearby = player.teleportPads.stream().filter(pad -> distance(player.x, player.y, pad.x(), pad.y()) <= 45
-                    && hasInteractionPath(player.x, player.y, pad.x(), pad.y()))
-                    .min(java.util.Comparator.comparingDouble(pad -> distance(player.x, player.y, pad.x(), pad.y()))).orElse(null);
-            if (nearby != null) pickupTeleport(player, nearby);
-            else placeTeleport(player, frontPlacementPoint(player));
+            if (player.jobCooldown > 0) return;
+            player.firing = player.secondaryFiring = false;
+            player.stopRailgun(); player.stopSecondaryRailgun();
+            player.tpInvulnerableRemaining = JobRules.TP_INVULNERABLE_DURATION;
+            player.jobCooldown = JobRules.TP_INVULNERABLE_COOLDOWN;
+            gameEffects.sound(player, "item-use", "build");
             return;
         }
         if (player.job.equals("tank")) {
             if (player.selectedBuild != null || player.jobCooldown > 0) return;
-            MapPoint origin = GameMap.snapToTile(player.x, player.y);
-            MapPoint point = GameMap.snapToTile(origin.x() + player.facingX * GameMap.TILE_SIZE,
-                    origin.y() + player.facingY * GameMap.TILE_SIZE);
-            if (!canPlaceDefenseAt(point, null)) {
+            List<MapPoint> points = JobRules.tankWallPlacements(player.x, player.y, player.facingX, player.facingY)
+                    .stream().filter(candidate -> candidate.stream().allMatch(point -> canPlaceDefenseAt(point, null)))
+                    .findFirst().orElse(null);
+            if (points == null) {
                 gameEffects.feedback(player, "ここには設置できません");
                 return;
             }
-            TrapSlot wall = new TrapSlot("tank-wall-" + nextDefenseId++, "free", point.x(), point.y(), null);
-            wall.ownerId = player.id;
-            wall.defense = new Defense("barricade");
-            wall.temporaryRemaining = JobRules.TANK_WALL_DURATION;
-            trapSlots.add(wall);
+            for (MapPoint point : points) {
+                TrapSlot wall = new TrapSlot("tank-wall-" + nextDefenseId++, "free", point.x(), point.y(), null);
+                wall.ownerId = player.id;
+                wall.defense = new Defense("barricade", JobRules.TANK_WALL_HP);
+                wall.temporaryRemaining = JobRules.TANK_WALL_DURATION;
+                trapSlots.add(wall);
+            }
             player.jobCooldown = JobRules.TANK_WALL_COOLDOWN;
             gameEffects.sound(player, "item-use", "build");
             return;
@@ -738,9 +745,10 @@ final class GameSession {
             owner.healRemaining = Math.max(0, owner.healRemaining - dt);
             if (activeTime <= 0) continue;
             for (Player target : players) {
-                if (!target.down && JobRules.insideHealingArea(target.x, target.y, owner.healX, owner.healY)
-                        && GameMap.hasClearLine(owner.healX, owner.healY, target.x, target.y, unlockedAreas))
-                    target.hp = Math.min(JobRules.maxHp(target.job), target.hp + JobRules.HEAL_PER_SECOND * activeTime);
+                if (!JobRules.insideHealingArea(target.x, target.y, owner.healX, owner.healY)
+                        || !GameMap.hasClearLine(owner.healX, owner.healY, target.x, target.y, unlockedAreas)) continue;
+                if (target.down) revivePlayer(target);
+                else target.hp = Math.min(JobRules.maxHp(target.job), target.hp + JobRules.HEAL_PER_SECOND * activeTime);
             }
         }
     }
@@ -763,7 +771,7 @@ final class GameSession {
         double y = Double.parseDouble(parts[2]);
         if (!Double.isFinite(x) || !Double.isFinite(y)) return;
         boolean active = parts[3].equals("1") || parts[3].equalsIgnoreCase("true");
-        if (player.movingCore || player.selectedBuild != null && !DroneRules.controlling(player)) {
+        if (JobRules.invulnerable(player) || player.movingCore || player.selectedBuild != null && !DroneRules.controlling(player)) {
             player.firing = player.secondaryFiring = false;
             return;
         }
@@ -1008,14 +1016,21 @@ final class GameSession {
             }
             player.actionProgress += dt;
             if (player.actionProgress >= JobRules.reviveSeconds(player.job)) {
-                target.down = false;
-                target.hp = 45;
-                target.moveX = 0;
-                target.moveY = 0;
+                revivePlayer(target);
                 cancelAction(player);
-                setNotice(target.name + "が復帰しました");
             }
         }
+    }
+
+    private void revivePlayer(Player target) {
+        target.down = false;
+        target.hp = 45;
+        target.moveX = target.moveY = 0;
+        cancelAction(target);
+        for (Player rescuer : players) {
+            if (target.id.equals(rescuer.actionTarget)) cancelAction(rescuer);
+        }
+        setNotice(target.name + "が復帰しました");
     }
 
     private void updateFactories(double dt) {
@@ -2337,7 +2352,7 @@ final class GameSession {
             if (shop == null || !isPointUnlocked(shop.x(), shop.y())
                     || bot.credits < (owned ? ammoRefillCost() : shop.cost())) continue;
             if (DroneRules.mounted(bot, item)) continue;
-            if (owned ? weaponAmmo(bot, item) > weaponAmmoCapacity(item) * (phase == GamePhase.PREPARING ? .5 : .25)
+            if (owned ? weaponAmmo(bot, item) > bot.weapons.capacity(item) * (phase == GamePhase.PREPARING ? .5 : .25)
                     : !BotWeaponPolicy.worthwhileUpgrade(bot, item)) continue;
             return botUse(bot, shop.x(), shop.y(), 55, () -> buy(bot, item));
         }
@@ -2584,11 +2599,11 @@ final class GameSession {
                     gameEffects.feedback(player, "弾薬を使う武器を持っていません");
                     return;
                 }
-                if (owned.stream().allMatch(weapon -> weaponAmmo(player, weapon) >= weaponAmmoCapacity(weapon))) {
+                if (owned.stream().allMatch(weapon -> weaponAmmo(player, weapon) >= player.weapons.capacity(weapon))) {
                     return;
                 }
                 if (spend(player, shop.cost())) {
-                    owned.forEach(weapon -> setWeaponAmmo(player, weapon, weaponAmmoCapacity(weapon)));
+                    owned.forEach(weapon -> setWeaponAmmo(player, weapon, player.weapons.capacity(weapon)));
                     gameEffects.feedback(player, "弾薬を補充しました");
                     events.send(player, "{\"type\":\"ammo-refilled\"}");
                 } else {
@@ -2605,7 +2620,7 @@ final class GameSession {
             return;
         }
         if (player.weapons.owns(item)) {
-            int capacity = weaponAmmoCapacity(item);
+            int capacity = player.weapons.capacity(item);
             if (weaponAmmo(player, item) >= capacity) {
                 return;
             }
@@ -3183,7 +3198,7 @@ final class GameSession {
     }
 
     private void damagePlayer(Player player, double damage) {
-        if (player.down || damage <= 0) return;
+        if (player.down || JobRules.invulnerable(player) || damage <= 0) return;
         if (JobRules.protectedByTank(player, players,
                 (target, tank) -> GameMap.hasClearLine(target.x, target.y, tank.x, tank.y, unlockedAreas)))
             damage *= JobRules.TANK_DAMAGE_FACTOR;
@@ -3284,6 +3299,7 @@ final class GameSession {
             player.secondaryCooldown = player.secondaryCooldownMax = player.healRemaining = 0;
             player.jobCooldown = 0;
             player.teleportCooldown = 0;
+            player.tpInvulnerableRemaining = 0;
             player.teleportPads.clear();
             player.equipWeapon("pistol");
             player.weaponCooldowns.clear();

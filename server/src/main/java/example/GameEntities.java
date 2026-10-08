@@ -37,6 +37,7 @@ final class Player {
     String breakerControl;
     double missileCooldown;
     double teleportCooldown;
+    double tpInvulnerableRemaining;
     final java.util.List<MapPoint> teleportPads = new java.util.ArrayList<>();
     String weapon = "pistol";
     double cooldown;
@@ -66,7 +67,7 @@ final class Player {
         railgunCharge = railgunRemaining = railgunTick = 0;
     }
 
-    final WeaponInventory weapons = new WeaponInventory();
+    final WeaponInventory weapons = new WeaponInventory(() -> job);
 
     double healRemaining, healX, healY;
     String secondaryWeapon = "bat";
@@ -357,8 +358,7 @@ final class Defense {
     double cooldown;
 
     Defense(String type) {
-        this.type = type;
-        this.maxHp = switch (type) {
+        this(type, switch (type) {
             case "block" -> 320;
             case "turret" -> 120;
             case "copperTurret" -> 220;
@@ -369,7 +369,12 @@ final class Defense {
             case "copperBarricade" -> 2400;
             case "silverBarricade" -> 4800;
             default -> 100;
-        };
+        });
+    }
+
+    Defense(String type, double maxHp) {
+        this.type = type;
+        this.maxHp = maxHp;
         this.hp = maxHp;
     }
 }
