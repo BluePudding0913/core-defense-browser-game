@@ -254,7 +254,7 @@ button, input { font: inherit; }
 .secondary-hud .weapon-cooldown, .secondary-hud .silver-ammo { font-size: .55rem; }
 .silver-ammo { width: fit-content; color: #d9f3ff; font: 800 .75rem ui-monospace, monospace; padding: .2rem .5rem; border: 1px solid #a1d7ef; border-radius: .25rem; background: rgb(121 216 255 / 16%); }
 .weapon.silver-active { border-color: #a1d7ef; }
-#job-cooldown { position: absolute; top: calc(100% + 1.15rem); left: 0; white-space: nowrap; color: #92b3c5; font: 700 .7rem ui-monospace, monospace; }
+#job-cooldown { position: absolute; top: calc(100% + 1.5rem); left: 0; white-space: nowrap; color: #92b3c5; font: 700 .7rem ui-monospace, monospace; }
 .inventory-sub[hidden], .silver-ammo[hidden] { display: none; }
 .inventory-sub .inventory-resource { display: flex; align-items: center; gap: .75rem; }
 .inventory-sub .inventory-resource span { margin-left: auto; }
@@ -448,7 +448,7 @@ button, input { font: inherit; }
     letter-spacing: .04em;
 }
 .action-menu.single-action .action-options button:disabled { opacity: 1; color: rgb(255 255 255 / 42%); }
-.action-menu.single-action .action-options button:disabled small { color: #fff; }
+.action-menu.single-action .action-options button:disabled small { color: inherit; }
 .action-menu.single-action .action-options button:hover:not(:disabled),
 .action-menu.single-action .action-options button:active:not(:disabled) { background: #fff; color: #111; }
 .action-menu.single-action .action-options button:hover:not(:disabled) small { color: #111; }
@@ -465,6 +465,7 @@ button, input { font: inherit; }
 }
 .action-options button:hover:not(:disabled) .action-stock,
 .action-options button:active:not(:disabled) .action-stock { color: #111; }
+.action-options button:disabled .action-stock { color: inherit; }
 
 .round-intro {
     position: fixed;
@@ -723,7 +724,7 @@ button, input { font: inherit; }
 .weapon-icon.flamethrower::before { left: .4rem; top: .7rem; width: 3.8rem; height: .8rem; background: #d88636; }
 .weapon-icon.flamethrower::after { left: 1rem; top: 1.5rem; width: 1rem; height: .9rem; background: #555; }
 
-#self-job { position: absolute; top: 100%; left: 0; white-space: nowrap; color: #cbd3d8; font-size: .75rem; }
+#self-job { position: absolute; top: 100%; left: 0; white-space: nowrap; color: #cbd3d8; font-size: 1rem; font-weight: 700; }
 .shop-ammo { color: #9ca6ad; font-size: .8em; font-weight: normal; margin-left: .45em; }
 .ammo-refill-row { display: block; margin-top: .25rem; font-size: .85rem; }
 

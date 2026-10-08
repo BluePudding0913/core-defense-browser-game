@@ -24,6 +24,19 @@ feedback.draw({save(){},restore(){},strokeText(){},fillText(text,x,y){texts.push
 assert.equal(texts.length, 1); assert.equal(texts[0].text, 'HS');
 assert.equal(texts[0].color, '#ff5964'); assert(texts[0].font.includes('9px'));
 feedback.reset(); assert.equal(feedback.layout(1800).length, 0);
+for (let now = 0; now <= 3000; now += 400) {
+    feedback.add(hit(2), now, 'me');
+    const active = feedback.layout(now);
+    assert.equal(active.length, 1, 'continuous hits never create duplicate labels above the same enemy');
+    assert.equal(active[0].credits, 2 * (now / 400 + 1));
+}
+feedback.reset();
+feedback.add(hit(2, 1), 0, 'me'); feedback.layout(0);
+feedback.add(hit(2, 2), 200, 'me'); feedback.layout(200);
+const beforeExpiry = feedback.layout(899).find(popup => popup.enemyId === 2).y;
+const afterExpiry = feedback.layout(901).find(popup => popup.enemyId === 2).y;
+assert(Math.abs(afterExpiry - beforeExpiry) < 1, 'an expired nearby label does not make another label jump');
+feedback.reset();
 const source = fs.readFileSync('client/app.js','utf8');
 const start = source.indexOf('if (message.type === "ammo-refilled")');
 const end = source.indexOf('\n        if (message.type === "error"',start);

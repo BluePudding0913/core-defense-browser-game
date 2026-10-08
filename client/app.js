@@ -862,7 +862,7 @@ function beginInteractionHold() {
         return;
     }
     const interaction = findNearestInteraction();
-    const target = ["core", "defense"].includes(interaction?.kind)
+    const target = ["core", "defense", "factory"].includes(interaction?.kind)
         ? interaction.kind === "core" ? "core" : interaction.target.id : null;
     const hold = { used: false, timer: null };
     interactionHold = hold;
