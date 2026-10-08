@@ -42,7 +42,7 @@ const context = vm.createContext({
     inventoryMenu: { classList: { add() {} } },
 });
 for (const name of ['openActionMenu', 'openNearbyActionMenu', 'closeActionMenu', 'openShopPurchase',
-    'openWorkbenchMenu', 'updateWorkbenchMaterials', 'receiveState']) {
+    'openWorkbenchMenu', 'updateWorkbenchMaterials', 'receiveState', 'openCoreMenu', 'option']) {
     vm.runInContext(extract(name), context);
 }
 const run = code => vm.runInContext(code, context);
@@ -134,7 +134,8 @@ assert(classes.has('hidden'), 'moving away still closes the shop');
 nearby = true;
 run('openNearbyActionMenu("CORE", [{label:"UPGRADE", command:"UPGRADE:hp"}], {x:0,y:0}, 100)');
 click();
-assert(classes.has('hidden'), 'other actions keep their existing close behavior');
+assert(!classes.has('hidden'), 'core upgrades keep the menu open');
+run('closeActionMenu()');
 run('openShopPurchase(shop); closeActionMenu()');
 assert.equal(context.activeMenuAccess, null);
 context.window.coreAudio = { play(name) { assert.equal(name, 'purchase'); } };
@@ -254,3 +255,17 @@ assert.equal(weaponUI.silverAmmoLabel(me, 'rocket', definitions), '');
 me.silverAmmo = 0;
 assert.equal(weaponUI.silverAmmoLabel(me, 'pistol', definitions), '');
 console.log('Shop/workbench menu passed: purchases/refills/crafts stay open, live availability, stable buttons, craft order, silver ammo and closing');
+
+context.state.core = {x:120,y:80,hp:1000,maxHp:1000,shield:0,maxShield:180,defense:0,regen:0};
+context.state.rules.coreCosts = {hp:100,shield:100,defense:100,regen:100};
+context.INTERACTION_RANGE.core = 130; me.credits = 200;
+run('openCoreMenu()');
+const coreButton = actionOptions.children[0];
+click(); assert.equal(commands.at(-1),'UPGRADE:hp'); assert(!classes.has('hidden'));
+assert.equal(context.activeMenuAccess.target.x,120);
+context.state.core.maxHp = 1250; me.credits = 0;
+context.activeMenuAccess.refresh();
+assert.equal(actionOptions.children[0],coreButton); assert(coreButton.disabled);
+assert(context.actionTitle.textContent.includes('1250'));
+actionOptions.children.at(-1).click();
+assert.equal(commands.at(-1),'EQUIP_CORE'); assert(classes.has('hidden'),'carry closes the core menu');
