@@ -14,6 +14,9 @@ TankのHP上限・防御エリア・標的優先は`JobRules`、スパイのデ�
 | ドローンの性能・操作状態・搭載可否・修復可否・回収範囲・敵対対象の判定 | `DroneRules` |
 | 所持品のドロップ数量・所持上限までの拾得数量 | `InventoryDropRules` |
 | CPUの武器選択 | `BotWeaponPolicy` |
+| CPUの緊急脅威・回復発動・退避先の評価 | `BotCombatRules` |
+
+CPUは武器の実射程・所持・残弾・個別クールタイム、敵HPと近くの敵数で選ぶ。低HPの近接と弱い単体への重火器を避け、コア直近の脅威を優先する。退避先は最も近い敵との距離と通行可能な経路を評価する。待機中はランダム移動を加えない。Healerの回復エリアとSpyの緊急偽装は人間と共通の能力処理、Attackerの両手とRailgunのチャージは共通のCombatSystemを使う。GameSessionが更新と行動を反映し、判断だけをBotWeaponPolicy・BotCombatRulesで検証する。補給は休憩中50%・戦闘中25%以下で検討し、所持上限内で火力か射程が増える武器だけ追加購入する。
 | 敵のCORE経路共有・局所的な進路選択・プレイヤーの視認間隔 | `EnemyNavigation` |
 | 建築・コア設置の重なり判定、製作・修理の素材判定 | `BuildingRules` |
 | 発射・照射・命中・敵へのダメージ・ノックバック | `CombatSystem` |

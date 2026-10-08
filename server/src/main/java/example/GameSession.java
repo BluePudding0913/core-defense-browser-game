@@ -320,7 +320,7 @@ final class GameSession {
             player.cooldown = Math.max(0, player.cooldown - dt);
             player.secondaryWeaponCooldowns.replaceAll((weapon, remaining) -> Math.max(0, remaining - dt));
             player.secondaryCooldown = Math.max(0, player.secondaryCooldown - dt);
-            if (player.secondaryFiring && canMove()) combat.attackSecondary(player, player.secondaryAimX, player.secondaryAimY);
+            if (player.human && player.secondaryFiring && canMove()) combat.attackSecondary(player, player.secondaryAimX, player.secondaryAimY);
             player.gatherCooldown = Math.max(0, player.gatherCooldown - dt);
             if (!player.secondaryFiring || player.down || player.movingCore || player.selectedBuild != null || !canMove()) {
                 player.stopSecondaryRailgun();
@@ -328,7 +328,7 @@ final class GameSession {
             if (!player.firing || player.down || player.movingCore || player.selectedBuild != null || !canMove()) {
                 player.stopRailgun();
             }
-            if (player.firing && (player.cooldown <= 0 || DroneRules.controlling(player)) && canMove()) {
+            if (player.human && player.firing && (player.cooldown <= 0 || DroneRules.controlling(player)) && canMove()) {
                 combat.attackAt(player, player.aimX, player.aimY);
             }
         }
@@ -1776,6 +1776,7 @@ final class GameSession {
     private void updateBots(double dt) {
         for (Player bot : players) {
             if (bot.human) continue;
+            bot.firing = bot.secondaryFiring = false;
             updateBotWander(bot, dt);
             bot.dashHeld = false;
             bot.botSpendCooldown = Math.max(0, bot.botSpendCooldown - dt);
@@ -1807,6 +1808,7 @@ final class GameSession {
                     && (distance(bot.x, bot.y, enemy.x, enemy.y) < 240
                     || distance(coreX, coreY, enemy.x, enemy.y) < 240));
             boolean personalDanger = enemies.stream().anyMatch(enemy -> enemy.hp>0 && distance(bot.x,bot.y,enemy.x,enemy.y)<240);
+            useBotJobAbility(bot, personalDanger);
             if (updateBotRecovery(bot, personalDanger, immediateDanger)) continue;
             if (!personalDanger && bot.hp > 55 && tryBotUnlock(bot)) continue;
             if (!immediateDanger && updateBotTasks(bot)) continue;
@@ -1919,12 +1921,13 @@ final class GameSession {
             default -> 70;
         };
         if (enemy.lane.equals(assignedLane(bot.slot, activeLanes))) score += 90;
-        if (GameMap.hasClearLine(bot.x, bot.y, enemy.x, enemy.y)) score += 75;
+        score += BotCombatRules.urgentThreatBonus(distance(enemy.x, enemy.y, coreX, coreY),
+                distance(bot.x, bot.y, enemy.x, enemy.y), GameMap.hasClearLine(bot.x, bot.y, enemy.x, enemy.y, unlockedAreas));
         score += (1 - enemy.hp / enemy.maxHp) * 55;
         score -= distance(bot.x, bot.y, enemy.x, enemy.y) * 0.34;
         long otherClaims = players.stream().filter(player -> player != bot && !player.human
-                && player.botTargetEnemyId == enemy.id).count();
-        score -= otherClaims * (enemy.isBoss() ? 35 : 145);
+                && !player.down && player.botTargetEnemyId == enemy.id).count();
+        score -= otherClaims * (enemy.isBoss() || distance(enemy.x, enemy.y, coreX, coreY) < 160 ? 35 : 145);
         return score;
     }
 
@@ -1947,25 +1950,17 @@ final class GameSession {
 
     private void engageBotTarget(Player bot, Enemy target) {
         double targetDistance = distance(bot.x, bot.y, target.x, target.y);
-        BotWeaponPolicy.select(bot, targetDistance);
+        int nearbyEnemies = (int) enemies.stream().filter(enemy -> enemy.hp > 0
+                && distance(enemy.x, enemy.y, target.x, target.y) < 125).limit(4).count();
+        BotWeaponPolicy.select(bot, targetDistance, target.hp, nearbyEnemies);
         WeaponStats weapon = weaponStats(bot.weapon);
         double effectiveRange = weapon.range() - 8;
-        boolean clearShot = GameMap.hasClearLine(bot.x, bot.y, target.x, target.y);
-        if (clearShot && targetDistance <= effectiveRange && bot.cooldown <= 0) {
+        boolean clearShot = GameMap.hasClearLine(bot.x, bot.y, target.x, target.y, unlockedAreas);
+        if (clearShot) {
             attack(bot, target.id);
         }
 
-        double preferredRange = switch (bot.weapon) {
-            case "bat" -> 54;
-            case "shotgun" -> 135;
-            case "smg" -> 210;
-            case "rifle" -> 315;
-            case "sniper" -> 700;
-            case "rocket" -> 500;
-            case "revolver" -> 360;
-            case "lmg" -> 290;
-            default -> 215;
-        };
+        double preferredRange = BotWeaponPolicy.preferredRange(bot.weapon);
         if (!clearShot || targetDistance > effectiveRange * 0.92) {
             moveBotToward(bot, target.x, target.y);
         } else if (targetDistance < Math.min(90, preferredRange * 0.52)) {
@@ -1986,13 +1981,15 @@ final class GameSession {
             double angle = Math.PI * 2 * index / 12.0 + bot.slot * 0.31;
             double candidateX = bot.x + Math.cos(angle) * 86;
             double candidateY = bot.y + Math.sin(angle) * 86;
-            if (!canOccupy(candidateX, candidateY, 5)) continue;
-            double enemyDistance = distance(candidateX, candidateY, enemy.x, enemy.y);
+            if (!canOccupy(candidateX, candidateY, 5) || !canEnemyTravel(bot.x, bot.y, candidateX, candidateY)) continue;
+            double enemyDistance = enemies.stream().filter(threat -> threat.hp > 0)
+                    .mapToDouble(threat -> distance(candidateX, candidateY, threat.x, threat.y)).min()
+                    .orElse(distance(candidateX, candidateY, enemy.x, enemy.y));
             double teamSpacing = players.stream().filter(player -> player != bot && !player.down)
                     .mapToDouble(player -> distance(candidateX, candidateY, player.x, player.y))
                     .min().orElse(120);
-            double score = enemyDistance + Math.min(100, teamSpacing) * 0.45
-                    + (GameMap.hasClearLine(candidateX, candidateY, enemy.x, enemy.y) ? 45 : -35);
+            double score = BotCombatRules.safePositionScore(enemyDistance, teamSpacing,
+                    GameMap.hasClearLine(candidateX, candidateY, enemy.x, enemy.y, unlockedAreas));
             if (score > bestScore) {
                 bestScore = score;
                 bestX = candidateX;
@@ -2138,8 +2135,9 @@ final class GameSession {
     }
 
     private void steerBot(Player bot, double desiredX, double desiredY) {
-        double steeringX = desiredX + bot.botWanderX * 0.18;
-        double steeringY = desiredY + bot.botWanderY * 0.18;
+        double wander = Math.hypot(desiredX, desiredY) > .01 ? .08 : 0;
+        double steeringX = desiredX + bot.botWanderX * wander;
+        double steeringY = desiredY + bot.botWanderY * wander;
         for (Player other : players) {
             if (other == bot || other.down) continue;
             double dx = bot.x - other.x;
@@ -2252,7 +2250,9 @@ final class GameSession {
             boolean owned = bot.weapons.owns(item);
             if (shop == null || !isPointUnlocked(shop.x(), shop.y())
                     || bot.credits < (owned ? ammoRefillCost() : shop.cost())) continue;
-            if (owned ? weaponAmmo(bot, item) > weaponAmmoCapacity(item) / 4 : BotWeaponPolicy.hasRangedAmmo(bot)) continue;
+            if (DroneRules.mounted(bot, item)) continue;
+            if (owned ? weaponAmmo(bot, item) > weaponAmmoCapacity(item) * (phase == GamePhase.PREPARING ? .5 : .25)
+                    : !BotWeaponPolicy.worthwhileUpgrade(bot, item)) continue;
             return botUse(bot, shop.x(), shop.y(), 55, () -> buy(bot, item));
         }
         if (phase != GamePhase.PREPARING) return false;
@@ -2391,7 +2391,31 @@ final class GameSession {
     private void attack(Player player, int enemyId) {
         if (player.human) return;
         Enemy target = enemies.stream().filter(enemy -> enemy.id == enemyId && enemy.hp > 0).findFirst().orElse(null);
-        if (target != null) combat.attackAt(player, target.x, target.y);
+        if (target == null || !GameMap.hasClearLine(player.x, player.y, target.x, target.y, unlockedAreas)) return;
+        double range = distance(player.x, player.y, target.x, target.y);
+        if (range <= weaponStats(player.weapon).range() - 8) {
+            player.aimX = target.x; player.aimY = target.y;
+            player.firing = player.weapon.equals("railgun");
+            combat.attackAt(player, target.x, target.y);
+        }
+        if (player.job.equals("attacker") && range <= weaponStats(player.secondaryWeapon).range() - 8) {
+            player.secondaryAimX = target.x; player.secondaryAimY = target.y;
+            player.secondaryFiring = true;
+            combat.attackSecondary(player, target.x, target.y);
+        }
+    }
+
+    private void useBotJobAbility(Player bot, boolean personalDanger) {
+        if (phase != GamePhase.WAVE || bot.selectedBuild != null || bot.movingCore) return;
+        if (bot.job.equals("healer")) {
+            int wounded = (int) players.stream().filter(player -> !player.down
+                    && player.hp < JobRules.maxHp(player.job) * .8
+                    && distance(bot.x, bot.y, player.x, player.y) <= JobRules.HEAL_HALF_SIZE
+                    && GameMap.hasClearLine(bot.x, bot.y, player.x, player.y, unlockedAreas)).count();
+            if (BotCombatRules.shouldHeal(true, bot.jobCooldown, bot.healRemaining > 0, wounded)) useJobAbility(bot);
+        } else if (bot.job.equals("spy") && personalDanger && bot.hp < JobRules.maxHp(bot.job) * .7) {
+            if (bot.spyRemaining <= 0 && bot.jobCooldown <= 0) useJobAbility(bot);
+        }
     }
 
     static WeaponStats weaponStats(String weapon) { return WeaponCatalog.stats(weapon); }
