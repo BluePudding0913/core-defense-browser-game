@@ -40,6 +40,22 @@ class DebugEnemyPreviewTest {
         assertEquals(0,json.readTree(SnapshotBuilder.build(game)).path("queued").asInt());
         spawn(100);assertEquals(22,game.enemies.size(),"No repeated preview or random additions");
     }
+    @Test void debugRoundFourSpawnsOnlyGhostsIncludingTheBossSlot() throws Exception {
+        begin(4); int total = game.roundEnemyTotal;
+        assertTrue(total > 1); assertEquals(500000, host.credits);
+        assertEquals(total, game.queuedEnemies); assertEquals(0, game.queuedBosses);
+        assertEquals("none", game.roundEvent);
+        for (int i = 0; i < total; i++) spawn(10);
+        assertEquals(total, game.enemies.size());
+        assertTrue(game.enemies.stream().allMatch(e -> e.type.equals("ghost")));
+        assertEquals(0, game.queuedEnemies);
+        spawn(100); assertEquals(total, game.enemies.size());
+        game.phase = GamePhase.LOST; game.handleMessage(host, "START");
+        begin(4); assertEquals(total, game.roundEnemyTotal); assertTrue(game.queuedBosses > 0);
+        for (int i = 0; i < total; i++) spawn(10);
+        assertTrue(game.enemies.stream().anyMatch(e -> !e.type.equals("ghost")));
+    }
+
     @Test void otherDebugRoundsAndNormalRestartKeepTheirUsualPopulations() throws Exception {
         begin(6);assertNotEquals(22,game.roundEnemyTotal);
         game.phase=GamePhase.LOST;game.handleMessage(host,"START");assertEquals(0,host.credits);

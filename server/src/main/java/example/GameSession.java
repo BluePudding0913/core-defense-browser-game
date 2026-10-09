@@ -997,6 +997,8 @@ final class GameSession {
         return round >= 25 && (round - 25) % 10 == 0;
     }
 
+    private boolean isDebugGhostRound() { return debugMode && round == 4; }
+
     private boolean isDebugEnemyPreview() { return debugMode && round == 5; }
 
     private void beginRound() {
@@ -1020,13 +1022,17 @@ final class GameSession {
             queuedEnemies = DEBUG_ENEMY_TYPES.size();
             queuedBosses = queuedBlueEnemies = 0;
         }
+        if (isDebugGhostRound()) {
+            queuedEnemies += queuedBosses;
+            queuedBosses = 0;
+        }
         roundEnemyTotal = queuedEnemies + queuedBosses;
         explosionBossSpawned = false;
         wardenSpawned = false;
         // Reserve one simultaneous swarm within the regular population on selected late rounds.
         queuedTinyEnemies = round >= 40 && (round - 40) % 3 == 0
                 ? Math.min(queuedEnemies, (int) Math.round((48 + (round - 40) * 4) * 0.8)) : 0;
-        roundEvent = isDebugEnemyPreview() ? "none" : isExplosionBossRound() ? "boss_assault" : round % 4 == 3 ? "blackout"
+        roundEvent = isDebugEnemyPreview() || isDebugGhostRound() ? "none" : isExplosionBossRound() ? "boss_assault" : round % 4 == 3 ? "blackout"
                 : round >= 5 && round % 4 == 1 ? "door_failure"
                 : round % 4 == 0 ? "boss_assault" : "none";
         failedSpawnId = roundEvent.equals("door_failure")
@@ -1041,6 +1047,7 @@ final class GameSession {
             case "boss_assault" -> setNotice("ボスが" + queuedBosses + "体出現します");
             default -> { }
         }
+        if (isDebugGhostRound()) setNotice("DEBUG: ゴーストのみ出現します");
         if (isDebugEnemyPreview()) setNotice("DEBUG: 全" + DEBUG_ENEMY_TYPES.size() + "種類の敵が出現します");
     }
 
@@ -1328,7 +1335,7 @@ final class GameSession {
                 spawnEnemy(bossType, spawn);
                 queuedBosses--;
             } else if (queuedEnemies > 0) {
-                spawnEnemy(queuedBlueEnemies > 0 ? "blueAce" : selectEnemyType(spawn), spawn);
+                spawnEnemy(isDebugGhostRound() ? "ghost" : queuedBlueEnemies > 0 ? "blueAce" : selectEnemyType(spawn), spawn);
                 if (queuedBlueEnemies > 0) queuedBlueEnemies--;
                 queuedEnemies--;
             }
