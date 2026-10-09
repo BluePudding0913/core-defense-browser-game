@@ -1639,7 +1639,6 @@ function openShopPurchase(shop, chooseExchange = false) {
             : unavailable ? "LOCKED" : "BUY",
         detail: `${price}G`,
         titleAmmo: alreadyOwned && weaponFields.capacity > 0 ? `${ammo} / ${WeaponUI.capacity(me, weaponFields)}` : "",
-        stock: ammoShop ? WeaponUI.ammoStock(me, WEAPON_FIELDS) : "",
         command: weaponLimitReached ? undefined : `BUY:${shop.item}`,
         onSelect: weaponLimitReached ? () => openShopPurchase(shop, true) : undefined,
         disabled: mounted || ammoFull || unavailable || me.credits < price,
