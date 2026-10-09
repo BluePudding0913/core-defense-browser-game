@@ -2998,14 +2998,8 @@ function drawPoisonGas() {
         const remaining = Math.max(0, cloud.remaining - elapsed);
         if (!remaining) continue;
         ctx.save(); ctx.globalAlpha = Math.min(1, remaining);
-        ctx.fillStyle = "rgb(105 223 255 / 15%)"; ctx.strokeStyle = "rgb(105 223 255 / 45%)"; ctx.lineWidth = 1.5;
+        ctx.fillStyle = "rgb(180 110 235 / 15%)"; ctx.strokeStyle = "rgb(180 110 235 / 65%)"; ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.arc(cloud.x, cloud.y, cloud.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "rgb(145 235 255 / 14%)";
-        for (let i = 0; i < 10; i++) {
-            const angle = i * 2.4 + now / 3600, distance = cloud.radius * (.25 + (i % 3) * .22);
-            ctx.beginPath(); ctx.arc(cloud.x + Math.cos(angle) * distance,
-                cloud.y + Math.sin(angle) * distance, 13 + Math.sin(now / 500 + i) * 4, 0, Math.PI * 2); ctx.fill();
-        }
         ctx.restore();
     }
 }
@@ -3034,7 +3028,7 @@ function drawGachaWeaponEffect(effect, now) {
         ctx.strokeStyle = "#b4c5ff"; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.arc(effect.fromX, effect.fromY, radius, angle - Math.PI / 2, angle + Math.PI / 2); ctx.stroke(); ctx.restore();
     } else if (effect.weapon === "poisonGas" && age < 300) {
-        ctx.save(); ctx.globalAlpha = 1 - age / 300; ctx.strokeStyle = "#98de68"; ctx.lineWidth = 2;
+        ctx.save(); ctx.globalAlpha = 1 - age / 300; ctx.strokeStyle = "#b46eeb"; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(effect.fromX, effect.fromY); ctx.lineTo(effect.x, effect.y); ctx.stroke(); ctx.restore();
     }
 }
