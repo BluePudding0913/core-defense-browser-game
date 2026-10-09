@@ -755,7 +755,7 @@ button, input { font: inherit; }
 #missile-panel[hidden] { display: none; }
 #missile-panel header { display: flex; align-items: center; justify-content: space-between; }
 #missile-panel .map-enemy-count { margin-left: auto; }
-#missile-panel .missile-cooldown { position: absolute; left: 20px; bottom: 20px; font-size: clamp(1.5rem, 3vw, 2.5rem); color: #f6de83; background: #07170dcc; padding: .25rem .5rem; pointer-events: none; }
+#missile-panel .missile-cooldown { position: absolute; left: 20px; bottom: 20px; color: var(--accent-blue); background: #07170dcc; padding: .25rem .5rem; pointer-events: none; }
 #missile-map { width: 100%; flex: 1; min-height: 0; object-fit: contain; cursor: crosshair; touch-action: none; }
 #action-options:has(.job-picker) { display: block; }
 .weapon-icon.flamethrower::before { left: .4rem; top: .7rem; width: 3.8rem; height: .8rem; background: #d88636; }

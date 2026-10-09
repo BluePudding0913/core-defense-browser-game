@@ -66,6 +66,7 @@ window.TerminalUI = (() => {
         panel.setAttribute("aria-label", readOnly ? "ブレーカーマップ" : "ミサイル管制");
         canvas.setAttribute?.("aria-label", readOnly ? "ブレーカーの位置" : "着弾地点をクリック");
         const ctx = canvas.getContext("2d"), tiles = map.tileMap;
+        const titleStyle = window.getComputedStyle(title);
         ctx.fillStyle = "#07170d"; ctx.fillRect(0, 0, canvas.width, canvas.height);
         const locked = new Set(map.areas.filter(area => !state.areas[area.id]).flatMap(area => area.tiles.map(tile => `${tile.column},${tile.row}`)));
         for (let row = 0; row < tiles.rows.length; row++) for (let col = 0; col < tiles.rows[row].length; col++) {
@@ -81,8 +82,8 @@ window.TerminalUI = (() => {
             const self = player.id === me.id;
             dot(player, player.down ? "#777" : self ? "#c7ffdc" : "#8fffb2", self ? 18 : 14);
             if (player.name) {
-                ctx.font = "300 32px sans-serif"; ctx.textAlign = "center";
-                ctx.fillStyle = "#ffffff";
+                ctx.font = titleStyle.fontWeight + " 28px " + titleStyle.fontFamily; ctx.textAlign = "center";
+                ctx.fillStyle = titleStyle.color;
                 ctx.fillText(player.name, player.x, player.y - 32);
             }
             if (self) {
@@ -102,7 +103,7 @@ window.TerminalUI = (() => {
             if (broken) { ctx.fillStyle = "#ffb347"; ctx.fillText("RESET", breaker.x, breaker.y - 24); }
         }
         for (const strike of state.missiles || []) {
-            ctx.strokeStyle = "#f6de83"; ctx.lineWidth = 4;
+            ctx.strokeStyle = "#79d8ff"; ctx.lineWidth = 4;
             ctx.beginPath(); ctx.arc(strike.x, strike.y, strike.radius, 0, Math.PI * 2); ctx.stroke();
         }
     }
