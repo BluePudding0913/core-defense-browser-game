@@ -12,24 +12,34 @@ const CombatFeedback = (() => {
     }
     function layout(now) {
         popups = popups.filter(popup => now - popup.updated < 900);
-        const placed = [];
+        let placed = [];
         for (const popup of popups) {
             const text = popup.credits > 0 ? `+${popup.credits}G` : "";
             const headshot = popup.headshot && now - popup.headshotAt < 650;
             if (!text && !headshot) continue;
             const width = Math.max(text.length * 7, headshot ? 18 : 0);
+            const height = headshot && text ? 28 : 14;
             const age = now - popup.updated;
-            const baseY = popup.y - 26 - Math.min(1, (now - popup.created) / 900) * 20;
+            const baseY = popup.y - 26 - Math.min(1, (now - popup.created) / 900) * 12;
+            const overlaps = (other, y) => Math.abs(other.x - popup.x) < (other.width + width) / 2 + 8
+                && Math.abs(other.y - y) < (other.height + height) / 2 + 2;
             if (popup.labelOffset == null) {
-                let y = baseY;
-                while (placed.some(other => Math.abs(other.x - popup.x) < (other.width + width) / 2 + 8
-                        && Math.abs(other.y - y) < 30)) y -= 30;
-                popup.labelOffset = y - baseY;
+                const offset = [0, -20, -40].find(offset => !placed.some(other => overlaps(other, baseY + offset)));
+                popup.labelOffset = offset ?? 0;
+                if (offset == null) {
+                    // A full group replaces old labels instead of growing upward forever.
+                    placed = placed.filter(other => {
+                        if (!overlaps(other, baseY)) return true;
+                        other.source.retired = true;
+                        return false;
+                    });
+                }
             }
             const y = baseY + popup.labelOffset;
-            placed.push({...popup, headshot, x:popup.x, y, width, text, alpha:Math.min(1, (900 - age) / 250)});
+            placed.push({...popup, source:popup, headshot, x:popup.x, y, width, height, text, alpha:Math.min(1, (900 - age) / 250)});
         }
-        return placed;
+        popups = popups.filter(popup => !popup.retired);
+        return placed.map(({source, ...label}) => label);
     }
     function draw(ctx, now) {
         for (const popup of layout(now)) {
