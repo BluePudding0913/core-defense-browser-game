@@ -214,16 +214,16 @@ class GameSessionTest {
         assertTrue(player.weapons.owns("shotgun"));
         assertEquals("shotgun", player.weapon);
         assertEquals(GameSession.weaponAmmoCapacity("shotgun"), player.weapons.ammo("shotgun"));
-        assertEquals(250, player.credits);
+        assertEquals(700 - shotgunShop.cost(), player.credits);
 
         player.weapons.setAmmo("shotgun", 4);
         game.handleMessage(player, "BUY:shotgun");
         assertEquals(GameSession.weaponAmmoCapacity("shotgun"), player.weapons.ammo("shotgun"));
-        assertEquals(130, player.credits,
+        assertEquals(700 - shotgunShop.cost() - GameSession.ammoRefillCost("shotgun"), player.credits,
                 "the weapon unit should refill its own ammunition for 120G");
 
         game.handleMessage(player, "BUY:shotgun");
-        assertEquals(130, player.credits, "full ammunition must not be charged again");
+        assertEquals(700 - shotgunShop.cost() - GameSession.ammoRefillCost("shotgun"), player.credits, "full ammunition must not be charged again");
 
         player.credits = 1_000;
         game.handleMessage(player, "BUY:rifle");
@@ -974,7 +974,7 @@ class GameSessionTest {
         startPreparing();
         game.unlockedAreas.addAll(GameMap.AREAS.stream().map(UnlockArea::id).toList());
         Player bot = game.players.get(1);
-        bot.credits = 450;
+        bot.credits = GameMap.shopByItem("ricochet").cost() + 50;
 
         game.prepTime = 90;
         game.update(.05);

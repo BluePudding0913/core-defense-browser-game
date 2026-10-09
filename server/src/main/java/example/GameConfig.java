@@ -23,7 +23,7 @@ final class GameConfig {
     }
     static final double RECONNECT_GRACE_SECONDS = 600;
     static final double GATHER_COOLDOWN_SECONDS = 3.5;
-    // Late-game rooms and heavy weapons absorb the larger rewards of later waves.
+    // Shared room unlocks cost more than each personal weapon; heavy arms share one unlock.
     static final Map<String, Integer> AREA_UNLOCK_COSTS = Map.ofEntries(
             Map.entry("entry-room", 150),
             Map.entry("transit-hall", 350),
@@ -36,15 +36,15 @@ final class GameConfig {
             Map.entry("wood-room", 200),
             Map.entry("ore-room", 300),
             Map.entry("operations-room", 500),
-            Map.entry("shotgun-room", 300),
-            Map.entry("ricochet-room", 300),
-            Map.entry("smg-room", 500),
-            Map.entry("lmg-room", 1_500),
-            Map.entry("rifle-room", 2_000),
-            Map.entry("sniper-room", 3_000),
-            Map.entry("heavy-arms-area", 60_000),
+            Map.entry("shotgun-room", 500),
+            Map.entry("ricochet-room", 900),
+            Map.entry("smg-room", 900),
+            Map.entry("lmg-room", 3_000),
+            Map.entry("rifle-room", 1_800),
+            Map.entry("sniper-room", 6_000),
+            Map.entry("heavy-arms-area", 90_000),
             Map.entry("last-line", 100_000),
-            Map.entry("revolver-room", 2_000),
+            Map.entry("revolver-room", 4_500),
             Map.entry("recovery-room", 250));
     static final Map<String, Integer> BUILD_COSTS = Map.of(
             "block", 60,
