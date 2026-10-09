@@ -20,6 +20,7 @@ final class WardenRules {
         double ratio = maxHp > 0 ? hp / maxHp : 1;
         return ratio <= .30 ? 3 : ratio <= .60 ? 2 : 1;
     }
+    static boolean resistsKnockback(State state) { return state != null && state.action != Action.IDLE; }
     static double cooldown(int phase) { return phase == 3 ? 4 : 6; }
     static double movementMultiplier(int phase) { return phase == 3 ? 1.5 : phase == 2 ? 1.2 : 1; }
     static boolean appearsInRound(int round) { return round >= 16 && round % 16 == 0; }
