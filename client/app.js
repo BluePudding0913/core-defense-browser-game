@@ -409,6 +409,7 @@ function connect() {
         if (socket !== connectingSocket) return;
         droneAftermath = null;
         window.coreAudio?.stopRailguns?.();
+        window.coreAudio?.resetRewind?.();
         if (event?.code === 4000) {
             // A newer tab now owns this player. Do not reconnect and steal it back.
             clientSessionId = window.coreReconnect?.newSession() || clientSessionId;
@@ -475,6 +476,7 @@ function enterRoom(roomId, options = {}) {
 }
 
 function leaveRoom(forget = true) {
+    window.coreAudio?.resetRewind?.();
     droneAftermath = null;
     if (forget) window.coreReconnect?.forget(clientSessionId, connectionTarget.roomId);
     keepEndArea({ phase: "lobby" });
@@ -575,6 +577,7 @@ function keepEndArea(next) {
 }
 
 function receiveState(next) {
+    window.coreAudio?.syncRewind?.(next.rewindRemaining || 0, next.rewindVersion || 0);
     if (state && (next.rewindVersion || 0) !== (state.rewindVersion || 0)) {
         rewindFinishedAt = performance.now();
         smoothed.clear(); predictedLocal = null; hitEffects.length = 0;
@@ -851,7 +854,7 @@ weaponButton.addEventListener("click", () => cycleEquipment(1));
 function openSystemConsole(terminal) {
     const me = getMe();
     if (me?.job !== "hacker" || state.phase !== "preparing" || state.backupUsed) return;
-    openNearbyActionMenu("SYSTEM CONSOLE", [{label: state.backupAvailable ? "SAVE / 上書き" : "SAVE",
+    openNearbyActionMenu("SYSTEM CONSOLE", [{label: "SAVE",
         detail: state.backupCost + "G", command: "HACKER_BACKUP", disabled: me.credits < state.backupCost}], terminal, 70, "single");
 }
 
@@ -2146,7 +2149,7 @@ function findNearestInteraction() {
         .filter(workbench => (!workbench.requiredArea || state.areas[workbench.requiredArea])
             && (workbench.id !== "backup-terminal" || me.job === "hacker" && state.phase === "preparing" && !state.backupUsed))
         .forEach(workbench => add("craft", workbench, workbench.id === "backup-terminal" ? 70 : INTERACTION_RANGE.workbench,
-            workbench.id === "backup-terminal" ? "SYSTEM CONSOLE" : "CRAFT",
+            workbench.id === "backup-terminal" ? "CONSOLE" : "CRAFT",
             () => workbench.id === "backup-terminal" ? openSystemConsole(workbench) : openWorkbenchMenu(workbench)));
     if (PREP_CONSOLE && state.areas[PREP_CONSOLE.requiredArea]) {
         add("prep-console", PREP_CONSOLE, 95, "+1:00", openPrepConsoleMenu);
@@ -2752,7 +2755,7 @@ function drawShops() {
     if (isUnlockedPoint(QUARRY)) drawStation(QUARRY, "QUARRY", "#808080");
     WORKBENCHES
         .filter(workbench => !workbench.requiredArea || state.areas[workbench.requiredArea])
-        .forEach(workbench => drawStation(workbench, workbench.id === "backup-terminal" ? "SYSTEM CONSOLE" : "WORKBENCH",
+        .forEach(workbench => drawStation(workbench, workbench.id === "backup-terminal" ? "CONSOLE" : "WORKBENCH",
             workbench.id === "backup-terminal" ? "#7fead5" : "#d8d8d8", "#111"));
     if (PREP_CONSOLE && state.areas[PREP_CONSOLE.requiredArea]) {
         drawStation(PREP_CONSOLE, "TIME CONTROL", "#d8d8d8", "#111");
@@ -3021,21 +3024,9 @@ function drawGachaWeaponEffect(effect, now) {
         ctx.beginPath(); ctx.moveTo(effect.fromX, effect.fromY); ctx.lineTo(effect.x, effect.y); ctx.stroke(); ctx.restore();
     } else if (effect.weapon === "plasmaBlade" && age < 240) {
         const angle = Math.atan2(effect.y - effect.fromY, effect.x - effect.fromX);
-        const progress = age / 240;
-        ctx.save(); ctx.globalAlpha = (1 - progress) ** .6; ctx.lineCap = "round";
-        ctx.shadowColor = "#50dcff"; ctx.shadowBlur = 22;
-        for (let layer = 0; layer < 3; layer++) {
-            ctx.strokeStyle = ["#267bff", "#70efff", "#f2ffff"][layer]; ctx.lineWidth = [18, 8, 2][layer];
-            ctx.beginPath(); ctx.arc(effect.fromX, effect.fromY, 105 + progress * 18,
-                angle - 1.45 + progress * 2.3, angle + 1.45); ctx.stroke();
-        }
-        for (let i = 0; i < 7; i++) {
-            const a = angle - 1.35 + i * .42, r = 112 + progress * (20 + i * 4);
-            ctx.strokeStyle = "#a7faff"; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.moveTo(effect.fromX + Math.cos(a) * r, effect.fromY + Math.sin(a) * r);
-            ctx.lineTo(effect.fromX + Math.cos(a) * (r + 8), effect.fromY + Math.sin(a) * (r + 8)); ctx.stroke();
-        }
-        ctx.restore();
+        ctx.save(); ctx.globalAlpha = 1 - age / 240; ctx.strokeStyle = "#76eaff"; ctx.lineWidth = 12;
+        ctx.shadowColor = "#76eaff"; ctx.shadowBlur = 18;
+        ctx.beginPath(); ctx.arc(effect.fromX, effect.fromY, 115, angle - Math.PI / 2, angle + Math.PI / 2); ctx.stroke(); ctx.restore();
     } else if (effect.weapon === "repulsor" && age < 200) {
         const angle = Math.atan2(effect.y - effect.fromY, effect.x - effect.fromX);
         const radius = Math.hypot(effect.x - effect.fromX, effect.y - effect.fromY) * age / 200;
@@ -3178,13 +3169,6 @@ function drawPlayers() {
             ctx.fillStyle = "#454545";
             ctx.fillRect(-12, -3, 4, 4); ctx.fillRect(8, -3, 4, 4);
             ctx.restore();
-        }
-        if (!player.down && !player.selectedBuild && player.weapon === "plasmaBlade") {
-            ctx.save(); ctx.rotate(Math.atan2(player.facingY || 0, player.facingX || 1));
-            ctx.fillStyle = "#263546"; ctx.fillRect(6, -3, 11, 6);
-            ctx.shadowColor = "#4bddff"; ctx.shadowBlur = 14;
-            ctx.fillStyle = "#3d91ff"; ctx.fillRect(17, -4, 33, 8);
-            ctx.fillStyle = "#e7ffff"; ctx.fillRect(17, -1, 33, 2); ctx.restore();
         }
         const playerSize = 10;
         const disguised = player.spyRemaining > 0 && !player.down;
@@ -3506,7 +3490,7 @@ function drawRewindScreen() {
     const w = canvas.width, h = canvas.height;
     ctx.save();
     if (remaining > 0) {
-        const t = Math.floor(now / 65), progress = clamp(1 - remaining / 3.5, 0, 1);
+        const t = Math.floor(now / 65), progress = clamp(1 - remaining / (state.rewindDuration || 6), 0, 1);
         ctx.globalAlpha = .18; ctx.drawImage(canvas, Math.sin(t * 3.1) * 16, 0); ctx.globalAlpha = 1;
         ctx.fillStyle = "rgb(0 7 16 / 75%)"; ctx.fillRect(0, 0, w, h);
         for (let i = 0; i < 75; i++) {

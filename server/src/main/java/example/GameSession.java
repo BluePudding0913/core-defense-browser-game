@@ -133,6 +133,7 @@ final class GameSession {
     boolean backupUsed;
     int rewindVersion;
     static final int BACKUP_COST = 100_000;
+    static final double BACKUP_RESTORE_DURATION = 6;
     private final EnemyTravel laterFeatureTravel = new EnemyTravel();
     private final EnemyNavigation enemyNavigation = new EnemyNavigation();
     private double spawnTimer;
@@ -527,13 +528,13 @@ final class GameSession {
         }
         if (coreHp <= 0) {
             phase = GamePhase.LOST;
-            if (backup != null && !backupUsed) rewindRemaining = 3.5;
+            if (backup != null && !backupUsed) rewindRemaining = BACKUP_RESTORE_DURATION;
             setNotice("コアが破壊されました");
             return;
         }
         if (players.stream().noneMatch(player -> !player.down) && !hasHealingRescue()) {
             phase = GamePhase.LOST;
-            if (backup != null && !backupUsed) rewindRemaining = 3.5;
+            if (backup != null && !backupUsed) rewindRemaining = BACKUP_RESTORE_DURATION;
             setNotice("全員がダウンしました");
             return;
         }

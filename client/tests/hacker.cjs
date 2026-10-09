@@ -12,8 +12,8 @@ for(const [w,h,dpr] of [[1280,720,1],[2560,1440,.5],[5120,1440,2],[720,1280,3]])
 }
 // Missile map shows the complete world during a blackout and converts letterboxed clicks accurately.
 const map=JSON.parse(fs.readFileSync('shared/map.json','utf8'));
-let click, keydown, draws=0, sent=[], markers=[], arcs=[];
-const draw = new Proxy({}, {get:(_,name)=>name==='fillText'?(text,x,y)=>markers.push({text,x,y}):name==='arc'?(x,y,radius)=>arcs.push({x,y,radius}):()=>{draws++;},set:()=>true});
+let click, keydown, draws=0, sent=[], markers=[], arcs=[], outlinedNames=0;
+const draw = new Proxy({}, {get:(target,name)=>name==='fillText'?(text,x,y)=>markers.push({text,x,y,font:target.font,color:target.fillStyle}):name==='strokeText'?()=>outlinedNames++:name==='arc'?(x,y,radius)=>arcs.push({x,y,radius}):name in target?target[name]:()=>{draws++;},set:(target,key,value)=>(target[key]=value,true)});
 const canvas={width:300,height:150,getContext:()=>draw,addEventListener:(name,fn)=>click=fn,getBoundingClientRect:()=>({left:0,top:0,width:1000,height:500})};
 const label={}, title={}, cooldown={}, enemyCount={};
 let focused=false;
@@ -58,9 +58,11 @@ assert(arcs.some(p=>p.x===300&&p.radius===22),'own location gets an outline');
 assert(arcs.some(p=>p.x===350&&p.radius===14),'allies keep smaller markers');
 assert(markers.some(p=>p.text==='味方'&&p.x===350&&p.y<400),'name appears above ally');
 assert(markers.some(p=>p.text==='YOU'&&p.x===300&&p.y<400),'own name also appears');
-me.breakerControl=null;
+assert.equal(outlinedNames,0);assert(markers.filter(p=>p.text==="味方"||p.text==="YOU").every(p=>p.font==="300 32px sans-serif"&&p.color==="#ffffff"));
+me.breakerControl=null;markers=[];
 window.TerminalUI.update(state,me,{map,send:cmd=>sent.push(cmd)});
 assert.equal(title.textContent,'MISSILE SYSTEM');
+assert(markers.some(p=>p.text==='味方'),'missile view also shows ally names');assert(markers.some(p=>p.text==='YOU'),'missile view also shows own name');assert.equal(outlinedNames,0);
 assert.equal(enemyCount.hidden,false); assert.equal(enemyCount.textContent,'ENEMY 6','missile control shares the breaker enemy count');
 assert.equal(cooldown.hidden,false,'missile cooldown remains visible alongside the enemy count');
 state.phase='preparing';window.TerminalUI.update(state,me,{map,send:cmd=>sent.push(cmd)});

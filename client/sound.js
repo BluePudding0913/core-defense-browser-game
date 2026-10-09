@@ -3,6 +3,8 @@
 // Synthesized locally: no downloads or sound files are required.
 (() => {
     const effects = {
+        "system-restore": { pitch: 95, end: 1000, duration: 6, noise: .82, glitch: true, amplitude: .14 },
+        "system-online": { notes: [330, 660, 990], duration: .6, amplitude: .14 },
         pistol: { pitch: 720, end: 90, duration: .12, noise: .45 },
         ricochet: { pitch: 1600, end: 380, duration: .18, noise: .15 },
         shotgun: { pitch: 180, end: 35, duration: .25, noise: .85 },
@@ -37,6 +39,7 @@
     const active = new Set();
     const railguns = new Map();
     const buffers = new Map();
+    let rewindVoice, rewindPending = false, rewindVersion;
     let synth;
     let masterGain;
     let masterVolume = 1;
@@ -94,12 +97,33 @@
                 : effect.rumble ? Math.pow(1 - progress, 1.3) : effect.charge ? .25 + progress * .75
                 : effect.notes ? .7 : effect.sustain ? .8 : Math.pow(1 - progress, 2);
             const air = effect.whoosh || effect.rumble ? Math.max(-1, Math.min(1, filteredNoise * (effect.rumble ? 3 : 1.7))) : noise;
-            samples[i] = (pulse * (1 - mix) + air * mix) * attack * release * envelope * (effect.amplitude ?? .16);
+            if (effect.glitch) {
+                // Irregular static bursts and short carrier tones give way to a boot sweep.
+                const packet = Math.floor(t * 13);
+                const gate = packet % 7 === 0 ? .06 : packet % 3 === 0 ? .8 : .3;
+                const tone = Math.sin(phase * Math.PI * 2) * (packet % 4 === 0 ? .5 : .12);
+                const fade = Math.min(1, t / .15, (effect.duration - t) / .25);
+                samples[i] = (noise * gate * .65 + tone) * Math.max(0, fade) * effect.amplitude;
+            } else samples[i] = (pulse * (1 - mix) + air * mix) * attack * release * envelope * (effect.amplitude ?? .16);
         }
         buffers.set(name, buffer);
         return buffer;
     }
     window.coreAudio = {
+        syncRewind(remaining, version) {
+            const pending = remaining > 0;
+            if (pending && !rewindPending) {
+                this.stopRailguns();
+                rewindVoice = this.play("system-restore");
+            } else if (!pending && rewindPending) {
+                rewindVoice?.stop(); rewindVoice = null;
+                if (version !== rewindVersion) this.play("system-online");
+            }
+            rewindPending = pending; rewindVersion = version;
+        },
+        resetRewind() {
+            rewindVoice?.stop(); rewindVoice = null; rewindPending = false; rewindVersion = undefined;
+        },
         getVolume() { return masterVolume; },
         setVolume(value) {
             masterVolume = normalizeVolume(value);
@@ -139,7 +163,7 @@
             const audio = context();
             if (!audio || audio.state !== "running") return;
             if (active.size >= 8) {
-                if (!["round-start", "drone-self-destruct"].includes(name)) return;
+                if (!["round-start", "drone-self-destruct", "system-restore", "system-online"].includes(name)) return;
                 // Make room for important cues, preferring a one-shot over a sustained beam.
                 const oldest = [...active].find(voice => !voice.loop) || active.values().next().value;
                 active.delete(oldest);

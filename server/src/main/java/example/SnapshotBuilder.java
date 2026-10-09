@@ -33,7 +33,8 @@ final class SnapshotBuilder {
             .append(",\"backupRound\":").append(game.backup == null ? 0 : game.backup.world().round() + 1)
             .append(",\"backupOwnerId\":").append(game.backup == null ? "null" : "\"" + escapeJson(game.backup.ownerId()) + "\"")
             .append(",\"rewindVersion\":").append(game.rewindVersion)
-            .append(",\"rewindRemaining\":").append(game.rewindRemaining);
+            .append(",\"rewindRemaining\":").append(game.rewindRemaining)
+            .append(",\"rewindDuration\":").append(GameSession.BACKUP_RESTORE_DURATION);
         json.append(",\"prepTime\":").append(roundOne(game.prepTime));
         json.append(",\"elapsedSeconds\":").append(roundOne(game.elapsedSeconds));
         json.append(",\"victoryMoveRemaining\":").append(roundOne(game.victoryMoveRemaining));
