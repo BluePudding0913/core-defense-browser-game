@@ -3000,6 +3000,12 @@ function drawPoisonGas() {
         ctx.save(); ctx.globalAlpha = Math.min(1, remaining);
         ctx.fillStyle = "rgb(180 110 235 / 15%)"; ctx.strokeStyle = "rgb(180 110 235 / 65%)"; ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.arc(cloud.x, cloud.y, cloud.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "rgb(205 160 245 / 14%)";
+        for (let i = 0; i < 10; i++) {
+            const angle = i * 2.4 + now / 3600, distance = cloud.radius * (.25 + (i % 3) * .22);
+            ctx.beginPath(); ctx.arc(cloud.x + Math.cos(angle) * distance,
+                cloud.y + Math.sin(angle) * distance, 13 + Math.sin(now / 500 + i) * 4, 0, Math.PI * 2); ctx.fill();
+        }
         ctx.restore();
     }
 }
