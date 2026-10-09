@@ -2922,12 +2922,12 @@ function drawEnemies() {
         }
         if (enemy.type === "ghost") {
             ctx.save();
-            ctx.strokeStyle = "rgb(220 230 235 / 12%)"; ctx.lineWidth = 1;
+            ctx.strokeStyle = "rgb(220 230 235 / 40%)"; ctx.lineWidth = 1.5;
             ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.stroke();
-            ctx.fillStyle = "rgb(235 242 245 / 18%)";
+            ctx.fillStyle = "rgb(235 242 245 / 65%)";
             ctx.beginPath();
-            ctx.arc(p.x - radius * .3, p.y - 3, 2, 0, Math.PI * 2);
-            ctx.arc(p.x + radius * .3, p.y - 3, 2, 0, Math.PI * 2); ctx.fill();
+            ctx.arc(p.x - radius * .3, p.y - 3, 2.5, 0, Math.PI * 2);
+            ctx.arc(p.x + radius * .3, p.y - 3, 2.5, 0, Math.PI * 2); ctx.fill();
             ctx.restore();
             continue;
         }
