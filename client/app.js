@@ -614,7 +614,7 @@ function receiveState(next) {
     CORE.y = next.core.y;
     if (beginsRound) { showRoundIntro(next.round); window.coreAudio?.play("round-start"); }
     else if (next.rewindRemaining > 0) hideScreenIntro();
-    else if (endsDefense) showScreenIntro(next.phase === "won" ? "防衛成功" : "防衛失敗", 2000,
+    else if (endsDefense) showScreenIntro(next.phase === "won" ? "防衛成功" : "防衛失敗", next.rewindDelayRemaining > 0 ? 0 : 2000,
         `TIME ${formatMatchTime(next.elapsedSeconds)}`, next.phase);
     else if (!["wave", "won", "lost"].includes(next.phase) || !keepArea && ["won", "lost"].includes(next.phase)) hideScreenIntro();
     previousRound = next.round;
