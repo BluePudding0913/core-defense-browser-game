@@ -787,7 +787,5 @@ button, input { font: inherit; }
 
 /* Plasma blade treatment is limited to the main and SUB HUD. */
 .weapon .weapon-icon.plasmaBlade { background: transparent; clip-path: none; filter: none; }
-.weapon .weapon-icon.plasmaBlade::before { left: 1.55rem; top: 1.2rem; width: 3.25rem; height: .42rem; transform: rotate(-24deg); transform-origin: left center; border-radius: .08rem 70% 70% .08rem; background: linear-gradient(180deg, #54cfff, #ecffff 40%, #fff 55%, #55dfff 80%, #268ed8); box-shadow: 0 0 .35rem #61dcff, 0 0 .8rem rgb(56 191 255 / 45%); }
-.weapon .weapon-icon.plasmaBlade::after { left: .45rem; top: 1.46rem; width: 1.15rem; height: .4rem; transform: rotate(-24deg); border-radius: .1rem; border: .08rem solid #9ab5c7; background: repeating-linear-gradient(90deg, #263b4a 0 .2rem, #526d7f .2rem .26rem); box-shadow: .85rem 0 0 -.04rem #a6d5e8; }
-.weapon:has(> .weapon-icon.plasmaBlade) { border-color: rgb(105 223 255 / 65%); background: linear-gradient(120deg, rgb(40 131 166 / 24%), rgb(255 255 255 / 10%)); }
-.weapon:has(> .weapon-icon.plasmaBlade)::after { background: #89eaff; }
+.weapon .weapon-icon.plasmaBlade::before { left: 1.55rem; top: 1.2rem; width: 3.25rem; height: .4rem; transform: rotate(-24deg); transform-origin: left center; background: #e6e6e6; clip-path: polygon(0 0, 90% 0, 100% 50%, 90% 100%, 0 100%); }
+.weapon .weapon-icon.plasmaBlade::after { left: .45rem; top: 1.46rem; width: 1.15rem; height: .4rem; transform: rotate(-24deg); background: #777; }
