@@ -35,7 +35,7 @@ class EarlyRoundDifficultyTest {
     }
 
     @Test void openingPressureRisesGraduallyWithTwentyPercentFewerEnemies() throws Exception {
-        int[] populations = {5, 6, 8, 10, 12, 15, 18, 20, 22, 25, 26, 29};
+        int[] populations = {5, 6, 8, 10, 12, 15, 18, 20, 22, 28, 29, 32};
         for (int round = 1; round <= populations.length; round++) {
             game.round = round - 1;
             invoke("beginRound", new Class<?>[]{});
@@ -68,13 +68,13 @@ class EarlyRoundDifficultyTest {
     }
 
     @Test void reliefLastsThroughRoundTwentyFiveAndTapersWithoutAPopulationSpike() throws Exception {
-        int previous = 29;
+        int previous = 32;
         for (int round = 13; round <= 39; round++) {
             game.round = round - 1;
             invoke("beginRound", new Class<?>[]{});
             int population = game.queuedEnemies;
             assertTrue(population >= previous && population - previous <= 5, "R" + round);
-            if (round == 20) assertEquals(45, population);
+            if (round == 20) assertEquals(50, population);
             if (round == 25) assertEquals(55, population);
             if (round == 30) assertEquals(71, population);
             if (round >= 35) assertEquals(Math.round((6 + round * 3) * .8), population);

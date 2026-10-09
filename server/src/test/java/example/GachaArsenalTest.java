@@ -27,18 +27,19 @@ class GachaArsenalTest {
     void fire(double x, double y) { game.combat.attackAt(player,x,y); }
     void atGacha() {var shop=GameMap.shopByItem("gacha");player.x=shop.x();player.y=shop.y();}
     @Test void gachaOnlyRollsExclusiveWeaponsAndEveryExclusiveWeaponCanBeClaimed() {
-        assertEquals(Set.of("hook","laserCannon","poisonGas","repulsor"),new HashSet<>(GachaRules.POOL));
-        assertEquals(4,GachaRules.POOL.size());
+        assertEquals(Set.of("hook","laserCannon","poisonGas","repulsor","freezeGun","silverAmmo200","plasmaBlade"),new HashSet<>(GachaRules.POOL));
+        assertEquals(7,GachaRules.POOL.size());
         atGacha();
         for(int i=0;i<100;i++) {
             game.handleMessage(player,"BUY:gacha:roll");
-            assertTrue(WeaponCatalog.find(player.gachaWeapon).gachaOnly());
+            assertTrue(player.gachaWeapon.equals("silverAmmo200") || WeaponCatalog.find(player.gachaWeapon).gachaOnly());
             assertNull(GameMap.shopByItem(player.gachaWeapon));
             game.handleMessage(player,"BUY:gacha:skip");
         }
         for(String weapon:GachaRules.POOL) {
             player.weapons.clear(); player.gachaWeapon=weapon;
             game.handleMessage(player,"BUY:gacha:take");
+            if (weapon.equals("silverAmmo200")) { assertEquals(200,player.weapons.silverAmmo()); continue; }
             assertTrue(player.weapons.owns(weapon));assertEquals(weapon,player.weapon);
             assertEquals(player.weapons.capacity(weapon),player.weapons.ammo(weapon));
             assertFalse(DroneRules.mountable(weapon));
@@ -142,5 +143,34 @@ class GachaArsenalTest {
         assertEquals(PoisonGasRules.MAX_CLOUDS,game.poisonClouds.size());
         Enemy e=enemy(1,1140,1900);game.players.clear();game.combat.updatePoisonGas(1);
         assertTrue(game.poisonClouds.isEmpty());assertEquals(10000,e.hp);
+    }
+    @Test void silverPrizeStacksWithoutChangingEquipmentOrUsingAWeaponSlotAndCanBeSkipped() {
+        atGacha();player.weapons.grant("rifle");player.weapons.grant("smg");
+        String weapon=player.weapon;int count=player.weapons.weaponCount();int gold=player.credits;
+        for(int i=0;i<2;i++){player.gachaWeapon="silverAmmo200";game.handleMessage(player,"BUY:gacha:take");}
+        assertEquals(400,player.weapons.silverAmmo());assertEquals(weapon,player.weapon);assertEquals(count,player.weapons.weaponCount());assertEquals(gold,player.credits);
+        player.gachaWeapon="silverAmmo200";game.handleMessage(player,"BUY:gacha:skip");assertEquals(400,player.weapons.silverAmmo());assertNull(player.gachaWeapon);
+    }
+    @Test void plasmaReplacesBatAtFullInventoryAndSweepsVisibleFrontEnemiesWithoutAmmo() {
+        atGacha();player.weapons.grant("rifle");player.weapons.grant("smg");player.gachaWeapon="plasmaBlade";
+        game.handleMessage(player,"BUY:gacha:bat");assertEquals("plasmaBlade",player.weapon);assertFalse(player.weapons.owns("bat"));assertEquals(3,player.weapons.weaponCount());
+        assertFalse(player.weapons.canExchange("laserCannon","plasmaBlade"));
+        player.x=1020;player.y=1900;Enemy front=enemy(1,1100,1900),side=enemy(2,1080,1960),behind=enemy(3,980,1900);
+        fire(1400,1900);assertEquals(9820,front.hp);assertEquals(9820,side.hp);assertEquals(10000,behind.hp);assertEquals(0,player.weapons.ammo("plasmaBlade"));
+        assertEquals(.65,player.cooldown);player.weapons.remove("plasmaBlade");assertTrue(player.weapons.owns("bat"));
+    }
+    @Test void freezeStopsNearestEnemyForThreeSecondsWithoutDamageAndRespectsWalls() throws Exception {
+        equip("freezeGun");Enemy first=enemy(1,1100,1900),second=enemy(2,1180,1900),blocked=enemy(3,1300,1900);
+        fire(1400,1900);assertEquals(3,first.frozenRemaining);assertEquals(0,second.frozenRemaining);assertEquals(0,blocked.frozenRemaining);assertEquals(10000,first.hp);assertEquals(59,player.weapons.ammo("freezeGun"));
+        var move=GameSession.class.getDeclaredMethod("moveEnemyToward",Enemy.class,double.class,double.class,double.class);move.setAccessible(true);
+        move.invoke(game,first,1020.,1900.,20.);assertEquals(1100,first.x);
+        var tick=GameSession.class.getDeclaredMethod("updateEnemies",double.class);tick.setAccessible(true);tick.invoke(game,3.);assertEquals(0,first.frozenRemaining);
+        move.invoke(game,first,1020.,1900.,20.);assertTrue(first.x<1100);
+    }
+    @Test void freezingExplosionBossNeverPausesItsFuse() throws Exception {
+        var boss=new Enemy(9,"explosionBoss",GameMap.SPAWN_POINTS.get(0),10000,100,100,0);boss.x=1100;boss.y=1900;boss.fuse=5;boss.frozenRemaining=3;
+        game.enemies.add(boss);game.roundEnemyTotal=100;double x=boss.x,y=boss.y;
+        var tick=GameSession.class.getDeclaredMethod("updateEnemies",double.class);tick.setAccessible(true);tick.invoke(game,1.);
+        assertEquals(4,boss.fuse);assertEquals(x,boss.x);assertEquals(y,boss.y);
     }
 }

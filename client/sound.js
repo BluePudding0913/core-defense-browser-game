@@ -14,6 +14,8 @@
         laserCannon: { pitch: 1400, end: 160, duration: .28, noise: .08, amplitude: .18 },
         poisonGas: { pitch: 140, end: 70, duration: .38, noise: .75, whoosh: true, amplitude: .14 },
         repulsor: { pitch: 90, end: 45, duration: .12, noise: .15, amplitude: .06 },
+        freezeGun: { pitch: 1200, end: 340, duration: .22, noise: .25 },
+        plasmaBlade: { pitch: 750, end: 120, duration: .22, noise: .2 },
         rocket: { pitch: 140, end: 28, duration: .42, noise: .8 },
         "missile-launch": { pitch: 1100, end: 220, duration: 1.6, noise: .72, whoosh: true },
         "missile-impact": { pitch: 55, end: 18, duration: 1.05, noise: .88, rumble: true },

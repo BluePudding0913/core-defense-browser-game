@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 
 class CombatSystemTest {
     @Test void spyPistolDealsTripleDamageWithHeadshotsAndSilverButOtherJobsAndWeaponsStayNormal() {
-        for (String job : List.of("spy", "healer", "attacker")) {
+        for (String job : List.of("spy", "healer", "attacker", "scout", "builder")) {
             for (String weapon : List.of("pistol", "smg")) {
                 for (boolean silver : List.of(false, true)) {
                     var world = new World(); world.active = true;
@@ -18,7 +18,7 @@ class CombatSystemTest {
                     world.enemies.add(enemy);
                     combat.attackAt(player, enemy.x, enemy.y);
                     double base = WeaponCatalog.stats(weapon).damage();
-                    double multiplier = job.equals("spy") && weapon.equals("pistol") ? 3 : 1;
+                    double multiplier = job.equals("spy") && weapon.equals("pistol") ? 3 : job.equals("attacker") ? 1.5 : 1;
                     assertEquals(1000 - base * multiplier * (silver ? 3 : 1), enemy.hp, 1e-9);
                     player.cooldown = 0; enemy.hp = 1000;
                     combat.attackAt(player, enemy.x, enemy.y - 10.5);
@@ -102,7 +102,7 @@ class CombatSystemTest {
             }
             if (definition.stats().damage() == 0) assertEquals(0, damage[0], weapon);
             else assertTrue(damage[0] > 0, weapon);
-            assertEquals(damage[0], damage[1], 1e-7, weapon);
+            assertEquals(damage[0] * 1.5, damage[1], 1e-7, weapon);
         }
     }
 
@@ -203,7 +203,7 @@ class CombatSystemTest {
         var ordinary = shooter("pistol", false);
         double before = enemy.hp;
         combat.attackAt(ordinary, 1400, 1900);
-        assertEquals((before - enemy.hp) * 3.0, enhancedPistolDamage, 1e-7);
+        assertEquals((before - enemy.hp) * 4.5, enhancedPistolDamage, 1e-7);
         player.drone = new Drone(); player.drone.active = true; player.drone.controlled = true;
         player.drone.weapon = "smg"; player.drone.x = player.x; player.drone.y = player.y;
         before = enemy.hp;
@@ -212,7 +212,7 @@ class CombatSystemTest {
         ordinary.weapon = "smg"; ordinary.weapons.grant("smg"); ordinary.cooldown = 0;
         double droneDamage = before - enemy.hp; before = enemy.hp;
         combat.attackAt(ordinary, 1400, 1900);
-        assertEquals((before - enemy.hp) * 3.0, droneDamage, 1e-7);
+        assertEquals((before - enemy.hp) * 4.5, droneDamage, 1e-7);
     }
 
     private static final class World implements CombatSystem.World {
