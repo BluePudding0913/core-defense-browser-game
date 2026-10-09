@@ -97,19 +97,19 @@ class RailgunTest {
     @Test void purchaseRefillSnapshotAndReset() throws Exception {
         player.weapons.setOwned("railgun", false); player.equipWeapon("pistol");
         ShopUnit shop = GameMap.shopByItem("railgun");
-        player.x = shop.x(); player.y = shop.y(); player.credits = 19999;
+        player.x = shop.x(); player.y = shop.y(); player.credits = shop.cost() - 1;
         game.handleMessage(player, "BUY:railgun"); assertFalse(player.weapons.owns("railgun"));
-        player.credits = 20000; game.handleMessage(player, "BUY:railgun");
+        player.credits = shop.cost(); game.handleMessage(player, "BUY:railgun");
         assertTrue(player.weapons.owns("railgun")); assertEquals(0, player.credits);
         assertEquals("railgun", player.weapon); assertEquals(WeaponCatalog.capacity("railgun"), player.weapons.ammo("railgun"));
-        player.weapons.setAmmo("railgun", 0); player.credits = 120;
+        player.weapons.setAmmo("railgun", 0); player.credits = GameSession.ammoRefillCost("railgun");
         game.handleMessage(player, "BUY:railgun");
         assertEquals(WeaponCatalog.capacity("railgun"), player.weapons.ammo("railgun")); assertEquals(0, player.credits);
         ShopUnit ammo = GameMap.shopByItem("ammo");
-        player.x = ammo.x(); player.y = ammo.y(); player.credits = 1000; player.weapons.setAmmo("railgun", 0);
+        player.x = ammo.x(); player.y = ammo.y(); player.credits = GameSession.ammoRefillCost("railgun"); player.weapons.setAmmo("railgun", 0);
         game.handleMessage(player, "BUY:ammo"); assertEquals(WeaponCatalog.capacity("railgun"), player.weapons.ammo("railgun"));
         var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
-        assertEquals(20000, snapshot.path("rules").path("weapons").path("railgun").path("price").asInt());
+        assertEquals(shop.cost(), snapshot.path("rules").path("weapons").path("railgun").path("price").asInt());
         assertTrue(snapshot.path("players").get(0).path("ownsRailgun").asBoolean());
         game.phase = GamePhase.LOST;
         game.players.forEach(p -> p.roomReady = true);

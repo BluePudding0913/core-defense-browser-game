@@ -31,6 +31,7 @@ final class SnapshotBuilder {
         json.append(",\"prepTime\":").append(roundOne(game.prepTime));
         json.append(",\"elapsedSeconds\":").append(roundOne(game.elapsedSeconds));
         json.append(",\"victoryMoveRemaining\":").append(roundOne(game.victoryMoveRemaining));
+        json.append(",\"teamBuffRemaining\":").append(roundOne(game.teamBuffRemaining));
         json.append(",\"nextPrepBonus\":").append(game.nextPrepBonusSeconds);
         json.append(",\"prepExtensionCost\":").append(game.prepExtensionCost());
         json.append(",\"queued\":").append(game.queuedEnemies + game.queuedBosses);
@@ -109,7 +110,7 @@ final class SnapshotBuilder {
             var stats = definition.stats();
             ShopUnit shop = GameMap.shopByItem(key);
             json.append('"').append(key).append("\":{\"capacity\":").append(GameSession.weaponAmmoCapacity(key))
-                .append(",\"price\":").append(shop == null ? 0 : shop.cost()).append(",\"refillCost\":").append(GameSession.ammoRefillCost())
+                .append(",\"price\":").append(shop == null ? 0 : shop.cost()).append(",\"refillCost\":").append(GameSession.ammoRefillCost(key))
                 .append(",\"damage\":").append(stats.damage()).append(",\"range\":").append(stats.range())
                 .append(",\"cooldown\":").append(stats.cooldown()).append(",\"ammoPerShot\":").append(1)
                 .append(",\"pellets\":").append(definition.pellets()).append(",\"maxTargets\":").append(definition.maxTargets())
@@ -143,10 +144,19 @@ final class SnapshotBuilder {
             for(String material : List.of("wood","ore","copper","silver")) json.append(",\"").append(material).append("\":").append(entry.getValue().getOrDefault(material,0));
             json.append('}');
         }
+        json.append(",\"overclockSilver\":{\"name\":\"オーバークロックシルバー\",\"description\":\"圧縮銀タレット・高速射撃・射程480\",\"shopOnly\":true}");
         ShopUnit ammo = GameMap.shopByItem("ammo");
         json.append("},\"silverAmmo\":{\"cost\":").append(SilverAmmoRules.COST)
             .append(",\"amount\":").append(SilverAmmoRules.PACK_SIZE)
             .append(",\"damageMultiplier\":").append(SilverAmmoRules.DAMAGE_MULTIPLIER)
+            .append("},\"upgrades\":{\"enchantMax\":").append(UpgradeRules.ENCHANT_MAX)
+            .append(",\"enchantStep\":").append(UpgradeRules.ENCHANT_STEP).append(",\"enchantCosts\":[")
+            .append(UpgradeRules.enchantCost(0)).append(',').append(UpgradeRules.enchantCost(1)).append(',').append(UpgradeRules.enchantCost(2))
+            .append("],\"bottomsCost\":").append(UpgradeRules.BOTTOMS_COST).append(",\"topsCost\":").append(UpgradeRules.TOPS_COST)
+            .append(",\"bottomsReduction\":").append(UpgradeRules.BOTTOMS_REDUCTION).append(",\"topsReduction\":").append(UpgradeRules.TOPS_REDUCTION)
+            .append(",\"compressionCost\":").append(UpgradeRules.COMPRESSION_COST)
+            .append(",\"teamCost\":").append(UpgradeRules.TEAM_COST).append(",\"teamDuration\":").append(UpgradeRules.TEAM_DURATION)
+            .append(",\"teamDamage\":").append(UpgradeRules.TEAM_DAMAGE).append(",\"teamDefense\":").append(UpgradeRules.TEAM_DEFENSE)
             .append("},\"shop\":{\"medkit\":").append(GameConfig.MEDKIT_PRICE).append(",\"ammo\":").append(ammo.cost())
             .append("},\"medkitHeal\":").append(GameConfig.MEDKIT_HEAL).append(",\"medkitCapacity\":").append(GameConfig.MEDKIT_CAPACITY).append(",\"unlockCost\":").append(game.unlockCost())
             .append(",\"areaUnlockCosts\":{");
@@ -197,6 +207,15 @@ final class SnapshotBuilder {
             json.append(",\"down\":").append(player.down)
                     .append(",\"weapon\":\"").append(player.weapon);
             json.append("\",\"cooldown\":").append(roundOne(player.cooldown));
+            json.append(",\"armorBottoms\":").append(player.armorBottoms).append(",\"armorTops\":").append(player.armorTops)
+                .append(",\"teamBuffActive\":").append(game.teamBuffAt(player.x, player.y)).append(",\"enchantments\":{");
+            boolean firstEnchantment = true;
+            for (var entry : player.enchantments.entrySet()) {
+                if (!firstEnchantment) json.append(',');
+                firstEnchantment = false;
+                json.append('"').append(escapeJson(entry.getKey())).append("\":").append(entry.getValue());
+            }
+            json.append('}');
             json.append(",\"cooldownMax\":").append(roundOne(player.cooldownMax));
             json.append(",\"railgunCharge\":").append(roundOne(player.railgunCharge))
                     .append(",\"railgunRemaining\":").append(roundOne(player.railgunRemaining))
@@ -289,6 +308,7 @@ final class SnapshotBuilder {
                     .append(",\"silverBarricade\":").append(player.silverBarricadeItems)
                     .append(",\"copperTurret\":").append(player.copperTurretItems)
                     .append(",\"silverTurret\":").append(player.silverTurretItems)
+                    .append(",\"overclockSilver\":").append(player.overclockSilverItems)
                     .append(",\"teleporter\":").append(player.buildItemCount("teleporter"));
             for (String item : List.of("woodFactory", "oreFactory", "copperFactory", "silverFactory")) {
                 json.append(",\"").append(item).append("\":").append(player.buildItemCount(item));

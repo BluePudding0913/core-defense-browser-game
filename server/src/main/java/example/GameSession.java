@@ -41,11 +41,21 @@ final class GameSession {
     int roundEnemyTotal;
     double elapsedSeconds;
     double victoryMoveRemaining;
+    double teamBuffRemaining;
     private boolean explosionBossSpawned;
     private boolean wardenSpawned;
 
     static int ammoRefillCost() {
         return 120;
+    }
+
+    static int ammoRefillCost(String weapon) {
+        return switch (weapon) {
+            case "flamethrower" -> 5_000;
+            case "rocket" -> 8_000;
+            case "railgun" -> 12_000;
+            default -> ammoRefillCost();
+        };
     }
 
     int unlockCost() {
@@ -148,6 +158,12 @@ final class GameSession {
             public boolean canOccupy(double x, double y, double radius) { return GameSession.this.canOccupy(x, y, radius); }
             public void onEnemyDefeated(Enemy enemy) {
                 if (enemy.type.equals("bomber")) explodeBomber(enemy);
+            }
+            public double damageMultiplier(Player player, String weapon) {
+                double personal = UpgradeRules.weaponMultiplier(player.enchantments.getOrDefault(weapon, 0));
+                double x = DroneRules.controlling(player) ? player.drone.x : player.x;
+                double y = DroneRules.controlling(player) ? player.drone.y : player.y;
+                return personal * (teamBuffAt(x, y) ? UpgradeRules.TEAM_DAMAGE : 1);
             }
         }, gameEffects, random::nextDouble);
         for (int slot = 1; slot <= PLAYER_COUNT; slot++) players.add(new Player(slot));
@@ -331,6 +347,7 @@ final class GameSession {
 
     void update(double dt) {
         updateReconnectReservations(dt);
+        if (canUseFacilities()) teamBuffRemaining = Math.max(0, teamBuffRemaining - dt);
         for (Player player : players) {
             if (!canMove()) recallDrone(player);
             if (player.drone != null) player.drone.cooldown = Math.max(0, player.drone.cooldown - dt);
@@ -715,6 +732,7 @@ final class GameSession {
         if (owner.drone.hp <= 0) {
             String weapon = owner.drone.weapon;
             owner.weapons.remove(weapon);
+            owner.enchantments.remove(weapon);
             if (owner.weapon.equals(weapon)) owner.equipWeapon("bat");
             owner.weaponCooldowns.remove(weapon);
             owner.weaponCooldownMaxima.remove(weapon);
@@ -1379,20 +1397,21 @@ final class GameSession {
                         enemy.slow = Math.min(enemy.slow, 0.48);
                     }
                 }
-            } else if (Set.of("turret","copperTurret","silverTurret").contains(defense.type) && defense.cooldown <= 0) {
+            } else if (BuildingRules.isTurret(defense.type) && defense.cooldown <= 0) {
                 Enemy target = enemies.stream()
-                        .filter(enemy -> enemy.hp > 0 && distance(slot.x, slot.y, enemy.x, enemy.y) <= (defense.type.equals("silverTurret") ? 380 : 300))
+                        .filter(enemy -> enemy.hp > 0 && distance(slot.x, slot.y, enemy.x, enemy.y) <= (defense.type.equals("overclockSilver") ? 480 : defense.type.equals("silverTurret") ? 380 : 300))
                         .filter(enemy -> GameMap.hasClearLine(slot.x, slot.y, enemy.x, enemy.y, unlockedAreas))
                         .min(Comparator.comparingDouble(enemy -> distance(enemy.x, enemy.y, coreX, coreY)))
                         .orElse(null);
                 if (target != null) {
                     double tinyHitChance = switch (defense.type) {
+                        case "overclockSilver" -> .8;
                         case "silverTurret" -> .4;
                         case "copperTurret" -> .3;
                         default -> .2;
                     };
                     boolean hit = !target.type.equals("tiny") || random.nextDouble() < tinyHitChance;
-                    double turretDamage = (17+round*.5)*(defense.type.equals("silverTurret") ? 3.5 : defense.type.equals("copperTurret") ? 2 : 1);
+                    double turretDamage = (17+round*.5)*(defense.type.equals("overclockSilver") ? 14 : defense.type.equals("silverTurret") ? 3.5 : defense.type.equals("copperTurret") ? 2 : 1);
                     turretDamage = target.shieldedDamage(turretDamage, slot.x, slot.y);
                     double dealt = hit ? combat.damageEnemy(target, turretDamage, null) : 0;
                     double missAngle = Math.atan2(target.y - slot.y, target.x - slot.x) + Math.PI / 2;
@@ -1400,7 +1419,7 @@ final class GameSession {
                             target.x + (hit ? 0 : Math.cos(missAngle) * 16),
                             target.y + (hit ? 0 : Math.sin(missAngle) * 16),
                             dealt, target.hp <= 0, 0, false, hit ? target.id : null);
-                    defense.cooldown = defense.type.equals("silverTurret") ? .45 : .7;
+                    defense.cooldown = defense.type.equals("overclockSilver") ? .15 : defense.type.equals("silverTurret") ? .45 : .7;
                 }
             } else if (defense.type.equals("mine")) {
                 Enemy trigger = enemies.stream()
@@ -1692,7 +1711,7 @@ final class GameSession {
         }
         TrapSlot defense = target == null ? trapSlots.stream()
                 .filter(slot -> slot.defense != null && !slot.defense.type.equals("mine")
-                        && !Set.of("turret", "copperTurret", "silverTurret").contains(slot.defense.type)
+                        && !BuildingRules.isTurret(slot.defense.type)
                         && canArtilleryAim(enemy, slot.x, slot.y))
                 .min(Comparator.comparingDouble(slot -> distance(enemy.x, enemy.y, slot.x, slot.y)))
                 .orElse(null) : null;
@@ -1728,7 +1747,7 @@ final class GameSession {
             }
             for (TrapSlot slot : trapSlots) {
                 if (slot.defense != null
-                        && !Set.of("turret", "copperTurret", "silverTurret").contains(slot.defense.type)
+                        && !BuildingRules.isTurret(slot.defense.type)
                         && inArtilleryBlast(shell, slot.x, slot.y)) {
                     slot.defense.hp -= shell.damage;
                     if (slot.defense.hp <= 0) slot.defense = null;
@@ -1779,7 +1798,7 @@ final class GameSession {
         return trapSlots.stream()
                 .filter(slot -> slot.defense != null && !slot.defense.type.equals("mine")
                         && !(enemy.type.equals("artillery")
-                            && Set.of("turret", "copperTurret", "silverTurret").contains(slot.defense.type))
+                            && BuildingRules.isTurret(slot.defense.type))
                         && distance(enemy.x, enemy.y, slot.x, slot.y) <= range)
                 .min(Comparator.comparingDouble(slot -> distance(enemy.x, enemy.y, slot.x, slot.y)))
                 .orElse(null);
@@ -1844,6 +1863,7 @@ final class GameSession {
 
     private void damageCore(double rawDamage) {
         double damage = rawDamage * Math.max(0.55, 1 - coreDefenseLevel * 0.1);
+        if (teamBuffAt(coreX, coreY)) damage *= UpgradeRules.TEAM_DEFENSE;
         if (coreShield > 0) {
             double absorbed = Math.min(coreShield, damage);
             coreShield -= absorbed;
@@ -2385,7 +2405,7 @@ final class GameSession {
             ShopUnit shop = GameMap.shopByItem(item);
             boolean owned = bot.weapons.owns(item);
             if (shop == null || !isPointUnlocked(shop.x(), shop.y())
-                    || bot.credits < (owned ? ammoRefillCost() : shop.cost())) continue;
+                    || bot.credits < (owned ? ammoRefillCost(item) : shop.cost())) continue;
             if (DroneRules.mounted(bot, item)) continue;
             if (owned ? weaponAmmo(bot, item) > bot.weapons.capacity(item) * (phase == GamePhase.PREPARING ? .5 : .25)
                     : !BotWeaponPolicy.worthwhileUpgrade(bot, item)) continue;
@@ -2621,12 +2641,13 @@ final class GameSession {
             gameEffects.feedback(player, shop.label() + "を購入しました。Rで設置できます");
             return;
         }
+        if (buyUpgrade(player, shop, outgoing)) return;
         if (WeaponCatalog.capacity(item) > 0) {
             buyOrRefillWeapon(player, shop, item, outgoing);
             return;
         }
         switch (item) {
-            case "ammo" -> {
+            case "ammo", "frontlineAmmo" -> {
                 List<String> owned = WeaponCatalog.ALL.stream().filter(WeaponCatalog.Definition::usesAmmo)
                         .map(WeaponCatalog.Definition::id).filter(player.weapons::owns)
                         .filter(weapon -> !DroneRules.mounted(player, weapon)).toList();
@@ -2637,7 +2658,8 @@ final class GameSession {
                 if (owned.stream().allMatch(weapon -> weaponAmmo(player, weapon) >= player.weapons.capacity(weapon))) {
                     return;
                 }
-                if (spend(player, shop.cost())) {
+                int refillPrice = Math.max(shop.cost(), owned.stream().mapToInt(GameSession::ammoRefillCost).max().orElse(0));
+                if (spend(player, refillPrice)) {
                     owned.forEach(weapon -> setWeaponAmmo(player, weapon, player.weapons.capacity(weapon)));
                     gameEffects.feedback(player, "弾薬を補充しました");
                     events.send(player, "{\"type\":\"ammo-refilled\"}");
@@ -2647,6 +2669,60 @@ final class GameSession {
             }
             default -> { }
         }
+    }
+
+    boolean teamBuffAt(double x, double y) {
+        UnlockArea area = GameMap.areaById(UpgradeRules.AREA);
+        return teamBuffRemaining > 0 && unlockedAreas.contains(UpgradeRules.AREA) && area.contains(x, y);
+    }
+
+    private boolean buyUpgrade(Player player, ShopUnit shop, String selection) {
+        switch (shop.item()) {
+            case "enchant" -> {
+                if (selection == null || WeaponCatalog.find(selection) == null || selection.equals("bat")) return true;
+                int level = player.enchantments.getOrDefault(selection, 0);
+                if (!UpgradeRules.canEnchant(player.weapons.owns(selection), DroneRules.mounted(player, selection), level, player.credits)) {
+                    gameEffects.feedback(player, "強化できません"); return true;
+                }
+                spend(player, UpgradeRules.enchantCost(level));
+                player.enchantments.put(selection, level + 1);
+                gameEffects.purchased(player, selection, false);
+                gameEffects.feedback(player, "武器を強化しました");
+            }
+            case "armor" -> {
+                boolean bottoms = "bottoms".equals(selection), tops = "tops".equals(selection);
+                if (!bottoms && !tops || bottoms && player.armorBottoms || tops && player.armorTops) return true;
+                if (!spend(player, bottoms ? UpgradeRules.BOTTOMS_COST : UpgradeRules.TOPS_COST)) {
+                    gameEffects.feedback(player, "お金が足りません"); return true;
+                }
+                if (bottoms) player.armorBottoms = true; else player.armorTops = true;
+                gameEffects.purchased(player, shop.item(), false);
+                gameEffects.feedback(player, "防具を購入しました");
+            }
+            case "overclockSilver" -> {
+                if (player.silverTurretItems < UpgradeRules.COMPRESSION_COST) {
+                    gameEffects.feedback(player, "銀タレットが足りません"); return true;
+                }
+                for (int i = 0; i < UpgradeRules.COMPRESSION_COST; i++) player.takeDefense("silverTurret");
+                player.addBuildItem("silverTurret", -UpgradeRules.COMPRESSION_COST);
+                player.addBuildItem("overclockSilver", 1);
+                player.selectedBuild = "overclockSilver";
+                releaseCarriedCore(player);
+                gameEffects.purchased(player, shop.item(), false);
+                gameEffects.feedback(player, "オーバークロックシルバーを購入しました");
+            }
+            case "teamMachine" -> {
+                if (teamBuffRemaining > 0) return true;
+                if (!spend(player, UpgradeRules.TEAM_COST)) {
+                    gameEffects.feedback(player, "お金が足りません"); return true;
+                }
+                teamBuffRemaining = UpgradeRules.TEAM_DURATION;
+                gameEffects.purchased(player, shop.item(), false);
+                gameEffects.feedback(player, "チーム強化を開始しました");
+            }
+            default -> { return false; }
+        }
+        return true;
     }
 
     private void buyOrRefillWeapon(Player player, ShopUnit shop, String item, String outgoing) {
@@ -2659,7 +2735,7 @@ final class GameSession {
             if (weaponAmmo(player, item) >= capacity) {
                 return;
             }
-            if (spend(player, ammoRefillCost())) {
+            if (spend(player, ammoRefillCost(item))) {
                 setWeaponAmmo(player, item, capacity);
                 gameEffects.feedback(player, "弾薬を補充しました");
                 events.send(player, "{\"type\":\"ammo-refilled\"}");
@@ -2677,6 +2753,7 @@ final class GameSession {
             releaseCarriedCore(player);
             if (exchange) {
                 player.weapons.exchange(item, outgoing);
+                player.enchantments.remove(outgoing);
                 if (player.secondaryWeapon.equals(outgoing)) {
                     player.equipSecondaryWeapon(item);
                     player.secondaryFiring = false;
@@ -2791,7 +2868,7 @@ final class GameSession {
         if (type.equals("none")) {
             releaseCarriedCore(player);
             player.selectedBuild = null;
-        } else if ((type.equals("teleporter") || BUILD_RECIPES.containsKey(type) || type.endsWith("Factory")) && player.buildItemCount(type) > 0) {
+        } else if ((type.equals("teleporter") || BuildingRules.isDefense(type) || type.endsWith("Factory")) && player.buildItemCount(type) > 0) {
             releaseCarriedCore(player);
             player.selectedBuild = type;
             player.firing = player.secondaryFiring = false;
@@ -2960,7 +3037,7 @@ final class GameSession {
     }
 
     private void build(Player player, String slotId, String type) {
-        if (!canUseFacilities() || player.down || !BUILD_RECIPES.containsKey(type)) return;
+        if (!canUseFacilities() || player.down || !BuildingRules.isDefense(type)) return;
         TrapSlot slot = slotById(slotId);
         if (slot == null || !canInteract(player, slot.x, slot.y, 100)) {
             gameEffects.feedback(player, "もう少し近づいてください");
@@ -2987,7 +3064,7 @@ final class GameSession {
     }
 
     private void placeDefense(Player player, String[] parts) {
-        if (!canUseFacilities() || player.down || !BUILD_RECIPES.containsKey(parts[3])) return;
+        if (!canUseFacilities() || player.down || !BuildingRules.isDefense(parts[3])) return;
         double requestedX = Double.parseDouble(parts[1]);
         double requestedY = Double.parseDouble(parts[2]);
         if (!Double.isFinite(requestedX) || !Double.isFinite(requestedY)) return;
@@ -3239,6 +3316,8 @@ final class GameSession {
             damage *= JobRules.TANK_DAMAGE_FACTOR;
         events.broadcast("{\"type\":\"effect\",\"effect\":\"player-hit\",\"playerId\":\"" + player.id + "\"}");
         if (player.movingCore) damageCore(damage);
+        damage *= UpgradeRules.armorMultiplier(player.armorBottoms, player.armorTops);
+        if (teamBuffAt(player.x, player.y)) damage *= UpgradeRules.TEAM_DEFENSE;
         player.medbayDamageDelay = GameConfig.MEDBAY_DAMAGE_DELAY;
         player.hp = Math.max(0, player.hp - damage);
         if (player.hp <= 0) {
@@ -3268,6 +3347,7 @@ final class GameSession {
     private void resetWorld() {
         elapsedSeconds = 0;
         victoryMoveRemaining = 0;
+        teamBuffRemaining = 0;
         explosionBossSpawned = false;
         wardenSpawned = false;
         roundEnemyTotal = 0;
@@ -3349,6 +3429,9 @@ final class GameSession {
             player.aimY = player.y;
             player.stopRailgun();
             player.weapons.clear();
+            player.enchantments.clear();
+            player.armorBottoms = player.armorTops = false;
+            player.overclockSilverItems = 0;
             player.wood = 0;
             player.ore = 0;
             player.recoveredDefenses.clear();

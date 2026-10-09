@@ -19,6 +19,9 @@ final class CombatSystem {
         void damagePlayer(Player player, double damage);
         boolean canOccupy(double x, double y, double radius);
         void onEnemyDefeated(Enemy enemy);
+        default double damageMultiplier(Player player, String weapon) {
+            return UpgradeRules.weaponMultiplier(player.enchantments.getOrDefault(weapon, 0));
+        }
     }
     private final World world;
     private final CombatEvents events;
@@ -486,6 +489,7 @@ final class CombatSystem {
 
     private double damageEnemy(Enemy enemy, double damage, Player player, String weapon) {
         if (enemy.hp <= 0) return 0;
+        if (player != null) damage *= world.damageMultiplier(player, weapon);
         if (droneShot != null && droneShot.owner == player && damage > 0) droneShot.drone.attackers.add(enemy.id);
         double dealt = Math.min(enemy.hp, damage);
         enemy.hp -= dealt;
