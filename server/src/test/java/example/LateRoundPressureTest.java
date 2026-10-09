@@ -31,18 +31,18 @@ class LateRoundPressureTest {
     }
 
     @Test void populationGrowsFromRoundFortyAndSnapshotsIncludeTheWholeBudget() throws Exception {
-        Map<Integer, Integer> populations = Map.of(39, 98, 40, 202, 41, 227, 42, 254, 43, 281, 45, 338, 50, 499);
+        Map<Integer, Integer> populations = Map.of(39, 98, 40, 141, 41, 153, 42, 165, 43, 177, 45, 203, 50, 274);
         for (var entry : populations.entrySet()) {
             beginRound(entry.getKey());
             assertEquals(entry.getValue().intValue(), game.queuedEnemies, "R" + entry.getKey());
-            int bosses = entry.getKey() == 40 ? 20 : entry.getKey() == 45 ? 1 : 0;
+            int bosses = entry.getKey() == 40 || entry.getKey() == 45 ? 1 : 0;
             assertEquals(bosses, game.queuedBosses);
             var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
             assertEquals(entry.getValue() + bosses, snapshot.path("queued").asInt());
         }
-        beginRound(44); assertEquals(22, game.queuedBosses);
-        beginRound(48); assertEquals(24, game.queuedBosses);
-        beginRound(36); assertEquals(9, game.queuedBosses);
+        beginRound(44); assertEquals(1, game.queuedBosses);
+        beginRound(48); assertEquals(1, game.queuedBosses);
+        beginRound(36); assertEquals(1, game.queuedBosses);
     }
 
     @Test void burstsGrowGraduallyAndKeepTheirSpawnCooldown() throws Exception {

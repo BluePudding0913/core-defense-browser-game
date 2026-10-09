@@ -93,7 +93,10 @@ final class WardenCombatSystem {
     }
 
     private static void impact(Enemy enemy, double radius, double damage, World world) {
-        var hits = enemy.warden.struck;
+        areaImpact(enemy, radius, damage, world, enemy.warden.struck);
+    }
+
+    static void areaImpact(Enemy enemy, double radius, double damage, World world, java.util.Set<String> hits) {
         for (Player player : world.players()) {
             if (!player.down && inRange(enemy, player.x, player.y, radius, world) && hits.add(player.id))
                 world.damagePlayer(player, damage);

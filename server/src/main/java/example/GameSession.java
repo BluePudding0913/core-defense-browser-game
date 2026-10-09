@@ -1003,7 +1003,7 @@ final class GameSession {
     }
 
     private boolean isExplosionBossRound() {
-        return round >= 25 && (round - 25) % 10 == 0;
+        return EnemyWaveRules.explosionRound(round);
     }
 
     private boolean isDebugGhostRound() { return debugMode && round == 4; }
@@ -1014,18 +1014,8 @@ final class GameSession {
         round++;
         selectRoundSpawns(round);
         phase = GamePhase.WAVE;
-        queuedEnemies = 6 + round * 3 - earlyRoundRelief();
-        queuedBosses = isExplosionBossRound() ? 1 : round % 4 == 0 ? round / 4 : 0;
-        if (round >= 40) {
-            // Double the R40 population, then add 20 percentage points per round.
-            queuedEnemies = (queuedEnemies * (10 + round - 40) + 4) / 5;
-            if (!isExplosionBossRound()) queuedBosses *= 2;
-        }
-        queuedEnemies = (int) Math.round(queuedEnemies * 0.8);
-        if (round >= 10 && round <= 24) {
-            double extra = round <= 20 ? .1 : (25 - round) * .02;
-            queuedEnemies = (int) Math.ceil(queuedEnemies * (1 + extra));
-        }
+        queuedEnemies = EnemyWaveRules.regularCount(round);
+        queuedBosses = EnemyWaveRules.bossCount(round);
         queuedBlueEnemies = round >= 40 ? random.nextInt(3) : 0;
         if (isDebugEnemyPreview()) {
             queuedEnemies = DEBUG_ENEMY_TYPES.size();
@@ -1357,53 +1347,14 @@ final class GameSession {
         }
     }
 
-    private int earlyRoundRelief() {
-        // Keep the gentle opening, then ease crowds through R25 and taper off by R35.
-        int openingRelief = switch (round) {
-            case 1 -> 3;
-            case 2 -> 4;
-            case 3 -> 5;
-            case 4, 5 -> 6;
-            case 6 -> 5;
-            default -> Math.max(0, Math.min(4, 11 - round));
-        };
-        int midgameRelief = (int) Math.round((6 + round * 3) * 0.15 * earlyRoundReliefScale());
-        return Math.max(openingRelief, midgameRelief);
-    }
+    private int earlyRoundRelief() { return EnemyWaveRules.relief(round); }
 
-    private double earlyRoundReliefScale() {
-        return round <= 25 ? 1 : Math.max(0, (35 - round) / 10.0);
-    }
+    private double earlyRoundReliefScale() { return EnemyWaveRules.reliefScale(round); }
 
     private String selectEnemyType(SpawnPoint spawn) {
-        if (round >= 14 && random.nextDouble() < .035) return "blackout";
-        if (round >= 10 && random.nextDouble() < .06) return "seeker";
-        if (round >= 6 && random.nextDouble() < .025) return "gilded";
-        if (round >= 22 && random.nextDouble() < .025) return "carrier";
-        // Reserve a growing share for elites, retaining each entrance's original mix.
-        if (round >= 15 && random.nextDouble() < .10) return "bomber";
-        double eliteRoll = random.nextDouble();
-        double eliteChance = 0;
-        if (round >= 34 && eliteRoll < (eliteChance += 0.12)) return "champion";
-        if (round >= 26 && eliteRoll < (eliteChance += 0.14)) return "siege";
-        if (round >= 18 && eliteRoll < (eliteChance += 0.16)) return "hunter";
-        if (round >= 18 && eliteRoll < (eliteChance += 0.16)) return "ghost";
-        if (round >= 10 && eliteRoll < (eliteChance += 0.18)) return "armored";
-        if (round >= 12 && eliteRoll < (eliteChance += round <= 25 ? 0.04 : 0.08)) return "artillery";
-        if (round >= 7 && eliteRoll < (eliteChance += Math.min(0.10, 0.04 + (round - 7) * 0.03))) return "shield";
-        double bruteChance = round >= 5 ? 0.18 : 0;
-        double runnerChance = round >= 3 ? 0.25 : 0;
-        if (spawn.enemyBias().equals("runner")) {
-            bruteChance = round >= 5 ? 0.10 : 0;
-            runnerChance = round >= 3 ? 0.52 : 0;
-        } else if (spawn.enemyBias().equals("brute")) {
-            bruteChance = round >= 5 ? 0.38 : 0;
-            runnerChance = round >= 3 ? 0.16 : 0;
-        }
-        double roll = random.nextDouble();
-        if (roll < bruteChance) return "brute";
-        if (roll < bruteChance + runnerChance) return "runner";
-        return "grunt";
+        boolean blackoutAllowed = enemies.stream().filter(e -> e.hp > 0 && e.type.equals("blackout")).count() < 2;
+        boolean carrierAllowed = enemies.stream().filter(e -> e.hp > 0 && e.type.equals("carrier")).count() < 2;
+        return EnemyWaveRules.select(round, spawn.enemyBias(), random.nextDouble(), blackoutAllowed, carrierAllowed);
     }
 
     private SpawnPoint nextRoundSpawn() {
@@ -1505,7 +1456,7 @@ final class GameSession {
                 reward = 40;
             }
             case "boss" -> {
-                hp = 1375 + round * 44;
+                hp = (1600 + round * 50) * Math.min(8, 4 + round * .3);
                 speed = 32;
                 damage = 48;
                 reward = 475;
@@ -1535,13 +1486,13 @@ final class GameSession {
                 reward = 110;
             }
             case "warlord" -> {
-                hp = 1900 + round * 55;
+                hp = (1600 + round * 50) * 10;
                 speed = 42;
                 damage = 68;
                 reward = 650;
             }
             case "titan" -> {
-                hp = 2600 + round * 70;
+                hp = (1600 + round * 50) * 12;
                 speed = 36;
                 damage = 90;
                 reward = 850;
@@ -1645,6 +1596,8 @@ final class GameSession {
             }
             if (enemy.hookPulled || frozen) continue;
             if (updateBossCharge(enemy, dt)) continue;
+            if ((enemy.type.equals("warlord") || enemy.type.equals("titan"))
+                    && BossAbilitySystem.update(enemy, dt, bossAbilityTarget(enemy), wardenWorld, artilleryShells)) continue;
             if (SpecialEnemyRules.carriesHunters(enemy)) {
                 Player witness = players.stream().filter(p -> SpecialEnemyRules.canRelease(enemy, p,
                         GameMap.hasClearLine(enemy.x, enemy.y, p.x, p.y, unlockedAreas))).findFirst().orElse(null);
@@ -1717,7 +1670,7 @@ final class GameSession {
             }
 
             advanceEnemyRoute(enemy);
-            if (enemy.isBoss() && enemy.warden == null) {
+            if (enemy.type.equals("boss")) {
                 enemy.specialCooldown = Math.max(0, enemy.specialCooldown - dt);
                 if (enemy.specialCooldown <= 0
                         && distance(enemy.x, enemy.y, coreX, coreY) <= 260) {
@@ -1813,6 +1766,16 @@ final class GameSession {
                 entrance.lane(), entrance.enemyBias(), entrance.speedMultiplier(), entrance.targetPriority(),
                 List.of(new MapPoint(coreX, coreY)));
         for (int i = 0; i < 5; i++) spawnEnemy("runner", remains);
+    }
+
+    private MapPoint bossAbilityTarget(Enemy enemy) {
+        Decoy decoy = DecoyRules.target(enemy, decoys,
+                (x,y) -> GameMap.hasClearLine(enemy.x,enemy.y,x,y,unlockedAreas));
+        if (decoy != null) return new MapPoint(decoy.x,decoy.y);
+        Player target = nearestPlayer(enemy,560);
+        Player drone = DroneRules.target(enemy,players);
+        if (drone != null && (target == null || !target.job.equals("tank"))) return new MapPoint(drone.drone.x,drone.drone.y);
+        return target == null ? new MapPoint(coreX,coreY) : new MapPoint(target.x,target.y);
     }
 
     private MapPoint wardenTarget(Enemy enemy) {
@@ -2155,7 +2118,7 @@ final class GameSession {
                 updateDownedBot(bot);
                 continue;
             }
-            if (phase == GamePhase.WAVE && (dodgeWarden(bot) || dodgeArtillery(bot))) continue;
+            if (phase == GamePhase.WAVE && (dodgeBossTelegraph(bot) || dodgeArtillery(bot))) continue;
 
             Player downed = bestBotRescueTarget(bot);
             if (downed != null && shouldBotRescue(bot, downed)) {
@@ -2245,20 +2208,20 @@ final class GameSession {
         }
     }
 
-    private boolean dodgeWarden(Player bot) {
-        List<Enemy> threats = enemies.stream().filter(enemy -> enemy.hp > 0 && enemy.warden != null
-                && enemy.warden.action != WardenRules.Action.IDLE
+    private boolean dodgeBossTelegraph(Player bot) {
+        List<Enemy> threats = enemies.stream().filter(enemy -> enemy.hp > 0 && (enemy.bossPulseRemaining > 0 || enemy.warden != null
+                && enemy.warden.action != WardenRules.Action.IDLE)
                 && GameMap.hasClearLine(enemy.x, enemy.y, bot.x, bot.y, unlockedAreas)).toList();
         if (threats.isEmpty()) return false;
-        double current = wardenClearance(threats, bot.x, bot.y);
+        double current = bossTelegraphClearance(threats, bot.x, bot.y);
         if (current >= 0) return false;
         double best = current, bestX = bot.x, bestY = bot.y;
         for (double range : new double[]{100, 180}) for (int direction = 0; direction < 16; direction++) {
             double angle = direction * Math.PI / 8;
             double x = bot.x + Math.cos(angle) * range, y = bot.y + Math.sin(angle) * range;
             if (!canOccupy(x, y, 12) || !canEnemyTravel(bot.x, bot.y, x, y)) continue;
-            if (wardenClearance(threats, bot.x + Math.cos(angle) * 30, bot.y + Math.sin(angle) * 30) <= current + 1) continue;
-            double score = wardenClearance(threats, x, y);
+            if (bossTelegraphClearance(threats, bot.x + Math.cos(angle) * 30, bot.y + Math.sin(angle) * 30) <= current + 1) continue;
+            double score = bossTelegraphClearance(threats, x, y);
             if (score > best + 1) { best = score; bestX = x; bestY = y; }
         }
         if (best <= current + 1) return false;
@@ -2267,9 +2230,11 @@ final class GameSession {
         return true;
     }
 
-    private double wardenClearance(List<Enemy> threats, double x, double y) {
-        return threats.stream().mapToDouble(enemy -> WardenRules.clearance(enemy.warden.action,
-                enemy.x, enemy.y, enemy.warden.targetX, enemy.warden.targetY, x, y)).min().orElse(Double.POSITIVE_INFINITY);
+    private double bossTelegraphClearance(List<Enemy> threats, double x, double y) {
+        return threats.stream().mapToDouble(enemy -> enemy.bossPulseRemaining > 0
+                ? distance(enemy.x,enemy.y,x,y) - BossAbilitySystem.TITAN_RADIUS - 24
+                : WardenRules.clearance(enemy.warden.action, enemy.x, enemy.y,
+                    enemy.warden.targetX, enemy.warden.targetY, x, y)).min().orElse(Double.POSITIVE_INFINITY);
     }
 
     private Player bestBotRescueTarget(Player bot) {

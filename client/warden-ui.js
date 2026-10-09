@@ -2,7 +2,7 @@
 
 const WardenUI = (() => {
     function draw(ctx, enemy) {
-        if (enemy.type !== "warden") return;
+        if (enemy.type !== "warden" && enemy.type !== "titan") return;
         const pulse = enemy.bossAction === "PULSE_WARNING";
         const charge = enemy.bossAction === "CHARGE_WARNING" || enemy.bossAction === "CHARGING";
         if (!pulse && !charge) return;
