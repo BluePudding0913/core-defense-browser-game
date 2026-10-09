@@ -44,6 +44,7 @@ final class GameSession {
     double teamBuffRemaining;
     private boolean explosionBossSpawned;
     private boolean wardenSpawned;
+    private boolean debugMode;
 
     static int ammoRefillCost() {
         return 120;
@@ -832,8 +833,9 @@ final class GameSession {
 
     private void startMatch(Player host, boolean debugMode) {
         resetWorld();
+        this.debugMode = debugMode;
         if (debugMode) {
-            host.credits = 100_000;
+            host.credits = 500_000;
         }
         phase = GamePhase.PREPARING;
         prepTime = GameConfig.prepSeconds(1);
@@ -874,6 +876,7 @@ final class GameSession {
             if (!isExplosionBossRound()) queuedBosses *= 2;
         }
         queuedEnemies = (int) Math.round(queuedEnemies * 0.8);
+        if (debugMode && round == 5) queuedBosses++;
         roundEnemyTotal = queuedEnemies + queuedBosses;
         explosionBossSpawned = false;
         wardenSpawned = false;
@@ -1173,7 +1176,7 @@ final class GameSession {
             SpawnPoint spawn = nextRoundSpawn();
             if (queuedBosses > 0 && queuedEnemies <= queuedBosses * 2) {
                 String bossType = isExplosionBossRound() && !explosionBossSpawned ? "explosionBoss"
-                        : WardenRules.appearsInRound(round) && !wardenSpawned ? "warden"
+                        : (debugMode ? round == 5 : WardenRules.appearsInRound(round)) && !wardenSpawned ? "warden"
                         : round >= 40 ? "titan" : round >= 24 ? "warlord" : "boss";
                 spawnEnemy(bossType, spawn);
                 queuedBosses--;
@@ -3351,6 +3354,7 @@ final class GameSession {
         explosionBossSpawned = false;
         wardenSpawned = false;
         roundEnemyTotal = 0;
+        debugMode = false;
         phase = GamePhase.LOBBY;
         round = 0;
         prepTime = 0;

@@ -162,7 +162,7 @@ class GameSessionTest {
 
         game.handleMessage(player, "START:DEBUG");
         assertEquals(GamePhase.PREPARING, game.phase);
-        assertEquals(100_000, player.credits);
+        assertEquals(500_000, player.credits);
         assertEquals("pistol", player.weapon);
         for (String weapon : WeaponCatalog.ALL.stream().filter(WeaponCatalog.Definition::usesAmmo).map(WeaponCatalog.Definition::id).toList()) {
             game.handleMessage(player, "WEAPON:" + weapon);
@@ -185,7 +185,7 @@ class GameSessionTest {
         game.phase = GamePhase.LOST;
         game.handleMessage(guest, "ROOM_READY:1");
         game.handleMessage(player, "START:DEBUG");
-        assertEquals(100_000, player.credits);
+        assertEquals(500_000, player.credits);
         assertEquals(0, player.weapons.ammo("shotgun"));
 
         game.phase = GamePhase.LOST;
