@@ -21,6 +21,16 @@ class EnemyTravelTest {
         assertFalse(travel.canTravel(860, 420, 3000, 500, 17, areas));
     }
 
+    @Test void sweptTravelRejectsBriefWallCornerOverlapBetweenCoarseSamples() {
+        EnemyTravel travel = new EnemyTravel();
+        Set<String> areas = allAreas();
+        // This path clips wall tile (8, 17) for about 0.22 world units.
+        // Sampling every 0.5 units misses the collision entirely.
+        double t = .077;
+        assertFalse(GameMap.canOccupy(260 + 560 * t, 700 + 480 * t, 17, areas));
+        assertFalse(travel.canTravel(260, 700, 820, 1180, 17, areas));
+    }
+
     @Test void sweptTravelMatchesDenseOccupancyChecksAndAreaChanges() {
         EnemyTravel travel = new EnemyTravel();
         Set<String> areas = allAreas();
@@ -34,13 +44,14 @@ class EnemyTravelTest {
             MapPoint from = points.get(random.nextInt(points.size()));
             MapPoint to = points.get(random.nextInt(points.size()));
             boolean expected = true;
-            int steps = (int) Math.ceil(Math.hypot(to.x() - from.x(), to.y() - from.y()) / .5);
+            int steps = (int) Math.ceil(Math.hypot(to.x() - from.x(), to.y() - from.y()) / .1);
             for (int i = 0; i <= steps; i++) {
                 double t = steps == 0 ? 0 : (double) i / steps;
                 if (!GameMap.canOccupy(from.x() + (to.x() - from.x()) * t,
                         from.y() + (to.y() - from.y()) * t, 17, areas)) { expected = false; break; }
             }
-            assertEquals(expected, travel.canTravel(from.x(), from.y(), to.x(), to.y(), 17, areas));
+            assertEquals(expected, travel.canTravel(from.x(), from.y(), to.x(), to.y(), 17, areas),
+                    () -> "travel from " + from + " to " + to);
         }
         UnlockArea area = GameMap.AREAS.get(0);
         MapPoint center = GameMap.TILE_MAP.center(area.tiles().get(0));
