@@ -1672,7 +1672,7 @@ function openUpgradeShop(shop) {
     const me = getMe(), rules = state.rules.upgrades;
     let options;
     if (shop.item === "enchant") {
-        options = WeaponUI.entries(me, WEAPON_FIELDS).filter(entry => entry.value !== "bat" && entry.value !== "hook").map(entry => {
+        options = WeaponUI.entries(me, WEAPON_FIELDS).filter(entry => entry.value !== "bat" && !["hook", "repulsor"].includes(entry.value)).map(entry => {
             const level = me.enchantments?.[entry.value] || 0;
             const max = level >= rules.enchantMax;
             const price = rules.enchantCosts[level];
@@ -2367,6 +2367,7 @@ function draw() {
         drawTeleportPads();
         drawArtilleryShells();
         drawMissiles();
+        drawPoisonGas();
         drawEnemies();
         drawHooks();
         drawRailguns();
@@ -2957,6 +2958,45 @@ function drawEnemies() {
     }
 }
 
+function drawPoisonGas() {
+    const now = performance.now(), elapsed = Math.max(0, (now - (state.artilleryReceivedAt ?? now)) / 1000);
+    for (const cloud of state.poisonClouds || []) {
+        const remaining = Math.max(0, cloud.remaining - elapsed);
+        if (!remaining) continue;
+        ctx.save(); ctx.globalAlpha = Math.min(1, remaining);
+        ctx.fillStyle = "rgb(111 204 64 / 15%)"; ctx.strokeStyle = "rgb(149 231 91 / 45%)"; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(cloud.x, cloud.y, cloud.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "rgb(166 232 99 / 14%)";
+        for (let i = 0; i < 10; i++) {
+            const angle = i * 2.4 + now / 3600, distance = cloud.radius * (.25 + (i % 3) * .22);
+            ctx.beginPath(); ctx.arc(cloud.x + Math.cos(angle) * distance,
+                cloud.y + Math.sin(angle) * distance, 13 + Math.sin(now / 500 + i) * 4, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+    }
+}
+
+function drawGachaWeaponEffect(effect, now) {
+    const age = now - effect.started;
+    if (effect.damage !== 0 || effect.enemyId != null) return;
+    if (effect.weapon === "laserCannon" && age < 220) {
+        ctx.save(); ctx.globalAlpha = 1 - age / 220;
+        ctx.strokeStyle = "#50d7ff"; ctx.lineWidth = (state.rules?.weapons?.laserCannon?.width || 10) * 2;
+        ctx.shadowColor = "#50d7ff"; ctx.shadowBlur = 18;
+        ctx.beginPath(); ctx.moveTo(effect.fromX, effect.fromY); ctx.lineTo(effect.x, effect.y); ctx.stroke();
+        ctx.strokeStyle = "#eeffff"; ctx.lineWidth = 4; ctx.stroke(); ctx.restore();
+    } else if (effect.weapon === "repulsor" && age < 200) {
+        const angle = Math.atan2(effect.y - effect.fromY, effect.x - effect.fromX);
+        const radius = Math.hypot(effect.x - effect.fromX, effect.y - effect.fromY) * age / 200;
+        ctx.save(); ctx.globalAlpha = (1 - age / 200) * .65;
+        ctx.strokeStyle = "#b4c5ff"; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(effect.fromX, effect.fromY, radius, angle - Math.PI / 2, angle + Math.PI / 2); ctx.stroke(); ctx.restore();
+    } else if (effect.weapon === "poisonGas" && age < 300) {
+        ctx.save(); ctx.globalAlpha = 1 - age / 300; ctx.strokeStyle = "#98de68"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(effect.fromX, effect.fromY); ctx.lineTo(effect.x, effect.y); ctx.stroke(); ctx.restore();
+    }
+}
+
 function drawMissiles() {
     for (const strike of state.missiles || []) {
         ctx.save(); ctx.strokeStyle = "#7adba1"; ctx.lineWidth = 2;
@@ -3269,6 +3309,10 @@ function drawHitEffects() {
             ctx.fillText(`+${effect.resource === "medkit" ? "回復キット" : RESOURCE_NAMES[effect.resource] || effect.resource}${effect.amount > 1 ? ` ×${effect.amount}` : ""}`,
                 effect.x, effect.y - 18 - progress * 22);
             ctx.restore();
+            continue;
+        }
+        if (["laserCannon", "poisonGas", "repulsor"].includes(effect.weapon)) {
+            drawGachaWeaponEffect(effect, now);
             continue;
         }
         if (effect.weapon === "flamethrower") {

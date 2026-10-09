@@ -774,3 +774,10 @@ button, input { font: inherit; }
 
 .weapon-icon.hook::before { left: 2rem; top: .2rem; width: .25rem; height: 1.3rem; background: #b4d8e9; }
 .weapon-icon.hook::after { left: 1.1rem; top: 1rem; width: 1.15rem; height: 1.15rem; border: .25rem solid #b4d8e9; border-top: 0; border-radius: 0 0 1rem 1rem; background: transparent; }
+
+.weapon-icon.laserCannon::before { left: .35rem; top: .8rem; width: 3.7rem; height: .85rem; border: .13rem solid #b5f3ff; background: #356f84; border-radius: .25rem; }
+.weapon-icon.laserCannon::after { left: 3.65rem; top: .55rem; width: .45rem; height: 1.35rem; background: #9ff2ff; box-shadow: -2.7rem .85rem 0 -.04rem #78b3c7; }
+.weapon-icon.poisonGas::before { left: 1.55rem; top: .25rem; width: 1.4rem; height: 2rem; border: .15rem solid #c1ef9b; border-radius: .4rem; background: #619b3e; }
+.weapon-icon.poisonGas::after { left: 1.95rem; top: -.05rem; width: .65rem; height: .45rem; background: #c1ef9b; }
+.weapon-icon.repulsor::before { left: .7rem; top: .85rem; width: 2.6rem; height: .75rem; background: #7c89b9; border-radius: .25rem; }
+.weapon-icon.repulsor::after { left: 3.05rem; top: .25rem; width: .75rem; height: 1.7rem; border: .2rem solid #c5d1ff; border-left: 0; border-radius: 0 1rem 1rem 0; background: transparent; }

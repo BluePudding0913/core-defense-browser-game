@@ -38,6 +38,7 @@ interface GameEventSink {
 /** Authoritative state and rules for one four-player match. */
 final class GameSession {
     private static final double BOT_REACTION_SECONDS = 1.5;
+    final List<PoisonGasRules.Cloud> poisonClouds = new ArrayList<>();
     int roundEnemyTotal;
     double elapsedSeconds;
     double victoryMoveRemaining;
@@ -55,6 +56,8 @@ final class GameSession {
             case "flamethrower" -> 5_000;
             case "rocket" -> 8_000;
             case "railgun" -> 12_000;
+            case "laserCannon" -> 6_000;
+            case "poisonGas" -> 3_000;
             default -> ammoRefillCost();
         };
     }
@@ -155,6 +158,7 @@ final class GameSession {
             public boolean canAttack() { return canMove(); }
             public Set<String> unlockedAreas() { return unlockedAreas; }
             public List<Enemy> enemies() { return enemies; }
+            public List<PoisonGasRules.Cloud> poisonClouds() { return poisonClouds; }
             public List<Player> players() { return players; }
             public void damagePlayer(Player player, double damage) { GameSession.this.damagePlayer(player, damage); }
             public boolean canOccupy(double x, double y, double radius) { return GameSession.this.canOccupy(x, y, radius); }
@@ -394,6 +398,7 @@ final class GameSession {
         updateBots(dt);
         updatePlayers(dt);
         players.forEach(player -> { combat.updateRailgun(player, dt); combat.updateSecondaryRailgun(player, dt); });
+        combat.updatePoisonGas(dt);
         updateMissiles(dt);
         updateJobEquipment(dt);
         combat.updateHooks(dt);
@@ -2744,7 +2749,7 @@ final class GameSession {
         switch (shop.item()) {
             case "gacha" -> resolveGacha(player, selection);
             case "enchant" -> {
-                if (selection == null || WeaponCatalog.find(selection) == null || selection.equals("bat") || selection.equals("hook")) return true;
+                if (selection == null || WeaponCatalog.find(selection) == null || selection.equals("bat") || WeaponCatalog.stats(selection).damage() <= 0) return true;
                 int level = player.enchantments.getOrDefault(selection, 0);
                 if (!UpgradeRules.canEnchant(player.weapons.owns(selection), DroneRules.mounted(player, selection), level, player.credits)) {
                     gameEffects.feedback(player, "強化できません"); return true;
@@ -2802,6 +2807,7 @@ final class GameSession {
         }
         String result = player.gachaWeapon;
         if (result == null) return;
+        if (!GachaRules.POOL.contains(result)) { player.gachaWeapon = null; return; }
         if ("skip".equals(selection)) { player.gachaWeapon = null; return; }
         if (selection == null || DroneRules.mounted(player, result)) return;
         boolean owned = player.weapons.owns(result);
@@ -3475,6 +3481,7 @@ final class GameSession {
         enemies.clear();
         artilleryShells.clear();
         missiles.clear();
+        poisonClouds.clear();
         decoys.clear();
         droppedResources.clear();
         activeLanes.clear();

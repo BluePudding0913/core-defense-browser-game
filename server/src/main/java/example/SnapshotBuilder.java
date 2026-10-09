@@ -68,6 +68,15 @@ final class SnapshotBuilder {
         json.append(']');
         appendEnemies(json, game.enemies);
         appendArtilleryShells(json, game);
+        json.append(",\"poisonClouds\":[");
+        for (int i = 0; i < game.poisonClouds.size(); i++) {
+            if (i > 0) json.append(',');
+            var cloud = game.poisonClouds.get(i);
+            json.append("{\"x\":").append(roundOne(cloud.x)).append(",\"y\":").append(roundOne(cloud.y))
+                .append(",\"remaining\":").append(roundOne(cloud.remaining))
+                .append(",\"radius\":").append(PoisonGasRules.RADIUS).append('}');
+        }
+        json.append(']');
         json.append(",\"missiles\":[");
         for (int i = 0; i < game.missiles.size(); i++) {
             if (i > 0) json.append(',');
@@ -111,6 +120,8 @@ final class SnapshotBuilder {
             ShopUnit shop = GameMap.shopByItem(key);
             json.append('"').append(key).append("\":{\"capacity\":").append(GameSession.weaponAmmoCapacity(key))
                 .append(",\"price\":").append(shop == null ? 0 : shop.cost()).append(",\"refillCost\":").append(GameSession.ammoRefillCost(key))
+                .append(",\"gachaOnly\":").append(definition.gachaOnly())
+                .append(",\"width\":").append(stats.width())
                 .append(",\"damage\":").append(stats.damage()).append(",\"range\":").append(stats.range())
                 .append(",\"cooldown\":").append(stats.cooldown()).append(",\"ammoPerShot\":").append(1)
                 .append(",\"pellets\":").append(definition.pellets()).append(",\"maxTargets\":").append(definition.maxTargets())
@@ -120,7 +131,7 @@ final class SnapshotBuilder {
                 .append(",\"goldMultiplier\":").append(definition.goldMultiplier())
                 .append(",\"owned\":\"").append(definition.ownedField())
                 .append("\",\"ammo\":\"").append(definition.ammoField())
-                .append("\",\"name\":\"").append(key.equals("rocket") && shop != null ? escapeJson(shop.label()) : key).append("\"}");
+                .append("\",\"name\":\"").append(key.equals("rocket") && shop != null ? escapeJson(shop.label()) : key.equals("laserCannon") ? "LASER CANNON" : key.equals("poisonGas") ? "POISON GAS" : key).append("\"}");
         }
         json.append("},\"flameHalfAngle\":").append(FlameRules.HALF_ANGLE).append(",\"recipes\":{");
         first = true;

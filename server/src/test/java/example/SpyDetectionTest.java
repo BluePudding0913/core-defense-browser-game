@@ -49,6 +49,7 @@ class SpyDetectionTest {
             public boolean canAttack() { return true; }
             public Set<String> unlockedAreas() { return Set.of(); }
             public List<Enemy> enemies() { return List.of(enemy); }
+            public List<PoisonGasRules.Cloud> poisonClouds() { return new java.util.ArrayList<>(); }
             public List<Player> players() { return List.of(spy); }
             public void damagePlayer(Player player, double damage) { player.hp -= damage; }
             public boolean canOccupy(double x, double y, double radius) { return true; }

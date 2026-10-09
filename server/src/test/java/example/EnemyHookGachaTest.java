@@ -47,11 +47,11 @@ class EnemyHookGachaTest {
         assertEquals(100_000,player.credits);
     }
     @Test void ownedWeaponOnlyRefillsAndPreservesUpgradeAndSelection() {
-        atGacha(); player.weapons.grant("rifle"); player.weapons.setAmmo("rifle",1);
-        player.enchantments.put("rifle",2); player.gachaWeapon="rifle";
+        atGacha(); player.weapons.grant("laserCannon"); player.weapons.setAmmo("laserCannon",1);
+        player.enchantments.put("laserCannon",2); player.gachaWeapon="laserCannon";
         game.handleMessage(player,"BUY:gacha:take");
-        assertEquals(player.weapons.capacity("rifle"),player.weapons.ammo("rifle"));
-        assertEquals(2,player.enchantments.get("rifle")); assertEquals("pistol",player.weapon);
+        assertEquals(player.weapons.capacity("laserCannon"),player.weapons.ammo("laserCannon"));
+        assertEquals(2,player.enchantments.get("laserCannon")); assertEquals("pistol",player.weapon);
         assertEquals(100_000,player.credits); assertEquals(2,player.weapons.weaponCount());
     }
     @Test void fullInventoryRequiresValidExchangeAndPendingResultSurvivesDistance() {
