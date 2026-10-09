@@ -130,7 +130,7 @@ class GameplayRevisionTest {
                 double.class, double.class, double.class);
         canInteract.setAccessible(true);
         game.unlockedAreas.clear();
-        player.credits = 100_000;
+        player.credits = 1_000_000;
         for (UnlockArea area : GameMap.AREAS) {
             Set<AreaTile> visited = new java.util.HashSet<>();
             var queue = new java.util.ArrayDeque<AreaTile>();

@@ -14,7 +14,7 @@ class PurchaseEffectsTest {
         });
         Player player = game.connectPlayer("purchase-test");
         game.setRoomOwner(player); game.handleMessage(player, "START");
-        player.credits = 10000;
+        player.credits = 100000;
         for (String item : List.of("medkit", "woodFactory", "shotgun")) {
             ShopUnit shop = GameMap.shopByItem(item);
             player.x = shop.x(); player.y = shop.y();

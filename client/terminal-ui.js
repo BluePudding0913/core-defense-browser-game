@@ -8,7 +8,7 @@ window.TerminalUI = (() => {
         panel.id = "missile-panel";
         panel.tabIndex = -1;
         panel.setAttribute("aria-label", "ミサイル管制");
-        panel.innerHTML = '<header><strong>MISSILE SYSTEM</strong><small class="map-enemy-count" hidden></small><small class="missile-cooldown" hidden></small></header><canvas id="missile-map" aria-label="着弾地点をクリック"></canvas>';
+        panel.innerHTML = '<header><strong>MISSILE SYSTEM</strong><small class="map-enemy-count" hidden></small></header><canvas id="missile-map" aria-label="着弾地点をクリック"></canvas><small class="missile-cooldown" hidden></small>';
         document.body.append(panel);
         canvas = panel.querySelector("canvas");
         title = panel.querySelector("strong");

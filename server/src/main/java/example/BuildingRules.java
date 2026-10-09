@@ -25,7 +25,14 @@ final class BuildingRules {
 
     enum RepairStatus { FULL, MISSING_MATERIAL, READY }
     record RepairPlan(RepairStatus status, String resource) { }
-    private static final Set<String> METAL_DEFENSES = Set.of("turret", "copperTurret", "silverTurret", "wire", "mine");
+    private static final Set<String> METAL_DEFENSES = Set.of("turret", "copperTurret", "silverTurret", "overclockSilver", "wire", "mine");
+
+    static boolean isDefense(String type) {
+        return GameConfig.BUILD_RECIPES.containsKey(type) || type.equals("overclockSilver");
+    }
+    static boolean isTurret(String type) {
+        return Set.of("turret", "copperTurret", "silverTurret", "overclockSilver").contains(type);
+    }
 
     static boolean canAfford(Map<String, Integer> recipe, Materials materials) {
         return recipe != null && recipe.entrySet().stream()

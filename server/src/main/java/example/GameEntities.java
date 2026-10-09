@@ -120,6 +120,9 @@ final class Player {
     int copperBarricadeItems, silverBarricadeItems;
     int credits;
     double goldRewardRemainder;
+    boolean armorBottoms, armorTops;
+    int overclockSilverItems;
+    final java.util.Map<String, Integer> enchantments = new java.util.HashMap<>();
     final java.util.Map<String, Integer> quarryItems = new java.util.HashMap<>();
     String selectedBuild;
     boolean movingCore;
@@ -165,6 +168,7 @@ final class Player {
             case "turret" -> turretItems;
             case "copperTurret" -> copperTurretItems;
             case "silverTurret" -> silverTurretItems;
+            case "overclockSilver" -> overclockSilverItems;
             case "wire" -> wireItems;
             case "mine" -> mineItems;
             case "barricade" -> barricadeItems;
@@ -180,6 +184,7 @@ final class Player {
             case "turret" -> turretItems += amount;
             case "copperTurret" -> copperTurretItems += amount;
             case "silverTurret" -> silverTurretItems += amount;
+            case "overclockSilver" -> overclockSilverItems += amount;
             case "wire" -> wireItems += amount;
             case "mine" -> mineItems += amount;
             case "barricade" -> barricadeItems += amount;
@@ -364,6 +369,7 @@ final class Defense {
             case "turret" -> 120;
             case "copperTurret" -> 220;
             case "silverTurret" -> 320;
+            case "overclockSilver" -> 2400;
             case "wire" -> 100;
             case "mine" -> 1;
             case "barricade" -> 1200;

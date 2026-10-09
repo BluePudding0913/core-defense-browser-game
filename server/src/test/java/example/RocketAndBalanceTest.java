@@ -38,12 +38,12 @@ class RocketAndBalanceTest {
         game.unlockedAreas.remove("heavy-arms-area");
         UnlockArea area = GameMap.areaById("heavy-arms-area");
         player.x = 220; player.y = 620;
-        player.credits = 11_999;
+        player.credits = 59_999;
         game.handleMessage(player, "UNLOCK:heavy-arms-area");
         assertFalse(game.unlockedAreas.contains(area.id()));
-        assertEquals(11_999, player.credits);
+        assertEquals(59_999, player.credits);
         game.unlockedAreas.remove("sniper-room");
-        player.credits = 12_000;
+        player.credits = 60_000;
         game.handleMessage(player, "UNLOCK:heavy-arms-area");
         assertFalse(game.unlockedAreas.contains(area.id()), "Sniper room must open first");
         game.unlockedAreas.add("sniper-room");
@@ -52,17 +52,17 @@ class RocketAndBalanceTest {
         assertEquals(0, player.credits);
 
         ShopUnit shop = GameMap.shopByItem("rocket");
-        player.x = shop.x(); player.y = shop.y(); player.credits = 11_999;
+        player.x = shop.x(); player.y = shop.y(); player.credits = 59_999;
         game.handleMessage(player, "BUY:rocket");
         assertFalse(player.weapons.owns("rocket"));
-        assertEquals(11_999, player.credits);
-        player.credits = 12_000;
+        assertEquals(59_999, player.credits);
+        player.credits = 60_000;
         game.handleMessage(player, "BUY:rocket");
         assertTrue(player.weapons.owns("rocket"));
         assertEquals(0, player.credits);
         var rules = new com.fasterxml.jackson.databind.ObjectMapper()
                 .readTree(SnapshotBuilder.build(game)).path("rules");
-        assertEquals(12_000, rules.path("areaUnlockCosts").path(area.id()).asInt());
+        assertEquals(60_000, rules.path("areaUnlockCosts").path(area.id()).asInt());
         assertEquals(game.unlockCost(), rules.path("areaUnlockCosts").path("entry-room").asInt());
     }
 
@@ -113,20 +113,20 @@ class RocketAndBalanceTest {
 
     @Test void rocketPurchaseRefillSnapshotAndRestartWork() throws Exception {
         ShopUnit shop = GameMap.shopByItem("rocket");
-        player.x = shop.x(); player.y = shop.y(); player.credits = 12600;
+        player.x = shop.x(); player.y = shop.y(); player.credits = shop.cost() + GameSession.ammoRefillCost("rocket") + 600;
         game.handleMessage(player, "WEAPON:rocket");
         assertEquals("pistol", player.weapon);
         game.handleMessage(player, "BUY:rocket");
         assertTrue(player.weapons.owns("rocket")); assertEquals("rocket", player.weapon);
-        assertEquals(8, player.weapons.ammo("rocket")); assertEquals(600, player.credits);
+        assertEquals(8, player.weapons.ammo("rocket")); assertEquals(GameSession.ammoRefillCost("rocket") + 600, player.credits);
         game.handleMessage(player, "BUY:rocket");
-        assertEquals(600, player.credits);
+        assertEquals(GameSession.ammoRefillCost("rocket") + 600, player.credits);
         player.weapons.setAmmo("rocket", 0);
         game.handleMessage(player, "BUY:rocket");
-        assertEquals(8, player.weapons.ammo("rocket")); assertEquals(480, player.credits);
+        assertEquals(8, player.weapons.ammo("rocket")); assertEquals(600, player.credits);
         ShopUnit ammo = GameMap.shopByItem("ammo");
         player.x = ammo.x(); player.y = ammo.y(); player.weapons.setAmmo("rocket", 1);
-        player.credits = 1000;
+        player.credits = GameSession.ammoRefillCost("rocket") + 500;
         game.handleMessage(player, "BUY:ammo");
         assertEquals(8, player.weapons.ammo("rocket")); assertEquals(500, player.credits);
         var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));

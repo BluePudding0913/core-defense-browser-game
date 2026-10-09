@@ -1455,7 +1455,7 @@ function openSlotMenu(slot) {
         }], slot, INTERACTION_RANGE.trapSlot);
     } else {
         const missing = slot.defense.maxHp - slot.defense.hp;
-        const metal = ["turret", "copperTurret", "silverTurret", "wire", "mine"].includes(slot.defense.type);
+        const metal = ["turret", "copperTurret", "silverTurret", "overclockSilver", "wire", "mine"].includes(slot.defense.type);
         const resource = slot.defense.type === "copperBarricade" ? "copper"
             : slot.defense.type === "silverBarricade" ? "silver" : metal ? "ore" : "wood";
         const me = getMe();
@@ -1534,6 +1534,11 @@ function openPrepConsoleMenu() {
 
 function openShopPurchase(shop, chooseExchange = false) {
     const me = getMe();
+    if (["enchant", "armor", "overclockSilver", "teamMachine"].includes(shop.item)) {
+        openUpgradeShop(shop);
+        return;
+    }
+    const ammoShop = ["ammo", "frontlineAmmo"].includes(shop.item);
     if (shop.item === "medkit") {
         openNearbyActionMenu(shop.label, [{
             label: "回復キット",
@@ -1560,11 +1565,12 @@ function openShopPurchase(shop, chooseExchange = false) {
     const mounted = shop.item === mountedWeapon;
     const ownedWeapons = WeaponUI.ownedAmmoWeapons(me, WEAPON_FIELDS)
         .filter(fields => fields !== WEAPON_FIELDS[mountedWeapon]);
-    const ammoFull = shop.item === "ammo" ? ownedWeapons.length > 0
+    const ammoFull = ammoShop ? ownedWeapons.length > 0
         && ownedWeapons.every(fields => me[fields.ammo] >= WeaponUI.capacity(me, fields))
         : alreadyOwned && ammo >= WeaponUI.capacity(me, weaponFields);
-    const price = alreadyOwned ? weaponFields.refillCost ?? WEAPON_AMMO_REFILL_COST : shop.cost;
-    const unavailable = shop.item === "ammo" && ownedWeapons.length === 0;
+    const price = ammoShop ? Math.max(shop.cost, ...ownedWeapons.map(fields => fields.refillCost || 0))
+        : alreadyOwned ? weaponFields.refillCost ?? WEAPON_AMMO_REFILL_COST : shop.cost;
+    const unavailable = ammoShop && ownedWeapons.length === 0;
     const weaponLimitReached = weaponFields && !alreadyOwned
         && WeaponUI.atLimit(me, WEAPON_FIELDS, state.rules.weaponLimit);
     if (weaponLimitReached && chooseExchange) {
@@ -1577,16 +1583,49 @@ function openShopPurchase(shop, chooseExchange = false) {
         return;
     }
     const options = [{
-        label: mounted ? "DRONE" : ammoFull ? "FULL" : alreadyOwned || shop.item === "ammo" && !unavailable ? "REFILL"
+        label: mounted ? "DRONE" : ammoFull ? "FULL" : alreadyOwned || ammoShop && !unavailable ? "REFILL"
             : unavailable ? "LOCKED" : "BUY",
         detail: `${price}G`,
         titleAmmo: alreadyOwned && weaponFields.capacity > 0 ? `${ammo} / ${WeaponUI.capacity(me, weaponFields)}` : "",
-        stock: shop.item === "ammo" ? WeaponUI.ammoStock(me, WEAPON_FIELDS) : "",
+        stock: ammoShop ? WeaponUI.ammoStock(me, WEAPON_FIELDS) : "",
         command: weaponLimitReached ? undefined : `BUY:${shop.item}`,
         onSelect: weaponLimitReached ? () => openShopPurchase(shop, true) : undefined,
         disabled: mounted || ammoFull || unavailable || me.credits < price,
     }];
     openNearbyActionMenu(shop.label, options, shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
+}
+
+function openUpgradeShop(shop) {
+    const me = getMe(), rules = state.rules.upgrades;
+    let options;
+    if (shop.item === "enchant") {
+        options = WeaponUI.entries(me, WEAPON_FIELDS).filter(entry => entry.value !== "bat").map(entry => {
+            const level = me.enchantments?.[entry.value] || 0;
+            const max = level >= rules.enchantMax;
+            const price = rules.enchantCosts[level];
+            return {label: `${entry.label} +${level}`, detail: max ? "MAX" : `火力 +${Math.round(rules.enchantStep * 100)}% · ${price}G`,
+                command: `BUY:enchant:${entry.value}`, disabled: max || me.credits < price
+                    || me.drone?.active && me.drone.weapon === entry.value};
+        });
+        if (!options.length) options = [{label: "武器なし", disabled: true}];
+    } else if (shop.item === "armor") {
+        options = [["BOTTOMS", "bottoms", "armorBottoms", rules.bottomsCost, rules.bottomsReduction],
+            ["TOPS", "tops", "armorTops", rules.topsCost, rules.topsReduction]].map(([label, item, field, price, reduction]) => ({
+                label, detail: me[field] ? "OWNED" : `被ダメージ −${Math.round(reduction * 100)}% · ${price}G`,
+                command: `BUY:armor:${item}`, disabled: me[field] || me.credits < price}));
+    } else if (shop.item === "overclockSilver") {
+        options = [{label: "オーバークロックシルバー", detail: `銀タレット ×${rules.compressionCost}`,
+            stock: `所持 ${me.buildItems?.silverTurret || 0}`, command: "BUY:overclockSilver",
+            disabled: (me.buildItems?.silverTurret || 0) < rules.compressionCost}];
+    } else {
+        const remaining = state.teamBuffRemaining || 0;
+        options = [{label: remaining > 0 ? `${Math.ceil(remaining)}s` : "ACTIVATE",
+            detail: `エリア内: 火力 +${Math.round((rules.teamDamage - 1) * 100)}% · 被ダメージ −${Math.round((1 - rules.teamDefense) * 100)}%`,
+            stock: `${rules.teamDuration}s · ${rules.teamCost}G`, command: "BUY:teamMachine",
+            disabled: remaining > 0 || me.credits < rules.teamCost}];
+    }
+    openNearbyActionMenu(shop.label, options, shop, INTERACTION_RANGE.shop,
+        "default", () => openUpgradeShop(shop));
 }
 
 function openBreakerMenu(breaker) {
@@ -2598,7 +2637,8 @@ function drawShops() {
         if (unit && state.areas[unit.requiredArea]) drawStation(unit, label, "#7adba1", "#111");
     SHOP_UNITS.filter(isUnlockedPoint)
         .forEach(shop => {
-            drawStation(shop, shop.label, "#d8d8d8", "#111");
+            const active = shop.item === "teamMachine" && state.teamBuffRemaining > 0;
+            drawStation(shop, active ? `TEAM ${Math.ceil(state.teamBuffRemaining)}s` : shop.label, active ? "#7adba1" : "#d8d8d8", "#111");
         });
     (state.factories || []).forEach(unit => {
         const shop = SHOP_UNITS.find(shop => shop.item === unit.item);
@@ -2698,10 +2738,10 @@ function drawDefense(slot) {
         ctx.fillStyle = "#929292"; ctx.fillRect(slot.x - 14, slot.y - 14, 28, 7);
         ctx.fillStyle = "#444"; ctx.fillRect(slot.x - 14, slot.y - 3, 10, 13);
         ctx.strokeStyle = "#bbb"; ctx.lineWidth = 2; ctx.strokeRect(slot.x - 18, slot.y - 18, 36, 36);
-    } else if (["turret", "copperTurret", "silverTurret"].includes(defense.type)) {
+    } else if (["turret", "copperTurret", "silverTurret", "overclockSilver"].includes(defense.type)) {
         ctx.fillStyle = "#79d8ff"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
         ctx.strokeStyle = "#fff"; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(slot.x, slot.y); ctx.lineTo(slot.x, slot.y - 29); ctx.stroke();
-        if (defense.type !== "turret") { ctx.fillStyle = defense.type === "copperTurret" ? "#aa754d" : "#eee"; ctx.fillRect(slot.x - 8, slot.y - 8, 16, 16); }
+        if (defense.type !== "turret") { ctx.fillStyle = defense.type === "overclockSilver" ? "#b686ff" : defense.type === "copperTurret" ? "#aa754d" : "#eee"; ctx.fillRect(slot.x - 8, slot.y - 8, 16, 16); }
     } else if (defense.type === "wire") {
         ctx.strokeStyle = "#b8b8b8"; ctx.lineWidth = 3; ctx.beginPath();
         for (let i = -24; i <= 24; i += 8) { ctx.moveTo(slot.x + i, slot.y - 20); ctx.lineTo(slot.x + i + 10, slot.y + 20); }
