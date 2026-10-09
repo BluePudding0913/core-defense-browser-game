@@ -80,6 +80,12 @@ window.TerminalUI = (() => {
         state.players.forEach(player => {
             const self = player.id === me.id;
             dot(player, player.down ? "#777" : self ? "#c7ffdc" : "#8fffb2", self ? 18 : 14);
+            if (readOnly && player.name) {
+                ctx.font = "bold 32px sans-serif"; ctx.textAlign = "center";
+                ctx.lineWidth = 5; ctx.strokeStyle = "#07170d"; ctx.fillStyle = "#ffffff";
+                ctx.strokeText(player.name, player.x, player.y - 32);
+                ctx.fillText(player.name, player.x, player.y - 32);
+            }
             if (self) {
                 ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3;
                 ctx.beginPath(); ctx.arc(player.x, player.y, 22, 0, Math.PI * 2); ctx.stroke();

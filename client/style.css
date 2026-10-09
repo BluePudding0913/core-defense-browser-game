@@ -781,3 +781,6 @@ button, input { font: inherit; }
 .weapon-icon.poisonGas::after { left: 1.95rem; top: -.05rem; width: .65rem; height: .45rem; background: #c1ef9b; }
 .weapon-icon.repulsor::before { left: .7rem; top: .85rem; width: 2.6rem; height: .75rem; background: #7c89b9; border-radius: .25rem; }
 .weapon-icon.repulsor::after { left: 3.05rem; top: .25rem; width: .75rem; height: 1.7rem; border: .2rem solid #c5d1ff; border-left: 0; border-radius: 0 1rem 1rem 0; background: transparent; }
+
+.weapon-icon.freezeGun { background: #83dcf5; clip-path: polygon(0 30%, 80% 30%, 100% 45%, 80% 60%, 35% 60%, 25% 100%, 5% 100%, 15% 60%, 0 60%); }
+.weapon-icon.plasmaBlade { background: #91ecff; filter: drop-shadow(0 0 4px #59cfff); clip-path: polygon(85% 0, 100% 0, 32% 80%, 40% 90%, 30% 100%, 0 70%, 10% 60%, 20% 68%); }

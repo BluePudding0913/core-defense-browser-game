@@ -15,9 +15,9 @@ final class JobRules {
     static final double TANK_DAMAGE_FACTOR = .75;
     static final double TANK_WALL_COOLDOWN = 20;
     static final double TANK_WALL_DURATION = 20;
-    static final double TANK_WALL_HP = 2400;
+    static final double TANK_WALL_HP = 10_000;
     static final double SPY_DURATION = 8;
-    static final double SPY_COOLDOWN = 30;
+    static final double SPY_COOLDOWN = 15;
     static final double SPY_ATTACK_CONCEAL_CHANCE = .8;
     static final double SCOUT_DASH_DURATION = .2;
     static final double SCOUT_DASH_SPEED = 800;
@@ -33,7 +33,24 @@ final class JobRules {
     private JobRules() { }
 
     static boolean valid(String job) {
-        return java.util.Set.of("spy", "tp", "healer", "scout", "drone", "hacker", "tank", "attacker").contains(job);
+        return java.util.Set.of("spy", "tp", "healer", "scout", "drone", "hacker", "tank", "attacker", "builder").contains(job);
+    }
+
+    static double damageMultiplier(String job) { return job.equals("attacker") ? 1.5 : 1; }
+    static int buildingCost(String job, int cost) { return job.equals("builder") ? (cost + 1) / 2 : cost; }
+    static java.util.Map<String, Integer> recipe(String job, java.util.Map<String, Integer> base) {
+        if (!job.equals("builder")) return base;
+        return base.entrySet().stream().collect(java.util.stream.Collectors.toMap(java.util.Map.Entry::getKey,
+                entry -> buildingCost(job, entry.getValue())));
+    }
+    static int teleportPair(Player owner, int index) {
+        return owner.teleportPairs.getOrDefault(owner.teleportPads.get(index), index / 2);
+    }
+    static MapPoint teleportPartner(Player owner, int index) {
+        int pair = teleportPair(owner, index);
+        for (int i = 0; i < owner.teleportPads.size(); i++)
+            if (i != index && teleportPair(owner, i) == pair) return owner.teleportPads.get(i);
+        return null;
     }
 
     static double maxHp(String job) { return job.equals("tank") ? 200 : 100; }

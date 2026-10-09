@@ -109,17 +109,17 @@ class GameplayRevisionTest {
         player.weapons.setAmmo("shotgun", 29); player.weapons.setAmmo("smg", 1); player.weapons.setAmmo("rifle", 12);
         player.weapons.setAmmo("sniper", 0); player.weapons.setAmmo("revolver", 25); player.weapons.setAmmo("lmg", 150);
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(500, player.credits);
+        assertEquals(750, player.credits);
         assertEquals(List.of(50, 240, 30, 15, 30, 600), List.of(player.weapons.ammo("shotgun"),
                 player.weapons.ammo("smg"), player.weapons.ammo("rifle"), player.weapons.ammo("sniper"), player.weapons.ammo("revolver"), player.weapons.ammo("lmg")));
         for (int i = 0; i < 3; i++) game.handleMessage(player, "BUY:ammo");
-        assertEquals(500, player.credits);
+        assertEquals(750, player.credits);
         assertEquals(600, player.weapons.ammo("lmg"));
-        player.weapons.setAmmo("shotgun", 0); player.credits = 499;
+        player.weapons.setAmmo("shotgun", 0); player.credits = 249;
         game.handleMessage(player, "BUY:ammo");
         assertEquals(0, player.weapons.ammo("shotgun"));
-        assertEquals(499, player.credits);
-        player.credits = 500;
+        assertEquals(249, player.credits);
+        player.credits = 250;
         game.handleMessage(player, "BUY:ammo");
         assertEquals(50, player.weapons.ammo("shotgun"));
         assertEquals(0, player.credits);
@@ -288,7 +288,7 @@ class GameplayRevisionTest {
             game.round = round - 1;
             game.prepTime = 0;
             game.update(.05);
-            assertEquals(round == 11 ? 26 : 45, game.queuedEnemies);
+            assertEquals(round == 11 ? 29 : 50, game.queuedEnemies);
             assertEquals(round % 4 == 0 ? round / 4 : 0, game.queuedBosses);
         }
     }
@@ -661,7 +661,7 @@ class GameplayRevisionTest {
         assertTrue(approach);
         game.update(.05);
         assertTrue(game.unlockedAreas.contains("entry-room"));
-        assertEquals(550, bot.credits);
+        assertEquals(535, bot.credits);
         bot.credits = 0;
         game.round = 2;
         bot.x = game.coreX; bot.y = game.coreY; bot.botSpendCooldown = 0;
@@ -828,7 +828,7 @@ class GameplayRevisionTest {
         Player poor=game.players.get(2);poor.human=false;poor.credits=0;poor.x=bot.x;poor.y=bot.y;
         game.phase=GamePhase.WAVE;
         Method tasks=GameSession.class.getDeclaredMethod("updateBotTasks",Player.class);tasks.setAccessible(true);
-        assertTrue((boolean)tasks.invoke(game,bot));assertTrue(game.unlockedAreas.contains("entry-room"));assertEquals(850,bot.credits);
+        assertTrue((boolean)tasks.invoke(game,bot));assertTrue(game.unlockedAreas.contains("entry-room"));assertEquals(835,bot.credits);
     }
 
     @Test void recoveringDamagedDefensePreservesHpAcrossWeaponSwitchAndReinstallation() {

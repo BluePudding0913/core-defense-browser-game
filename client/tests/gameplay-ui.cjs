@@ -181,3 +181,15 @@ assert.equal(commands.at(-1), 'CARRY_NEAREST:factory-42', 'R hold recovers the e
 const beforeCancelQuarry = commands.length;
 run('beginInteractionHold(); endInteractionHold(true)');
 assert.equal(timer, null); assert.equal(commands.length, beforeCancelQuarry);
+
+for (const kind of ['defense', 'factory']) {
+    context.findNearestInteraction = () => ({kind, target:{id:'held-target'}});
+    context.placementSelection = () => ({type:'turret', forCore:false});
+    run('beginInteractionHold()');
+    assert.equal(typeof timer,'function','holding a build item still permits recovery');
+    timer(); run('endInteractionHold()');
+    assert.equal(commands.at(-1),'CARRY_NEAREST:held-target');
+}
+context.placementSelection = () => ({forCore:true});
+run('beginInteractionHold()'); assert.equal(timer,null,'core carrier cannot recover');
+run('endInteractionHold(true)');

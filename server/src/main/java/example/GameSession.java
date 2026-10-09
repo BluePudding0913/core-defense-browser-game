@@ -53,11 +53,11 @@ final class GameSession {
 
     static int ammoRefillCost(String weapon) {
         return switch (weapon) {
-            case "flamethrower" -> 5_000;
-            case "rocket" -> 8_000;
-            case "railgun" -> 12_000;
-            case "laserCannon" -> 6_000;
-            case "poisonGas" -> 3_000;
+            case "flamethrower" -> 2_000;
+            case "rocket" -> 2_500;
+            case "railgun" -> 3_000;
+            case "laserCannon" -> 2_000;
+            case "poisonGas", "freezeGun" -> 1_000;
             default -> ammoRefillCost();
         };
     }
@@ -124,7 +124,11 @@ final class GameSession {
     final CombatSystem combat;
     private final WardenCombatSystem.World wardenWorld;
     private final List<String> activeLanes = new ArrayList<>();
-    private final Random random = new Random();
+    private Random random = new Random();
+    PreparationBackup backup;
+    boolean backupUsed;
+    int rewindVersion;
+    static final int BACKUP_COST = 100_000;
     private final EnemyTravel laterFeatureTravel = new EnemyTravel();
     private final EnemyNavigation enemyNavigation = new EnemyNavigation();
     private double spawnTimer;
@@ -169,9 +173,9 @@ final class GameSession {
                 double personal = UpgradeRules.weaponMultiplier(player.enchantments.getOrDefault(weapon, 0));
                 double x = DroneRules.controlling(player) ? player.drone.x : player.x;
                 double y = DroneRules.controlling(player) ? player.drone.y : player.y;
-                return personal * (teamBuffAt(x, y) ? UpgradeRules.TEAM_DAMAGE : 1);
+                return personal * JobRules.damageMultiplier(player.job) * (teamBuffAt(x, y) ? UpgradeRules.TEAM_DAMAGE : 1);
             }
-        }, gameEffects, random::nextDouble);
+        }, gameEffects, () -> random.nextDouble());
         for (int slot = 1; slot <= PLAYER_COUNT; slot++) players.add(new Player(slot));
         resetWorld();
     }
@@ -207,7 +211,7 @@ final class GameSession {
                 decoys.removeIf(decoy -> decoy.ownerId.equals(assignedId));
                 assigned.stamina = Math.min(assigned.stamina, JobRules.staminaMax(assigned.job));
                 assigned.spyRemaining = assigned.jobCooldown = assigned.scoutDashRemaining = 0;
-                assigned.teleportPads.clear();
+                assigned.teleportPads.clear(); assigned.teleportPairs.clear();
                 assigned.sessionId = reconnectId;
                 assigned.lastProcessedInput = 0;
                 assigned.name = "Player " + assigned.slot;
@@ -262,8 +266,10 @@ final class GameSession {
         String[] parts = message.split(":", 4);
         if (canMove() && DroneRules.controlling(player)
                 && !Set.of("MOVE", "FIRE", "ATTACK", "JOB_ABILITY", "DRONE_RECOVER", "DRONE_SELF_DESTRUCT", "BREAKER", "HELLO").contains(parts[0])) return;
-        if (player.missileControl && !Set.of("MISSILE", "MAP_REPAIR", "COMPUTER", "HELLO").contains(parts[0])) return;
+        if (player.missileControl && !Set.of("MISSILE", "MAP_REPAIR", "COMPUTER", "HELLO", "HACKER_RESTORE", "HACKER_BACKUP").contains(parts[0])) return;
         switch (parts[0]) {
+            case "HACKER_BACKUP" -> saveBackup(player);
+            case "HACKER_RESTORE" -> restoreBackup(player);
             case "HELLO" -> updateName(player, parts);
             case "START" -> {
                 if (phase == GamePhase.LOBBY || phase == GamePhase.WON || phase == GamePhase.LOST) {
@@ -351,6 +357,88 @@ final class GameSession {
         }
     }
 
+    private void saveBackup(Player player) {
+        if (!player.job.equals("hacker") || player.down || phase != GamePhase.PREPARING || backupUsed
+                || !enemies.isEmpty() || !artilleryShells.isEmpty()) return;
+        if (!spend(player, BACKUP_COST)) { gameEffects.feedback(player, "お金が足りません"); return; }
+        var savedPlayers = players.stream().map(Player::gameplayCopy).toList();
+        backup = new PreparationBackup(new PreparationBackup.World(
+                roundEnemyTotal, round, queuedEnemies, queuedTinyEnemies, queuedBlueEnemies,
+                queuedBosses, coreDefenseLevel, coreRegenLevel, blackoutBreakerTotal, nextPrepBonusSeconds,
+                nextEnemyId, nextDefenseId, nextDroppedResourceId, nextFactoryId, nextSpawnIndex,
+                elapsedSeconds, victoryMoveRemaining, teamBuffRemaining, prepTime, coreHp,
+                coreMaxHp, coreX, coreY, coreShield, coreMaxShield,
+                spawnTimer, explosionBossSpawned, wardenSpawned, debugMode, blackoutActive,
+                roundEvent, failedSpawnId),
+            savedPlayers, BackupCopies.slots(trapSlots), BackupCopies.resources(resourceNodes),
+            BackupCopies.factories(factories), BackupCopies.drops(droppedResources), BackupCopies.clouds(poisonClouds),
+            BackupCopies.decoys(decoys, savedPlayers), BackupCopies.missiles(missiles, savedPlayers),
+            Set.copyOf(unlockedAreas), Set.copyOf(trippedBreakers), List.copyOf(activeSpawnIds), List.copyOf(activeLanes),
+            BackupCopies.random(random), player.id);
+        setNotice("バックアップを保存しました");
+        gameEffects.purchased(player, "backup", true);
+    }
+
+    private void restoreBackup(Player player) {
+        if (phase != GamePhase.LOST || backup == null || backupUsed
+                || !player.job.equals("hacker") && !backup.ownerId().equals(player.id)) return;
+        var saved = backup;
+        var world = saved.world();
+        roundEnemyTotal = world.roundEnemyTotal();
+        round = world.round();
+        queuedEnemies = world.queuedEnemies();
+        queuedTinyEnemies = world.queuedTinyEnemies();
+        queuedBlueEnemies = world.queuedBlueEnemies();
+        queuedBosses = world.queuedBosses();
+        coreDefenseLevel = world.coreDefenseLevel();
+        coreRegenLevel = world.coreRegenLevel();
+        blackoutBreakerTotal = world.blackoutBreakerTotal();
+        nextPrepBonusSeconds = world.nextPrepBonusSeconds();
+        nextEnemyId = world.nextEnemyId();
+        nextDefenseId = world.nextDefenseId();
+        nextDroppedResourceId = world.nextDroppedResourceId();
+        nextFactoryId = world.nextFactoryId();
+        nextSpawnIndex = world.nextSpawnIndex();
+        elapsedSeconds = world.elapsedSeconds();
+        victoryMoveRemaining = world.victoryMoveRemaining();
+        teamBuffRemaining = world.teamBuffRemaining();
+        prepTime = world.prepTime();
+        coreHp = world.coreHp();
+        coreMaxHp = world.coreMaxHp();
+        coreX = world.coreX();
+        coreY = world.coreY();
+        coreShield = world.coreShield();
+        coreMaxShield = world.coreMaxShield();
+        spawnTimer = world.spawnTimer();
+        explosionBossSpawned = world.explosionBossSpawned();
+        wardenSpawned = world.wardenSpawned();
+        debugMode = world.debugMode();
+        blackoutActive = world.blackoutActive();
+        roundEvent = world.roundEvent();
+        failedSpawnId = world.failedSpawnId();
+        for (int i = 0; i < players.size(); i++) {
+            Player live = players.get(i); live.copyGameplayFrom(saved.players().get(i));
+            live.moveX = live.moveY = 0; live.dashHeld = live.dashing = live.firing = live.secondaryFiring = false;
+            live.stopRailgun(); live.stopSecondaryRailgun(); live.missileControl = false; live.breakerControl = null;
+            releaseDroneControl(live); cancelAction(live); HookSystem.clear(live);
+        }
+        enemies.clear(); artilleryShells.clear();
+        trapSlots.clear(); trapSlots.addAll(BackupCopies.slots(saved.slots()));
+        resourceNodes.clear(); resourceNodes.addAll(BackupCopies.resources(saved.resources()));
+        factories.clear(); factories.addAll(BackupCopies.factories(saved.factories()));
+        droppedResources.clear(); droppedResources.addAll(BackupCopies.drops(saved.drops()));
+        poisonClouds.clear(); poisonClouds.addAll(BackupCopies.clouds(saved.clouds()));
+        decoys.clear(); decoys.addAll(BackupCopies.decoys(saved.decoys(), players));
+        missiles.clear(); missiles.addAll(BackupCopies.missiles(saved.missiles(), players));
+        unlockedAreas.clear(); unlockedAreas.addAll(saved.unlocked());
+        trippedBreakers.clear(); trippedBreakers.addAll(saved.tripped());
+        activeSpawnIds.clear(); activeSpawnIds.addAll(saved.spawns());
+        activeLanes.clear(); activeLanes.addAll(saved.lanes());
+        random = BackupCopies.random(saved.random());
+        phase = GamePhase.PREPARING; backupUsed = true; backup = null; rewindVersion++;
+        setNotice("バックアップから復元しました");
+    }
+
     void update(double dt) {
         updateReconnectReservations(dt);
         if (canUseFacilities()) teamBuffRemaining = Math.max(0, teamBuffRemaining - dt);
@@ -427,7 +515,7 @@ final class GameSession {
             setNotice("コアが破壊されました");
             return;
         }
-        if (players.stream().noneMatch(player -> !player.down)) {
+        if (players.stream().noneMatch(player -> !player.down) && !hasHealingRescue()) {
             phase = GamePhase.LOST;
             setNotice("全員がダウンしました");
             return;
@@ -512,7 +600,7 @@ final class GameSession {
         recallDrone(player);
         player.roomReady = false;
         player.spyRemaining = player.jobCooldown = player.scoutDashRemaining = 0;
-        player.teleportPads.clear();
+        player.teleportPads.clear(); player.teleportPairs.clear();
     }
 
     private boolean canOperate(Player player, WorkbenchUnit unit) {
@@ -663,6 +751,11 @@ final class GameSession {
             gameEffects.feedback(player, "ここには設置できません");
             return;
         }
+        int pair = 0;
+        long firstPair = java.util.stream.IntStream.range(0, player.teleportPads.size())
+                .filter(i -> JobRules.teleportPair(player, i) == 0).count();
+        if (firstPair >= 2) pair = 1;
+        player.teleportPairs.put(point, pair);
         player.teleportPads.add(point);
         if (player.buildItemCount("teleporter") == 0 && "teleporter".equals(player.selectedBuild)) player.selectedBuild = null;
         gameEffects.sound(player, "item-use", "build");
@@ -759,6 +852,7 @@ final class GameSession {
                     distance(player.x, player.y, point.x(), point.y()),
                     GameMap.hasClearLine(player.x, player.y, point.x(), point.y()))) return;
         player.teleportPads.remove(point);
+        player.teleportPairs.remove(point);
         gameEffects.feedback(player, "テレポーターを回収しました");
     }
 
@@ -767,13 +861,14 @@ final class GameSession {
         MapPoint destination = null;
         double nearest = 45;
         for (Player owner : players) {
-            if (owner.teleportPads.size() != 2) continue;
-            for (int i = 0; i < 2; i++) {
+            for (int i = 0; i < owner.teleportPads.size(); i++) {
+                MapPoint partner = JobRules.teleportPartner(owner, i);
+                if (partner == null) continue;
                 MapPoint from = owner.teleportPads.get(i);
                 double range = distance(player.x, player.y, from.x(), from.y());
                 if (range > nearest || !GameMap.hasClearLine(player.x, player.y, from.x(), from.y())) continue;
                 nearest = range;
-                destination = owner.teleportPads.get(1 - i);
+                destination = partner;
             }
         }
         if (destination == null) return;
@@ -792,6 +887,12 @@ final class GameSession {
         if (parts.length < 2 || !canMove() || player.down) return;
         player.dashHeld = parts[1].equals("1") || parts[1].equalsIgnoreCase("true");
         if (!player.dashHeld) player.dashing = false;
+    }
+
+    private boolean hasHealingRescue() {
+        return players.stream().anyMatch(owner -> owner.healRemaining > 0 && players.stream().anyMatch(target -> target.down
+                && JobRules.insideHealingArea(target.x, target.y, owner.healX, owner.healY)
+                && GameMap.hasClearLine(owner.healX, owner.healY, target.x, target.y, unlockedAreas)));
     }
 
     private void updateHealingAreas(double dt) {
@@ -886,6 +987,10 @@ final class GameSession {
             if (!isExplosionBossRound()) queuedBosses *= 2;
         }
         queuedEnemies = (int) Math.round(queuedEnemies * 0.8);
+        if (round >= 10 && round <= 24) {
+            double extra = round <= 20 ? .1 : (25 - round) * .02;
+            queuedEnemies = (int) Math.ceil(queuedEnemies * (1 + extra));
+        }
         if (debugMode && round == 5) queuedBosses++;
         queuedBlueEnemies = round >= 40 ? random.nextInt(3) : 0;
         roundEnemyTotal = queuedEnemies + queuedBosses;
@@ -1306,10 +1411,10 @@ final class GameSession {
                 wardenSpawned = true;
             }
             case "explosionBoss" -> {
-                hp = 2200 + round * 60;
+                hp = (2200 + round * 60) * 15;
                 speed = 24;
                 damage = 0;
-                reward = 650;
+                reward = 0;
                 explosionBossSpawned = true;
             }
             case "bomber" -> {
@@ -1477,12 +1582,14 @@ final class GameSession {
                 if (enemy.type.equals("explosionBoss") && !enemy.offspringSpawned) defeatedExplosionBosses.add(enemy);
                 continue;
             }
+            boolean frozen = enemy.frozenRemaining > 0;
+            enemy.frozenRemaining = Math.max(0, enemy.frozenRemaining - dt);
             if (enemy.type.equals("explosionBoss")) {
                 updateExplosionBoss(enemy, dt, remaining);
                 if (enemy.exploded) defeatedExplosionBosses.add(enemy);
                 continue;
             }
-            if (enemy.hookPulled) continue;
+            if (enemy.hookPulled || frozen) continue;
             if (updateBossCharge(enemy, dt)) continue;
             if (SpecialEnemyRules.carriesHunters(enemy)) {
                 Player witness = players.stream().filter(p -> SpecialEnemyRules.canRelease(enemy, p,
@@ -1666,8 +1773,7 @@ final class GameSession {
                 enemy.exploded = true;
                 enemy.hp = 0;
                 double radius = GameConfig.EXPLOSION_BOSS_BLAST_RADIUS;
-                events.broadcast("{\"type\":\"effect\",\"effect\":\"explosion\",\"x\":" + roundOne(enemy.x)
-                        + ",\"y\":" + roundOne(enemy.y) + ",\"radius\":" + radius + "}");
+                gameEffects.explosion(enemy.x, enemy.y, radius);
                 for (Player target : players) {
                     if (target.drone != null && target.drone.active
                             && SpecialEnemyRules.overlapsBlast(enemy.x, enemy.y, target.drone.x, target.drone.y, 12, radius))
@@ -1723,8 +1829,7 @@ final class GameSession {
         bomber.exploded = true;
         bomber.hp = 0;
         double radius = GameConfig.BOMBER_BLAST_RADIUS;
-        events.broadcast("{\"type\":\"effect\",\"effect\":\"explosion\",\"x\":" + roundOne(bomber.x)
-                + ",\"y\":" + roundOne(bomber.y) + ",\"radius\":" + radius + "}");
+        gameEffects.explosion(bomber.x, bomber.y, radius);
         for (Player target : players) {
             if (target.drone != null && target.drone.active && target.drone.attackers.contains(bomber.id)
                     && inBomberBlast(bomber, target.drone.x, target.drone.y, radius)) damageDrone(target, bomber.damage);
@@ -1900,6 +2005,7 @@ final class GameSession {
     }
 
     private void moveEnemyToward(Enemy enemy, double targetX, double targetY, double amount) {
+        if (enemy.frozenRemaining > 0) return;
         if (!GameMap.hasClearLine(enemy.x, enemy.y, targetX, targetY)) {
             if (enemy.pathTimer <= 0) {
                 enemy.path = findPath(enemy.x, enemy.y, targetX, targetY, 17, false);
@@ -1917,6 +2023,7 @@ final class GameSession {
     }
 
     private void moveEnemyDirect(Enemy enemy, double targetX, double targetY, double amount) {
+        if (enemy.frozenRemaining > 0) return;
         double dx = targetX - enemy.x;
         double dy = targetY - enemy.y;
         enemy.faceToward(targetX, targetY);
@@ -2530,7 +2637,7 @@ final class GameSession {
             });
             return false; // No legal site: guard instead of accumulating more unplaceable equipment.
         }
-        var recipe = BUILD_RECIPES.get(buildType);
+        var recipe = JobRules.recipe(bot.job, BUILD_RECIPES.get(buildType));
         if (BuildingRules.canAfford(recipe, materials(bot))) {
             WorkbenchUnit bench = GameMap.WORKBENCH_UNITS.stream()
                     .filter(unit -> unit.requiredArea() == null || unlockedAreas.contains(unit.requiredArea()))
@@ -2702,7 +2809,7 @@ final class GameSession {
             return;
         }
         if (item.endsWith("Factory")) {
-            if (!spend(player, shop.cost())) { gameEffects.feedback(player, "お金が足りません"); return; }
+            if (!spend(player, JobRules.buildingCost(player.job, shop.cost()))) { gameEffects.feedback(player, "お金が足りません"); return; }
             player.addBuildItem(item, 1);
             gameEffects.purchased(player, item, false);
             player.selectedBuild = item;
@@ -2770,11 +2877,12 @@ final class GameSession {
                 gameEffects.feedback(player, "防具を購入しました");
             }
             case "overclockSilver" -> {
-                if (player.silverTurretItems < UpgradeRules.COMPRESSION_COST) {
+                int compressionCost = JobRules.buildingCost(player.job, UpgradeRules.COMPRESSION_COST);
+                if (player.silverTurretItems < compressionCost) {
                     gameEffects.feedback(player, "銀タレットが足りません"); return true;
                 }
-                for (int i = 0; i < UpgradeRules.COMPRESSION_COST; i++) player.takeDefense("silverTurret");
-                player.addBuildItem("silverTurret", -UpgradeRules.COMPRESSION_COST);
+                for (int i = 0; i < compressionCost; i++) player.takeDefense("silverTurret");
+                player.addBuildItem("silverTurret", -compressionCost);
                 player.addBuildItem("overclockSilver", 1);
                 player.selectedBuild = "overclockSilver";
                 releaseCarriedCore(player);
@@ -2810,6 +2918,11 @@ final class GameSession {
         if (!GachaRules.POOL.contains(result)) { player.gachaWeapon = null; return; }
         if ("skip".equals(selection)) { player.gachaWeapon = null; return; }
         if (selection == null || DroneRules.mounted(player, result)) return;
+        if (result.equals("silverAmmo200")) {
+            if (!"take".equals(selection) || !player.weapons.addSilverAmmo(200)) return;
+            player.gachaWeapon = null; gameEffects.purchased(player, result, false); return;
+        }
+        if (result.equals("plasmaBlade") && !player.weapons.owns(result) && !"take".equals(selection) && !"bat".equals(selection)) return;
         boolean owned = player.weapons.owns(result);
         if (!owned) {
             if (!player.weapons.canAcquire(result)) {
@@ -2819,9 +2932,11 @@ final class GameSession {
                 if (player.secondaryWeapon.equals(selection)) {
                     player.equipSecondaryWeapon("bat"); player.secondaryFiring = false;
                 }
-            } else if (!"take".equals(selection)) return;
+            } else if (!"take".equals(selection) && !(result.equals("plasmaBlade") && selection.equals("bat"))) return;
             HookSystem.clear(player);
             releaseCarriedCore(player);
+            if (result.equals("plasmaBlade")) { player.enchantments.remove("bat");
+                if (player.secondaryWeapon.equals("bat")) player.secondaryWeapon = "none"; }
             grantWeapon(player, result);
         } else {
             if (!"take".equals(selection)) return;
@@ -2959,7 +3074,7 @@ final class GameSession {
             gameEffects.feedback(player, "銀弾を" + SilverAmmoRules.PACK_SIZE + "発製作しました");
             return;
         }
-        var recipe = BUILD_RECIPES.get(type);
+        var recipe = JobRules.recipe(player.job, BUILD_RECIPES.get(type));
         if (!BuildingRules.canAfford(recipe, materials(player))) {
             gameEffects.feedback(player, "素材が足りません");
             return;
@@ -3004,7 +3119,7 @@ final class GameSession {
     }
 
     private void carryNearest(Player player, String target) {
-        if (!canUseFacilities() || player.down || player.movingCore || player.selectedBuild != null) return;
+        if (!canUseFacilities() || player.down || player.movingCore) return;
         MaterialFactory quarry = factories.stream().filter(unit -> (target == null || unit.id.equals(target))
                 && canInteract(player, unit.x, unit.y, 70))
                 .min(Comparator.comparingDouble(unit -> distance(player.x, player.y, unit.x, unit.y)))
@@ -3015,7 +3130,7 @@ final class GameSession {
                 .filter(unit -> target == null || unit.id.equals(target))
                 .min(Comparator.comparingDouble(unit -> distance(player.x, player.y, unit.x, unit.y)))
                 .orElse(null);
-        boolean nearCore = (target == null || target.equals("core"))
+        boolean nearCore = player.selectedBuild == null && (target == null || target.equals("core"))
                 && canInteract(player, coreX, coreY, 100);
         if (quarry != null && (slot == null || distance(player.x, player.y, quarry.x, quarry.y)
                 <= distance(player.x, player.y, slot.x, slot.y))
@@ -3452,6 +3567,7 @@ final class GameSession {
     }
 
     private void resetWorld() {
+        backup = null; backupUsed = false;
         elapsedSeconds = 0;
         victoryMoveRemaining = 0;
         teamBuffRemaining = 0;
@@ -3527,7 +3643,7 @@ final class GameSession {
             player.teleportCooldown = 0;
             player.tpInvulnerableRemaining = 0;
             player.reviveInvulnerableRemaining = 0;
-            player.teleportPads.clear();
+            player.teleportPads.clear(); player.teleportPairs.clear();
             player.equipWeapon("pistol");
             player.weaponCooldowns.clear();
             player.weaponCooldownMaxima.clear();

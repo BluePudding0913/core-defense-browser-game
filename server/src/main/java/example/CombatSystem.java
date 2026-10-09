@@ -21,7 +21,7 @@ final class CombatSystem {
         boolean canOccupy(double x, double y, double radius);
         void onEnemyDefeated(Enemy enemy);
         default double damageMultiplier(Player player, String weapon) {
-            return UpgradeRules.weaponMultiplier(player.enchantments.getOrDefault(weapon, 0));
+            return UpgradeRules.weaponMultiplier(player.enchantments.getOrDefault(weapon, 0)) * JobRules.damageMultiplier(player.job);
         }
     }
     private final World world;
@@ -65,6 +65,8 @@ final class CombatSystem {
             return;
         }
         WeaponStats weapon = JobRules.weaponStats(player.job, player.weapon);
+        MapPoint aim = assistedAim(player, player.weapon, player.x, player.y, aimX, aimY);
+        aimX = aim.x(); aimY = aim.y();
         if (!player.weapons.consume(player.weapon)) {
             events.outOfAmmo(player);
             player.firing = false;
@@ -105,6 +107,9 @@ final class CombatSystem {
             fireRepulsor(player, weapon, directionX, directionY);
             return;
         }
+        if (player.weapon.equals("plasmaBlade")) {
+            firePlasmaBlade(player, weapon, directionX, directionY); return;
+        }
         if (player.weapon.equals("bat")) {
             double effectDistance = GameMap.distanceToWall(player.x, player.y, directionX, directionY,
                     Math.min(Math.hypot(aimX - player.x, aimY - player.y), weapon.range()), world.unlockedAreas());
@@ -118,6 +123,36 @@ final class CombatSystem {
         for (int pellet = 0; pellet < rays; pellet++) {
             double spreadAngle = shotgun ? (pellet - (rays - 1) / 2.0) * .14 : 0;
             fireRay(player, weapon, Math.cos(angle + spreadAngle), Math.sin(angle + spreadAngle));
+        }
+    }
+
+    private MapPoint assistedAim(Player player, String weapon, double x, double y, double aimX, double aimY) {
+        Enemy target = AutoAimRules.target(player.enchantments.getOrDefault(weapon, 0), x, y,
+                aimX, aimY, WeaponCatalog.stats(weapon).range(), world.enemies(),
+                enemy -> GameMap.hasClearLine(x, y, enemy.x, enemy.y, world.unlockedAreas()));
+        return target == null ? new MapPoint(aimX, aimY) : new MapPoint(target.x, target.y);
+    }
+
+    private void aimRailgun(Player player) {
+        MapPoint aim = assistedAim(player, "railgun", player.x, player.y, player.aimX, player.aimY);
+        double dx = aim.x() - player.x, dy = aim.y() - player.y;
+        double length = Math.hypot(dx, dy);
+        player.railgunDx = length < .001 ? 1 : dx / length;
+        player.railgunDy = length < .001 ? 0 : dy / length;
+    }
+
+
+    private void firePlasmaBlade(Player player, WeaponStats weapon, double dx, double dy) {
+        events.hit(player.id, "plasmaBlade", player.x, player.y,
+                player.x + dx * weapon.range(), player.y + dy * weapon.range(), 0, false, 0, false, null);
+        for (Enemy enemy : List.copyOf(world.enemies())) {
+            if (enemy.hp <= 0 || !RepulsorRules.contains(player.x, player.y, dx, dy, weapon.range(), enemy.x, enemy.y, enemyRadius(enemy))
+                    || !GameMap.hasClearLine(player.x, player.y, enemy.x, enemy.y, world.unlockedAreas())) continue;
+            int credits = player.credits;
+            double damage = damageEnemy(enemy, weapon.damage(), player);
+            knockbackEnemy(player.x, player.y, enemy, weapon.knockback());
+            events.hit(player.id, "plasmaBlade", player.x, player.y, enemy.x, enemy.y, damage, enemy.hp <= 0,
+                    player.credits - credits, false, enemy.id);
         }
     }
 
@@ -227,7 +262,7 @@ final class CombatSystem {
     }
 
     void droneExplosion(Player player, Drone drone) {
-        events.explosion(drone.x, drone.y, DroneRules.SELF_DESTRUCT_RADIUS);
+        events.alliedExplosion(drone.x, drone.y, DroneRules.SELF_DESTRUCT_RADIUS);
         droneShot = new DroneShot(player, "droneExplosion", drone.x, drone.y, drone);
         try {
             for (Enemy enemy : List.copyOf(world.enemies())) {
@@ -244,7 +279,7 @@ final class CombatSystem {
     }
 
     void missileImpact(Player player, double x, double y) {
-        events.explosion(x, y, MissileRules.radius());
+        events.alliedExplosion(x, y, MissileRules.radius());
         for (Enemy enemy : List.copyOf(world.enemies())) {
             double separation = distance(x, y, enemy.x, enemy.y);
             if (enemy.hp <= 0 || separation > MissileRules.radius()
@@ -291,7 +326,8 @@ final class CombatSystem {
         Drone drone = player.drone;
         if (!world.canAttack() || player.down || drone.hp <= 0 || drone.cooldown > 0
                 || !DroneRules.mountable(drone.weapon) || !player.weapons.owns(drone.weapon)) return;
-        double dx = aimX - drone.x, dy = aimY - drone.y;
+        MapPoint aim = assistedAim(player, drone.weapon, drone.x, drone.y, aimX, aimY);
+        double dx = aim.x() - drone.x, dy = aim.y() - drone.y;
         double length = Math.hypot(dx, dy);
         if (length < .001) return;
         if (!player.weapons.consume(drone.weapon)) {
@@ -337,15 +373,13 @@ final class CombatSystem {
             player.railgunCharge = 0;
             if (player.weapons.ammo("railgun") <= 0) return;
             player.weapons.consume("railgun");
-            double dx = player.aimX - player.x, dy = player.aimY - player.y;
-            double length = Math.hypot(dx, dy);
-            player.railgunDx = length < .001 ? 1 : dx / length;
-            player.railgunDy = length < .001 ? 0 : dy / length;
+            aimRailgun(player);
             player.railgunRemaining = GameConfig.RAILGUN_DURATION;
             player.railgunTick = 0;
             events.sound(player, "shot", "railgun");
         }
         if (player.railgunRemaining <= 0) return;
+        if (UpgradeRules.autoAim(player.enchantments.getOrDefault("railgun", 0))) aimRailgun(player);
         double elapsed = Math.min(remainingDt, player.railgunRemaining);
         player.railgunRemaining = Math.max(0, player.railgunRemaining - elapsed);
         player.railgunTick += elapsed;
@@ -403,7 +437,7 @@ final class CombatSystem {
         }
         double x = player.x + dx * impactDistance, y = player.y + dy * impactDistance;
         events.hit(player.id, "rocket", player.x, player.y, x, y, 0, false, 0, false, null);
-        events.explosion(x, y, GameConfig.ROCKET_BLAST_RADIUS);
+        events.alliedExplosion(x, y, GameConfig.ROCKET_BLAST_RADIUS);
         for (Player target : world.players()) {
             double blastDistance = distance(x, y, target.x, target.y);
             if (JobRules.canHitDisguisedAlly(player, target) && blastDistance <= GameConfig.ROCKET_BLAST_RADIUS
@@ -494,6 +528,11 @@ final class CombatSystem {
             events.hit(player.id, shotWeapon(player), originX, originY, endX, endY, 0, false, 0, false, null);
         }
         for (Enemy hit : targets) {
+            if (shotWeapon(player).equals("freezeGun")) {
+                hit.frozenRemaining = Math.max(hit.frozenRemaining, 3);
+                events.hit(player.id, "freezeGun", originX, originY, hit.x, hit.y, 0, false, 0, false, hit.id);
+                continue;
+            }
             if (SpecialEnemyRules.hitsBag(hit, originX, originY, directionX, directionY, shotDistance, weapon.width())) {
                 damageBag(hit, weapon.damage(), player, shotWeapon(player), originX, originY);
                 continue;
@@ -503,7 +542,7 @@ final class CombatSystem {
             double damage = weapon.damage() * (headshot ? 2 : 1);
             if (WeaponCatalog.find(shotWeapon(player)).mode() != WeaponCatalog.AttackMode.MELEE) damage = hit.shieldedDamage(damage, originX, originY);
             double dealt = damageEnemy(hit, damage, player);
-            if (headshot) awardCredits(player, 3, shotWeapon(player));
+            if (headshot && !hit.type.equals("explosionBoss")) awardCredits(player, 3, shotWeapon(player));
             knockbackEnemy(originX, originY, hit, weapon.knockback());
             events.hit(player.id, shotWeapon(player), shotX(player), shotY(player), hit.x, hit.y,
                     dealt, hit.hp <= 0, player.credits - creditsBeforeHit, headshot, hit.id);
@@ -598,7 +637,7 @@ final class CombatSystem {
         if (player != null && dealt > 0) {
             JobRules.recordSpyAttack(player, enemy, random);
             enemy.creditProgress += enemy.reward * dealt / enemy.maxHp;
-            int earnedCredits = Math.min(enemy.reward,
+            int earnedCredits = enemy.type.equals("explosionBoss") ? 0 : Math.min(enemy.reward,
                     (int) Math.floor(enemy.creditProgress + 1e-9));
             int payout = earnedCredits - enemy.paidCredits;
             if (payout > 0) {

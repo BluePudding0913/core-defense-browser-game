@@ -100,7 +100,7 @@ class EnemyHookGachaTest {
         Enemy gold=enemy("gilded",1300,1900), grunt=enemy("grunt",1400,1900);
         assertTrue(gold.reward>grunt.reward*20);
     }
-    @Test void carrierRequiresVisibleLivePlayerAndReleasesTwelveOnlyOnce() throws Exception {
+    @Test void carrierRequiresVisibleLivePlayerAndReleasesSixOnlyOnce() throws Exception {
         Enemy carrier=enemy("carrier",1120,1900);
         player.x=1020; player.y=1900; player.down=true;
         invoke("updateEnemies",new Class<?>[]{double.class},2.);
@@ -111,9 +111,9 @@ class EnemyHookGachaTest {
         invoke("updateEnemies",new Class<?>[]{double.class},1.);
         assertEquals(1,game.enemies.size());
         invoke("updateEnemies",new Class<?>[]{double.class},.5);
-        assertEquals(12,game.enemies.stream().filter(e->e.type.equals("hunter")).count());
+        assertEquals(6,game.enemies.stream().filter(e->e.type.equals("hunter")).count());
         invoke("updateEnemies",new Class<?>[]{double.class},2.);
-        assertEquals(12,game.enemies.stream().filter(e->e.type.equals("hunter")).count());
+        assertEquals(6,game.enemies.stream().filter(e->e.type.equals("hunter")).count());
     }
     @Test void shootingBackpackDestroysItWithoutHurtingBodyAndPreventsRelease() throws Exception {
         player.x=1020; player.y=1900; player.weapons.grant("revolver"); player.equipWeapon("revolver");

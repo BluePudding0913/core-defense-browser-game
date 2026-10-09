@@ -40,9 +40,18 @@ assert.equal(circles.length, 0, 'older snapshots are supported');
 context.hitEffects = [{ effect: 'acid-impact', x: 300, y: 200, radius: 64, started: 0 }];
 now = 180;
 vm.runInContext('drawHitEffects()', context);
-assert.equal(context.ctx.strokeStyle, '#d5f06a');
+assert.equal(context.ctx.strokeStyle, '#ff805c');
 assert.equal(circles[0].radius, 40);
 now = 360; circles.length = 0;
 vm.runInContext('drawHitEffects()', context);
 assert.equal(circles.length, 0);
 console.log('Artillery display passed: fixed warning, countdown, arced shell, expiry and acid impact');
+
+for(const source of ["enemy","ally",undefined]) {
+ context.hitEffects=[{effect:"explosion",source,x:300,y:200,radius:64,started:0}];now=180;
+ vm.runInContext("drawHitEffects()",context);assert.equal(context.ctx.strokeStyle,source==="ally"?"#69dfff":"#ff805c");
+}
+context.ctx.fillText=()=>{};context.state.missiles=[{x:300,y:200,radius:64,remaining:2}];
+const missileStart=source.indexOf("function drawMissiles("),missileEnd=source.indexOf("\nfunction ",missileStart+1);
+vm.runInContext(source.slice(missileStart,missileEnd),context);vm.runInContext("drawMissiles()",context);assert.equal(context.ctx.strokeStyle,"#69dfff");
+console.log("Attack colors passed: enemy explosion/acid, allied explosion, missile warning and legacy effects");

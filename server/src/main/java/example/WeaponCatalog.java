@@ -7,10 +7,11 @@ import java.util.stream.Collectors;
 
 /** Authoritative weapon definitions, also published to the browser through rules. */
 final class WeaponCatalog {
-    enum AttackMode { RAY, MELEE, SPREAD, RICOCHET, ROCKET, BEAM, FLAME, HOOK, GAS, PUSH }
+    enum AttackMode { RAY, MELEE, SPREAD, RICOCHET, ROCKET, BEAM, FLAME, HOOK, GAS, PUSH, FREEZE }
     record WeaponStats(double range, double damage, double cooldown, double knockback, double width) { }
     record Definition(String id, int capacity, AttackMode mode, boolean piercing, WeaponStats stats, double goldMultiplier) {
         boolean gachaOnly() { return GachaRules.POOL.contains(id); }
+        boolean meleeSlot() { return mode == AttackMode.MELEE; }
         boolean usesAmmo() { return capacity > 0; }
         int pellets() { return mode == AttackMode.SPREAD ? GameConfig.SHOTGUN_PELLETS : 1; }
         int maxTargets() { return piercing || mode == AttackMode.BEAM ? -1 : mode == AttackMode.SPREAD ? GameConfig.SHOTGUN_MAX_TARGETS : 1; }
@@ -34,7 +35,9 @@ final class WeaponCatalog {
             new Definition("hook", 0, AttackMode.HOOK, false, new WeaponStats(HookSystem.RANGE, 0, .2, 0, 2), 0),
             new Definition("laserCannon", 30, AttackMode.RAY, true, new WeaponStats(1000, 650, 1.4, 0, 10), .65),
             new Definition("poisonGas", 12, AttackMode.GAS, true, new WeaponStats(600, 90, 2.5, 0, 0), .65),
-            new Definition("repulsor", 0, AttackMode.PUSH, true, new WeaponStats(320, 0, .1, 18, 0), 0));
+            new Definition("repulsor", 0, AttackMode.PUSH, true, new WeaponStats(320, 0, .1, 18, 0), 0),
+            new Definition("freezeGun", 60, AttackMode.FREEZE, false, new WeaponStats(450, 0, .7, 0, 5), 0),
+            new Definition("plasmaBlade", 0, AttackMode.MELEE, true, new WeaponStats(120, 180, .65, 45, 26), 1.5));
     private static final Map<String, Definition> BY_ID = ALL.stream()
             .collect(Collectors.toUnmodifiableMap(Definition::id, Function.identity()));
     static Definition find(String id) { return BY_ID.get(id); }

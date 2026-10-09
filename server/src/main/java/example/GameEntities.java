@@ -40,6 +40,7 @@ final class Player {
     double tpInvulnerableRemaining;
     double reviveInvulnerableRemaining;
     final java.util.List<MapPoint> teleportPads = new java.util.ArrayList<>();
+    final java.util.Map<MapPoint, Integer> teleportPairs = new java.util.HashMap<>();
     String weapon = "pistol";
     double cooldown;
     double cooldownMax;
@@ -164,9 +165,126 @@ final class Player {
         return stored != null && !stored.isEmpty() ? stored.removeFirst() : new Defense(type);
     }
 
+
+    Player gameplayCopy() { var copy = new Player(slot); copy.copyGameplayFrom(this); return copy; }
+
+    void copyGameplayFrom(Player source) {
+        x = source.x;
+        y = source.y;
+        moveX = source.moveX;
+        moveY = source.moveY;
+        facingX = source.facingX;
+        facingY = source.facingY;
+        hp = source.hp;
+        medbayDamageDelay = source.medbayDamageDelay;
+        down = source.down;
+        dashHeld = source.dashHeld;
+        dashing = source.dashing;
+        dashExhausted = source.dashExhausted;
+        stamina = source.stamina;
+        job = source.job;
+        spyRemaining = source.spyRemaining;
+        spyCheckedEnemies.clear(); spyCheckedEnemies.addAll(source.spyCheckedEnemies);
+        spyHostileEnemies.clear(); spyHostileEnemies.addAll(source.spyHostileEnemies);
+        scoutDashRemaining = source.scoutDashRemaining;
+        scoutDashDx = source.scoutDashDx;
+        scoutDashDy = source.scoutDashDy;
+        jobCooldown = source.jobCooldown;
+        decoyCooldown = source.decoyCooldown;
+        drone = BackupCopies.drone(source.drone);
+        missileControl = source.missileControl;
+        breakerControl = source.breakerControl;
+        missileCooldown = source.missileCooldown;
+        teleportCooldown = source.teleportCooldown;
+        tpInvulnerableRemaining = source.tpInvulnerableRemaining;
+        reviveInvulnerableRemaining = source.reviveInvulnerableRemaining;
+        teleportPads.clear(); teleportPads.addAll(source.teleportPads);
+        teleportPairs.clear(); teleportPairs.putAll(source.teleportPairs);
+        weapon = source.weapon;
+        cooldown = source.cooldown;
+        cooldownMax = source.cooldownMax;
+        weaponCooldowns.clear(); weaponCooldowns.putAll(source.weaponCooldowns);
+        weaponCooldownMaxima.clear(); weaponCooldownMaxima.putAll(source.weaponCooldownMaxima);
+        railgunCharge = source.railgunCharge;
+        railgunRemaining = source.railgunRemaining;
+        railgunTick = source.railgunTick;
+        railgunDx = source.railgunDx;
+        railgunDy = source.railgunDy;
+        weapons.copyFrom(source.weapons);
+        healRemaining = source.healRemaining;
+        healX = source.healX;
+        healY = source.healY;
+        secondaryWeapon = source.secondaryWeapon;
+        secondaryCooldown = source.secondaryCooldown;
+        secondaryCooldownMax = source.secondaryCooldownMax;
+        secondaryWeaponCooldowns.clear(); secondaryWeaponCooldowns.putAll(source.secondaryWeaponCooldowns);
+        secondaryWeaponCooldownMaxima.clear(); secondaryWeaponCooldownMaxima.putAll(source.secondaryWeaponCooldownMaxima);
+        secondaryRailgunCharge = source.secondaryRailgunCharge;
+        secondaryRailgunRemaining = source.secondaryRailgunRemaining;
+        secondaryRailgunTick = source.secondaryRailgunTick;
+        secondaryRailgunDx = source.secondaryRailgunDx;
+        secondaryRailgunDy = source.secondaryRailgunDy;
+        secondaryFiring = source.secondaryFiring;
+        secondaryAimX = source.secondaryAimX;
+        secondaryAimY = source.secondaryAimY;
+        hookTargetId = source.hookTargetId;
+        hookReeling = source.hookReeling;
+        hookPressHandled = source.hookPressHandled;
+        secondaryHookPressHandled = source.secondaryHookPressHandled;
+        gachaWeapon = source.gachaWeapon;
+        firing = source.firing;
+        aimX = source.aimX;
+        aimY = source.aimY;
+        wood = source.wood;
+        ore = source.ore;
+        copper = source.copper;
+        silver = source.silver;
+        medkits = source.medkits;
+        copperTurretItems = source.copperTurretItems;
+        silverTurretItems = source.silverTurretItems;
+        gatherCooldown = source.gatherCooldown;
+        blockItems = source.blockItems;
+        turretItems = source.turretItems;
+        wireItems = source.wireItems;
+        mineItems = source.mineItems;
+        barricadeItems = source.barricadeItems;
+        copperBarricadeItems = source.copperBarricadeItems;
+        silverBarricadeItems = source.silverBarricadeItems;
+        credits = source.credits;
+        goldRewardRemainder = source.goldRewardRemainder;
+        armorBottoms = source.armorBottoms;
+        armorTops = source.armorTops;
+        overclockSilverItems = source.overclockSilverItems;
+        enchantments.clear(); enchantments.putAll(source.enchantments);
+        quarryItems.clear(); quarryItems.putAll(source.quarryItems);
+        selectedBuild = source.selectedBuild;
+        movingCore = source.movingCore;
+        actionTarget = source.actionTarget;
+        actionProgress = source.actionProgress;
+        kills = source.kills;
+        botTargetEnemyId = source.botTargetEnemyId;
+        botObservedEnemyId = source.botObservedEnemyId;
+        botRecognitionTimer = source.botRecognitionTimer;
+        botWanderX = source.botWanderX;
+        botWanderY = source.botWanderY;
+        botWanderTimer = source.botWanderTimer;
+        botSpendCooldown = source.botSpendCooldown;
+        botSeekingMedbay = source.botSeekingMedbay;
+        botExtendedRound = source.botExtendedRound;
+        botSharedRound = source.botSharedRound;
+        botPath = List.copyOf(source.botPath);
+        botPathIndex = source.botPathIndex;
+        botPathTimer = source.botPathTimer;
+        botPathTargetX = source.botPathTargetX;
+        botPathTargetY = source.botPathTargetY;
+        recoveredDefenses.clear(); source.recoveredDefenses.forEach((type, values) -> {
+            var copies = new java.util.ArrayDeque<Defense>(); values.forEach(value -> copies.add(BackupCopies.defense(value))); recoveredDefenses.put(type, copies);
+        });
+    }
+
     int buildItemCount(String type) {
         return switch (type) {
-            case "teleporter" -> job.equals("tp") ? Math.max(0, 2 - teleportPads.size()) : 0;
+            case "teleporter" -> job.equals("tp") ? Math.max(0, 4 - teleportPads.size()) : 0;
             case "block" -> blockItems;
             case "turret" -> turretItems;
             case "copperTurret" -> copperTurretItems;
@@ -267,6 +385,7 @@ final class Enemy {
     double bagHp, releaseProgress;
     double fuse = -1;
     double slow = 1;
+    double frozenRemaining;
     double facingX;
     double facingY = 1;
     double wanderX;

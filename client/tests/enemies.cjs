@@ -115,8 +115,8 @@ for (const effects of [[], [{ effect: 'hit', enemyId: 123, damage: 20, started: 
     vm.runInContext('drawEnemies()', context);
     assert.equal(bodies[0].radius, 18);
     assert.equal(bodies.length, 3, 'Only outline and two eyes');
-    assert.deepEqual(strokes, ['rgb(220 230 235 / 6%)']);
-    assert.deepEqual(fills, ['rgb(235 242 245 / 9%)'], 'No body fill or hit flash');
+    assert.deepEqual(strokes, ['rgb(220 230 235 / 12%)']);
+    assert.deepEqual(fills, ['rgb(235 242 245 / 18%)'], 'No body fill or hit flash');
     assert.equal(labels.length, 0);
     assert.equal(bars.length, 0);
 }

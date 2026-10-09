@@ -28,6 +28,11 @@ final class SnapshotBuilder {
                         : "\"" + escapeJson(game.roomOwnerId) + "\"")
                 .append(",\"allReady\":").append(game.roomReadyForStart());
         json.append(",\"round\":").append(game.round).append(",\"maxRounds\":").append(MAX_ROUNDS);
+        json.append(",\"backupAvailable\":").append(game.backup != null && !game.backupUsed)
+            .append(",\"backupUsed\":").append(game.backupUsed).append(",\"backupCost\":").append(GameSession.BACKUP_COST)
+            .append(",\"backupRound\":").append(game.backup == null ? 0 : game.backup.world().round() + 1)
+            .append(",\"backupOwnerId\":").append(game.backup == null ? "null" : "\"" + escapeJson(game.backup.ownerId()) + "\"")
+            .append(",\"rewindVersion\":").append(game.rewindVersion);
         json.append(",\"prepTime\":").append(roundOne(game.prepTime));
         json.append(",\"elapsedSeconds\":").append(roundOne(game.elapsedSeconds));
         json.append(",\"victoryMoveRemaining\":").append(roundOne(game.victoryMoveRemaining));
@@ -121,6 +126,7 @@ final class SnapshotBuilder {
             json.append('"').append(key).append("\":{\"capacity\":").append(GameSession.weaponAmmoCapacity(key))
                 .append(",\"price\":").append(shop == null ? 0 : shop.cost()).append(",\"refillCost\":").append(GameSession.ammoRefillCost(key))
                 .append(",\"gachaOnly\":").append(definition.gachaOnly())
+                .append(",\"meleeSlot\":").append(definition.meleeSlot())
                 .append(",\"width\":").append(stats.width())
                 .append(",\"damage\":").append(stats.damage()).append(",\"range\":").append(stats.range())
                 .append(",\"cooldown\":").append(stats.cooldown()).append(",\"ammoPerShot\":").append(1)
@@ -131,7 +137,7 @@ final class SnapshotBuilder {
                 .append(",\"goldMultiplier\":").append(definition.goldMultiplier())
                 .append(",\"owned\":\"").append(definition.ownedField())
                 .append("\",\"ammo\":\"").append(definition.ammoField())
-                .append("\",\"name\":\"").append(key.equals("rocket") && shop != null ? escapeJson(shop.label()) : key.equals("laserCannon") ? "LASER CANNON" : key.equals("poisonGas") ? "POISON GAS" : key).append("\"}");
+                .append("\",\"name\":\"").append(key.equals("rocket") && shop != null ? escapeJson(shop.label()) : key.equals("laserCannon") ? "LASER CANNON" : key.equals("poisonGas") ? "POISON GAS" : key.equals("freezeGun") ? "FREEZE GUN" : key.equals("plasmaBlade") ? "PLASMA BLADE" : key).append("\"}");
         }
         json.append("},\"flameHalfAngle\":").append(FlameRules.HALF_ANGLE).append(",\"recipes\":{");
         first = true;
@@ -161,6 +167,7 @@ final class SnapshotBuilder {
             .append(",\"amount\":").append(SilverAmmoRules.PACK_SIZE)
             .append(",\"damageMultiplier\":").append(SilverAmmoRules.DAMAGE_MULTIPLIER)
             .append("},\"upgrades\":{\"enchantMax\":").append(UpgradeRules.ENCHANT_MAX)
+            .append(",\"autoAimLevel\":").append(UpgradeRules.ENCHANT_MAX)
             .append(",\"enchantStep\":").append(UpgradeRules.ENCHANT_STEP).append(",\"enchantCosts\":[")
             .append(UpgradeRules.enchantCost(0)).append(',').append(UpgradeRules.enchantCost(1)).append(',').append(UpgradeRules.enchantCost(2))
             .append("],\"bottomsCost\":").append(UpgradeRules.BOTTOMS_COST).append(",\"topsCost\":").append(UpgradeRules.TOPS_COST)
@@ -251,6 +258,7 @@ final class SnapshotBuilder {
                             GameSession.weaponStats("railgun").range(), game.unlockedAreas) : 0);
             json.append(",\"stamina\":").append(roundOne(player.stamina))
                     .append(",\"dashing\":").append(player.dashing);
+            json.append(",\"buildingCostMultiplier\":").append(player.job.equals("builder") ? .5 : 1);
             json.append(",\"job\":\"").append(player.job).append('"')
                     .append(",\"spyRemaining\":").append(roundOne(player.spyRemaining))
                     .append(",\"scoutDashRemaining\":").append(player.scoutDashRemaining)
@@ -274,7 +282,9 @@ final class SnapshotBuilder {
             for (int padIndex = 0; padIndex < player.teleportPads.size(); padIndex++) {
                 if (padIndex > 0) json.append(',');
                 MapPoint pad = player.teleportPads.get(padIndex);
-                json.append("{\"x\":").append(pad.x()).append(",\"y\":").append(pad.y()).append('}');
+                json.append("{\"x\":").append(pad.x()).append(",\"y\":").append(pad.y())
+                    .append(",\"pair\":").append(JobRules.teleportPair(player, padIndex))
+                    .append(",\"paired\":").append(JobRules.teleportPartner(player, padIndex) != null).append('}');
             }
             json.append(']');
             // Keep the existing wire fields for browser/reconnect compatibility.
@@ -388,6 +398,7 @@ final class SnapshotBuilder {
                         .append(",\"targetY\":").append(roundOne(enemy.warden.targetY))
                         .append(",\"pulseRadius\":").append(WardenRules.PULSE_RADIUS);
             }
+            json.append(",\"frozenRemaining\":").append(roundOne(enemy.frozenRemaining));
             if (enemy.type.equals("explosionBoss")) json.append(",\"fuse\":").append(enemy.fuse);
             if (enemy.type.equals("carrier")) {
                 MapPoint bag = SpecialEnemyRules.bag(enemy);

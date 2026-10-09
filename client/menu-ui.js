@@ -61,6 +61,8 @@ function mountMenu() {
                 return `<li class="room-member ${host || p.ready ? "ready" : ""}"><strong>${escape(p.name)}</strong><span>${host ? "host" : p.ready ? "準備完了" : "準備中"}</span></li>`;
             }).join("") + '</ol>';
             if (["won", "lost"].includes(snapshot.phase)) content += `<p class="ui-defense-result${snapshot.phase === "lost" ? " failed" : ""}" role="status">${snapshot.phase === "won" ? "防衛成功" : "防衛失敗"}<small>TIME ${formatMatchTime(snapshot.elapsedSeconds)}</small></p>`;
+            if (snapshot.phase === "lost" && snapshot.backupAvailable && (me?.job === "hacker" || snapshot.backupOwnerId === selfId))
+                content += '<button data-action="restore-backup" ' + disabled() + '>バックアップから復元 · ROUND ' + snapshot.backupRound + '</button>';
             content += owner ? `<button data-action="start" ${!snapshot.allReady || !connected ? "disabled" : ""}>${snapshot.phase === "lobby" ? "開始" : "もう一度プレイ"}</button>` : `<button data-action="ready" ${disabled()}>${me?.ready ? "準備を取り消す" : "準備OK"}</button>`;
             content += `<button type="button" data-action="toggle-job" aria-expanded="${jobOpen}" aria-controls="job-panel" ${disabled()}>ジョブ:${window.coreJobs?.[me?.job]?.name || "Healer"}</button>`;
             content += button("leave", "戻る");
@@ -145,7 +147,7 @@ function mountMenu() {
             root.hidden = playing && !inGameSettings;
             document.body.classList.toggle("menu-preview", !playing);
             if (playing) { jobOpen = false; lastLobby = ""; return; }
-            const signature = JSON.stringify([id, next.roomId, next.privateRoom, next.phase, next.roomOwnerId, next.allReady,
+            const signature = JSON.stringify([id, next.roomId, next.privateRoom, next.phase, next.roomOwnerId, next.allReady, next.backupAvailable, next.backupRound, next.backupOwnerId,
                 next.players.map(p => [p.id, p.name, p.human, p.ready, p.job])]);
             if (signature === lastLobby && view === "lobby") return;
             lastLobby = signature; view = "lobby";
@@ -252,6 +254,7 @@ function mountMenu() {
             try { window.coreGame.resume(); } catch (error) { status(error.message); }
         }
         if (action === "job") window.coreGame.send(`JOB:${target.dataset.job}`);
+        if (action === "restore-backup") window.coreGame.send("HACKER_RESTORE");
         if (action === "start") window.coreGame.send("START");
         if (action === "ready") window.coreGame.send(`ROOM_READY:${snapshot.players.find(p => p.id === selfId)?.ready ? 0 : 1}`);
         if (action === "leave") {

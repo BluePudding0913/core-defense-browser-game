@@ -71,11 +71,11 @@ class RocketAndBalanceTest {
         UnlockArea area = GameMap.areaById("wood-room");
         game.unlockedAreas.remove(area.id());
         player.x = area.terminalX(); player.y = area.terminalY();
-        player.credits = 199;
+        player.credits = 219;
         game.handleMessage(player, "UNLOCK:" + area.id());
         assertFalse(game.unlockedAreas.contains(area.id()));
-        assertEquals(199, player.credits);
-        player.credits = 200;
+        assertEquals(219, player.credits);
+        player.credits = 220;
         game.handleMessage(player, "UNLOCK:" + area.id());
         assertTrue(game.unlockedAreas.contains(area.id()));
         assertEquals(0, player.credits);

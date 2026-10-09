@@ -35,3 +35,14 @@ for(const [id,name,owned] of [['laserCannon','LASER CANNON','ownsLaserCannon'],[
  assert.equal(Boolean(menu.options[0].disabled),id==='repulsor');me[owned]=false;
 }
 console.log('Gacha arsenal UI passed: exclusive names, claim/refill/skip, gas expiry, laser beam and repulsor wave');
+
+context.WEAPON_FIELDS.freezeGun={name:"FREEZE GUN",capacity:60,owned:"ownsFreezeGun",ammo:"freezeGunAmmo"};
+context.WEAPON_FIELDS.plasmaBlade={name:"PLASMA BLADE",capacity:0,owned:"ownsPlasmaBlade",meleeSlot:true};
+me.ownsLaserCannon=me.ownsPoisonGas=true;me.gachaWeapon="silverAmmo200";vm.runInContext("openGachaShop(shop)",context);
+assert.equal(menu.title,"SILVER AMMO ×200");assert.equal(menu.options[0].command,"BUY:gacha:take");assert.equal(menu.options[1].command,"BUY:gacha:skip");
+me.ownsPlasmaBlade=false;me.gachaWeapon="plasmaBlade";vm.runInContext("openGachaShop(shop)",context);assert.equal(menu.options[0].label,"BATと交換");assert.equal(menu.options[0].command,"BUY:gacha:take");
+me.ownsPlasmaBlade=true;vm.runInContext("openGachaShop(shop)",context);assert(menu.options[0].disabled);
+me.ownsLaserCannon=false;assert(!WeaponUI.atLimit(me,context.WEAPON_FIELDS,3),"melee slot does not count toward ranged capacity");
+for(const weapon of ["freezeGun","plasmaBlade"]) {context.effect={weapon,started:900,damage:0,fromX:100,fromY:100,x:220,y:100};before=strokes.length;
+ vm.runInContext("drawGachaWeaponEffect(effect,1000)",context);assert(strokes.length>before);}
+console.log("New gacha UI passed: silver ammo at full inventory, BAT exchange and freeze/plasma effects");

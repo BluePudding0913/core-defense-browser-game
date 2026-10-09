@@ -3,7 +3,7 @@ package example;
 /** Special enemy decisions and hit geometry, independent of the session and protocol. */
 final class SpecialEnemyRules {
     static final double BAG_HP = 600, BAG_RADIUS = 14, BAG_OFFSET = 26;
-    static final int HUNTERS = 12;
+    static final int HUNTERS = 6;
     static boolean armsExplosion(long remaining, int total) { return total > 0 && remaining * 10 <= total; }
     static boolean overlapsBlast(double x, double y, double targetX, double targetY, double targetRadius, double blastRadius) {
         return Math.hypot(targetX - x, targetY - y) <= blastRadius + targetRadius;
