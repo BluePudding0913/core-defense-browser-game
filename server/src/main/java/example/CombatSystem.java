@@ -15,6 +15,7 @@ final class CombatSystem {
         boolean canAttack();
         Set<String> unlockedAreas();
         List<Enemy> enemies();
+        List<PoisonGasRules.Cloud> poisonClouds();
         List<Player> players();
         void damagePlayer(Player player, double damage);
         boolean canOccupy(double x, double y, double radius);
@@ -96,6 +97,14 @@ final class CombatSystem {
             fireFlame(player, weapon, directionX, directionY);
             return;
         }
+        if (WeaponCatalog.find(player.weapon).mode() == WeaponCatalog.AttackMode.GAS) {
+            firePoisonGas(player, weapon, directionX, directionY, Math.min(length, weapon.range()));
+            return;
+        }
+        if (WeaponCatalog.find(player.weapon).mode() == WeaponCatalog.AttackMode.PUSH) {
+            fireRepulsor(player, weapon, directionX, directionY);
+            return;
+        }
         if (player.weapon.equals("bat")) {
             double effectDistance = GameMap.distanceToWall(player.x, player.y, directionX, directionY,
                     Math.min(Math.hypot(aimX - player.x, aimY - player.y), weapon.range()), world.unlockedAreas());
@@ -109,6 +118,59 @@ final class CombatSystem {
         for (int pellet = 0; pellet < rays; pellet++) {
             double spreadAngle = shotgun ? (pellet - (rays - 1) / 2.0) * .14 : 0;
             fireRay(player, weapon, Math.cos(angle + spreadAngle), Math.sin(angle + spreadAngle));
+        }
+    }
+
+    private void fireRepulsor(Player player, WeaponStats weapon, double dx, double dy) {
+        double range = GameMap.distanceToWall(player.x, player.y, dx, dy, weapon.range(), world.unlockedAreas());
+        events.hit(player.id, "repulsor", player.x, player.y, player.x + dx * range, player.y + dy * range,
+                0, false, 0, false, null);
+        for (Enemy enemy : world.enemies()) {
+            if (enemy.hp > 0 && RepulsorRules.contains(player.x, player.y, dx, dy, weapon.range(), enemy.x, enemy.y, enemyRadius(enemy))
+                    && GameMap.hasClearLine(player.x, player.y, enemy.x, enemy.y, world.unlockedAreas()))
+                knockbackEnemy(player.x, player.y, enemy, weapon.knockback());
+        }
+    }
+
+    private void firePoisonGas(Player player, WeaponStats weapon, double dx, double dy, double range) {
+        double travel = Math.max(0, GameMap.distanceToWall(player.x, player.y, dx, dy, range, world.unlockedAreas()) - .01);
+        var cloud = new PoisonGasRules.Cloud(player.id, player.x + dx * travel, player.y + dy * travel, weapon.damage());
+        if (world.poisonClouds().size() >= PoisonGasRules.MAX_CLOUDS) world.poisonClouds().remove(0);
+        world.poisonClouds().add(cloud);
+        events.hit(player.id, "poisonGas", player.x, player.y, cloud.x, cloud.y, 0, false, 0, false, null);
+        poisonTick(cloud, player);
+    }
+
+    void updatePoisonGas(double dt) {
+        for (var cloud : List.copyOf(world.poisonClouds())) {
+            Player owner = world.players().stream().filter(p -> p.id.equals(cloud.ownerId)).findFirst().orElse(null);
+            if (owner == null) { cloud.remaining = 0; continue; }
+            int ticks = PoisonGasRules.advance(cloud, dt);
+            for (int tick = 0; tick < ticks; tick++) poisonTick(cloud, owner);
+        }
+        world.poisonClouds().removeIf(cloud -> cloud.remaining <= 1e-9);
+    }
+
+    private void poisonTick(PoisonGasRules.Cloud cloud, Player owner) {
+        for (Enemy enemy : List.copyOf(world.enemies())) {
+            if (enemy.hp <= 0) continue;
+            if (SpecialEnemyRules.carriesHunters(enemy)) {
+                MapPoint bag = SpecialEnemyRules.bag(enemy);
+                if (PoisonGasRules.contains(cloud, bag.x(), bag.y(), SpecialEnemyRules.BAG_RADIUS)
+                        && GameMap.hasClearLine(cloud.x, cloud.y, bag.x(), bag.y(), world.unlockedAreas()))
+                    damageBag(enemy, cloud.damage, owner, "poisonGas", cloud.x, cloud.y);
+            }
+            if (!PoisonGasRules.contains(cloud, enemy.x, enemy.y, enemyRadius(enemy))
+                    || !GameMap.hasClearLine(cloud.x, cloud.y, enemy.x, enemy.y, world.unlockedAreas())) continue;
+            int credits = owner.credits;
+            double dealt = damageEnemy(enemy, cloud.damage, owner, "poisonGas");
+            events.hit(owner.id, "poisonGas", cloud.x, cloud.y, enemy.x, enemy.y, dealt,
+                    enemy.hp <= 0, owner.credits - credits, false, enemy.id);
+        }
+        for (Player target : world.players()) {
+            if (JobRules.canHitDisguisedAlly(owner, target) && PoisonGasRules.contains(cloud, target.x, target.y, 12)
+                    && GameMap.hasClearLine(cloud.x, cloud.y, target.x, target.y, world.unlockedAreas()))
+                world.damagePlayer(target, cloud.damage);
         }
     }
 
@@ -485,7 +547,7 @@ final class CombatSystem {
 
     private boolean isHeadshot(Enemy enemy, Player player, double originX, double originY, double directionX,
             double directionY, WeaponStats weapon, double shotDistance) {
-        if (WeaponCatalog.find(shotWeapon(player)).mode() == WeaponCatalog.AttackMode.MELEE) return false;
+        if (shotWeapon(player).equals("laserCannon") || WeaponCatalog.find(shotWeapon(player)).mode() == WeaponCatalog.AttackMode.MELEE) return false;
         double radius = enemyRadius(enemy);
         double headX = enemy.x;
         double headY = enemy.y - radius * 0.5;

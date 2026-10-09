@@ -100,7 +100,7 @@ class CombatSystemTest {
                 assertEquals(ammo - (definition.capacity() > 0 ? 1 : 0), player.weapons.ammo(weapon), weapon);
                 assertEquals(SilverAmmoRules.eligible(weapon) ? 9 : 10, player.weapons.silverAmmo(), weapon);
             }
-            if (weapon.equals("hook")) assertEquals(0, damage[0], weapon);
+            if (definition.stats().damage() == 0) assertEquals(0, damage[0], weapon);
             else assertTrue(damage[0] > 0, weapon);
             assertEquals(damage[0], damage[1], 1e-7, weapon);
         }
@@ -224,6 +224,8 @@ class CombatSystemTest {
             return GameMap.AREAS.stream().map(UnlockArea::id).collect(java.util.stream.Collectors.toSet());
         }
         public List<Enemy> enemies() { return enemies; }
+        final List<PoisonGasRules.Cloud> clouds = new ArrayList<>();
+        public List<PoisonGasRules.Cloud> poisonClouds() { return clouds; }
         public List<Player> players() { return List.of(); }
         public void damagePlayer(Player player, double damage) { fail("No player targets in this fixture"); }
         public boolean canOccupy(double x, double y, double radius) { return true; }

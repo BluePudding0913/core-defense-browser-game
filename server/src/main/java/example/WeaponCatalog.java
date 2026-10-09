@@ -7,13 +7,14 @@ import java.util.stream.Collectors;
 
 /** Authoritative weapon definitions, also published to the browser through rules. */
 final class WeaponCatalog {
-    enum AttackMode { RAY, MELEE, SPREAD, RICOCHET, ROCKET, BEAM, FLAME, HOOK }
+    enum AttackMode { RAY, MELEE, SPREAD, RICOCHET, ROCKET, BEAM, FLAME, HOOK, GAS, PUSH }
     record WeaponStats(double range, double damage, double cooldown, double knockback, double width) { }
     record Definition(String id, int capacity, AttackMode mode, boolean piercing, WeaponStats stats, double goldMultiplier) {
+        boolean gachaOnly() { return GachaRules.POOL.contains(id); }
         boolean usesAmmo() { return capacity > 0; }
         int pellets() { return mode == AttackMode.SPREAD ? GameConfig.SHOTGUN_PELLETS : 1; }
         int maxTargets() { return piercing || mode == AttackMode.BEAM ? -1 : mode == AttackMode.SPREAD ? GameConfig.SHOTGUN_MAX_TARGETS : 1; }
-        double blastRadius() { return mode == AttackMode.ROCKET ? GameConfig.ROCKET_BLAST_RADIUS : 0; }
+        double blastRadius() { return mode == AttackMode.ROCKET ? GameConfig.ROCKET_BLAST_RADIUS : mode == AttackMode.GAS ? PoisonGasRules.RADIUS : 0; }
         String ownedField() { return "owns" + Character.toUpperCase(id.charAt(0)) + id.substring(1); }
         String ammoField() { return id + "Ammo"; }
     }
@@ -30,7 +31,10 @@ final class WeaponCatalog {
             new Definition("rocket", 8, AttackMode.ROCKET, false, new WeaponStats(1200, 3000, 5, 100, 2), .6),
             new Definition("flamethrower", 400, AttackMode.FLAME, true, new WeaponStats(220, 60, .1, 0, 32), .7),
             new Definition("lmg", 600, AttackMode.RAY, false, new WeaponStats(360, 18, .18, 0, 2), .9),
-            new Definition("hook", 0, AttackMode.HOOK, false, new WeaponStats(HookSystem.RANGE, 0, .2, 0, 2), 0));
+            new Definition("hook", 0, AttackMode.HOOK, false, new WeaponStats(HookSystem.RANGE, 0, .2, 0, 2), 0),
+            new Definition("laserCannon", 30, AttackMode.RAY, true, new WeaponStats(1000, 650, 1.4, 0, 10), .65),
+            new Definition("poisonGas", 12, AttackMode.GAS, true, new WeaponStats(600, 90, 2.5, 0, 0), .65),
+            new Definition("repulsor", 0, AttackMode.PUSH, true, new WeaponStats(320, 0, .1, 18, 0), 0));
     private static final Map<String, Definition> BY_ID = ALL.stream()
             .collect(Collectors.toUnmodifiableMap(Definition::id, Function.identity()));
     static Definition find(String id) { return BY_ID.get(id); }
