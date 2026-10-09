@@ -269,7 +269,11 @@ class GameSessionTest {
         player.x = sniperShop.x();
         player.y = sniperShop.y();
         game.handleMessage(player, "BUY:sniper");
+        assertFalse(player.weapons.owns("sniper"), "SNIPER must no longer fit in the old 2,000G budget");
+        player.credits = sniperShop.cost();
+        game.handleMessage(player, "BUY:sniper");
         assertTrue(player.weapons.owns("sniper"));
+        assertEquals(0, player.credits);
         assertEquals("sniper", player.weapon);
         assertEquals(15, player.weapons.ammo("sniper"));
 

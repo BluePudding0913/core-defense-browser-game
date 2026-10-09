@@ -11,7 +11,7 @@ import java.util.Set;
 
 /** Weapon execution and shared enemy damage; emits domain events without JSON. */
 final class CombatSystem {
-    interface World {
+    interface World extends HookSystem.World {
         boolean canAttack();
         Set<String> unlockedAreas();
         List<Enemy> enemies();
@@ -44,6 +44,13 @@ final class CombatSystem {
         if (!world.canAttack() || player.missileControl || player.down || player.movingCore || player.selectedBuild != null || player.cooldown > 0
                 || DroneRules.mounted(player, player.weapon)) return;
 
+        if (player.weapon.equals("hook")) {
+            if (!player.weapons.owns("hook") || player.hookPressHandled) return;
+            player.hookPressHandled = true;
+            HookSystem.click(player, aimX, aimY, world);
+            player.cooldown = player.cooldownMax = .2;
+            return;
+        }
         if (player.weapon.equals("railgun")) {
             if (!player.firing || player.selectedBuild != null) return;
             if (!player.weapons.owns("railgun") || player.weapons.ammo("railgun") <= 0 && player.railgunRemaining <= 0) {
@@ -105,6 +112,8 @@ final class CombatSystem {
         }
     }
 
+    void updateHooks(double dt) { HookSystem.update(dt, world.canAttack(), world); }
+
     void attackSecondary(Player player, double aimX, double aimY) {
         if (!player.job.equals("attacker") || player.weapon.equals(player.secondaryWeapon) || !player.weapons.owns(player.secondaryWeapon)) return;
         withSecondaryHand(player, () -> attackAt(player, aimX, aimY));
@@ -120,25 +129,25 @@ final class CombatSystem {
     }
 
     // Run both hands through the same weapon rules; only hand state is swapped.
-    private record HandState(String weapon, double cooldown, double cooldownMax, boolean firing,
+    private record HandState(String weapon, double cooldown, double cooldownMax, boolean firing, boolean hookPressHandled,
             double aimX, double aimY, double charge, double remaining, double tick, double dx, double dy) {
         static HandState primary(Player p) {
-            return new HandState(p.weapon, p.cooldown, p.cooldownMax, p.firing, p.aimX, p.aimY,
+            return new HandState(p.weapon, p.cooldown, p.cooldownMax, p.firing, p.hookPressHandled, p.aimX, p.aimY,
                     p.railgunCharge, p.railgunRemaining, p.railgunTick, p.railgunDx, p.railgunDy);
         }
         static HandState secondary(Player p) {
             return new HandState(p.secondaryWeapon, p.secondaryCooldown, p.secondaryCooldownMax,
-                    p.secondaryFiring, p.secondaryAimX, p.secondaryAimY, p.secondaryRailgunCharge,
+                    p.secondaryFiring, p.secondaryHookPressHandled, p.secondaryAimX, p.secondaryAimY, p.secondaryRailgunCharge,
                     p.secondaryRailgunRemaining, p.secondaryRailgunTick, p.secondaryRailgunDx, p.secondaryRailgunDy);
         }
         void applyPrimary(Player p) {
-            p.weapon = weapon; p.cooldown = cooldown; p.cooldownMax = cooldownMax; p.firing = firing;
+            p.weapon = weapon; p.cooldown = cooldown; p.cooldownMax = cooldownMax; p.firing = firing; p.hookPressHandled = hookPressHandled;
             p.aimX = aimX; p.aimY = aimY; p.railgunCharge = charge; p.railgunRemaining = remaining;
             p.railgunTick = tick; p.railgunDx = dx; p.railgunDy = dy;
         }
         void applySecondary(Player p) {
             p.secondaryWeapon = weapon; p.secondaryCooldown = cooldown; p.secondaryCooldownMax = cooldownMax;
-            p.secondaryFiring = firing; p.secondaryAimX = aimX; p.secondaryAimY = aimY;
+            p.secondaryFiring = firing; p.secondaryHookPressHandled = hookPressHandled; p.secondaryAimX = aimX; p.secondaryAimY = aimY;
             p.secondaryRailgunCharge = charge; p.secondaryRailgunRemaining = remaining;
             p.secondaryRailgunTick = tick; p.secondaryRailgunDx = dx; p.secondaryRailgunDy = dy;
         }
@@ -190,6 +199,12 @@ final class CombatSystem {
         double range = GameMap.distanceToWall(x, y, dx, dy, weapon.range(), world.unlockedAreas());
         events.hit(player.id, weaponId, x, y, x + dx * range, y + dy * range, 0, false, 0, false, null);
         for (Enemy enemy : List.copyOf(world.enemies())) {
+            if (SpecialEnemyRules.carriesHunters(enemy)) {
+                MapPoint bag = SpecialEnemyRules.bag(enemy);
+                if (FlameRules.contains(bag.x(), bag.y(), SpecialEnemyRules.BAG_RADIUS, x, y, dx, dy, range)
+                        && GameMap.hasClearLine(x, y, bag.x(), bag.y(), world.unlockedAreas()))
+                    damageBag(enemy, weapon.damage(), player, weaponId, x, y);
+            }
             if (enemy.hp <= 0 || !FlameRules.contains(enemy.x, enemy.y, enemyRadius(enemy), x, y, dx, dy, range)
                     || !GameMap.hasClearLine(x, y, enemy.x, enemy.y, world.unlockedAreas())) continue;
             int credits = player.credits;
@@ -284,6 +299,10 @@ final class CombatSystem {
             for (Enemy enemy : List.copyOf(world.enemies())) {
                 if (enemy.hp <= 0 || !isInsideAttack(enemy, player.x, player.y, player.railgunDx, player.railgunDy, stats, range)
                         || !GameMap.hasClearLine(player.x, player.y, enemy.x, enemy.y, world.unlockedAreas())) continue;
+                if (SpecialEnemyRules.hitsBag(enemy, player.x, player.y, player.railgunDx, player.railgunDy, range, stats.width())) {
+                    damageBag(enemy, stats.damage() * GameConfig.RAILGUN_TICK, player, "railgun", player.x, player.y);
+                    continue;
+                }
                 int before = player.credits;
                 double dealt = damageEnemy(enemy, stats.damage() * GameConfig.RAILGUN_TICK, player);
                 events.hit(player.id, "railgun", player.x, player.y, enemy.x, enemy.y,
@@ -331,6 +350,13 @@ final class CombatSystem {
             }
         }
         for (Enemy enemy : world.enemies()) {
+            if (SpecialEnemyRules.carriesHunters(enemy)) {
+                MapPoint bag = SpecialEnemyRules.bag(enemy);
+                double separation = distance(x, y, bag.x(), bag.y());
+                if (separation <= GameConfig.ROCKET_BLAST_RADIUS + SpecialEnemyRules.BAG_RADIUS
+                        && GameMap.hasClearLine(x, y, bag.x(), bag.y(), world.unlockedAreas()))
+                    damageBag(enemy, weapon.damage() * Math.max(.5, 1 - .5 * separation / GameConfig.ROCKET_BLAST_RADIUS), player, "rocket", x, y);
+            }
             double blastDistance = distance(x, y, enemy.x, enemy.y);
             if (enemy.hp <= 0 || blastDistance > GameConfig.ROCKET_BLAST_RADIUS
                     || !GameMap.hasClearLine(x, y, enemy.x, enemy.y, world.unlockedAreas())) continue;
@@ -406,6 +432,10 @@ final class CombatSystem {
             events.hit(player.id, shotWeapon(player), originX, originY, endX, endY, 0, false, 0, false, null);
         }
         for (Enemy hit : targets) {
+            if (SpecialEnemyRules.hitsBag(hit, originX, originY, directionX, directionY, shotDistance, weapon.width())) {
+                damageBag(hit, weapon.damage(), player, shotWeapon(player), originX, originY);
+                continue;
+            }
             int creditsBeforeHit = player.credits;
             boolean headshot = isHeadshot(hit, player, originX, originY, directionX, directionY, weapon, shotDistance);
             double damage = weapon.damage() * (headshot ? 2 : 1);
@@ -420,6 +450,14 @@ final class CombatSystem {
         return !targets.isEmpty() || !allies.isEmpty();
     }
 
+    private void damageBag(Enemy enemy, double amount, Player player, String weapon, double x, double y) {
+        if (enemy.hp <= 0 || !SpecialEnemyRules.carriesHunters(enemy)) return;
+        double dealt = Math.min(enemy.bagHp, amount * world.damageMultiplier(player, weapon));
+        enemy.bagHp -= dealt;
+        MapPoint bag = SpecialEnemyRules.bag(enemy);
+        events.hit(player.id, weapon, x, y, bag.x(), bag.y(), dealt, false, 0, false, enemy.id);
+    }
+
     private List<Player> friendlyRayTargets(Player shooter, double originX, double originY,
             double dx, double dy, WeaponStats weapon, double range) {
         return world.players().stream().filter(target -> JobRules.canHitDisguisedAlly(shooter, target))
@@ -430,7 +468,8 @@ final class CombatSystem {
 
     static boolean isInsideAttack(Enemy enemy, double originX, double originY, double directionX,
             double directionY, WeaponStats weapon, double shotDistance) {
-        return isInsideAttack(enemy.x, enemy.y, enemyRadius(enemy), originX, originY,
+        return SpecialEnemyRules.hitsBag(enemy, originX, originY, directionX, directionY, shotDistance, weapon.width())
+                || isInsideAttack(enemy.x, enemy.y, enemyRadius(enemy), originX, originY,
                 directionX, directionY, weapon, shotDistance);
     }
 
@@ -462,11 +501,12 @@ final class CombatSystem {
         return perpendicular <= headRadius + aimTolerance;
     }
 
-    private static double enemyRadius(Enemy enemy) {
+    static double enemyRadius(Enemy enemy) {
         return switch (enemy.type) {
             case "explosionBoss" -> 42;
             case "bomber" -> 20;
             case "tiny" -> 3;
+            case "blueAce" -> 9;
             case "boss" -> 42;
             case "warlord" -> 44;
             case "warden" -> 44;

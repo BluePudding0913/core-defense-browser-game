@@ -35,7 +35,7 @@ class LastLineTest {
     @Test void roomHasFiveDevicesAndWideDirectAccessFromHeavyArms() {
         UnlockArea area = GameMap.areaById(UpgradeRules.AREA);
         assertEquals(77, area.tiles().size());
-        assertEquals(5, GameMap.SHOP_UNITS.stream().filter(s -> area.contains(s.x(), s.y())).count());
+        assertEquals(6, GameMap.SHOP_UNITS.stream().filter(s -> area.contains(s.x(), s.y())).count());
         for (int col = 5; col <= 15; col++) {
             assertTrue(GameMap.areaById("heavy-arms-area").tiles().contains(new AreaTile(col, 29)));
             assertTrue(area.tiles().contains(new AreaTile(col, 30)));

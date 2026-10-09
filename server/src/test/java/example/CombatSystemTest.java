@@ -100,7 +100,8 @@ class CombatSystemTest {
                 assertEquals(ammo - (definition.capacity() > 0 ? 1 : 0), player.weapons.ammo(weapon), weapon);
                 assertEquals(SilverAmmoRules.eligible(weapon) ? 9 : 10, player.weapons.silverAmmo(), weapon);
             }
-            assertTrue(damage[0] > 0, weapon);
+            if (weapon.equals("hook")) assertEquals(0, damage[0], weapon);
+            else assertTrue(damage[0] > 0, weapon);
             assertEquals(damage[0], damage[1], 1e-7, weapon);
         }
     }

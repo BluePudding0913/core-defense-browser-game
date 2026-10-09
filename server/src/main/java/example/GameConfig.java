@@ -74,7 +74,8 @@ final class GameConfig {
     static final double BOMBER_PLAYER_DAMAGE_FRACTION = .5;
     static final double EXPLOSION_BOSS_BLAST_RADIUS = 12 * GameMap.TILE_SIZE;
     static final double EXPLOSION_BOSS_FUSE_SECONDS = 30;
-    static final double EXPLOSION_BOSS_DAMAGE = 100 * 1.10;
+    static final double EXPLOSION_BOSS_DAMAGE = 300;
+    static final double EXPLOSION_BOSS_DEFENSE_DAMAGE = 6000;
     static final double ROCKET_BLAST_RADIUS = 200;
     static final double ARTILLERY_RANGE = 420;
     static final double ARTILLERY_BLAST_RADIUS = 64;
