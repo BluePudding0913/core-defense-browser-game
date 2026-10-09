@@ -966,7 +966,7 @@ function updateHud() {
         const cooldownMax = Math.max(.01, me.cooldownMax || me.cooldown || .01);
         const cooldownProgress = showingItem ? 1 : 1 - Math.min(1, me.cooldown / cooldownMax);
         weaponName.textContent = me.movingCore ? "CORE"
-            : selectedBuild ? BUILD_INFO[selectedBuild].name : WeaponUI.name(me.weapon, WEAPON_FIELDS);
+            : selectedBuild ? BUILD_INFO[selectedBuild].name : WeaponUI.name(me.weapon, WEAPON_FIELDS, me);
         weaponAmmo.textContent = me.movingCore ? "" : selectedBuild
             ? `×${me.buildItems[selectedBuild]}` : ammoForWeapon(me, me.weapon);
         weaponIcon.className = `weapon-icon ${me.movingCore ? "core" : selectedBuild ? `build-${selectedBuild}` : me.weapon}`;
@@ -977,7 +977,7 @@ function updateHud() {
         weaponButton.classList.toggle("locked", me.movingCore);
         weaponButton.disabled = me.movingCore;
         if (me.drone?.controlled) {
-            weaponName.textContent = me.drone.weapon ? `DRONE / ${WeaponUI.name(me.drone.weapon, WEAPON_FIELDS)}` : "DRONE";
+            weaponName.textContent = me.drone.weapon ? `DRONE / ${WeaponUI.name(me.drone.weapon, WEAPON_FIELDS, me)}` : "DRONE";
             weaponAmmo.textContent = me.drone.weapon ? ammoForWeapon(me, me.drone.weapon) : "";
             weaponIcon.className = `weapon-icon ${me.drone.weapon || "drone"}`;
             weaponCooldown.textContent = !me.drone.weapon ? "UNARMED" : WeaponUI.cooldownLabel(me.drone.cooldown);
@@ -1009,7 +1009,7 @@ function updateSecondaryHud(me) {
     document.querySelector("#secondary-icon").className = `weapon-icon ${weapon}`;
     const progress = 1 - Math.min(1, (me.secondaryCooldown || 0) / Math.max(.01, me.secondaryCooldownMax || me.secondaryCooldown || .01));
     panel.style.setProperty("--cooldown-progress", `${progress * 100}%`);
-    document.querySelector("#secondary-name").textContent = WeaponUI.name(weapon, WEAPON_FIELDS);
+    document.querySelector("#secondary-name").textContent = WeaponUI.name(weapon, WEAPON_FIELDS, me);
     document.querySelector("#secondary-ammo").textContent = ammoForWeapon(me, weapon);
     document.querySelector("#secondary-cooldown").textContent = WeaponUI.cooldownLabel(
         me.secondaryCooldown, me.secondaryRailgunCharge, me.secondaryRailgunRemaining);
@@ -1123,7 +1123,7 @@ function updateInventory(me) {
     if (me.job === "attacker") {
         const sub = inventoryItems.querySelector(".inventory-sub");
         sub.hidden = false;
-        sub.querySelector("strong").textContent = WeaponUI.name(me.secondaryWeapon || "bat", WEAPON_FIELDS);
+        sub.querySelector("strong").textContent = WeaponUI.name(me.secondaryWeapon || "bat", WEAPON_FIELDS, me);
         const definition = WEAPON_FIELDS[me.secondaryWeapon];
         sub.querySelector("span").textContent = WeaponUI.ammo(me, me.secondaryWeapon || "bat", WEAPON_FIELDS)
             + (definition?.capacity > 0 ? ` / ${WeaponUI.capacity(me, definition)}` : "");
@@ -1588,7 +1588,7 @@ function openShopPurchase(shop, chooseExchange = false) {
         openUpgradeShop(shop);
         return;
     }
-    const ammoShop = ["ammo", "frontlineAmmo"].includes(shop.item);
+    const ammoShop = shop.item === "ammo";
     if (shop.item === "medkit") {
         openNearbyActionMenu(shop.label, [{
             label: "回復キット",
@@ -1609,6 +1609,8 @@ function openShopPurchase(shop, chooseExchange = false) {
         return;
     }
     const weaponFields = WEAPON_FIELDS[shop.item];
+    const level = me.enchantments?.[shop.item] || 0;
+    const title = shop.label + (weaponFields && level > 0 ? ` +${level}` : "");
     const alreadyOwned = Boolean(weaponFields && WeaponUI.owns(me, weaponFields));
     const ammo = alreadyOwned ? me[weaponFields.ammo] : 0;
     const mountedWeapon = me.drone?.active ? me.drone.weapon : null;
@@ -1624,7 +1626,7 @@ function openShopPurchase(shop, chooseExchange = false) {
     const weaponLimitReached = weaponFields && !alreadyOwned
         && WeaponUI.atLimit(me, WEAPON_FIELDS, state.rules.weaponLimit);
     if (weaponLimitReached && chooseExchange) {
-        openNearbyActionMenu(shop.label, WeaponUI.entries(me, WEAPON_FIELDS)
+        openNearbyActionMenu(title, WeaponUI.entries(me, WEAPON_FIELDS)
             .filter(entry => entry.value !== "bat" && entry.value !== mountedWeapon).map(entry => ({
                 label: `交換: ${entry.label}`,
                 command: `BUY:${shop.item}:${entry.value}`,
@@ -1642,7 +1644,7 @@ function openShopPurchase(shop, chooseExchange = false) {
         onSelect: weaponLimitReached ? () => openShopPurchase(shop, true) : undefined,
         disabled: mounted || ammoFull || unavailable || me.credits < price,
     }];
-    openNearbyActionMenu(shop.label, options, shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
+    openNearbyActionMenu(title, options, shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
 }
 
 function openUpgradeShop(shop) {
@@ -1653,7 +1655,7 @@ function openUpgradeShop(shop) {
             const level = me.enchantments?.[entry.value] || 0;
             const max = level >= rules.enchantMax;
             const price = rules.enchantCosts[level];
-            return {label: `${entry.label} +${level}`, detail: max ? "MAX" : `火力 +${Math.round(rules.enchantStep * 100)}% · ${price}G`,
+            return {label: entry.label, detail: max ? "MAX" : `火力 +${Math.round(rules.enchantStep * 100)}% · ${price}G`,
                 command: `BUY:enchant:${entry.value}`, disabled: max || me.credits < price
                     || me.drone?.active && me.drone.weapon === entry.value};
         });

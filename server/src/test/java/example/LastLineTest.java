@@ -154,9 +154,10 @@ class LastLineTest {
     }
 
     @Test void lateAmmoRefillsSnapshotAndRestartIncludeUpgradeState() throws Exception {
-        at("frontlineAmmo"); player.weapons.setOwned("railgun", true); player.weapons.setAmmo("railgun", 0);
-        player.credits = 11_999; game.handleMessage(player, "BUY:frontlineAmmo"); assertEquals(0, player.weapons.ammo("railgun"));
-        player.credits = 12_000; game.handleMessage(player, "BUY:frontlineAmmo");
+        ShopUnit shop = GameMap.SHOP_UNITS.stream().filter(s -> s.id().equals("last-ammo")).findFirst().orElseThrow();
+        player.x = shop.x(); player.y = shop.y(); player.weapons.setOwned("railgun", true); player.weapons.setAmmo("railgun", 0);
+        player.credits = 11_999; game.handleMessage(player, "BUY:ammo"); assertEquals(0, player.weapons.ammo("railgun"));
+        player.credits = 12_000; game.handleMessage(player, "BUY:ammo");
         assertEquals(0, player.credits); assertEquals(WeaponCatalog.capacity("railgun"), player.weapons.ammo("railgun"));
         player.armorTops = true; player.enchantments.put("pistol", 1); player.overclockSilverItems = 2; game.teamBuffRemaining = 100;
         var state = new ObjectMapper().readTree(SnapshotBuilder.build(game));
@@ -168,5 +169,30 @@ class LastLineTest {
         game.phase = GamePhase.LOST; player.roomReady = true; game.handleMessage(player, "START");
         assertFalse(player.armorTops); assertTrue(player.enchantments.isEmpty()); assertEquals(0, player.overclockSilverItems);
         assertEquals(0, game.teamBuffRemaining);
+    }
+
+    @Test void bothAmmoStationsUseIdenticalPricesRefillsAndAccessChecks() {
+        var shops = GameMap.SHOP_UNITS.stream().filter(s -> s.item().equals("ammo")).toList();
+        assertEquals(2, shops.size());
+        for (ShopUnit shop : shops) {
+            assertEquals(500, shop.cost());
+            player.x = shop.x(); player.y = shop.y();
+            for (String weapon : new String[]{"shotgun", "flamethrower", "rocket", "railgun"}) {
+                for (var definition : WeaponCatalog.ALL) if (definition.usesAmmo()) player.weapons.setOwned(definition.id(), false);
+                player.weapons.setOwned(weapon, true); player.weapons.setAmmo(weapon, 0);
+                int price = Math.max(500, GameSession.ammoRefillCost(weapon));
+                player.credits = price - 1; game.handleMessage(player, "BUY:ammo");
+                assertEquals(0, player.weapons.ammo(weapon)); assertEquals(price - 1, player.credits);
+                player.credits = price; game.handleMessage(player, "BUY:ammo");
+                assertEquals(player.weapons.capacity(weapon), player.weapons.ammo(weapon)); assertEquals(0, player.credits);
+                player.credits = price; game.handleMessage(player, "BUY:ammo"); assertEquals(price, player.credits, "FULL is free");
+            }
+        }
+        ShopUnit late = shops.stream().filter(s -> s.id().equals("last-ammo")).findFirst().orElseThrow();
+        player.x = late.x(); player.y = late.y(); player.weapons.setAmmo("railgun", 0); player.credits = 12_000;
+        game.unlockedAreas.remove(UpgradeRules.AREA); game.handleMessage(player, "BUY:ammo");
+        assertEquals(0, player.weapons.ammo("railgun")); assertEquals(12_000, player.credits);
+        game.unlockedAreas.add(UpgradeRules.AREA); player.down = true; game.handleMessage(player, "BUY:ammo");
+        assertEquals(0, player.weapons.ammo("railgun"));
     }
 }

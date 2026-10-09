@@ -64,7 +64,7 @@ final class MapValidator {
             }
         }
         for (ShopUnit shop : map.shopUnits()) {
-            if (WeaponCatalog.find(shop.item()) == null && !Set.of("medkit", "ammo", "woodFactory", "oreFactory", "copperFactory", "silverFactory", "enchant", "frontlineAmmo", "overclockSilver", "armor", "teamMachine").contains(shop.item())
+            if (WeaponCatalog.find(shop.item()) == null && !Set.of("medkit", "ammo", "woodFactory", "oreFactory", "copperFactory", "silverFactory", "enchant", "overclockSilver", "armor", "teamMachine").contains(shop.item())
                     || shop.cost() <= 0) {
                 throw new IllegalStateException("Invalid shop unit: " + shop.id());
             }

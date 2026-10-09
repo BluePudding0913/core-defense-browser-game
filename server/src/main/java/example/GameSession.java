@@ -2629,9 +2629,11 @@ final class GameSession {
             else gameEffects.feedback(player,"お金が足りません");
             return;
         }
-        ShopUnit shop = GameMap.shopByItem(item);
-        if (shop == null || !isPointUnlocked(shop.x(), shop.y())
-                || !canInteract(player, shop.x(), shop.y(), 70)) {
+        ShopUnit shop = GameMap.SHOP_UNITS.stream().filter(unit -> unit.item().equals(item))
+                .filter(unit -> isPointUnlocked(unit.x(), unit.y()) && canInteract(player, unit.x(), unit.y(), 70))
+                .min(Comparator.comparingDouble(unit -> distance(player.x, player.y, unit.x(), unit.y())))
+                .orElse(null);
+        if (shop == null) {
             gameEffects.feedback(player, "ショップに近づいてください");
             return;
         }
@@ -2650,7 +2652,7 @@ final class GameSession {
             return;
         }
         switch (item) {
-            case "ammo", "frontlineAmmo" -> {
+            case "ammo" -> {
                 List<String> owned = WeaponCatalog.ALL.stream().filter(WeaponCatalog.Definition::usesAmmo)
                         .map(WeaponCatalog.Definition::id).filter(player.weapons::owns)
                         .filter(weapon -> !DroneRules.mounted(player, weapon)).toList();
