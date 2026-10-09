@@ -1678,7 +1678,7 @@ function openUpgradeShop(shop) {
             const level = me.enchantments?.[entry.value] || 0;
             const max = level >= rules.enchantMax;
             const price = rules.enchantCosts[level];
-            return {label: entry.label, detail: max ? "MAX" : `火力 +${Math.round(rules.enchantStep * 100)}% · ${price}G`,
+            return {label: entry.label, detail: max ? "MAX · AUTO AIM" : `火力 +${Math.round(rules.enchantStep * 100)}%${level + 1 >= (rules.autoAimLevel ?? rules.enchantMax) ? " · AUTO AIM" : ""} · ${price}G`,
                 command: `BUY:enchant:${entry.value}`, disabled: max || me.credits < price
                     || me.drone?.active && me.drone.weapon === entry.value};
         });
@@ -2894,9 +2894,9 @@ function drawEnemies() {
         }
         if (enemy.type === "ghost") {
             ctx.save();
-            ctx.strokeStyle = "rgb(220 230 235 / 6%)"; ctx.lineWidth = 1;
+            ctx.strokeStyle = "rgb(220 230 235 / 12%)"; ctx.lineWidth = 1;
             ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.stroke();
-            ctx.fillStyle = "rgb(235 242 245 / 9%)";
+            ctx.fillStyle = "rgb(235 242 245 / 18%)";
             ctx.beginPath();
             ctx.arc(p.x - radius * .3, p.y - 3, 2, 0, Math.PI * 2);
             ctx.arc(p.x + radius * .3, p.y - 3, 2, 0, Math.PI * 2); ctx.fill();

@@ -22,7 +22,8 @@ me.enchantments = {pistol: 1}; options = open('enchant'); assert(options[0].disa
 assert.equal(options[0].label, 'PISTOL +1');
 me.credits = 160000; assert(!open('enchant')[0].disabled);
 me.drone = {active: true, weapon: 'pistol'}; assert(open('enchant')[0].disabled); me.drone = null;
-me.enchantments.pistol = 3; assert(open('enchant')[0].disabled); assert.equal(menu.options[0].detail, 'MAX');
+me.enchantments.pistol = 2; assert(open('enchant')[0].detail.includes('AUTO AIM'), 'last tier advertises auto aim');
+me.enchantments.pistol = 3; assert(open('enchant')[0].disabled); assert.equal(menu.options[0].detail, 'MAX · AUTO AIM');
 assert.equal(menu.options[0].label, 'PISTOL +3');
 options = open('armor'); assert.equal(options.length, 2); assert.equal(options[0].command, 'BUY:armor:bottoms');
 assert(options[1].detail.includes('25000G')); me.armorTops = true; assert(open('armor')[1].disabled);

@@ -161,6 +161,7 @@ class LastLineTest {
         assertEquals(0, player.credits); assertEquals(WeaponCatalog.capacity("railgun"), player.weapons.ammo("railgun"));
         player.armorTops = true; player.enchantments.put("pistol", 1); player.overclockSilverItems = 2; game.teamBuffRemaining = 100;
         var state = new ObjectMapper().readTree(SnapshotBuilder.build(game));
+        assertEquals(3, state.path("rules").path("upgrades").path("autoAimLevel").asInt());
         assertTrue(state.path("players").get(0).path("armorTops").asBoolean());
         assertEquals(1, state.path("players").get(0).path("enchantments").path("pistol").asInt());
         assertEquals(2, state.path("players").get(0).path("buildItems").path("overclockSilver").asInt());
