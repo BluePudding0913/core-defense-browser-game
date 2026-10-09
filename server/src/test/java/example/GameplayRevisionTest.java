@@ -49,7 +49,7 @@ class GameplayRevisionTest {
         assertFalse(player.weapons.owns("ricochet"));
         game.unlockedAreas.add("ricochet-room");
         game.handleMessage(player, "BUY:ricochet");
-        assertEquals(600, player.credits);
+        assertEquals(1000 - shop.cost(), player.credits);
         assertTrue(player.weapons.owns("ricochet"));
         assertEquals(240, player.weapons.ammo("ricochet"));
         player.x = 1020; player.y = 1900;
@@ -163,7 +163,7 @@ class GameplayRevisionTest {
         player.x = 940; player.y = 1660; player.credits = 1000;
         game.handleMessage(player, "UNLOCK:ricochet-room");
         assertTrue(game.unlockedAreas.contains("ricochet-room"));
-        assertEquals(700, player.credits);
+        assertEquals(1000 - game.unlockCost("ricochet-room"), player.credits);
     }
 
     @Test void matchesAndRestartsBeginWithZeroGoldAndNoPurchasedWeapons() {
@@ -185,19 +185,20 @@ class GameplayRevisionTest {
         for (String weapon : List.of("revolver", "lmg")) {
             ShopUnit shop = GameMap.shopByItem(weapon);
             int capacity = GameSession.weaponAmmoCapacity(weapon);
+            int budget = shop.cost() + 1000;
             int damage = weapon.equals("revolver") ? 320 : 18;
-            player.credits = 2000;
+            player.credits = budget;
             player.x = shop.x(); player.y = shop.y();
             game.handleMessage(player, "BUY:" + weapon);
-            assertEquals(2000, player.credits, "locked weapon rooms cannot sell weapons");
+            assertEquals(budget, player.credits, "locked weapon rooms cannot sell weapons");
             game.unlockedAreas.add(weapon + "-room");
             player.credits = 0;
             game.handleMessage(player, "BUY:" + weapon);
             assertNotEquals(weapon, player.weapon, "zero gold cannot purchase a weapon");
-            player.credits = 2000;
+            player.credits = budget;
             game.handleMessage(player, "BUY:" + weapon);
             assertEquals(weapon, player.weapon);
-            assertEquals(2000 - shop.cost(), player.credits);
+            assertEquals(budget - shop.cost(), player.credits);
             player.x = 1020; player.y = 1900; player.cooldown = 0;
             Enemy enemy = new Enemy(9001, "grunt", GameMap.SPAWN_POINTS.get(0), 1000, 0, 0, 0);
             enemy.x = 1120; enemy.y = 1900;
