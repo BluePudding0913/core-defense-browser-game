@@ -105,8 +105,8 @@ class LateRoundEnemiesTest {
                 if (type.equals("ghost")) ghosts++;
             }
             // Bombers take 10% first; each then gets a 16% elite interval.
-            assertEquals(.144, hunters / 10000., .015, "Hunters at R" + round);
-            assertEquals(.144, ghosts / 10000., .015, "Ghosts at R" + round);
+            assertEquals(.144 * .94 * .965, hunters / 10000., .015, "Hunters at R" + round);
+            assertEquals(.144 * .94 * .965, ghosts / 10000., .015, "Ghosts at R" + round);
         }
     }
 

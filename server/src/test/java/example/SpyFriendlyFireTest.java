@@ -117,6 +117,7 @@ class SpyFriendlyFireTest {
         assertTrue(messages.stream().anyMatch(message -> message.contains("player-down") && message.contains(spy.id)));
         setup();
         shoot("rocket", 1200, 1900);
+        game.combat.updateRockets(1);
         assertTrue(spy.down);
         assertEquals(0, shooter.credits);
         assertEquals(0, shooter.kills);

@@ -89,6 +89,7 @@ class ShieldEnemyTest {
         assertNull(mine.defense);
         shield.hp = 2000; player.weapon = "rocket"; player.x = 1120; player.y = 1900;
         game.combat.fireRocket(player, GameSession.weaponStats("rocket"), -1., 0., 100.);
+        game.combat.updateRockets(1);
         assertTrue(2000 - shield.hp > GameSession.weaponStats("rocket").damage() * .5);
     }
 

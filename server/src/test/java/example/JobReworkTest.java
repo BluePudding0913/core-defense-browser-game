@@ -23,7 +23,12 @@ class JobReworkTest {
  }
  @Test void spyCooldownIsFifteenAndScoutDamageIsStandard(){
   assertEquals(1.5,JobRules.damageMultiplier("attacker"));assertEquals(1,JobRules.damageMultiplier("scout"));
-  player.job="spy";game.handleMessage(player,"JOB_ABILITY");assertEquals(15,player.jobCooldown);assertEquals(8,player.spyRemaining);
+  player.job="spy";game.handleMessage(player,"JOB_ABILITY");assertEquals(0,player.jobCooldown);assertEquals(8,player.spyRemaining);
+  game.handleMessage(player,"JOB_ABILITY");assertEquals(8,player.spyRemaining);
+  JobRules.updateDisguise(player,7.5);assertEquals(.5,player.spyRemaining);assertEquals(0,player.jobCooldown);
+  JobRules.updateDisguise(player,.5);assertEquals(0,player.spyRemaining);assertEquals(15,player.jobCooldown);
+  game.handleMessage(player,"JOB_ABILITY");assertEquals(0,player.spyRemaining);
+  JobRules.updateDisguise(player,15);game.handleMessage(player,"JOB_ABILITY");assertEquals(8,player.spyRemaining);
  }
  void pad(double x,double y){player.x=x;player.y=y;player.facingX=1;player.facingY=0;game.handleMessage(player,"EQUIP_BUILD:teleporter");game.handleMessage(player,"PLACE_FRONT");}
  @Test void twoTeleportPairsKeepTheirPartnersAfterRecoveryAndReplacement(){

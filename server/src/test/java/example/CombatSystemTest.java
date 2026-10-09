@@ -96,6 +96,7 @@ class CombatSystemTest {
                     assertEquals(0, player.cooldown, weapon);
                     if (!weapon.equals("railgun")) assertEquals(definition.stats().cooldown(), player.secondaryCooldown, weapon);
                 }
+                if (weapon.equals("rocket")) combat.updateRockets(1);
                 damage[hand] = enemy.maxHp - enemy.hp;
                 assertEquals(ammo - (definition.capacity() > 0 ? 1 : 0), player.weapons.ammo(weapon), weapon);
                 assertEquals(SilverAmmoRules.eligible(weapon) ? 19 : 20, player.weapons.silverAmmo(), weapon);
@@ -177,6 +178,7 @@ class CombatSystemTest {
                 player.firing = true; player.aimX = 1100; player.aimY = 1900;
                 combat.attackAt(player, 1100, 1900);
                 if (weapon.equals("railgun")) combat.updateRailgun(player, GameConfig.RAILGUN_CHARGE + .1);
+                if (weapon.equals("rocket")) combat.updateRockets(1);
                 damage[variant] = enemy.maxHp - enemy.hp;
                 assertEquals(variant == 1 ? 20 : 0, player.weapons.silverAmmo(), weapon);
             }

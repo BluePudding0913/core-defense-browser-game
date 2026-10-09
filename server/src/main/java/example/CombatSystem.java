@@ -31,6 +31,10 @@ final class CombatSystem {
         this(world, events, Math::random);
     }
     CombatSystem(World world, CombatEvents events, java.util.function.DoubleSupplier random) {
+        this(world, events, random, new java.util.ArrayList<>());
+    }
+    CombatSystem(World world, CombatEvents events, java.util.function.DoubleSupplier random, List<RocketFlight> rockets) {
+        this.rockets = rockets;
         this.world = world;
         this.events = events;
         this.random = random;
@@ -413,30 +417,59 @@ final class CombatSystem {
         }
     }
 
+    static final class RocketFlight {
+        final int id; final Player owner; final WeaponStats weapon; final double dx, dy;
+        double x, y, remaining;
+        RocketFlight(int id, Player owner, WeaponStats weapon, double dx, double dy, double range) {
+            this.id=id; this.owner=owner; this.weapon=weapon; this.dx=dx; this.dy=dy;
+            x=owner.x; y=owner.y; remaining=range;
+        }
+    }
+    final List<RocketFlight> rockets;
+    private int nextRocketId;
+    static final double ROCKET_SPEED = 480;
     void fireRocket(Player player, WeaponStats weapon, double dx, double dy, double range) {
-        double impactDistance = GameMap.distanceToWall(player.x, player.y, dx, dy, range, world.unlockedAreas());
-        // Stop at the first enemy body; unlike bullets, the rocket detonates instead of piercing.
-        for (Enemy enemy : world.enemies()) {
-            if (enemy.hp <= 0) continue;
-            double ex = enemy.x - player.x, ey = enemy.y - player.y;
-            double projection = ex * dx + ey * dy;
-            double perpendicular = Math.abs(ex * dy - ey * dx);
-            double radius = enemyRadius(enemy) + weapon.width();
-            if (projection < 0 || perpendicular > radius) continue;
-            double entry = Math.max(0, projection - Math.sqrt(radius * radius - perpendicular * perpendicular));
-            if (entry < impactDistance) impactDistance = entry;
+        rockets.add(new RocketFlight(nextRocketId++, player, weapon, dx, dy, range));
+    }
+    void updateRockets(double dt) {
+        var iterator=rockets.iterator();
+        while (iterator.hasNext()) {
+            RocketFlight flight=iterator.next();
+            Player player=flight.owner; double dx=flight.dx, dy=flight.dy;
+            double budget=Math.min(flight.remaining, ROCKET_SPEED*dt);
+            while (budget > 1e-9) {
+                double range=Math.min(12, budget);
+                double impactDistance = GameMap.distanceToWall(flight.x, flight.y, dx, dy, range, world.unlockedAreas());
+                // Stop at the first enemy body; unlike bullets, the rocket detonates instead of piercing.
+                for (Enemy enemy : world.enemies()) {
+                    if (enemy.hp <= 0) continue;
+                    double ex = enemy.x - flight.x, ey = enemy.y - flight.y;
+                    double projection = ex * dx + ey * dy;
+                    double perpendicular = Math.abs(ex * dy - ey * dx);
+                    double radius = enemyRadius(enemy) + flight.weapon.width();
+                    if (projection < 0 || perpendicular > radius) continue;
+                    double entry = Math.max(0, projection - Math.sqrt(radius * radius - perpendicular * perpendicular));
+                    if (entry < impactDistance) impactDistance = entry;
+                }
+                for (Player target : world.players()) {
+                    if (!JobRules.canHitDisguisedAlly(player, target)) continue;
+                    double projection = (target.x - flight.x) * dx + (target.y - flight.y) * dy;
+                    double perpendicular = Math.abs((target.x - flight.x) * dy - (target.y - flight.y) * dx);
+                    double radius = 12 + flight.weapon.width();
+                    if (projection < 0 || perpendicular > radius) continue;
+                    double entry = Math.max(0, projection - Math.sqrt(radius * radius - perpendicular * perpendicular));
+                    impactDistance = Math.min(impactDistance, entry);
+                }
+
+                flight.x += dx*impactDistance; flight.y += dy*impactDistance;
+                flight.remaining -= impactDistance; budget -= impactDistance;
+                if (impactDistance < range - 1e-7 || flight.remaining <= 1e-7) {
+                    rocketImpact(player, flight.weapon, flight.x, flight.y); iterator.remove(); break;
+                }
+            }
         }
-        for (Player target : world.players()) {
-            if (!JobRules.canHitDisguisedAlly(player, target)) continue;
-            double projection = (target.x - player.x) * dx + (target.y - player.y) * dy;
-            double perpendicular = Math.abs((target.x - player.x) * dy - (target.y - player.y) * dx);
-            double radius = 12 + weapon.width();
-            if (projection < 0 || perpendicular > radius) continue;
-            double entry = Math.max(0, projection - Math.sqrt(radius * radius - perpendicular * perpendicular));
-            impactDistance = Math.min(impactDistance, entry);
-        }
-        double x = player.x + dx * impactDistance, y = player.y + dy * impactDistance;
-        events.hit(player.id, "rocket", player.x, player.y, x, y, 0, false, 0, false, null);
+    }
+    private void rocketImpact(Player player, WeaponStats weapon, double x, double y) {
         events.alliedExplosion(x, y, GameConfig.ROCKET_BLAST_RADIUS);
         for (Player target : world.players()) {
             double blastDistance = distance(x, y, target.x, target.y);
@@ -459,12 +492,13 @@ final class CombatSystem {
             // Full damage at the center, half damage at the edge; no headshot multiplier.
             double damage = weapon.damage() * (1 - .5 * blastDistance / GameConfig.ROCKET_BLAST_RADIUS);
             int creditsBefore = player.credits;
-            double dealt = damageEnemy(enemy, damage, player);
+            double dealt = damageEnemy(enemy, damage, player, "rocket");
             knockbackEnemy(x, y, enemy, weapon.knockback());
             events.hit(player.id, "rocket", x, y, enemy.x, enemy.y, dealt,
                     enemy.hp <= 0, player.credits - creditsBefore, false, enemy.id);
         }
     }
+
 
     private void fireRicochet(Player player, WeaponStats weapon, double dx, double dy) {
         // All reflected segments share one distance budget, including the wall clearance.

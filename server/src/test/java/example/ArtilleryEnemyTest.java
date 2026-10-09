@@ -144,7 +144,7 @@ class ArtilleryEnemyTest {
                 if (invoke("selectEnemyType", new Class<?>[]{SpawnPoint.class}, GameMap.SPAWN_POINTS.get(0))
                         .equals("artillery")) count++;
             }
-            double expected = round < 12 ? 0 : (round <= 25 ? .04 : .08) * (round >= 15 ? .9 : 1);
+            double expected = round < 12 ? 0 : (round <= 25 ? .04 : .08) * (round >= 15 ? .9 : 1) * .94 * (round >= 14 ? .965 : 1);
             assertEquals(expected, count / 20000.0, .006, "Round " + round);
         }
     }

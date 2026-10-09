@@ -11,8 +11,8 @@ class PreparationBackupTest {
   hacker=game.connectPlayer("backup-test"); game.setRoomOwner(hacker); game.handleMessage(hacker,"JOB:hacker"); game.handleMessage(hacker,"START");
   game.players.forEach(p->p.human=true); game.prepTime=120; hacker.credits=300000;
  }
- void save(){game.handleMessage(hacker,"HACKER_BACKUP");}
- void restore(){game.handleMessage(hacker,"HACKER_RESTORE");}
+ void save(){game.unlockedAreas.add("command-room");hacker.x=GameMap.BACKUP_TERMINAL.x();hacker.y=GameMap.BACKUP_TERMINAL.y();game.handleMessage(hacker,"HACKER_BACKUP");}
+ void restore(){if(game.phase==GamePhase.LOST && game.backup!=null && !game.backupUsed)game.rewindRemaining=3.5;game.update(3.5);}
  @Test void savesOnlyDuringPreparationWithEnoughMoneyAndReplacesPaidCheckpoint(){
   hacker.credits=99999;save();assertNull(game.backup);assertEquals(99999,hacker.credits);
   hacker.credits=300000;game.phase=GamePhase.WAVE;save();assertNull(game.backup);assertEquals(300000,hacker.credits);
@@ -47,7 +47,7 @@ class PreparationBackupTest {
   game.phase=GamePhase.LOST;game.round=30;game.coreHp=0;game.coreShield=0;game.elapsedSeconds=900;hacker.down=true;
   restore();assertEquals(GamePhase.PREPARING,game.phase);assertTrue(game.backupUsed);assertNull(game.backup);assertEquals(1,game.rewindVersion);
   assertSame(hacker,game.players.get(0));assertEquals("Renamed",hacker.name);assertEquals("live-session",hacker.sessionId);assertEquals(99,hacker.lastProcessedInput);
-  assertFalse(hacker.human);assertEquals(12,hacker.reconnectGrace);assertTrue(hacker.roomReady);assertEquals(liveOwner,game.roomOwnerId);
+  assertFalse(hacker.human);assertEquals(8.5,hacker.reconnectGrace);assertTrue(hacker.roomReady);assertEquals(liveOwner,game.roomOwnerId);
   assertEquals(15,game.round);assertEquals(550,game.elapsedSeconds);assertEquals(120,game.prepTime);assertEquals(123,game.coreHp);assertEquals(2500,game.coreMaxHp);
   assertEquals(65,game.coreShield);assertEquals(99,game.teamBuffRemaining);assertEquals(200000,hacker.credits);assertEquals(17,hacker.wood);assertFalse(hacker.down);
   assertTrue(hacker.armorTops);assertTrue(hacker.weapons.owns("plasmaBlade"));assertFalse(hacker.weapons.owns("bat"));assertEquals(7,hacker.weapons.ammo("freezeGun"));

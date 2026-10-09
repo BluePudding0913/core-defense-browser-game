@@ -192,6 +192,7 @@ class ExplosionBossTest {
                 player.weapons.grant(weapon); player.equipWeapon(weapon);
                 game.combat.attackAt(player, boss.x, boss.y);
             }
+            if (weapon.equals("rocket")) game.combat.updateRockets(1);
             assertEquals(0, boss.hp, weapon);
             game.update(.05);
             assertEquals(5, game.enemies.size(), weapon);

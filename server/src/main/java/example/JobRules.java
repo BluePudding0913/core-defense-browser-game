@@ -18,6 +18,16 @@ final class JobRules {
     static final double TANK_WALL_HP = 10_000;
     static final double SPY_DURATION = 8;
     static final double SPY_COOLDOWN = 15;
+    static void updateDisguise(Player player, double dt) {
+        double active = Math.min(player.spyRemaining, dt);
+        if (player.spyRemaining > 0) {
+            player.spyRemaining = Math.max(0, player.spyRemaining - dt);
+            if (player.spyRemaining <= 1e-9) {
+                player.spyRemaining = 0;
+                player.jobCooldown = Math.max(0, SPY_COOLDOWN - (dt - active));
+            }
+        } else if (player.job.equals("spy")) player.jobCooldown = Math.max(0, player.jobCooldown - dt);
+    }
     static final double SPY_ATTACK_CONCEAL_CHANCE = .8;
     static final double SCOUT_DASH_DURATION = .2;
     static final double SCOUT_DASH_SPEED = 800;

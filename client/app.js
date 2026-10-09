@@ -576,6 +576,7 @@ function keepEndArea(next) {
 
 function receiveState(next) {
     if (state && (next.rewindVersion || 0) !== (state.rewindVersion || 0)) {
+        rewindFinishedAt = performance.now();
         smoothed.clear(); predictedLocal = null; hitEffects.length = 0;
         if (typeof CombatFeedback !== "undefined") CombatFeedback.reset();
         if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
@@ -609,6 +610,7 @@ function receiveState(next) {
     CORE.x = next.core.x;
     CORE.y = next.core.y;
     if (beginsRound) { showRoundIntro(next.round); window.coreAudio?.play("round-start"); }
+    else if (next.rewindRemaining > 0) hideScreenIntro();
     else if (endsDefense) showScreenIntro(next.phase === "won" ? "防衛成功" : "防衛失敗", 2000,
         `TIME ${formatMatchTime(next.elapsedSeconds)}`, next.phase);
     else if (!["wave", "won", "lost"].includes(next.phase) || !keepArea && ["won", "lost"].includes(next.phase)) hideScreenIntro();
@@ -846,18 +848,20 @@ function cycleEquipment(direction = 1) {
 }
 
 weaponButton.addEventListener("click", () => cycleEquipment(1));
+function openSystemConsole(terminal) {
+    const me = getMe();
+    if (me?.job !== "hacker" || state.phase !== "preparing" || state.backupUsed) return;
+    openNearbyActionMenu("SYSTEM CONSOLE", [{label: state.backupAvailable ? "SAVE / 上書き" : "SAVE",
+        detail: state.backupCost + "G", command: "HACKER_BACKUP", disabled: me.credits < state.backupCost}], terminal, 70, "single");
+}
+
 function useJobAbility() {
     const me = getMe();
     if (!me || me.down || me.movingCore || me.missileControl
             || !state || !["preparing", "wave"].includes(state.phase)
             || !inventoryMenu.classList.contains("hidden") || !howToMenu.classList.contains("hidden")
             || !actionMenu.classList.contains("hidden")) return;
-    if (me.job === "hacker" && state.phase === "preparing" && !state.backupUsed) {
-        openNearbyActionMenu("BACKUP", [{label: state.backupAvailable ? "SAVE / 上書き" : "SAVE",
-            detail: state.backupCost + "G", command: "HACKER_BACKUP", disabled: me.credits < state.backupCost}],
-            me, 1, "single");
-    }
-    else if (me.job === "drone" && !me.drone?.active) openDroneLaunch();
+    if (me.job === "drone" && !me.drone?.active) openDroneLaunch();
     else if (["drone", "healer", "spy", "tp"].includes(me.job)) send("JOB_ABILITY");
 }
 // A release opens the menu; holding picks up the original target directly.
@@ -947,7 +951,7 @@ function updateHud() {
     phaseElement.textContent = "";
     phaseElement.classList.add("hidden");
     const prepSeconds = Math.max(0, Math.ceil(state.prepTime));
-    const blackoutStatus = state.blackoutActive
+    const blackoutStatus = state.enemyBlackout ? " / BLACKOUT" : state.blackoutActive
         ? ` / BREAKER:${(state.trippedBreakers || []).length}` : "";
     phaseDetail.textContent = state.phase === "preparing"
         ? `next round in ${Math.floor(prepSeconds / 60)}:${String(prepSeconds % 60).padStart(2, "0")}${blackoutStatus}`
@@ -2139,9 +2143,11 @@ function findNearestInteraction() {
     SHOP_UNITS.forEach(shop => add("shop", shop, INTERACTION_RANGE.shop,
         shop.label, () => openShopPurchase(shop)));
     WORKBENCHES
-        .filter(workbench => !workbench.requiredArea || state.areas[workbench.requiredArea])
-        .forEach(workbench => add("craft", workbench, INTERACTION_RANGE.workbench,
-            "CRAFT", () => openWorkbenchMenu(workbench)));
+        .filter(workbench => (!workbench.requiredArea || state.areas[workbench.requiredArea])
+            && (workbench.id !== "backup-terminal" || me.job === "hacker" && state.phase === "preparing" && !state.backupUsed))
+        .forEach(workbench => add("craft", workbench, workbench.id === "backup-terminal" ? 70 : INTERACTION_RANGE.workbench,
+            workbench.id === "backup-terminal" ? "SYSTEM CONSOLE" : "CRAFT",
+            () => workbench.id === "backup-terminal" ? openSystemConsole(workbench) : openWorkbenchMenu(workbench)));
     if (PREP_CONSOLE && state.areas[PREP_CONSOLE.requiredArea]) {
         add("prep-console", PREP_CONSOLE, 95, "+1:00", openPrepConsoleMenu);
     }
@@ -2384,6 +2390,7 @@ function draw() {
         drawTeleportPads();
         drawArtilleryShells();
         drawMissiles();
+        drawProjectiles();
         drawPoisonGas();
         drawEnemies();
         drawHooks();
@@ -2397,9 +2404,11 @@ function draw() {
     if (state?.blackoutActive) {
         drawBlackout();
         drawBlackoutSignals();
+        drawBlackoutEnemyGlow();
     }
     if (state) drawDamageEdges();
     drawJoystick();
+    drawRewindScreen();
 }
 
 function drawDamageEdges() {
@@ -2465,7 +2474,7 @@ function drawBlackout() {
     const y = (me.y - camera.y) * scale + canvas.height / 2;
     const remaining = (state.trippedBreakers || []).length;
     const total = Math.max(1, state.blackoutBreakerTotal || remaining);
-    const severity = remaining / total;
+    const severity = state.enemyBlackout ? 1 : remaining / total;
     const flicker = Math.sin(performance.now() / 83) * 5;
     const lightRadius = 170 + (1 - severity) * 70 + flicker;
     const edgeDarkness = Math.round(90 + severity * 8);
@@ -2743,7 +2752,8 @@ function drawShops() {
     if (isUnlockedPoint(QUARRY)) drawStation(QUARRY, "QUARRY", "#808080");
     WORKBENCHES
         .filter(workbench => !workbench.requiredArea || state.areas[workbench.requiredArea])
-        .forEach(workbench => drawStation(workbench, "WORKBENCH", "#d8d8d8", "#111"));
+        .forEach(workbench => drawStation(workbench, workbench.id === "backup-terminal" ? "SYSTEM CONSOLE" : "WORKBENCH",
+            workbench.id === "backup-terminal" ? "#7fead5" : "#d8d8d8", "#111"));
     if (PREP_CONSOLE && state.areas[PREP_CONSOLE.requiredArea]) {
         drawStation(PREP_CONSOLE, "TIME CONTROL", "#d8d8d8", "#111");
     }
@@ -2885,7 +2895,7 @@ function drawArtilleryShells() {
 function drawEnemies() {
     const colors = { grunt: "#707070", runner: "#999", brute: "#505050", boss: "#2f2f2f",
         armored: "#626c78", hunter: "#a66e6e", siege: "#776951", champion: "#786283",
-        warlord: "#4d3030", titan: "#34253f", tiny: "#a9bd75", shield: "#466c80", bomber: "#dd7b32", artillery: "#65803c", gilded: "#e8b94f", blueAce: "#358dff", carrier: "#836044" };
+        warlord: "#4d3030", titan: "#34253f", tiny: "#a9bd75", shield: "#466c80", bomber: "#dd7b32", artillery: "#65803c", gilded: "#e8b94f", blueAce: "#358dff", carrier: "#836044", blackout: "#24443d", seeker: "#82434d" };
     for (const enemy of state.enemies) {
         if (enemy.hp <= 0) continue;
         if (typeof WardenUI !== "undefined") WardenUI.draw(ctx, enemy);
@@ -3011,9 +3021,21 @@ function drawGachaWeaponEffect(effect, now) {
         ctx.beginPath(); ctx.moveTo(effect.fromX, effect.fromY); ctx.lineTo(effect.x, effect.y); ctx.stroke(); ctx.restore();
     } else if (effect.weapon === "plasmaBlade" && age < 240) {
         const angle = Math.atan2(effect.y - effect.fromY, effect.x - effect.fromX);
-        ctx.save(); ctx.globalAlpha = 1 - age / 240; ctx.strokeStyle = "#76eaff"; ctx.lineWidth = 12;
-        ctx.shadowColor = "#76eaff"; ctx.shadowBlur = 18;
-        ctx.beginPath(); ctx.arc(effect.fromX, effect.fromY, 115, angle - Math.PI / 2, angle + Math.PI / 2); ctx.stroke(); ctx.restore();
+        const progress = age / 240;
+        ctx.save(); ctx.globalAlpha = (1 - progress) ** .6; ctx.lineCap = "round";
+        ctx.shadowColor = "#50dcff"; ctx.shadowBlur = 22;
+        for (let layer = 0; layer < 3; layer++) {
+            ctx.strokeStyle = ["#267bff", "#70efff", "#f2ffff"][layer]; ctx.lineWidth = [18, 8, 2][layer];
+            ctx.beginPath(); ctx.arc(effect.fromX, effect.fromY, 105 + progress * 18,
+                angle - 1.45 + progress * 2.3, angle + 1.45); ctx.stroke();
+        }
+        for (let i = 0; i < 7; i++) {
+            const a = angle - 1.35 + i * .42, r = 112 + progress * (20 + i * 4);
+            ctx.strokeStyle = "#a7faff"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(effect.fromX + Math.cos(a) * r, effect.fromY + Math.sin(a) * r);
+            ctx.lineTo(effect.fromX + Math.cos(a) * (r + 8), effect.fromY + Math.sin(a) * (r + 8)); ctx.stroke();
+        }
+        ctx.restore();
     } else if (effect.weapon === "repulsor" && age < 200) {
         const angle = Math.atan2(effect.y - effect.fromY, effect.x - effect.fromX);
         const radius = Math.hypot(effect.x - effect.fromX, effect.y - effect.fromY) * age / 200;
@@ -3156,6 +3178,13 @@ function drawPlayers() {
             ctx.fillStyle = "#454545";
             ctx.fillRect(-12, -3, 4, 4); ctx.fillRect(8, -3, 4, 4);
             ctx.restore();
+        }
+        if (!player.down && !player.selectedBuild && player.weapon === "plasmaBlade") {
+            ctx.save(); ctx.rotate(Math.atan2(player.facingY || 0, player.facingX || 1));
+            ctx.fillStyle = "#263546"; ctx.fillRect(6, -3, 11, 6);
+            ctx.shadowColor = "#4bddff"; ctx.shadowBlur = 14;
+            ctx.fillStyle = "#3d91ff"; ctx.fillRect(17, -4, 33, 8);
+            ctx.fillStyle = "#e7ffff"; ctx.fillRect(17, -1, 33, 2); ctx.restore();
         }
         const playerSize = 10;
         const disguised = player.spyRemaining > 0 && !player.down;
@@ -3437,4 +3466,64 @@ function validateAreaTiles(areas, tiles) {
             occupied.add(key);
         }
     }
+}
+
+function drawProjectiles() {
+    const active = new Set((state.projectiles || []).map(shot => "projectile-" + shot.id));
+    for (const key of smoothed.keys()) if (key.startsWith("projectile-") && !active.has(key)) smoothed.delete(key);
+    for (const shot of state.projectiles || []) {
+        const p = smoothEntity("projectile", shot);
+        const dx = Math.cos(shot.angle), dy = Math.sin(shot.angle);
+        ctx.save(); ctx.strokeStyle = shot.source === "enemy" ? "#ff7050" : "#69dfff";
+        ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 12; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(p.x - dx * 20, p.y - dy * 20); ctx.lineTo(p.x, p.y); ctx.stroke();
+        ctx.translate(p.x, p.y); ctx.rotate(shot.angle); ctx.fillStyle = "#fff5e9";
+        ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-5, -4); ctx.lineTo(-3, 0); ctx.lineTo(-5, 4); ctx.closePath(); ctx.fill(); ctx.restore();
+    }
+}
+
+function drawBlackoutEnemyGlow() {
+    if (getMe()?.missileControl) return;
+    ctx.save();
+    for (const enemy of state.enemies || []) {
+        if (enemy.type !== "blackout" || !enemy.powerCut || enemy.hp <= 0) continue;
+        const p = smoothed.get("enemy-" + enemy.id) || enemy;
+        const x = (p.x - camera.x) * scale + canvas.width / 2, y = (p.y - camera.y) * scale + canvas.height / 2;
+        ctx.strokeStyle = "#8affd7"; ctx.shadowColor = "#66ffcb"; ctx.shadowBlur = 16; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(x, y, enemyRadius(enemy) * scale, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = "#e2fff5"; ctx.fillRect(x-8*scale, y-6*scale, 5*scale, 4*scale);
+        ctx.fillRect(x+3*scale, y-6*scale, 5*scale, 4*scale);
+    }
+    ctx.restore();
+}
+
+let rewindFinishedAt = -Infinity;
+function drawRewindScreen() {
+    if (!state) return;
+    const now = performance.now(), remaining = state.rewindRemaining || 0;
+    const flash = Math.max(0, 1 - (now - rewindFinishedAt) / 850);
+    if (remaining <= 0 && flash <= 0) return;
+    const w = canvas.width, h = canvas.height;
+    ctx.save();
+    if (remaining > 0) {
+        const t = Math.floor(now / 65), progress = clamp(1 - remaining / 3.5, 0, 1);
+        ctx.globalAlpha = .18; ctx.drawImage(canvas, Math.sin(t * 3.1) * 16, 0); ctx.globalAlpha = 1;
+        ctx.fillStyle = "rgb(0 7 16 / 75%)"; ctx.fillRect(0, 0, w, h);
+        for (let i = 0; i < 75; i++) {
+            const n = Math.abs(Math.sin(t * 43.1 + i * 19.7));
+            ctx.fillStyle = i % 3 ? "rgb(105 255 223 / 12%)" : "rgb(255 90 130 / 20%)";
+            ctx.fillRect(n * w, ((i * 89 + t * 17) % h), w * (.1 + n * .2), 1 + n * 3);
+        }
+        ctx.fillStyle = "rgb(100 230 255 / 8%)";
+        for (let y = t % 4; y < h; y += 4) ctx.fillRect(0, y, w, 1);
+        ctx.textAlign = "center"; ctx.font = "800 24px ui-monospace, monospace";
+        ctx.fillStyle = "#ff6288"; ctx.fillText("SIGNAL LOST", w/2 + Math.sin(t)*3, h/2 - 46);
+        ctx.fillStyle = "#a4ffdf"; ctx.font = "800 18px ui-monospace, monospace";
+        ctx.fillText(progress < .3 ? "BACKUP DETECTED" : progress < .85 ? "RESTORING SYSTEM..." : "REBOOTING...", w/2, h/2);
+        ctx.fillStyle = "#193b3d"; ctx.fillRect(w/2-130, h/2+26, 260, 3);
+        ctx.fillStyle = "#86ffdb"; ctx.fillRect(w/2-130, h/2+26, 260*progress, 3);
+    } else {
+        ctx.fillStyle = "rgba(170,255,230," + flash * .75 + ")"; ctx.fillRect(0, 0, w, h);
+    }
+    ctx.restore();
 }
