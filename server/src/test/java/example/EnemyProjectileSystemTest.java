@@ -108,10 +108,12 @@ class EnemyProjectileSystemTest {
         game.phase=GamePhase.PREPARING;game.prepTime=120;player.job="hacker";player.credits=200000;
         player.x=100;player.y=100;game.handleMessage(player,"HACKER_BACKUP");
         assertNotNull(game.backup);game.phase=GamePhase.WAVE;game.queuedEnemies=1;
-        game.coreHp=0;game.update(.05);assertEquals(GamePhase.LOST,game.phase);assertEquals(3.5,game.rewindRemaining);
+        game.coreHp=0;game.update(.05);assertEquals(GamePhase.LOST,game.phase);assertEquals(6,game.rewindRemaining);
+        assertTrue(SnapshotBuilder.build(game).contains("\"rewindDuration\":6.0"));
         double elapsed=game.elapsedSeconds;game.update(1);assertEquals(elapsed,game.elapsedSeconds);
         game.handleMessage(player,"START");assertEquals(GamePhase.LOST,game.phase);
-        game.update(2.5);assertEquals(GamePhase.PREPARING,game.phase);assertTrue(game.coreHp>0);assertTrue(game.backupUsed);
+        game.update(4);assertEquals(GamePhase.LOST,game.phase);assertEquals(1,game.rewindRemaining);
+        game.update(1);assertEquals(GamePhase.PREPARING,game.phase);assertTrue(game.coreHp>0);assertTrue(game.backupUsed);
         assertEquals(1,game.rewindVersion);assertEquals(120,game.prepTime);
         assertTrue(game.enemyProjectiles.isEmpty());assertTrue(game.combat.rockets.isEmpty());
     }
@@ -134,7 +136,7 @@ class EnemyProjectileSystemTest {
         game.handleMessage(player,"HACKER_BACKUP");assertNotNull(game.backup);
         game.phase=GamePhase.WAVE;game.queuedEnemies=1;
         game.players.forEach(p->p.down=true);game.update(.05);
-        assertEquals(3.5,game.rewindRemaining);game.update(3.5);
+        assertEquals(6,game.rewindRemaining);game.update(6);
         assertEquals(GamePhase.PREPARING,game.phase);assertFalse(player.down);
     }
 }

@@ -6,7 +6,8 @@ const context=vm.createContext({getMe:()=>me,state:{phase:"preparing",backupCost
  openNearbyActionMenu:(title,options)=>menu={title,options},send(){},openDroneLaunch(){}});
 vm.runInContext(extract("useJobAbility"),context);vm.runInContext("useJobAbility()",context);assert.equal(menu,undefined,"Hacker ability no longer saves remotely");
 vm.runInContext(extract("openSystemConsole"),context);vm.runInContext("openSystemConsole({x:100,y:100})",context);
-assert.equal(menu.title,"SYSTEM CONSOLE");assert.equal(menu.options[0].command,"HACKER_BACKUP");assert(!menu.options[0].disabled);
+assert.equal(menu.title,"SYSTEM CONSOLE");assert.equal(menu.options[0].label,"SAVE");
+context.state.backupAvailable=true;vm.runInContext("openSystemConsole({x:100,y:100})",context);assert.equal(menu.options[0].label,"SAVE","Paid overwrite keeps the simple label");assert.equal(menu.options[0].command,"HACKER_BACKUP");assert(!menu.options[0].disabled);
 me.credits=99999;vm.runInContext("openSystemConsole({x:100,y:100})",context);assert(menu.options[0].disabled);
 menu=null;context.state.phase="wave";vm.runInContext("openSystemConsole({x:100,y:100})",context);assert.equal(menu,null);
 context.state.phase="preparing";context.state.backupUsed=true;vm.runInContext("openSystemConsole({x:100,y:100})",context);assert.equal(menu,null);

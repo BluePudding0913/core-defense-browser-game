@@ -25,7 +25,7 @@ window.coreAudio.play('pistol'); assert.equal(contexts, 0);
 listeners.pointerdown(); assert.equal(contexts, 1);
 const names = ['pistol', 'ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket', 'missile-launch', 'missile-impact', 'bat', 'medkit', 'heal', 'build', 'pickup', 'item', 'damage', 'railgun', 'railgun-charge', 'refill', 'round-start'];
 const demo = [];
-names.push('flamethrower', 'drone-self-destruct');
+names.push('flamethrower', 'drone-self-destruct', 'system-restore', 'system-online');
 for (const name of names) {
     window.coreAudio.play(name);
     const source = sources.at(-1), data = source.buffer.getChannelData(0);
@@ -193,3 +193,25 @@ assert.equal(sources.length, beforeExplosion + 1, 'Self-destruct sound is audibl
 assert(occupied[0].stopped, 'Self-destruct replaces the oldest ordinary sound');
 for (const source of sources.slice(-8)) source.onended();
 console.log('Synthesized SE passed: all effects, gesture unlock, cached buffers, bounded volume and voice limit');
+
+window.coreAudio.resetRewind();
+const beforeRewind = sources.length;
+window.coreAudio.syncRewind(6, 0);
+assert.equal(sources.length, beforeRewind + 1, 'restoration starts its noise once');
+const restoreSound = sources.at(-1);
+assert.equal(restoreSound.buffer.getChannelData(0).length, 6 * 48000, 'noise covers the longer restoration');
+assert(restoreSound.buffer.getChannelData(0).slice(5 * 48000).some(sample => Math.abs(sample) > .01), 'noise remains audible near the end');
+window.coreAudio.syncRewind(5, 0);window.coreAudio.syncRewind(1, 0);
+assert.equal(sources.length, beforeRewind + 1, 'snapshots do not retrigger the noise');
+window.coreAudio.syncRewind(0, 1);
+assert(restoreSound.stopped, 'restoration completion stops the noise');
+assert.equal(sources.length, beforeRewind + 2, 'successful restoration plays a boot cue');
+window.coreAudio.syncRewind(0, 1);
+assert.equal(sources.length, beforeRewind + 2);
+sources.at(-1).onended();
+window.coreAudio.syncRewind(6, 1);
+const interruptedNoise = sources.at(-1), beforeReset = sources.length;
+window.coreAudio.resetRewind();assert(interruptedNoise.stopped);
+window.coreAudio.syncRewind(0, 2);
+assert.equal(sources.length, beforeReset, 'disconnect and leave stop without a false completion cue');
+console.log('Restore SE passed: six-second noise, no repeats, boot cue, disconnect and leave cleanup');

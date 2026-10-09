@@ -19,8 +19,8 @@ for(const name of ["drawProjectiles","drawBlackoutEnemyGlow","drawRewindScreen"]
 vm.runInContext("drawProjectiles()",context);assert.deepEqual(strokes,["#ff7050","#69dfff"]);assert.deepEqual(paths[0],[80,100]);
 rects.length=0;vm.runInContext("drawBlackoutEnemyGlow()",context);assert.equal(rects.length,2,"Only active living disruptor has glowing eyes");
 missileControl=true;vm.runInContext("drawBlackoutEnemyGlow()",context);assert.equal(rects.length,2,"Map view stays readable");
-state.rewindRemaining=3.4;vm.runInContext("drawRewindScreen()",context);assert(texts.includes("BACKUP DETECTED"));
-texts.length=0;state.rewindRemaining=1.7;vm.runInContext("drawRewindScreen()",context);assert(texts.includes("RESTORING SYSTEM..."));
+state.rewindDuration=6;state.rewindRemaining=5.9;vm.runInContext("drawRewindScreen()",context);assert(texts.includes("BACKUP DETECTED"));
+texts.length=0;state.rewindRemaining=3;vm.runInContext("drawRewindScreen()",context);assert(texts.includes("RESTORING SYSTEM..."));
 texts.length=0;state.rewindRemaining=.2;vm.runInContext("drawRewindScreen()",context);assert(texts.includes("REBOOTING..."));
 state.rewindRemaining=0;vm.runInContext("rewindFinishedAt=900",context);rects.length=0;vm.runInContext("drawRewindScreen()",context);assert.equal(rects.length,1,"Restoration ends with a flash");
 now=1800;rects.length=0;vm.runInContext("drawRewindScreen()",context);assert.equal(rects.length,0,"Overlay expires");
