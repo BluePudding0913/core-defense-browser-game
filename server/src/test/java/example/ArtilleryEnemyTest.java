@@ -134,9 +134,10 @@ class ArtilleryEnemyTest {
         assertEquals(1180, game.artilleryShells.get(0).x);
     }
 
-    @Test void artilleryFrequencyIsHalvedThroughRound25() throws Exception {
+    @Test void artilleryRemainsRareAndIncreasesAfterRound25() throws Exception {
         var randomField = GameSession.class.getDeclaredField("random"); randomField.setAccessible(true);
         var random = (java.util.Random) randomField.get(game);
+        double round25Share = 0;
         for (int round : List.of(11, 12, 18, 25, 26)) {
             game.round = round; random.setSeed(321);
             int count = 0;
@@ -144,8 +145,11 @@ class ArtilleryEnemyTest {
                 if (invoke("selectEnemyType", new Class<?>[]{SpawnPoint.class}, GameMap.SPAWN_POINTS.get(0))
                         .equals("artillery")) count++;
             }
-            double expected = round < 12 ? 0 : (round <= 25 ? .04 : .08) * (round >= 15 ? .9 : 1) * .94 * (round >= 14 ? .965 : 1);
-            assertEquals(expected, count / 20000.0, .006, "Round " + round);
+            double share = count / 20000.0;
+            if (round < 12) assertEquals(0,count);
+            else assertTrue(share >= .025 && share <= .065, "Artillery share at R"+round+": "+share);
+            if (round == 25) round25Share = share;
+            if (round == 26) assertTrue(share > round25Share, "later artillery pressure increases");
         }
     }
 

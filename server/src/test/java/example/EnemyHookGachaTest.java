@@ -95,7 +95,7 @@ class EnemyHookGachaTest {
         }
         game.enemies.clear(); game.round=40;
         Enemy blue=enemy("blueAce",1120,1900); Enemy boss=enemy("boss",1200,1900);
-        assertTrue(blue.maxHp>=boss.maxHp); assertEquals(9,CombatSystem.enemyRadius(blue));
+        assertTrue(blue.maxHp>=10000 && blue.maxHp<boss.maxHp); assertEquals(9,CombatSystem.enemyRadius(blue));
         assertTrue(blue.speed>100); assertTrue(blue.damage>=50&&blue.damage<100);
         Enemy gold=enemy("gilded",1300,1900), grunt=enemy("grunt",1400,1900);
         assertTrue(gold.reward>grunt.reward*20);

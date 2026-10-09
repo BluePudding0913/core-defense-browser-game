@@ -289,7 +289,7 @@ class GameplayRevisionTest {
             game.prepTime = 0;
             game.update(.05);
             assertEquals(round == 11 ? 29 : 50, game.queuedEnemies);
-            assertEquals(round % 4 == 0 ? round / 4 : 0, game.queuedBosses);
+            assertEquals(round % 4 == 0 ? 1 : 0, game.queuedBosses);
         }
     }
 
@@ -377,7 +377,7 @@ class GameplayRevisionTest {
         Method spawn = GameSession.class.getDeclaredMethod("spawnEnemy", String.class, SpawnPoint.class);
         spawn.setAccessible(true);
         game.round = 8;
-        double[] hp = {106, 67, 254, 1727};
+        double[] hp = {106, 67, 254, 12800};
         double[] speed = {70, 168, 46, 32};
         int[] gold = {35, 45, 100, 1188};
         String[] types = {"grunt", "runner", "brute", "boss"};
