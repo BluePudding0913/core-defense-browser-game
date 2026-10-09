@@ -394,7 +394,7 @@ function connect() {
             playSoundEffect(message);
         }
         if (message.type === "effect" && ["hit", "core-pulse", "pickup", "player-hit", "player-down", "explosion", "acid-impact"].includes(message.effect)) {
-            if (typeof CombatFeedback !== "undefined") CombatFeedback.add(message, performance.now(), myPlayerId);
+            if (typeof CombatFeedback !== "undefined") CombatFeedback.add(message, performance.now(), myPlayerId, DEBUG_MODE);
             hitEffects.push({ ...message, started: performance.now() });
             if (hitEffects.length > 100) hitEffects.shift();
         }

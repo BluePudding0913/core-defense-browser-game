@@ -59,6 +59,38 @@ const beforeExpiry = feedback.layout(899).find(popup => popup.enemyId === 2).y;
 const afterExpiry = feedback.layout(901).find(popup => popup.enemyId === 2).y;
 assert(Math.abs(afterExpiry - beforeExpiry) < 1, 'an expired nearby label does not make another label jump');
 feedback.reset();
+
+feedback.reset();
+const damagingHit = {...hit(4), damage:123.456};
+feedback.add(damagingHit, 0, 'me');
+assert.equal(feedback.layout(0)[0].damageText, '', 'normal mode hides damage');
+feedback.reset();
+feedback.add(damagingHit, 0, 'me', true);
+assert.equal(feedback.layout(0)[0].damageText, '123.46 DMG');
+assert.equal(feedback.layout(0)[0].text, '+4G', 'debug keeps individual gold');
+const debugTexts = [];
+feedback.draw({save(){},restore(){},fillText(text,x,y){debugTexts.push({text,x,y,color:this.fillStyle});}},0);
+assert.equal(debugTexts[0].color, '#ffffff');
+assert.equal(debugTexts[1].color, '#79d8ff');
+assert(debugTexts[0].x < debugTexts[1].x, 'damage and gold are side by side');
+feedback.reset();
+feedback.add({...hit(0), damage:80},0,'me',true);
+assert.equal(feedback.layout(0)[0].damageText,'80 DMG','damage appears without gold');
+feedback.reset();
+feedback.add({...hit(0), damage:80},0,'me');
+feedback.add({...hit(0), damage:0},0,'me',true);
+feedback.add({...hit(0), damage:NaN},0,'me',true);
+feedback.add({...hit(0), playerId:'ally', damage:80},0,'me',true);
+assert.equal(feedback.layout(0).length,0,'ignore non-debug, invalid and other player damage');
+for(let now=0;now<=3000;now+=50){
+    feedback.add({...hit(4), damage:80},now,'me',true);
+    const labels=feedback.layout(now);
+    assert(labels.length<=3);
+    assert(labels.every(label=>label.y>=22&&label.y<=74),'debug rapid fire stays compact');
+}
+assert.equal(feedback.layout(4000).length,0,'damage expires with hit feedback');
+feedback.reset();
+
 const source = fs.readFileSync('client/app.js','utf8');
 const start = source.indexOf('if (message.type === "ammo-refilled")');
 const end = source.indexOf('\n        if (message.type === "error"',start);
