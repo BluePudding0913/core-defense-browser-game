@@ -110,9 +110,9 @@ console.log('Result intro passed: persistent result, result color, delayed displ
 
 now = 0; receive("wave");
 receive("lost", 5, { rewindDelayRemaining: 1.5, rewindRemaining: 0 });
-assert(classes.has("show"), "backup defeat shows immediately before loading");
-assert.equal(context.roundIntro.textContent, "防衛失敗");
+assert(!classes.has("show"), "backup pause does not show a defeat banner");
+assert.notEqual(context.roundIntro.textContent, "防衛失敗");
 receive("lost", 5, { rewindDelayRemaining: .5, rewindRemaining: 0 });
-assert(classes.has("show"), "defeat stays visible throughout the pause");
+assert(!classes.has("show"), "defeat stays hidden throughout the pause");
 receive("lost", 5, { rewindDelayRemaining: 0, rewindRemaining: 6 });
 assert(!classes.has("show"), "restore effect replaces defeat only after the pause");
