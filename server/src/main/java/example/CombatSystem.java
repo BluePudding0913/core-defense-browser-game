@@ -21,7 +21,7 @@ final class CombatSystem {
         boolean canOccupy(double x, double y, double radius);
         void onEnemyDefeated(Enemy enemy);
         default double damageMultiplier(Player player, String weapon) {
-            return UpgradeRules.weaponMultiplier(player.enchantments.getOrDefault(weapon, 0));
+            return UpgradeRules.weaponMultiplier(player.enchantments.getOrDefault(weapon, 0)) * JobRules.damageMultiplier(player.job);
         }
     }
     private final World world;
@@ -107,6 +107,9 @@ final class CombatSystem {
             fireRepulsor(player, weapon, directionX, directionY);
             return;
         }
+        if (player.weapon.equals("plasmaBlade")) {
+            firePlasmaBlade(player, weapon, directionX, directionY); return;
+        }
         if (player.weapon.equals("bat")) {
             double effectDistance = GameMap.distanceToWall(player.x, player.y, directionX, directionY,
                     Math.min(Math.hypot(aimX - player.x, aimY - player.y), weapon.range()), world.unlockedAreas());
@@ -136,6 +139,21 @@ final class CombatSystem {
         double length = Math.hypot(dx, dy);
         player.railgunDx = length < .001 ? 1 : dx / length;
         player.railgunDy = length < .001 ? 0 : dy / length;
+    }
+
+
+    private void firePlasmaBlade(Player player, WeaponStats weapon, double dx, double dy) {
+        events.hit(player.id, "plasmaBlade", player.x, player.y,
+                player.x + dx * weapon.range(), player.y + dy * weapon.range(), 0, false, 0, false, null);
+        for (Enemy enemy : List.copyOf(world.enemies())) {
+            if (enemy.hp <= 0 || !RepulsorRules.contains(player.x, player.y, dx, dy, weapon.range(), enemy.x, enemy.y, enemyRadius(enemy))
+                    || !GameMap.hasClearLine(player.x, player.y, enemy.x, enemy.y, world.unlockedAreas())) continue;
+            int credits = player.credits;
+            double damage = damageEnemy(enemy, weapon.damage(), player);
+            knockbackEnemy(player.x, player.y, enemy, weapon.knockback());
+            events.hit(player.id, "plasmaBlade", player.x, player.y, enemy.x, enemy.y, damage, enemy.hp <= 0,
+                    player.credits - credits, false, enemy.id);
+        }
     }
 
     private void fireRepulsor(Player player, WeaponStats weapon, double dx, double dy) {
@@ -244,7 +262,7 @@ final class CombatSystem {
     }
 
     void droneExplosion(Player player, Drone drone) {
-        events.explosion(drone.x, drone.y, DroneRules.SELF_DESTRUCT_RADIUS);
+        events.alliedExplosion(drone.x, drone.y, DroneRules.SELF_DESTRUCT_RADIUS);
         droneShot = new DroneShot(player, "droneExplosion", drone.x, drone.y, drone);
         try {
             for (Enemy enemy : List.copyOf(world.enemies())) {
@@ -261,7 +279,7 @@ final class CombatSystem {
     }
 
     void missileImpact(Player player, double x, double y) {
-        events.explosion(x, y, MissileRules.radius());
+        events.alliedExplosion(x, y, MissileRules.radius());
         for (Enemy enemy : List.copyOf(world.enemies())) {
             double separation = distance(x, y, enemy.x, enemy.y);
             if (enemy.hp <= 0 || separation > MissileRules.radius()
@@ -419,7 +437,7 @@ final class CombatSystem {
         }
         double x = player.x + dx * impactDistance, y = player.y + dy * impactDistance;
         events.hit(player.id, "rocket", player.x, player.y, x, y, 0, false, 0, false, null);
-        events.explosion(x, y, GameConfig.ROCKET_BLAST_RADIUS);
+        events.alliedExplosion(x, y, GameConfig.ROCKET_BLAST_RADIUS);
         for (Player target : world.players()) {
             double blastDistance = distance(x, y, target.x, target.y);
             if (JobRules.canHitDisguisedAlly(player, target) && blastDistance <= GameConfig.ROCKET_BLAST_RADIUS
@@ -510,6 +528,11 @@ final class CombatSystem {
             events.hit(player.id, shotWeapon(player), originX, originY, endX, endY, 0, false, 0, false, null);
         }
         for (Enemy hit : targets) {
+            if (shotWeapon(player).equals("freezeGun")) {
+                hit.frozenRemaining = Math.max(hit.frozenRemaining, 3);
+                events.hit(player.id, "freezeGun", originX, originY, hit.x, hit.y, 0, false, 0, false, hit.id);
+                continue;
+            }
             if (SpecialEnemyRules.hitsBag(hit, originX, originY, directionX, directionY, shotDistance, weapon.width())) {
                 damageBag(hit, weapon.damage(), player, shotWeapon(player), originX, originY);
                 continue;

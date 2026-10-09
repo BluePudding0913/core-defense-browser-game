@@ -288,7 +288,7 @@ class GameplayRevisionTest {
             game.round = round - 1;
             game.prepTime = 0;
             game.update(.05);
-            assertEquals(round == 11 ? 26 : 45, game.queuedEnemies);
+            assertEquals(round == 11 ? 29 : 50, game.queuedEnemies);
             assertEquals(round % 4 == 0 ? round / 4 : 0, game.queuedBosses);
         }
     }

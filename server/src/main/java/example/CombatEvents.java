@@ -6,5 +6,6 @@ interface CombatEvents {
             double x, double y, double damage, boolean defeated, int credits, boolean headshot, Integer enemyId);
     void sound(Player player, String effect, String item);
     void explosion(double x, double y, double radius);
+    default void alliedExplosion(double x, double y, double radius) { explosion(x, y, radius); }
     void outOfAmmo(Player player);
 }

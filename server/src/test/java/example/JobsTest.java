@@ -176,7 +176,7 @@ class JobsTest {
         game.handleMessage(player, "EQUIP_BUILD:teleporter");
         game.handleMessage(player, "PLACE_FRONT");
         assertEquals(2, player.teleportPads.size(), "cannot place a third pad");
-        assertEquals(0, player.buildItemCount("teleporter"));
+        assertEquals(2, player.buildItemCount("teleporter"));
     }
 
     @Test void teleportPlacementRejectsWallsOverlapAndWrongJob() {
@@ -223,7 +223,7 @@ class JobsTest {
         var me = snapshot.get("players").get(0);
         assertEquals("tp", me.get("job").asText());
         assertEquals(1, me.get("teleportPads").size());
-        assertEquals(1, me.get("buildItems").get("teleporter").asInt());
+        assertEquals(3, me.get("buildItems").get("teleporter").asInt());
         assertEquals(265, me.get("dashSpeed").asDouble());
         assertEquals(4, me.get("reviveSeconds").asDouble());
         assertEquals(0, me.get("jobCooldown").asDouble());
@@ -231,23 +231,23 @@ class JobsTest {
 
     @Test void teleporterInventoryRecoveryIsLocalOwnerOnlyAndCanBePlacedAgain() {
         start("tp");
-        assertEquals(2, player.buildItemCount("teleporter"));
+        assertEquals(4, player.buildItemCount("teleporter"));
         game.handleMessage(player, "JOB_ABILITY");
         assertEquals(5, player.tpInvulnerableRemaining);
         assertTrue(player.teleportPads.isEmpty(), "job key now activates invulnerability");
-        assertEquals(2, player.buildItemCount("teleporter"));
+        assertEquals(4, player.buildItemCount("teleporter"));
         player.facingX = 1; player.facingY = 0;
         game.handleMessage(player, "EQUIP_BUILD:teleporter");
         game.handleMessage(player, "PLACE_FRONT");
         player.y = 1820;
         game.handleMessage(player, "PLACE_FRONT");
-        assertEquals(0, player.buildItemCount("teleporter"));
-        assertNull(player.selectedBuild);
+        assertEquals(2, player.buildItemCount("teleporter"));
+        assertEquals("teleporter", player.selectedBuild);
         Player ally = game.players.get(1);
         ally.job = "tp"; ally.x = 1180; ally.y = 1820;
         game.handleMessage(ally, "PICKUP_TELEPORT:1180:1820");
         assertEquals(2, player.teleportPads.size(), "another TP cannot recover the owner's pad");
-        assertEquals(2, ally.buildItemCount("teleporter"));
+        assertEquals(4, ally.buildItemCount("teleporter"));
         game.handleMessage(player, "PICKUP_TELEPORT:1180:1900");
         assertEquals(2, player.teleportPads.size(), "remote recovery is rejected");
         player.down = true;
@@ -259,10 +259,10 @@ class JobsTest {
         player.movingCore = false;
         game.handleMessage(player, "PICKUP_TELEPORT:1180:1820");
         assertEquals(1, player.teleportPads.size());
-        assertEquals(1, player.buildItemCount("teleporter"));
-        assertNull(player.selectedBuild);
+        assertEquals(3, player.buildItemCount("teleporter"));
+        assertEquals("teleporter",player.selectedBuild);
         game.handleMessage(player, "PICKUP_TELEPORT:1180:1820");
-        assertEquals(1, player.buildItemCount("teleporter"), "repeating recovery cannot duplicate items");
+        assertEquals(3, player.buildItemCount("teleporter"), "repeating recovery cannot duplicate items");
         ally.x = 820;
         game.handleMessage(player, "EQUIP_BUILD:teleporter");
         game.handleMessage(player, "PLACE_FRONT");

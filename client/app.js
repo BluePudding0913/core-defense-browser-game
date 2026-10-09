@@ -575,6 +575,12 @@ function keepEndArea(next) {
 }
 
 function receiveState(next) {
+    if (state && (next.rewindVersion || 0) !== (state.rewindVersion || 0)) {
+        smoothed.clear(); predictedLocal = null; hitEffects.length = 0;
+        if (typeof CombatFeedback !== "undefined") CombatFeedback.reset();
+        if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
+        stopSecondaryFiring(); closeActionMenu(); endInteractionHold(true);
+    }
     applyRules(next);
     const keepArea = keepEndArea(next);
     window.coreMenu?.snapshot(next, myPlayerId, keepArea);
@@ -846,7 +852,12 @@ function useJobAbility() {
             || !state || !["preparing", "wave"].includes(state.phase)
             || !inventoryMenu.classList.contains("hidden") || !howToMenu.classList.contains("hidden")
             || !actionMenu.classList.contains("hidden")) return;
-    if (me.job === "drone" && !me.drone?.active) openDroneLaunch();
+    if (me.job === "hacker" && state.phase === "preparing" && !state.backupUsed) {
+        openNearbyActionMenu("BACKUP", [{label: state.backupAvailable ? "SAVE / 上書き" : "SAVE",
+            detail: state.backupCost + "G", command: "HACKER_BACKUP", disabled: me.credits < state.backupCost}],
+            me, 1, "single");
+    }
+    else if (me.job === "drone" && !me.drone?.active) openDroneLaunch();
     else if (["drone", "healer", "spy", "tp"].includes(me.job)) send("JOB_ABILITY");
 }
 // A release opens the menu; holding picks up the original target directly.
@@ -1604,11 +1615,12 @@ function openShopPurchase(shop, chooseExchange = false) {
         return;
     }
     if (shop.item.endsWith("Factory")) {
+        const cost = Math.ceil(shop.cost * (me.buildingCostMultiplier ?? 1));
         openNearbyActionMenu(shop.label, [{
             label: "BUY",
-            detail: shop.cost + "G",
+            detail: cost + "G",
             command: "BUY:" + shop.item,
-            disabled: !me || me.credits < shop.cost,
+            disabled: !me || me.credits < cost,
         }], shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
         return;
     }
@@ -1631,7 +1643,7 @@ function openShopPurchase(shop, chooseExchange = false) {
         && WeaponUI.atLimit(me, WEAPON_FIELDS, state.rules.weaponLimit);
     if (weaponLimitReached && chooseExchange) {
         openNearbyActionMenu(title, WeaponUI.entries(me, WEAPON_FIELDS)
-            .filter(entry => entry.value !== "bat" && entry.value !== mountedWeapon).map(entry => ({
+            .filter(entry => !WEAPON_FIELDS[entry.value]?.meleeSlot && entry.value !== "bat" && entry.value !== mountedWeapon).map(entry => ({
                 label: `交換: ${entry.label}`,
                 command: `BUY:${shop.item}:${entry.value}`,
                 disabled: me.credits < price,
@@ -1652,21 +1664,22 @@ function openShopPurchase(shop, chooseExchange = false) {
 
 function openGachaShop(shop, exchange = false) {
     const me = getMe(), result = me.gachaWeapon;
-    const owned = result && WeaponUI.owns(me, WEAPON_FIELDS[result]);
-    const full = result && !owned && WeaponUI.atLimit(me, WEAPON_FIELDS, state.rules.weaponLimit);
+    const ammoPrize = result === "silverAmmo200";
+    const owned = result && !ammoPrize && WeaponUI.owns(me, WEAPON_FIELDS[result]);
+    const full = result && !ammoPrize && !WEAPON_FIELDS[result]?.meleeSlot && !owned && WeaponUI.atLimit(me, WEAPON_FIELDS, state.rules.weaponLimit);
     const options = !result ? [{
         label: "ROLL", detail: shop.cost + "G", command: "BUY:gacha:roll", disabled: me.credits < shop.cost,
     }] : full && exchange ? WeaponUI.entries(me, WEAPON_FIELDS)
-        .filter(entry => entry.value !== "bat" && !(me.drone?.active && me.drone.weapon === entry.value))
+        .filter(entry => !WEAPON_FIELDS[entry.value]?.meleeSlot && entry.value !== "bat" && !(me.drone?.active && me.drone.weapon === entry.value))
         .map(entry => ({label: "交換: " + entry.label, command: "BUY:gacha:" + entry.value})) : [{
-            label: owned ? "REFILL" : full ? "交換して受け取る" : "TAKE",
+            label: owned ? "REFILL" : full ? "交換して受け取る" : result === "plasmaBlade" ? "BATと交換" : "TAKE",
             command: full ? undefined : "BUY:gacha:take",
             onSelect: full ? () => openGachaShop(shop, true) : undefined,
             disabled: owned && (me.drone?.active && me.drone.weapon === result
                 || WEAPON_FIELDS[result].capacity === 0),
         }];
     if (result) options.push({label: "SKIP", command: "BUY:gacha:skip"});
-    openNearbyActionMenu(result ? WeaponUI.name(result, WEAPON_FIELDS, me) : shop.label,
+    openNearbyActionMenu(ammoPrize ? "SILVER AMMO ×200" : result ? WeaponUI.name(result, WEAPON_FIELDS, me) : shop.label,
         options, shop, INTERACTION_RANGE.shop, "default", () => openGachaShop(shop, exchange));
 }
 
@@ -1689,9 +1702,10 @@ function openUpgradeShop(shop) {
                 label, detail: me[field] ? "OWNED" : `被ダメージ −${Math.round(reduction * 100)}% · ${price}G`,
                 command: `BUY:armor:${item}`, disabled: me[field] || me.credits < price}));
     } else if (shop.item === "overclockSilver") {
-        options = [{label: "オーバークロックシルバー", detail: `銀タレット ×${rules.compressionCost}`,
+        const cost = Math.ceil(rules.compressionCost * (me.buildingCostMultiplier ?? 1));
+        options = [{label: "オーバークロックシルバー", detail: `銀タレット ×${cost}`,
             stock: `所持 ${me.buildItems?.silverTurret || 0}`, command: "BUY:overclockSilver",
-            disabled: (me.buildItems?.silverTurret || 0) < rules.compressionCost}];
+            disabled: (me.buildItems?.silverTurret || 0) < cost}];
     } else {
         const remaining = state.teamBuffRemaining || 0;
         options = [{label: remaining > 0 ? `${Math.ceil(remaining)}s` : "ACTIVATE",
@@ -1730,12 +1744,13 @@ function openQuarryMenu() {
 function openWorkbenchMenu(workbench) {
     const me = getMe();
     const order = { block: 0, barricade: 1, copperBarricade: 2, silverBarricade: 3, wire: 4, mine: 5, turret: 6, copperTurret: 7, silverTurret: 8 };
+    const materialCost = amount => Math.ceil((amount || 0) * (me.buildingCostMultiplier ?? 1));
     const options = Object.entries(BUILD_INFO).filter(([, info]) => !info.shopOnly)
         .sort(([a], [b]) => (order[a] ?? 7) - (order[b] ?? 7)).map(([type, info]) => ({
         label: info.name,
-        detail: `${info.description} — ${Object.entries(RESOURCE_NAMES).filter(([key]) => info[key] > 0).map(([key, name]) => `${name} ${info[key]}`).join(" / ")}`,
+        detail: `${info.description} — ${Object.entries(RESOURCE_NAMES).filter(([key]) => info[key] > 0).map(([key, name]) => `${name} ${materialCost(info[key])}`).join(" / ")}`,
         command: `CRAFT:${type}`,
-        disabled: Object.keys(RESOURCE_NAMES).some(key => (me[key] || 0) < (info[key] || 0)),
+        disabled: Object.keys(RESOURCE_NAMES).some(key => (me[key] || 0) < materialCost(info[key])),
     }));
     if (state.rules.silverAmmo) {
         const silver = state.rules.silverAmmo;
@@ -2100,9 +2115,9 @@ function findNearestInteraction() {
         for (const pad of owner.teleportPads || []) {
             const separation = distance(me, pad);
             const owned = owner.id === me.id && me.job === "tp";
-            if ((!owned && owner.teleportPads.length !== 2) || separation > 45 || !hasInteractionPath(me, pad)) continue;
+            if ((!owned && !(pad.paired ?? owner.teleportPads.length === 2)) || separation > 45 || !hasInteractionPath(me, pad)) continue;
             choices.push({ kind: "teleporter", target: pad, owned, separation,
-                action: () => { if (owner.teleportPads.length === 2) send("TELEPORT"); } });
+                action: () => { if (pad.paired ?? owner.teleportPads.length === 2) send("TELEPORT"); } });
         }
     }
     if (choices.length) return choices.sort((a, b) => a.separation - b.separation)[0];
@@ -2854,14 +2869,14 @@ function drawArtilleryShells() {
         if (remaining <= 0) continue;
         const progress = clamp(1 - remaining / shell.duration, 0, 1);
         ctx.save();
-        ctx.fillStyle = "rgb(185 231 67 / 18%)";
-        ctx.strokeStyle = "rgb(213 240 106 / 30%)"; ctx.lineWidth = 3;
+        ctx.fillStyle = "rgb(255 112 80 / 18%)";
+        ctx.strokeStyle = "rgb(255 112 80 / 40%)"; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.arc(shell.x, shell.y, shell.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.strokeStyle = "#d5f06a"; ctx.lineWidth = 4;
+        ctx.strokeStyle = "#ff805c"; ctx.lineWidth = 4;
         ctx.beginPath(); ctx.arc(shell.x, shell.y, shell.radius, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2); ctx.stroke();
         const x = shell.sourceX + (shell.x - shell.sourceX) * progress;
         const y = shell.sourceY + (shell.y - shell.sourceY) * progress - Math.sin(progress * Math.PI) * 65;
-        ctx.fillStyle = "#d5f06a";
+        ctx.fillStyle = "#ff805c";
         ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
     }
@@ -2942,6 +2957,10 @@ function drawEnemies() {
         ctx.strokeStyle = isBoss ? "#fff" : "#c8c8c8"; ctx.lineWidth = isBoss ? 5 : Math.min(2, radius / 3); ctx.stroke();
         const eyeRadius = Math.min(3, radius * .2), eyeOffset = Math.min(3, radius * .5);
         ctx.fillStyle = explosionBoss ? "#ff1527" : "#fff"; ctx.beginPath(); ctx.arc(p.x - radius * .3, p.y - eyeOffset, eyeRadius, 0, Math.PI * 2); ctx.arc(p.x + radius * .3, p.y - eyeOffset, eyeRadius, 0, Math.PI * 2); ctx.fill();
+        if (enemy.frozenRemaining > 0) {
+            ctx.save(); ctx.fillStyle = "rgb(90 211 255 / 35%)"; ctx.strokeStyle = "#a7edff"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(p.x, p.y, radius + 3, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.restore();
+        }
         if (enemy.type === "shield") {
             const angle = Math.atan2(enemy.facingY ?? 1, enemy.facingX ?? 0);
             ctx.strokeStyle = "#83d5f2"; ctx.lineWidth = 7;
@@ -2966,9 +2985,9 @@ function drawPoisonGas() {
         const remaining = Math.max(0, cloud.remaining - elapsed);
         if (!remaining) continue;
         ctx.save(); ctx.globalAlpha = Math.min(1, remaining);
-        ctx.fillStyle = "rgb(111 204 64 / 15%)"; ctx.strokeStyle = "rgb(149 231 91 / 45%)"; ctx.lineWidth = 1.5;
+        ctx.fillStyle = "rgb(105 223 255 / 15%)"; ctx.strokeStyle = "rgb(105 223 255 / 45%)"; ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.arc(cloud.x, cloud.y, cloud.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "rgb(166 232 99 / 14%)";
+        ctx.fillStyle = "rgb(145 235 255 / 14%)";
         for (let i = 0; i < 10; i++) {
             const angle = i * 2.4 + now / 3600, distance = cloud.radius * (.25 + (i % 3) * .22);
             ctx.beginPath(); ctx.arc(cloud.x + Math.cos(angle) * distance,
@@ -2987,6 +3006,14 @@ function drawGachaWeaponEffect(effect, now) {
         ctx.shadowColor = "#50d7ff"; ctx.shadowBlur = 18;
         ctx.beginPath(); ctx.moveTo(effect.fromX, effect.fromY); ctx.lineTo(effect.x, effect.y); ctx.stroke();
         ctx.strokeStyle = "#eeffff"; ctx.lineWidth = 4; ctx.stroke(); ctx.restore();
+    } else if (effect.weapon === "freezeGun" && age < 220) {
+        ctx.save(); ctx.globalAlpha = 1 - age / 220; ctx.strokeStyle = "#b8efff"; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(effect.fromX, effect.fromY); ctx.lineTo(effect.x, effect.y); ctx.stroke(); ctx.restore();
+    } else if (effect.weapon === "plasmaBlade" && age < 240) {
+        const angle = Math.atan2(effect.y - effect.fromY, effect.x - effect.fromX);
+        ctx.save(); ctx.globalAlpha = 1 - age / 240; ctx.strokeStyle = "#76eaff"; ctx.lineWidth = 12;
+        ctx.shadowColor = "#76eaff"; ctx.shadowBlur = 18;
+        ctx.beginPath(); ctx.arc(effect.fromX, effect.fromY, 115, angle - Math.PI / 2, angle + Math.PI / 2); ctx.stroke(); ctx.restore();
     } else if (effect.weapon === "repulsor" && age < 200) {
         const angle = Math.atan2(effect.y - effect.fromY, effect.x - effect.fromX);
         const radius = Math.hypot(effect.x - effect.fromX, effect.y - effect.fromY) * age / 200;
@@ -3001,9 +3028,9 @@ function drawGachaWeaponEffect(effect, now) {
 
 function drawMissiles() {
     for (const strike of state.missiles || []) {
-        ctx.save(); ctx.strokeStyle = "#7adba1"; ctx.lineWidth = 2;
+        ctx.save(); ctx.strokeStyle = "#69dfff"; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(strike.x, strike.y, strike.radius, 0, Math.PI * 2); ctx.stroke();
-        ctx.fillStyle = "#153f2a"; ctx.font = "bold 14px monospace"; ctx.textAlign = "center";
+        ctx.fillStyle = "#69dfff"; ctx.font = "bold 14px monospace"; ctx.textAlign = "center";
         ctx.fillText(Math.max(0, strike.remaining - (performance.now() - state.artilleryReceivedAt) / 1000).toFixed(1), strike.x, strike.y); ctx.restore();
     }
 }
@@ -3052,11 +3079,11 @@ function drawTeleportPads() {
     for (const owner of state.players) {
         for (const [index, pad] of (owner.teleportPads || []).entries()) {
             ctx.save(); ctx.translate(pad.x, pad.y);
-            ctx.strokeStyle = owner.teleportPads.length === 2 ? "#aa83ff" : "#666";
+            ctx.strokeStyle = (pad.paired ?? owner.teleportPads.length === 2) ? (pad.pair === 1 ? "#66dfc6" : "#aa83ff") : "#666";
             ctx.fillStyle = "#211a36"; ctx.lineWidth = 3;
             ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
             ctx.fillStyle = "#eee"; ctx.font = "800 10px system-ui"; ctx.textAlign = "center";
-            ctx.fillText(`TP${index + 1}`, 0, 4); ctx.restore();
+            ctx.fillText(`TP${(pad.pair ?? Math.floor(index / 2)) + 1}`, 0, 4); ctx.restore();
         }
     }
 }
@@ -3281,9 +3308,9 @@ function drawHitEffects() {
         if (effect.effect === "explosion" || effect.effect === "acid-impact") {
             const progress = (now - effect.started) / 360;
             ctx.save(); ctx.globalAlpha = 1 - progress;
-            const acid = effect.effect === "acid-impact";
-            ctx.fillStyle = acid ? "rgb(185 231 67 / 30%)" : "rgb(255 164 64 / 25%)";
-            ctx.strokeStyle = acid ? "#d5f06a" : "#ffa440"; ctx.lineWidth = 4;
+            const allied = effect.source === "ally";
+            ctx.fillStyle = allied ? "rgb(105 223 255 / 25%)" : "rgb(255 112 80 / 25%)";
+            ctx.strokeStyle = allied ? "#69dfff" : "#ff805c"; ctx.lineWidth = 4;
             ctx.beginPath(); ctx.arc(effect.x, effect.y, effect.radius * (.25 + .75 * progress), 0, Math.PI * 2);
             ctx.fill(); ctx.stroke(); ctx.restore(); continue;
         }
@@ -3291,8 +3318,8 @@ function drawHitEffects() {
             const progress = (now - effect.started) / 900;
             ctx.save();
             ctx.globalAlpha = 1 - progress;
-            ctx.strokeStyle = "#79d8ff";
-            ctx.shadowColor = "#79d8ff";
+            ctx.strokeStyle = "#ff805c";
+            ctx.shadowColor = "#ff805c";
             ctx.shadowBlur = 22;
             ctx.lineWidth = 12 * (1 - progress) + 2;
             ctx.beginPath();
@@ -3313,7 +3340,7 @@ function drawHitEffects() {
             ctx.restore();
             continue;
         }
-        if (["laserCannon", "poisonGas", "repulsor"].includes(effect.weapon)) {
+        if (["laserCannon", "poisonGas", "repulsor", "freezeGun", "plasmaBlade"].includes(effect.weapon)) {
             drawGachaWeaponEffect(effect, now);
             continue;
         }
