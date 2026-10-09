@@ -693,7 +693,7 @@ final class CombatSystem {
     }
 
     private void knockbackEnemy(double fromX, double fromY, Enemy enemy, double amount) {
-        if (amount <= 0) return;
+        if (amount <= 0 || WardenRules.resistsKnockback(enemy.warden)) return;
         double dx = enemy.x - fromX;
         double dy = enemy.y - fromY;
         double length = Math.max(1, Math.hypot(dx, dy));

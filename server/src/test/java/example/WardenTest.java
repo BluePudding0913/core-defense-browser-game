@@ -145,6 +145,50 @@ class WardenTest {
         assertEquals(1, game.enemies.stream().filter(e -> e.type.equals("warden")).count());
     }
 
+    void hitWith(String weapon) {
+        player.weapons.grant(weapon); player.equipWeapon(weapon); player.cooldown = 0;
+        player.x = boss.x + 70; player.y = boss.y;
+        double hp = boss.hp;
+        game.combat.attackAt(player, boss.x, boss.y);
+        assertTrue(boss.hp < hp, "the hit must still deal damage");
+    }
+
+    @Test void repeatedHitsCannotCancelOrRedirectChargeWarning() throws Exception {
+        boss.hp = 600; update(.05);
+        double targetX = boss.warden.targetX, targetY = boss.warden.targetY;
+        for (int i = 0; i < 5; i++) {
+            hitWith("pistol"); update(.1);
+            assertEquals(WardenRules.Action.CHARGE_WARNING, boss.warden.action);
+            assertEquals(1020, boss.x); assertEquals(1900, boss.y);
+            assertEquals(targetX, boss.warden.targetX); assertEquals(targetY, boss.warden.targetY);
+        }
+        update(.5); assertEquals(WardenRules.Action.CHARGING, boss.warden.action);
+        update(.2); assertTrue(boss.x > 1020);
+        assertTrue(player.hp < 100, "the announced charge still hits");
+    }
+
+    @Test void meleeHitCannotMoveOrCancelPendingPulse() throws Exception {
+        boss.hp = 300; boss.warden.nextPulse = true; update(.05);
+        hitWith("bat");
+        assertEquals(1020, boss.x); assertEquals(1900, boss.y);
+        update(1.2);
+        assertEquals(74, player.hp, 1e-6);
+        assertEquals(WardenRules.Action.IDLE, boss.warden.action);
+    }
+
+    @Test void hitCannotInterruptActiveCharge() throws Exception {
+        boss.hp = 600; update(.05); update(1); update(.1);
+        double x = boss.x;
+        hitWith("pistol"); assertEquals(x, boss.x);
+        update(.1);
+        assertTrue(boss.x > x); assertEquals(WardenRules.Action.CHARGING, boss.warden.action);
+    }
+
+    @Test void idleWardenStillReceivesOrdinaryKnockback() {
+        hitWith("bat");
+        assertTrue(boss.x < 1020);
+        assertEquals(WardenRules.Action.IDLE, boss.warden.action);
+    }
     @Test void knockbackInterruptsChargeWarningInsteadOfChangingTheAnnouncedPath() throws Exception {
         boss.hp = 600; update(.05); boss.y += 30; update(.05);
         assertEquals(WardenRules.Action.IDLE, boss.warden.action);
