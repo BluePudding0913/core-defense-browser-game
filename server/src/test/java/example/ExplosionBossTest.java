@@ -70,7 +70,7 @@ class ExplosionBossTest {
         double hp = boss.hp;
         game.combat.damageEnemy(boss, 1000., player);
         assertEquals(hp - 1000, boss.hp);
-        assertEquals((2200 + game.round * 60) * 2, boss.maxHp);
+        assertEquals((2200 + game.round * 60) * 2 * 15, boss.maxHp);
         assertTrue(boss.speed <= 24);
         update(10);
         assertEquals(100, player.hp);
@@ -115,7 +115,7 @@ class ExplosionBossTest {
         assertTrue(player.down); assertEquals(0, player.hp);
     }
 
-    @Test void ordinaryShotsApplyFullDamageHeadshotsAndGold() throws Exception {
+    @Test void ordinaryShotsApplyFullDamageAndHeadshotsWithoutGold() throws Exception {
         player.x = 1020; player.y = 1900;
         boss.x = 1120; boss.y = 1900;
         double before = boss.hp;
@@ -128,7 +128,7 @@ class ExplosionBossTest {
             assertEquals(damage, before - boss.hp, .000001);
             assertTrue(effects.stream().anyMatch(s -> s.contains("\"damage\":" + damage)
                     && s.contains("\"headshot\":" + headshot)));
-            assertTrue(player.credits > 0);
+            assertEquals(0, player.credits, "including headshots");
             var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
             assertEquals(boss.hp, snapshot.path("enemies").get(0).path("hp").asDouble());
             before = boss.hp;
@@ -170,15 +170,15 @@ class ExplosionBossTest {
         assertFalse(boss.exploded);
     }
 
-    @Test void silverAmmoDoublesNormalDamageAgainstExplosionBoss() {
+    @Test void silverAmmoTriplesNormalDamageAgainstExplosionBoss() {
         game.phase = GamePhase.WAVE;
         player.x = 1020; player.y = 1900;
         boss.x = 1120; boss.y = 1900;
         assertTrue(player.weapons.buySilverAmmo(1));
         double hp = boss.hp;
         game.combat.attackAt(player, boss.x, boss.y);
-        assertEquals(52, hp - boss.hp, .000001);
-        assertEquals(9, player.weapons.silverAmmo());
+        assertEquals(78, hp - boss.hp, .000001);
+        assertEquals(19, player.weapons.silverAmmo());
     }
 
     @Test void areaAndSpreadKillsLeaveOneHealthyOffspringBatch() throws Exception {

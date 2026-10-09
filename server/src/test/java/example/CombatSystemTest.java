@@ -19,10 +19,10 @@ class CombatSystemTest {
                     combat.attackAt(player, enemy.x, enemy.y);
                     double base = WeaponCatalog.stats(weapon).damage();
                     double multiplier = job.equals("spy") && weapon.equals("pistol") ? 3 : 1;
-                    assertEquals(1000 - base * multiplier * (silver ? 2 : 1), enemy.hp, 1e-9);
+                    assertEquals(1000 - base * multiplier * (silver ? 3 : 1), enemy.hp, 1e-9);
                     player.cooldown = 0; enemy.hp = 1000;
                     combat.attackAt(player, enemy.x, enemy.y - 10.5);
-                    assertEquals(1000 - base * multiplier * (silver ? 2 : 1) * 2, enemy.hp, 1e-9);
+                    assertEquals(1000 - base * multiplier * (silver ? 3 : 1) * 2, enemy.hp, 1e-9);
                 }
             }
         }
@@ -98,7 +98,7 @@ class CombatSystemTest {
                 }
                 damage[hand] = enemy.maxHp - enemy.hp;
                 assertEquals(ammo - (definition.capacity() > 0 ? 1 : 0), player.weapons.ammo(weapon), weapon);
-                assertEquals(SilverAmmoRules.eligible(weapon) ? 9 : 10, player.weapons.silverAmmo(), weapon);
+                assertEquals(SilverAmmoRules.eligible(weapon) ? 19 : 20, player.weapons.silverAmmo(), weapon);
             }
             if (definition.stats().damage() == 0) assertEquals(0, damage[0], weapon);
             else assertTrue(damage[0] > 0, weapon);
@@ -134,12 +134,12 @@ class CombatSystemTest {
                 int normalAmmo = player.weapons.ammo(weapon);
                 combat.attackAt(player, 1400, 1900);
                 damage[variant] = 200000 - first.hp - second.hp;
-                assertEquals(variant == 1 ? 9 : 0, player.weapons.silverAmmo(), weapon);
+                assertEquals(variant == 1 ? 19 : 0, player.weapons.silverAmmo(), weapon);
                 if (WeaponCatalog.capacity(weapon) > 0) assertEquals(normalAmmo - 1, player.weapons.ammo(weapon));
                 if (WeaponCatalog.find(weapon).piercing()) assertTrue(second.hp < second.maxHp, weapon);
             }
             assertTrue(damage[0] > 0, weapon);
-            assertEquals(damage[0] * 2.0, damage[1], 1e-7, weapon);
+            assertEquals(damage[0] * 3.0, damage[1], 1e-7, weapon);
         }
     }
 
@@ -148,12 +148,12 @@ class CombatSystemTest {
         var combat = new CombatSystem(world, new Events());
         var player = shooter("smg", true);
         player.cooldown = 1; combat.attackAt(player, 1400, 1900);
-        assertEquals(10, player.weapons.silverAmmo());
+        assertEquals(20, player.weapons.silverAmmo());
         player.cooldown = 0; player.weapons.setAmmo("smg", 0);
         combat.attackAt(player, 1400, 1900);
-        assertEquals(10, player.weapons.silverAmmo());
-        player.weapons.setAmmo("smg", 20);
-        for (int i = 0; i < 9; i++) {
+        assertEquals(20, player.weapons.silverAmmo());
+        player.weapons.setAmmo("smg", 30);
+        for (int i = 0; i < 19; i++) {
             player.cooldown = 0; combat.attackAt(player, 1400, 1900);
         }
         assertEquals(1, player.weapons.silverAmmo());
@@ -163,7 +163,7 @@ class CombatSystemTest {
         assertEquals(0, player.weapons.silverAmmo());
         double before = enemy.hp;
         player.cooldown = 0; combat.attackAt(player, 1400, 1900);
-        assertEquals((before - enemy.hp) * 2.0, boosted, 1e-7);
+        assertEquals((before - enemy.hp) * 3.0, boosted, 1e-7);
     }
 
     @Test void excludedWeaponsAndMissilesNeitherSpendSilverNorGainDamage() {
@@ -178,7 +178,7 @@ class CombatSystemTest {
                 combat.attackAt(player, 1100, 1900);
                 if (weapon.equals("railgun")) combat.updateRailgun(player, GameConfig.RAILGUN_CHARGE + .1);
                 damage[variant] = enemy.maxHp - enemy.hp;
-                assertEquals(variant == 1 ? 10 : 0, player.weapons.silverAmmo(), weapon);
+                assertEquals(variant == 1 ? 20 : 0, player.weapons.silverAmmo(), weapon);
             }
             assertTrue(damage[0] > 0, weapon);
             assertEquals(damage[0], damage[1], 1e-7, weapon);
@@ -189,7 +189,7 @@ class CombatSystemTest {
         var enemy = target(world, 1, 1100);
         combat.missileImpact(player, 1100, 1900);
         assertEquals(MissileRules.damage(), enemy.maxHp - enemy.hp, 1e-7);
-        assertEquals(10, player.weapons.silverAmmo());
+        assertEquals(20, player.weapons.silverAmmo());
     }
 
     @Test void secondaryPistolAndDroneShareSilverAmmoWithTheOwner() {
@@ -198,21 +198,21 @@ class CombatSystemTest {
         var player = shooter("smg", true); player.job = "attacker"; player.equipSecondaryWeapon("pistol");
         var enemy = target(world, 1, 1100);
         combat.attackSecondary(player, 1400, 1900);
-        assertEquals(9, player.weapons.silverAmmo());
+        assertEquals(19, player.weapons.silverAmmo());
         double enhancedPistolDamage = enemy.maxHp - enemy.hp;
         var ordinary = shooter("pistol", false);
         double before = enemy.hp;
         combat.attackAt(ordinary, 1400, 1900);
-        assertEquals((before - enemy.hp) * 2.0, enhancedPistolDamage, 1e-7);
+        assertEquals((before - enemy.hp) * 3.0, enhancedPistolDamage, 1e-7);
         player.drone = new Drone(); player.drone.active = true; player.drone.controlled = true;
         player.drone.weapon = "smg"; player.drone.x = player.x; player.drone.y = player.y;
         before = enemy.hp;
         combat.attackAt(player, 1400, 1900);
-        assertEquals(8, player.weapons.silverAmmo());
+        assertEquals(18, player.weapons.silverAmmo());
         ordinary.weapon = "smg"; ordinary.weapons.grant("smg"); ordinary.cooldown = 0;
         double droneDamage = before - enemy.hp; before = enemy.hp;
         combat.attackAt(ordinary, 1400, 1900);
-        assertEquals((before - enemy.hp) * 2.0, droneDamage, 1e-7);
+        assertEquals((before - enemy.hp) * 3.0, droneDamage, 1e-7);
     }
 
     private static final class World implements CombatSystem.World {
@@ -307,7 +307,7 @@ class CombatSystemTest {
         player.cooldown = 1;
         combat.attackAt(player, 100, 100);
         assertEquals(WeaponCatalog.capacity("smg"), player.weapons.ammo("smg"));
-        assertEquals(10, player.weapons.silverAmmo());
+        assertEquals(20, player.weapons.silverAmmo());
         assertEquals(0, events.shots);
         assertEquals(0, events.feedback);
         player.cooldown = 0;
@@ -319,6 +319,6 @@ class CombatSystemTest {
         assertFalse(player.firing);
         assertEquals(0, events.shots);
         assertEquals(1, events.feedback);
-        assertEquals(10, player.weapons.silverAmmo());
+        assertEquals(20, player.weapons.silverAmmo());
     }
 }

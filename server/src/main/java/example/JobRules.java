@@ -15,7 +15,7 @@ final class JobRules {
     static final double TANK_DAMAGE_FACTOR = .75;
     static final double TANK_WALL_COOLDOWN = 20;
     static final double TANK_WALL_DURATION = 20;
-    static final double TANK_WALL_HP = 2400;
+    static final double TANK_WALL_HP = 10_000;
     static final double SPY_DURATION = 8;
     static final double SPY_COOLDOWN = 30;
     static final double SPY_ATTACK_CONCEAL_CHANCE = .8;

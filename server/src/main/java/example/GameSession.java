@@ -53,11 +53,11 @@ final class GameSession {
 
     static int ammoRefillCost(String weapon) {
         return switch (weapon) {
-            case "flamethrower" -> 5_000;
-            case "rocket" -> 8_000;
-            case "railgun" -> 12_000;
-            case "laserCannon" -> 6_000;
-            case "poisonGas" -> 3_000;
+            case "flamethrower" -> 2_000;
+            case "rocket" -> 2_500;
+            case "railgun" -> 3_000;
+            case "laserCannon" -> 2_000;
+            case "poisonGas" -> 1_000;
             default -> ammoRefillCost();
         };
     }
@@ -1306,10 +1306,10 @@ final class GameSession {
                 wardenSpawned = true;
             }
             case "explosionBoss" -> {
-                hp = 2200 + round * 60;
+                hp = (2200 + round * 60) * 15;
                 speed = 24;
                 damage = 0;
-                reward = 650;
+                reward = 0;
                 explosionBossSpawned = true;
             }
             case "bomber" -> {
@@ -3004,7 +3004,7 @@ final class GameSession {
     }
 
     private void carryNearest(Player player, String target) {
-        if (!canUseFacilities() || player.down || player.movingCore || player.selectedBuild != null) return;
+        if (!canUseFacilities() || player.down || player.movingCore) return;
         MaterialFactory quarry = factories.stream().filter(unit -> (target == null || unit.id.equals(target))
                 && canInteract(player, unit.x, unit.y, 70))
                 .min(Comparator.comparingDouble(unit -> distance(player.x, player.y, unit.x, unit.y)))
@@ -3015,7 +3015,7 @@ final class GameSession {
                 .filter(unit -> target == null || unit.id.equals(target))
                 .min(Comparator.comparingDouble(unit -> distance(player.x, player.y, unit.x, unit.y)))
                 .orElse(null);
-        boolean nearCore = (target == null || target.equals("core"))
+        boolean nearCore = player.selectedBuild == null && (target == null || target.equals("core"))
                 && canInteract(player, coreX, coreY, 100);
         if (quarry != null && (slot == null || distance(player.x, player.y, quarry.x, quarry.y)
                 <= distance(player.x, player.y, slot.x, slot.y))

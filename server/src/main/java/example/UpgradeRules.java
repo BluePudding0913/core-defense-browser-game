@@ -5,7 +5,7 @@ final class UpgradeRules {
     static final String AREA = "last-line";
     static final int ENCHANT_MAX = 3;
     static final double ENCHANT_STEP = .25, BOTTOMS_REDUCTION = .1, TOPS_REDUCTION = .2;
-    static final int BOTTOMS_COST = 60_000, TOPS_COST = 100_000;
+    static final int BOTTOMS_COST = 15_000, TOPS_COST = 25_000;
     static final int COMPRESSION_COST = 32;
     static final int TEAM_COST = 50_000;
     static final double TEAM_DURATION = 120;
