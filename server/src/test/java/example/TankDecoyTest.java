@@ -99,14 +99,14 @@ class TankDecoyTest {
         game.handleMessage(player, "TANK_WALL"); assertEquals(2, game.trapSlots.size());
         TrapSlot wall = game.trapSlots.get(0); assertEquals("barricade", wall.defense.type);
         for (TrapSlot segment : game.trapSlots) {
-            assertEquals(2400, segment.defense.hp);
-            assertEquals(2400, segment.defense.maxHp);
+            assertEquals(10000, segment.defense.hp);
+            assertEquals(10000, segment.defense.maxHp);
             assertEquals(player.id, segment.ownerId);
             assertEquals(20, segment.temporaryRemaining);
         }
         var slots = new ObjectMapper().readTree(SnapshotBuilder.build(game)).get("slots");
         assertEquals(2, slots.size());
-        assertEquals(2400, slots.get(0).get("defense").get("maxHp").asDouble());
+        assertEquals(10000, slots.get(0).get("defense").get("maxHp").asDouble());
         assertEquals(JobRules.TANK_WALL_COOLDOWN, player.jobCooldown);
         call("removeDefense", new Class<?>[]{Player.class, String.class}, player, wall.id);
         assertEquals(2, game.trapSlots.size()); assertEquals(0, player.barricadeItems);

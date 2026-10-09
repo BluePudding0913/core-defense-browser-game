@@ -109,17 +109,17 @@ class GameplayRevisionTest {
         player.weapons.setAmmo("shotgun", 29); player.weapons.setAmmo("smg", 1); player.weapons.setAmmo("rifle", 12);
         player.weapons.setAmmo("sniper", 0); player.weapons.setAmmo("revolver", 25); player.weapons.setAmmo("lmg", 150);
         game.handleMessage(player, "BUY:ammo");
-        assertEquals(500, player.credits);
+        assertEquals(750, player.credits);
         assertEquals(List.of(50, 240, 30, 15, 30, 600), List.of(player.weapons.ammo("shotgun"),
                 player.weapons.ammo("smg"), player.weapons.ammo("rifle"), player.weapons.ammo("sniper"), player.weapons.ammo("revolver"), player.weapons.ammo("lmg")));
         for (int i = 0; i < 3; i++) game.handleMessage(player, "BUY:ammo");
-        assertEquals(500, player.credits);
+        assertEquals(750, player.credits);
         assertEquals(600, player.weapons.ammo("lmg"));
-        player.weapons.setAmmo("shotgun", 0); player.credits = 499;
+        player.weapons.setAmmo("shotgun", 0); player.credits = 249;
         game.handleMessage(player, "BUY:ammo");
         assertEquals(0, player.weapons.ammo("shotgun"));
-        assertEquals(499, player.credits);
-        player.credits = 500;
+        assertEquals(249, player.credits);
+        player.credits = 250;
         game.handleMessage(player, "BUY:ammo");
         assertEquals(50, player.weapons.ammo("shotgun"));
         assertEquals(0, player.credits);

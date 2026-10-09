@@ -50,12 +50,14 @@ assert.equal(title.textContent,'MAP'); assert(!panel.innerHTML.includes('MAP ONL
 assert.equal(cooldown.hidden,true,'hacker map does not display missile cooldown');
 assert.equal(enemyCount.hidden,false); assert.equal(enemyCount.textContent,'ENEMY 0');
 state.enemies=[{x:100,y:100,hp:10},{x:120,y:100,hp:0}];state.queued=5;
-me.id='self';state.players=[{id:'self',x:300,y:400},{id:'ally',x:350,y:400}];arcs=[];
+me.id='self';state.players=[{id:'self',name:'YOU',x:300,y:400},{id:'ally',name:'味方',x:350,y:400}];arcs=[];
 window.TerminalUI.update(state,me,{map,send:cmd=>sent.push(cmd)});
 assert.equal(enemyCount.textContent,'ENEMY 6','includes waiting enemies and ignores defeated enemies');
 assert(arcs.some(p=>p.x===100&&p.radius===12)); assert(!arcs.some(p=>p.x===120),'defeated enemies disappear from map');
 assert(arcs.some(p=>p.x===300&&p.radius===22),'own location gets an outline');
 assert(arcs.some(p=>p.x===350&&p.radius===14),'allies keep smaller markers');
+assert(markers.some(p=>p.text==='味方'&&p.x===350&&p.y<400),'name appears above ally');
+assert(markers.some(p=>p.text==='YOU'&&p.x===300&&p.y<400),'own name also appears');
 me.breakerControl=null;
 window.TerminalUI.update(state,me,{map,send:cmd=>sent.push(cmd)});
 assert.equal(title.textContent,'MISSILE SYSTEM');

@@ -870,7 +870,9 @@ function beginInteractionHold() {
             hold.used = true;
             send(`PICKUP_TELEPORT:${interaction.target.x}:${interaction.target.y}`);
         }, 500);
-    } else if (target && actionMenu.classList.contains("hidden") && !placementSelection(getMe())) {
+    } else if (target && actionMenu.classList.contains("hidden")
+            && (!placementSelection(getMe()) || ["defense", "factory"].includes(interaction.kind)
+                && !placementSelection(getMe()).forCore)) {
         hold.timer = setTimeout(() => {
             hold.used = true;
             send(`CARRY_NEAREST:${target}`);

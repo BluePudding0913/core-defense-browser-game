@@ -503,7 +503,7 @@ final class CombatSystem {
             double damage = weapon.damage() * (headshot ? 2 : 1);
             if (WeaponCatalog.find(shotWeapon(player)).mode() != WeaponCatalog.AttackMode.MELEE) damage = hit.shieldedDamage(damage, originX, originY);
             double dealt = damageEnemy(hit, damage, player);
-            if (headshot) awardCredits(player, 3, shotWeapon(player));
+            if (headshot && !hit.type.equals("explosionBoss")) awardCredits(player, 3, shotWeapon(player));
             knockbackEnemy(originX, originY, hit, weapon.knockback());
             events.hit(player.id, shotWeapon(player), shotX(player), shotY(player), hit.x, hit.y,
                     dealt, hit.hp <= 0, player.credits - creditsBeforeHit, headshot, hit.id);
@@ -598,7 +598,7 @@ final class CombatSystem {
         if (player != null && dealt > 0) {
             JobRules.recordSpyAttack(player, enemy, random);
             enemy.creditProgress += enemy.reward * dealt / enemy.maxHp;
-            int earnedCredits = Math.min(enemy.reward,
+            int earnedCredits = enemy.type.equals("explosionBoss") ? 0 : Math.min(enemy.reward,
                     (int) Math.floor(enemy.creditProgress + 1e-9));
             int payout = earnedCredits - enemy.paidCredits;
             if (payout > 0) {

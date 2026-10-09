@@ -133,7 +133,7 @@ class GachaArsenalTest {
         assertTrue(state.path("rules").path("weapons").path("poisonGas").path("gachaOnly").asBoolean());
         assertEquals("LASER CANNON",state.path("rules").path("weapons").path("laserCannon").path("name").asText());
         var ammo=GameMap.shopByItem("ammo");player.x=ammo.x();player.y=ammo.y();player.credits=10000;
-        game.handleMessage(player,"BUY:ammo");assertEquals(7000,player.credits);assertEquals(12,player.weapons.ammo("poisonGas"));
+        game.handleMessage(player,"BUY:ammo");assertEquals(9000,player.credits);assertEquals(12,player.weapons.ammo("poisonGas"));
         game.phase=GamePhase.LOST;game.handleMessage(player,"START");assertTrue(game.poisonClouds.isEmpty());
     }
     @Test void gasCloudCountIsBoundedAndDisconnectedOwnersStopDealingDamage() {

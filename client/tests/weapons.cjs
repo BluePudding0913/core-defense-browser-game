@@ -44,11 +44,11 @@ for (const [weapon, {capacity}] of Object.entries(context.rules.weapons).filter(
 context.shop = map.shopUnits.find(shop => shop.item === 'ammo');
 vm.runInContext('openShopPurchase(shop)', context);
 assert.equal(options[0].label, 'REFILL');
-assert.equal(options[0].detail, '500G');
-me.credits = 499;
+assert.equal(options[0].detail, '250G');
+me.credits = 249;
 vm.runInContext('openShopPurchase(shop)', context);
 assert(options[0].disabled);
-me.credits = 500;
+me.credits = 250;
 vm.runInContext('openShopPurchase(shop)', context);
 assert(!options[0].disabled);
 for (const rule of Object.values(context.rules.weapons)) if (me[rule.owned]) me[rule.ammo] = rule.capacity;
