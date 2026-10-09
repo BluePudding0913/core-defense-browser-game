@@ -908,8 +908,10 @@ actionMenu.addEventListener("pointerdown", event => {
     if (event.target === actionMenu) closeActionMenu();
 });
 inventoryMenu.addEventListener("pointerdown", event => {
+    if (!event.target.closest(".inventory-popover, [data-inventory-item]")) closeInventoryPopover();
     if (event.target === inventoryMenu) inventoryMenu.classList.add("hidden");
 });
+inventoryMenu.addEventListener("scroll", closeInventoryPopover, true);
 howToStart.addEventListener("click", openHowTo);
 howToInventory.addEventListener("click", openHowTo);
 howToClose.addEventListener("click", closeHowTo);
@@ -964,7 +966,7 @@ function updateHud() {
         const cooldownMax = Math.max(.01, me.cooldownMax || me.cooldown || .01);
         const cooldownProgress = showingItem ? 1 : 1 - Math.min(1, me.cooldown / cooldownMax);
         weaponName.textContent = me.movingCore ? "CORE"
-            : selectedBuild ? BUILD_INFO[selectedBuild].name : WeaponUI.name(me.weapon, WEAPON_FIELDS);
+            : selectedBuild ? BUILD_INFO[selectedBuild].name : WeaponUI.name(me.weapon, WEAPON_FIELDS, me);
         weaponAmmo.textContent = me.movingCore ? "" : selectedBuild
             ? `×${me.buildItems[selectedBuild]}` : ammoForWeapon(me, me.weapon);
         weaponIcon.className = `weapon-icon ${me.movingCore ? "core" : selectedBuild ? `build-${selectedBuild}` : me.weapon}`;
@@ -975,7 +977,7 @@ function updateHud() {
         weaponButton.classList.toggle("locked", me.movingCore);
         weaponButton.disabled = me.movingCore;
         if (me.drone?.controlled) {
-            weaponName.textContent = me.drone.weapon ? `DRONE / ${WeaponUI.name(me.drone.weapon, WEAPON_FIELDS)}` : "DRONE";
+            weaponName.textContent = me.drone.weapon ? `DRONE / ${WeaponUI.name(me.drone.weapon, WEAPON_FIELDS, me)}` : "DRONE";
             weaponAmmo.textContent = me.drone.weapon ? ammoForWeapon(me, me.drone.weapon) : "";
             weaponIcon.className = `weapon-icon ${me.drone.weapon || "drone"}`;
             weaponCooldown.textContent = !me.drone.weapon ? "UNARMED" : WeaponUI.cooldownLabel(me.drone.cooldown);
@@ -1007,7 +1009,7 @@ function updateSecondaryHud(me) {
     document.querySelector("#secondary-icon").className = `weapon-icon ${weapon}`;
     const progress = 1 - Math.min(1, (me.secondaryCooldown || 0) / Math.max(.01, me.secondaryCooldownMax || me.secondaryCooldown || .01));
     panel.style.setProperty("--cooldown-progress", `${progress * 100}%`);
-    document.querySelector("#secondary-name").textContent = WeaponUI.name(weapon, WEAPON_FIELDS);
+    document.querySelector("#secondary-name").textContent = WeaponUI.name(weapon, WEAPON_FIELDS, me);
     document.querySelector("#secondary-ammo").textContent = ammoForWeapon(me, weapon);
     document.querySelector("#secondary-cooldown").textContent = WeaponUI.cooldownLabel(
         me.secondaryCooldown, me.secondaryRailgunCharge, me.secondaryRailgunRemaining);
@@ -1050,33 +1052,44 @@ document.querySelector("#attacker-loadout").addEventListener("change", event => 
 function updateInventory(me) {
     if (!inventoryItems.querySelector(".equipment-grid")) {
         inventoryItems.innerHTML = `
-            <div class="inventory-health" role="status"></div>
+            <div class="inventory-status"><div class="inventory-health" role="status"></div><strong class="inventory-gold"></strong></div>
+            <div class="inventory-section"><h3>ARMOR <span class="armor-total"></span></h3><div class="inventory-grid armor-grid">
+                <div class="armor-slot" data-armor="tops"><i class="armor-icon tops" aria-hidden="true"></i><strong>TOPS</strong><span></span></div>
+                <div class="armor-slot" data-armor="bottoms"><i class="armor-icon bottoms" aria-hidden="true"></i><strong>BOTTOMS</strong><span></span></div>
+            </div></div>
             <div class="inventory-section"><h3>EQUIPMENT</h3><div class="inventory-grid equipment-grid"></div></div>
             <div class="inventory-section inventory-sub" hidden><h3>SUB</h3><div class="inventory-resource"><strong></strong><span></span></div></div>
             <div class="inventory-section"><h3>ITEMS</h3><div class="inventory-grid">
-                <div class="inventory-resource" data-item="medkit">
+                <button type="button" class="inventory-resource" data-item="medkit" data-inventory-item="medkit" aria-haspopup="true" aria-expanded="false">
                     <strong>回復キット</strong><span class="item-count"></span>
-                    <div class="resource-actions">
-                        <button type="button" data-use="medkit">使用</button>
-                        <button type="button" data-drop-item="medkit" data-amount="1">1個落とす</button>
-                        <button type="button" data-drop-item="medkit" data-amount="all">全部落とす</button>
-                    </div>
-                </div>
+                </button>
             </div></div>
             <div class="inventory-section"><h3>MATERIALS</h3><div class="inventory-grid materials-grid">
                 ${resourceInventoryCard("wood")}
                 ${resourceInventoryCard("ore")}
                 ${resourceInventoryCard("copper")}
                 ${resourceInventoryCard("silver")}
-            </div></div>`;
+            </div></div>
+            <div class="inventory-popover" role="group" aria-label="アイテム操作" hidden>
+                <div class="inventory-popover-heading"><strong></strong><button type="button" data-close-inventory-actions aria-label="閉じる">×</button></div>
+                <div class="resource-actions">
+                    <button type="button" data-use="medkit">使用</button>
+                    <button type="button" data-amount="1">1個落とす</button>
+                    <button type="button" data-amount="all">全部落とす</button>
+                </div>
+            </div>`;
     }
     inventoryItems.querySelector(".inventory-health").textContent = `HP ${Math.ceil(me.hp)} / ${me.maxHp || 100}${me.down ? "（ダウン中）" : ""}`;
     const medkitCard = inventoryItems.querySelector('[data-item="medkit"]');
     medkitCard.querySelector(".item-count").textContent = `×${me.medkits || 0}`;
-    medkitCard.querySelectorAll("button").forEach(button => {
-        button.disabled = me.down || !(me.medkits > 0)
-            || Boolean(button.dataset.use && me.hp >= (me.maxHp || 100));
-    });
+    medkitCard.disabled = me.down || !(me.medkits > 0);
+    inventoryItems.querySelector(".inventory-gold").textContent = `${(me.credits || 0).toLocaleString()} G`;
+    for (const [piece, worn, reduction] of [["tops", me.armorTops, 20], ["bottoms", me.armorBottoms, 10]]) {
+        const slot = inventoryItems.querySelector(`[data-armor="${piece}"]`);
+        slot.classList.toggle("equipped", Boolean(worn));
+        slot.querySelector("span").textContent = worn ? `装着中 · −${reduction}%` : "未装備";
+    }
+    inventoryItems.querySelector(".armor-total").textContent = `被ダメージ −${(me.armorTops ? 20 : 0) + (me.armorBottoms ? 10 : 0)}%`;
     const entries = equipmentEntries(me);
     const selectedKey = me.movingCore ? "core"
         : me.selectedBuild ? `build:${me.selectedBuild}` : `weapon:${me.weapon}`;
@@ -1092,7 +1105,7 @@ function updateInventory(me) {
             button = document.createElement("button");
             button.type = "button";
             button.dataset.key = entry.key;
-            button.innerHTML = "<strong></strong><span></span>";
+            button.innerHTML = '<i aria-hidden="true"></i><strong></strong><span></span>';
             grid.insertBefore(button, grid.children[index] || null);
         }
         if (grid.children[index] !== button) grid.insertBefore(button, grid.children[index] || null);
@@ -1100,6 +1113,7 @@ function updateInventory(me) {
         button.disabled = entry.kind === "item" && (me.down || me.hp >= (me.maxHp || 100))
             || me.job === "attacker" && entry.kind === "weapon" && entry.value === me.secondaryWeapon;
         button.querySelector("strong").textContent = `${index + 1}. ${entry.label}`;
+        button.querySelector("i").className = `weapon-icon ${entry.kind === "build" ? "build-" : ""}${entry.value}`;
         button.querySelector("span").textContent = entry.kind === "build" ? `×${me.buildItems[entry.value]}`
             : entry.kind === "item" ? `×${me.medkits} · 使用する`
             : entry.kind === "core" ? ""
@@ -1109,7 +1123,7 @@ function updateInventory(me) {
     if (me.job === "attacker") {
         const sub = inventoryItems.querySelector(".inventory-sub");
         sub.hidden = false;
-        sub.querySelector("strong").textContent = WeaponUI.name(me.secondaryWeapon || "bat", WEAPON_FIELDS);
+        sub.querySelector("strong").textContent = WeaponUI.name(me.secondaryWeapon || "bat", WEAPON_FIELDS, me);
         const definition = WEAPON_FIELDS[me.secondaryWeapon];
         sub.querySelector("span").textContent = WeaponUI.ammo(me, me.secondaryWeapon || "bat", WEAPON_FIELDS)
             + (definition?.capacity > 0 ? ` / ${WeaponUI.capacity(me, definition)}` : "");
@@ -1120,8 +1134,9 @@ function updateInventory(me) {
     for (const type of Object.keys(RESOURCE_NAMES)) {
         const card = inventoryItems.querySelector(`[data-resource="${type}"]`);
         card.querySelector(".resource-count").textContent = `×${me[type] || 0}`;
-        card.querySelectorAll("button").forEach(button => { button.disabled = me.down || !(me[type] > 0); });
+        card.disabled = me.down || !(me[type] > 0);
     }
+    updateInventoryPopover(me);
 }
 
 inventoryItems.addEventListener("click", event => {
@@ -1129,7 +1144,22 @@ inventoryItems.addEventListener("click", event => {
     const button = event.target.closest("button");
     const me = getMe();
     if (!button || button.disabled || !me || me.down) return;
-    if (button.dataset.key) {
+    if (button.dataset.inventoryItem) {
+        const popup = inventoryItems.querySelector(".inventory-popover");
+        const type = button.dataset.inventoryItem;
+        if (!popup.hidden && popup.dataset.item === type) { closeInventoryPopover(); return; }
+        closeInventoryPopover();
+        popup.dataset.item = type;
+        popup.hidden = false;
+        button.setAttribute("aria-expanded", "true");
+        updateInventoryPopover(me);
+        const rect = button.getBoundingClientRect();
+        popup.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - popup.offsetWidth - 8))}px`;
+        popup.style.top = `${Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - popup.offsetHeight - 8))}px`;
+    } else if (button.hasAttribute("data-close-inventory-actions")) {
+        closeInventoryPopover();
+    } else if (button.dataset.key) {
+        closeInventoryPopover();
         const entry = equipmentEntries(me).find(candidate => candidate.key === button.dataset.key);
         if (entry) selectEquipment(entry);
     } else if (button.dataset.use) {
@@ -1140,18 +1170,37 @@ inventoryItems.addEventListener("click", event => {
     } else if (button.dataset.drop) {
         const type = button.dataset.drop;
         const amount = button.dataset.amount === "all" ? me[type] : 1;
-        if (amount > 0) send(`DROP_RESOURCE:${type}:${amount}`);
+        if (me[type] > 0 && amount > 0) send(`DROP_RESOURCE:${type}:${amount}`);
     }
 });
 
 function resourceInventoryCard(type) {
-    return `<div class="inventory-resource" data-resource="${type}">
+    return `<button type="button" class="inventory-resource" data-resource="${type}" data-inventory-item="${type}" aria-haspopup="true" aria-expanded="false">
         <strong>${RESOURCE_NAMES[type]}</strong><span class="resource-count"></span>
-        <div class="resource-actions">
-            <button type="button" data-drop="${type}" data-amount="1">1個落とす</button>
-            <button type="button" data-drop="${type}" data-amount="all">全部落とす</button>
-        </div>
-    </div>`;
+    </button>`;
+}
+
+function closeInventoryPopover() {
+    const popup = inventoryItems.querySelector(".inventory-popover");
+    if (popup) popup.hidden = true;
+    inventoryItems.querySelector('[aria-expanded="true"]')?.setAttribute("aria-expanded", "false");
+}
+
+function updateInventoryPopover(me) {
+    const popup = inventoryItems.querySelector(".inventory-popover");
+    if (!popup || popup.hidden) return;
+    const type = popup.dataset.item;
+    const count = type === "medkit" ? me.medkits : me[type];
+    if (me.down || !(count > 0)) { closeInventoryPopover(); return; }
+    popup.querySelector("strong").textContent = `${type === "medkit" ? "回復キット" : RESOURCE_NAMES[type]} ×${count}`;
+    const use = popup.querySelector("[data-use]");
+    use.hidden = type !== "medkit";
+    use.disabled = me.hp >= (me.maxHp || 100);
+    for (const button of popup.querySelectorAll("[data-amount]")) {
+        delete button.dataset.drop;
+        delete button.dataset.dropItem;
+        button.dataset[type === "medkit" ? "dropItem" : "drop"] = type;
+    }
 }
 
 let inventoryDrag = null;
@@ -1191,6 +1240,7 @@ inventoryItems.addEventListener("pointercancel", event => finishInventoryDrag(ev
 inventoryItems.addEventListener("lostpointercapture", event => finishInventoryDrag(event, false));
 
 function toggleInventory() {
+    closeInventoryPopover();
     endInteractionHold(true);
     if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
     if (secondaryHeld) stopSecondaryFiring();
@@ -1538,7 +1588,7 @@ function openShopPurchase(shop, chooseExchange = false) {
         openUpgradeShop(shop);
         return;
     }
-    const ammoShop = ["ammo", "frontlineAmmo"].includes(shop.item);
+    const ammoShop = shop.item === "ammo";
     if (shop.item === "medkit") {
         openNearbyActionMenu(shop.label, [{
             label: "回復キット",
@@ -1559,6 +1609,8 @@ function openShopPurchase(shop, chooseExchange = false) {
         return;
     }
     const weaponFields = WEAPON_FIELDS[shop.item];
+    const level = me.enchantments?.[shop.item] || 0;
+    const title = shop.label + (weaponFields && level > 0 ? ` +${level}` : "");
     const alreadyOwned = Boolean(weaponFields && WeaponUI.owns(me, weaponFields));
     const ammo = alreadyOwned ? me[weaponFields.ammo] : 0;
     const mountedWeapon = me.drone?.active ? me.drone.weapon : null;
@@ -1574,7 +1626,7 @@ function openShopPurchase(shop, chooseExchange = false) {
     const weaponLimitReached = weaponFields && !alreadyOwned
         && WeaponUI.atLimit(me, WEAPON_FIELDS, state.rules.weaponLimit);
     if (weaponLimitReached && chooseExchange) {
-        openNearbyActionMenu(shop.label, WeaponUI.entries(me, WEAPON_FIELDS)
+        openNearbyActionMenu(title, WeaponUI.entries(me, WEAPON_FIELDS)
             .filter(entry => entry.value !== "bat" && entry.value !== mountedWeapon).map(entry => ({
                 label: `交換: ${entry.label}`,
                 command: `BUY:${shop.item}:${entry.value}`,
@@ -1592,7 +1644,7 @@ function openShopPurchase(shop, chooseExchange = false) {
         onSelect: weaponLimitReached ? () => openShopPurchase(shop, true) : undefined,
         disabled: mounted || ammoFull || unavailable || me.credits < price,
     }];
-    openNearbyActionMenu(shop.label, options, shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
+    openNearbyActionMenu(title, options, shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
 }
 
 function openUpgradeShop(shop) {
@@ -1603,7 +1655,7 @@ function openUpgradeShop(shop) {
             const level = me.enchantments?.[entry.value] || 0;
             const max = level >= rules.enchantMax;
             const price = rules.enchantCosts[level];
-            return {label: `${entry.label} +${level}`, detail: max ? "MAX" : `火力 +${Math.round(rules.enchantStep * 100)}% · ${price}G`,
+            return {label: entry.label, detail: max ? "MAX" : `火力 +${Math.round(rules.enchantStep * 100)}% · ${price}G`,
                 command: `BUY:enchant:${entry.value}`, disabled: max || me.credits < price
                     || me.drone?.active && me.drone.weapon === entry.value};
         });

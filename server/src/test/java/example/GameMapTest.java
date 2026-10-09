@@ -355,7 +355,7 @@ class GameMapTest {
                 .findFirst().map(UnlockArea::id).orElse("outside"))
                 .collect(Collectors.toSet());
 
-        assertEquals(WeaponCatalog.ALL.stream().filter(WeaponCatalog.Definition::usesAmmo).count() + 2, weaponShops.size());
+        assertEquals(WeaponCatalog.ALL.stream().filter(WeaponCatalog.Definition::usesAmmo).count() + 3, weaponShops.size());
         assertEquals(weaponShops.size() - 2, shopAreas.size(),
                 "heavy weapons share HEAVY ARMS; other shops occupy different progression areas");
         UnlockArea heavy = GameMap.areaById("heavy-arms-area");

@@ -25,6 +25,11 @@ vm.runInContext(extract('updateSecondaryHud') + extract('equipmentEntries'), con
 context.updateSecondaryHud(me);
 assert.equal(field('#secondary-hud').hidden, false);
 assert.equal(field('#secondary-name').textContent, 'SMG');
+me.enchantments = {smg: 2}; context.updateSecondaryHud(me);
+assert.equal(field('#secondary-name').textContent, 'SMG +2');
+assert(context.equipmentEntries(me).some(entry => entry.label === 'SMG +2'), 'inventory uses the same upgrade suffix');
+assert(WeaponUI.ammoStock(me, definitions).includes('SMG +2'), 'ammo stock shows the upgraded weapon name');
+delete me.enchantments; context.updateSecondaryHud(me);
 assert.equal(field('#secondary-icon').className, 'weapon-icon smg');
 assert.equal(field('#secondary-hud')['--cooldown-progress'], '50%');
 assert.equal(field('#secondary-ammo').textContent, '173');

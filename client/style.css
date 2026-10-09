@@ -301,12 +301,12 @@ button, input { font: inherit; }
     backdrop-filter: blur(8px);
 }
 .inventory-card {
-    width: min(42rem, 92vw);
+    width: min(48rem, 94vw);
     max-height: 82vh;
     overflow: auto;
     border: 0;
     border-radius: 0;
-    background: rgb(22 22 22 / 88%);
+    background: rgb(18 21 25 / 96%);
     box-shadow: none;
 }
 .inventory-heading {
@@ -331,6 +331,26 @@ button, input { font: inherit; }
 .how-to-link:hover, .how-to-link:active { border-color: var(--accent-blue); color: var(--accent-blue); }
 .inventory-items { display: grid; gap: 1rem; padding: 1rem; }
 .inventory-health { color: var(--accent-blue); font: 800 1rem ui-monospace, monospace; }
+.inventory-status { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.inventory-gold { color: #edcf86; font: 850 .95rem ui-monospace, monospace; }
+.armor-total { float: right; color: var(--accent-blue); letter-spacing: 0; }
+.armor-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.armor-slot { position: relative; padding: .85rem .7rem .85rem 3.6rem; background: rgb(255 255 255 / 3%); color: #92979e; border: 1px solid rgb(255 255 255 / 9%); }
+.armor-slot strong { display: block; font: 850 .85rem ui-monospace, monospace; }
+.armor-slot span { display: block; margin-top: .35rem; font-size: .8rem; }
+.armor-slot.equipped { color: var(--accent-blue); border-color: rgb(121 216 255 / 38%); background: rgb(121 216 255 / 7%); }
+.armor-icon { position: absolute; left: .85rem; top: 1rem; width: 2rem; height: 2rem; background: currentColor; opacity: .8; }
+.armor-icon.tops { clip-path: polygon(28% 0, 40% 12%, 60% 12%, 72% 0, 100% 20%, 85% 43%, 73% 35%, 73% 100%, 27% 100%, 27% 35%, 15% 43%, 0 20%); }
+.armor-icon.bottoms { clip-path: polygon(18% 0, 82% 0, 95% 100%, 58% 100%, 50% 40%, 42% 100%, 5% 100%); }
+.inventory-popover { position: fixed; z-index: 12; width: 14rem; padding: .75rem; border: 1px solid rgb(121 216 255 / 35%); background: #1a2027; box-shadow: 0 8px 24px #0009; }
+.inventory-popover[hidden] { display: none; }
+.inventory-popover-heading { display: flex; align-items: center; justify-content: space-between; font-size: .85rem; }
+.inventory-popover-heading button { border: 0; background: transparent; color: #aaa; font-size: 1.2rem; cursor: pointer; }
+.inventory-popover .resource-actions { flex-wrap: wrap; }
+.inventory-popover [data-use] { flex-basis: 100%; color: var(--accent-blue); }
+.inventory-popover [data-use][hidden] { display: none; }
+.equipment-grid > button { position: relative; }
+.equipment-grid .weapon-icon { position: absolute; left: -.5rem; top: .15rem; transform: scale(.48); pointer-events: none; }
 .weapon-icon.build-copperTurret::before, .weapon-icon.build-silverTurret::before { left: 1rem; top: .75rem; width: 2.7rem; height: 1.45rem; border: .14rem solid #eee; background: #777; }
 .weapon-icon.build-copperTurret::after, .weapon-icon.build-silverTurret::after { left: 2.12rem; top: -.25rem; width: .55rem; height: 1.45rem; background: #79d8ff; }
 .weapon-icon.build-overclockSilver::before { left: 1rem; top: .75rem; width: 2.7rem; height: 1.45rem; border: .14rem solid #eee; background: #b686ff; }
@@ -343,7 +363,7 @@ button, input { font: inherit; }
     padding: .72rem .8rem;
     border: 0;
     border-radius: 0;
-    background: transparent;
+    background: rgb(255 255 255 / 4%);
     color: white;
     text-align: left;
 }
@@ -352,6 +372,10 @@ button, input { font: inherit; }
 .inventory-grid > button span,
 .inventory-resource span { display: block; margin-top: .34rem; color: rgb(255 255 255 / 68%); font: 850 .8rem ui-monospace, monospace; }
 .inventory-grid > button.selected { color: var(--accent-blue); }
+.equipment-grid > button { padding-left: 3.6rem; }
+.inventory-grid > button.selected { background: rgb(121 216 255 / 10%); box-shadow: inset 2px 0 var(--accent-blue); }
+.inventory-grid > button:not(:disabled):hover { background: rgb(255 255 255 / 9%); }
+.inventory-grid > button:disabled { opacity: .45; }
 .materials-grid { grid-template-columns: repeat(2, minmax(8rem, 1fr)); }
 .resource-actions { display: flex; gap: .35rem; margin-top: .65rem; }
 .resource-actions button {
