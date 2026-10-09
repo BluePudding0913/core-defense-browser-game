@@ -761,7 +761,7 @@ button, input { font: inherit; }
 .weapon-icon.flamethrower::before { left: .4rem; top: .7rem; width: 3.8rem; height: .8rem; background: #d88636; }
 .weapon-icon.flamethrower::after { left: 1rem; top: 1.5rem; width: 1rem; height: .9rem; background: #555; }
 
-#self-job { position: absolute; top: 100%; left: 0; white-space: nowrap; color: #cbd3d8; font-size: 1rem; font-weight: 700; }
+#self-job { position: absolute; top: 100%; left: 0; white-space: nowrap; color: #ffffff; font-size: 1rem; font-weight: 700; }
 .shop-ammo { color: #9ca6ad; font-size: .8em; font-weight: normal; margin-left: .45em; }
 .ammo-refill-row { display: block; margin-top: .25rem; font-size: .85rem; }
 
