@@ -1282,7 +1282,7 @@ final class GameSession {
         int reward;
         switch (type) {
             case "warden" -> {
-                hp = 1600 + round * 50;
+                hp = (1600 + round * 50) * 10;
                 speed = 44;
                 damage = 38 + round * .6;
                 reward = 600;
