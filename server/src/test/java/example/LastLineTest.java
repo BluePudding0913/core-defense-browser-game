@@ -34,16 +34,16 @@ class LastLineTest {
 
     @Test void roomHasFiveDevicesAndWideDirectAccessFromHeavyArms() {
         UnlockArea area = GameMap.areaById(UpgradeRules.AREA);
-        assertEquals(70, area.tiles().size());
+        assertEquals(77, area.tiles().size());
         assertEquals(5, GameMap.SHOP_UNITS.stream().filter(s -> area.contains(s.x(), s.y())).count());
-        for (int col = 5; col <= 14; col++) {
+        for (int col = 5; col <= 15; col++) {
             assertTrue(GameMap.areaById("heavy-arms-area").tiles().contains(new AreaTile(col, 29)));
             assertTrue(area.tiles().contains(new AreaTile(col, 30)));
         }
         assertEquals(81, GameMap.areaById("relay-gallery").tiles().size());
         assertEquals(540, area.terminalX()); assertEquals(1220, area.terminalY());
         assertTrue(GameMap.SPAWN_POINTS.stream().noneMatch(s -> "last-line".equals(GameMap.spawnArea(s))));
-        for (int row = 30; row <= 36; row++) for (int col = 15; col <= 17; col++) {
+        for (int row = 30; row <= 36; row++) for (int col = 16; col <= 17; col++) {
             assertTrue(GameMap.tileTypeAt(col, row).solid(), "wall separates LAST LINE from WOOD ROOM");
         }
     }
