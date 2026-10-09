@@ -908,8 +908,10 @@ actionMenu.addEventListener("pointerdown", event => {
     if (event.target === actionMenu) closeActionMenu();
 });
 inventoryMenu.addEventListener("pointerdown", event => {
+    if (!event.target.closest(".inventory-popover, [data-inventory-item]")) closeInventoryPopover();
     if (event.target === inventoryMenu) inventoryMenu.classList.add("hidden");
 });
+inventoryMenu.addEventListener("scroll", closeInventoryPopover, true);
 howToStart.addEventListener("click", openHowTo);
 howToInventory.addEventListener("click", openHowTo);
 howToClose.addEventListener("click", closeHowTo);
@@ -1050,33 +1052,44 @@ document.querySelector("#attacker-loadout").addEventListener("change", event => 
 function updateInventory(me) {
     if (!inventoryItems.querySelector(".equipment-grid")) {
         inventoryItems.innerHTML = `
-            <div class="inventory-health" role="status"></div>
+            <div class="inventory-status"><div class="inventory-health" role="status"></div><strong class="inventory-gold"></strong></div>
+            <div class="inventory-section"><h3>ARMOR <span class="armor-total"></span></h3><div class="inventory-grid armor-grid">
+                <div class="armor-slot" data-armor="tops"><i class="armor-icon tops" aria-hidden="true"></i><strong>TOPS</strong><span></span></div>
+                <div class="armor-slot" data-armor="bottoms"><i class="armor-icon bottoms" aria-hidden="true"></i><strong>BOTTOMS</strong><span></span></div>
+            </div></div>
             <div class="inventory-section"><h3>EQUIPMENT</h3><div class="inventory-grid equipment-grid"></div></div>
             <div class="inventory-section inventory-sub" hidden><h3>SUB</h3><div class="inventory-resource"><strong></strong><span></span></div></div>
             <div class="inventory-section"><h3>ITEMS</h3><div class="inventory-grid">
-                <div class="inventory-resource" data-item="medkit">
+                <button type="button" class="inventory-resource" data-item="medkit" data-inventory-item="medkit" aria-haspopup="true" aria-expanded="false">
                     <strong>回復キット</strong><span class="item-count"></span>
-                    <div class="resource-actions">
-                        <button type="button" data-use="medkit">使用</button>
-                        <button type="button" data-drop-item="medkit" data-amount="1">1個落とす</button>
-                        <button type="button" data-drop-item="medkit" data-amount="all">全部落とす</button>
-                    </div>
-                </div>
+                </button>
             </div></div>
             <div class="inventory-section"><h3>MATERIALS</h3><div class="inventory-grid materials-grid">
                 ${resourceInventoryCard("wood")}
                 ${resourceInventoryCard("ore")}
                 ${resourceInventoryCard("copper")}
                 ${resourceInventoryCard("silver")}
-            </div></div>`;
+            </div></div>
+            <div class="inventory-popover" role="group" aria-label="アイテム操作" hidden>
+                <div class="inventory-popover-heading"><strong></strong><button type="button" data-close-inventory-actions aria-label="閉じる">×</button></div>
+                <div class="resource-actions">
+                    <button type="button" data-use="medkit">使用</button>
+                    <button type="button" data-amount="1">1個落とす</button>
+                    <button type="button" data-amount="all">全部落とす</button>
+                </div>
+            </div>`;
     }
     inventoryItems.querySelector(".inventory-health").textContent = `HP ${Math.ceil(me.hp)} / ${me.maxHp || 100}${me.down ? "（ダウン中）" : ""}`;
     const medkitCard = inventoryItems.querySelector('[data-item="medkit"]');
     medkitCard.querySelector(".item-count").textContent = `×${me.medkits || 0}`;
-    medkitCard.querySelectorAll("button").forEach(button => {
-        button.disabled = me.down || !(me.medkits > 0)
-            || Boolean(button.dataset.use && me.hp >= (me.maxHp || 100));
-    });
+    medkitCard.disabled = me.down || !(me.medkits > 0);
+    inventoryItems.querySelector(".inventory-gold").textContent = `${(me.credits || 0).toLocaleString()} G`;
+    for (const [piece, worn, reduction] of [["tops", me.armorTops, 20], ["bottoms", me.armorBottoms, 10]]) {
+        const slot = inventoryItems.querySelector(`[data-armor="${piece}"]`);
+        slot.classList.toggle("equipped", Boolean(worn));
+        slot.querySelector("span").textContent = worn ? `装着中 · −${reduction}%` : "未装備";
+    }
+    inventoryItems.querySelector(".armor-total").textContent = `被ダメージ −${(me.armorTops ? 20 : 0) + (me.armorBottoms ? 10 : 0)}%`;
     const entries = equipmentEntries(me);
     const selectedKey = me.movingCore ? "core"
         : me.selectedBuild ? `build:${me.selectedBuild}` : `weapon:${me.weapon}`;
@@ -1092,7 +1105,7 @@ function updateInventory(me) {
             button = document.createElement("button");
             button.type = "button";
             button.dataset.key = entry.key;
-            button.innerHTML = "<strong></strong><span></span>";
+            button.innerHTML = '<i aria-hidden="true"></i><strong></strong><span></span>';
             grid.insertBefore(button, grid.children[index] || null);
         }
         if (grid.children[index] !== button) grid.insertBefore(button, grid.children[index] || null);
@@ -1100,6 +1113,7 @@ function updateInventory(me) {
         button.disabled = entry.kind === "item" && (me.down || me.hp >= (me.maxHp || 100))
             || me.job === "attacker" && entry.kind === "weapon" && entry.value === me.secondaryWeapon;
         button.querySelector("strong").textContent = `${index + 1}. ${entry.label}`;
+        button.querySelector("i").className = `weapon-icon ${entry.kind === "build" ? "build-" : ""}${entry.value}`;
         button.querySelector("span").textContent = entry.kind === "build" ? `×${me.buildItems[entry.value]}`
             : entry.kind === "item" ? `×${me.medkits} · 使用する`
             : entry.kind === "core" ? ""
@@ -1120,8 +1134,9 @@ function updateInventory(me) {
     for (const type of Object.keys(RESOURCE_NAMES)) {
         const card = inventoryItems.querySelector(`[data-resource="${type}"]`);
         card.querySelector(".resource-count").textContent = `×${me[type] || 0}`;
-        card.querySelectorAll("button").forEach(button => { button.disabled = me.down || !(me[type] > 0); });
+        card.disabled = me.down || !(me[type] > 0);
     }
+    updateInventoryPopover(me);
 }
 
 inventoryItems.addEventListener("click", event => {
@@ -1129,7 +1144,22 @@ inventoryItems.addEventListener("click", event => {
     const button = event.target.closest("button");
     const me = getMe();
     if (!button || button.disabled || !me || me.down) return;
-    if (button.dataset.key) {
+    if (button.dataset.inventoryItem) {
+        const popup = inventoryItems.querySelector(".inventory-popover");
+        const type = button.dataset.inventoryItem;
+        if (!popup.hidden && popup.dataset.item === type) { closeInventoryPopover(); return; }
+        closeInventoryPopover();
+        popup.dataset.item = type;
+        popup.hidden = false;
+        button.setAttribute("aria-expanded", "true");
+        updateInventoryPopover(me);
+        const rect = button.getBoundingClientRect();
+        popup.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - popup.offsetWidth - 8))}px`;
+        popup.style.top = `${Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - popup.offsetHeight - 8))}px`;
+    } else if (button.hasAttribute("data-close-inventory-actions")) {
+        closeInventoryPopover();
+    } else if (button.dataset.key) {
+        closeInventoryPopover();
         const entry = equipmentEntries(me).find(candidate => candidate.key === button.dataset.key);
         if (entry) selectEquipment(entry);
     } else if (button.dataset.use) {
@@ -1140,18 +1170,37 @@ inventoryItems.addEventListener("click", event => {
     } else if (button.dataset.drop) {
         const type = button.dataset.drop;
         const amount = button.dataset.amount === "all" ? me[type] : 1;
-        if (amount > 0) send(`DROP_RESOURCE:${type}:${amount}`);
+        if (me[type] > 0 && amount > 0) send(`DROP_RESOURCE:${type}:${amount}`);
     }
 });
 
 function resourceInventoryCard(type) {
-    return `<div class="inventory-resource" data-resource="${type}">
+    return `<button type="button" class="inventory-resource" data-resource="${type}" data-inventory-item="${type}" aria-haspopup="true" aria-expanded="false">
         <strong>${RESOURCE_NAMES[type]}</strong><span class="resource-count"></span>
-        <div class="resource-actions">
-            <button type="button" data-drop="${type}" data-amount="1">1個落とす</button>
-            <button type="button" data-drop="${type}" data-amount="all">全部落とす</button>
-        </div>
-    </div>`;
+    </button>`;
+}
+
+function closeInventoryPopover() {
+    const popup = inventoryItems.querySelector(".inventory-popover");
+    if (popup) popup.hidden = true;
+    inventoryItems.querySelector('[aria-expanded="true"]')?.setAttribute("aria-expanded", "false");
+}
+
+function updateInventoryPopover(me) {
+    const popup = inventoryItems.querySelector(".inventory-popover");
+    if (!popup || popup.hidden) return;
+    const type = popup.dataset.item;
+    const count = type === "medkit" ? me.medkits : me[type];
+    if (me.down || !(count > 0)) { closeInventoryPopover(); return; }
+    popup.querySelector("strong").textContent = `${type === "medkit" ? "回復キット" : RESOURCE_NAMES[type]} ×${count}`;
+    const use = popup.querySelector("[data-use]");
+    use.hidden = type !== "medkit";
+    use.disabled = me.hp >= (me.maxHp || 100);
+    for (const button of popup.querySelectorAll("[data-amount]")) {
+        delete button.dataset.drop;
+        delete button.dataset.dropItem;
+        button.dataset[type === "medkit" ? "dropItem" : "drop"] = type;
+    }
 }
 
 let inventoryDrag = null;
@@ -1191,6 +1240,7 @@ inventoryItems.addEventListener("pointercancel", event => finishInventoryDrag(ev
 inventoryItems.addEventListener("lostpointercapture", event => finishInventoryDrag(event, false));
 
 function toggleInventory() {
+    closeInventoryPopover();
     endInteractionHold(true);
     if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
     if (secondaryHeld) stopSecondaryFiring();

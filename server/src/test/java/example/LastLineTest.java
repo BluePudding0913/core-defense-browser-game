@@ -36,11 +36,16 @@ class LastLineTest {
         UnlockArea area = GameMap.areaById(UpgradeRules.AREA);
         assertEquals(70, area.tiles().size());
         assertEquals(5, GameMap.SHOP_UNITS.stream().filter(s -> area.contains(s.x(), s.y())).count());
-        for (int col = 8; col <= 17; col++) {
+        for (int col = 5; col <= 14; col++) {
             assertTrue(GameMap.areaById("heavy-arms-area").tiles().contains(new AreaTile(col, 29)));
             assertTrue(area.tiles().contains(new AreaTile(col, 30)));
         }
         assertEquals(81, GameMap.areaById("relay-gallery").tiles().size());
+        assertEquals(540, area.terminalX()); assertEquals(1220, area.terminalY());
+        assertTrue(GameMap.SPAWN_POINTS.stream().noneMatch(s -> "last-line".equals(GameMap.spawnArea(s))));
+        for (int row = 30; row <= 36; row++) for (int col = 15; col <= 17; col++) {
+            assertTrue(GameMap.tileTypeAt(col, row).solid(), "wall separates LAST LINE from WOOD ROOM");
+        }
     }
 
     @Test void purchasesRejectLockedRoomsRemotePlayersAndDownedPlayers() {
@@ -95,11 +100,11 @@ class LastLineTest {
         game.handleMessage(player, "BUY:overclockSilver");
         assertEquals(0, player.silverTurretItems); assertEquals(1, player.overclockSilverItems);
         assertTrue(player.recoveredDefenses.get("silverTurret").isEmpty()); assertEquals(before, player.credits);
-        player.x = 620; player.y = 1300; player.facingX = 0; player.facingY = 1;
+        player.x = 500; player.y = 1300; player.facingX = 0; player.facingY = 1;
         game.handleMessage(player, "PLACE_FRONT");
         TrapSlot slot = game.trapSlots.stream().filter(s -> s.defense != null).findFirst().orElseThrow();
         assertEquals(0, player.overclockSilverItems); assertEquals(2400, slot.defense.maxHp);
-        slot.defense.hp = 1000; player.ore = 1; player.x = 660; player.y = 1340;
+        slot.defense.hp = 1000; player.ore = 1; player.x = 540; player.y = 1340;
         game.handleMessage(player, "REPAIR:" + slot.id); assertTrue(slot.defense.hp > 1000); assertEquals(0, player.ore);
         double hp = slot.defense.hp; game.handleMessage(player, "CARRY_NEAREST:" + slot.id);
         assertFalse(game.trapSlots.contains(slot)); assertEquals(1, player.overclockSilverItems);
@@ -124,11 +129,11 @@ class LastLineTest {
     @Test void compressedTurretFiresRepeatedlyThroughTheRealGameLoop() {
         player.overclockSilverItems = 1;
         game.handleMessage(player, "EQUIP_BUILD:overclockSilver");
-        player.x = 620; player.y = 1300; player.facingX = 0; player.facingY = 1;
+        player.x = 500; player.y = 1300; player.facingX = 0; player.facingY = 1;
         game.handleMessage(player, "PLACE_FRONT");
         TrapSlot slot = game.trapSlots.stream().filter(s -> s.defense != null).findFirst().orElseThrow();
         Enemy target = new Enemy(9000, "grunt", GameMap.SPAWN_POINTS.get(0), 10000, 0, 0, 0);
-        target.x = 620; target.y = 1420; game.enemies.add(target);
+        target.x = 500; target.y = 1420; game.enemies.add(target);
         game.phase = GamePhase.WAVE; game.round = 40; game.queuedEnemies = 0;
         game.update(.05); assertEquals(9482, target.hp); assertEquals(.15, slot.defense.cooldown);
         game.update(.05); assertEquals(9482, target.hp);

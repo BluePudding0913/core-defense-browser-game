@@ -290,6 +290,7 @@ final class GameMap {
         Set<String> allAreas = AREAS.stream().map(UnlockArea::id)
                 .collect(java.util.stream.Collectors.toSet());
         for (UnlockArea area : AREAS) {
+            if (area.id().equals("last-line")) continue;
             List<MapPoint> entrances = new ArrayList<>();
             int leftColumn = area.tiles().stream().mapToInt(AreaTile::column).min().orElse(0);
             double centerY = area.tiles().stream().mapToDouble(tile -> TILE_MAP.center(tile).y()).average().orElse(0);
