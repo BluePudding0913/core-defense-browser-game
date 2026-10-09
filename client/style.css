@@ -771,3 +771,6 @@ button, input { font: inherit; }
 
 .weapon-icon.build-copperBarricade::before, .weapon-icon.build-silverBarricade::before { left: .25rem; top: .45rem; width: 4.5rem; height: 1.75rem; border: .14rem solid #ddd; background: repeating-linear-gradient(0deg, #986543 0 .4rem, #c28e65 .4rem .62rem); }
 .weapon-icon.build-silverBarricade::before { background: repeating-linear-gradient(0deg, #89949d 0 .4rem, #dce4ea .4rem .62rem); }
+
+.weapon-icon.hook::before { left: 2rem; top: .2rem; width: .25rem; height: 1.3rem; background: #b4d8e9; }
+.weapon-icon.hook::after { left: 1.1rem; top: 1rem; width: 1.15rem; height: 1.15rem; border: .25rem solid #b4d8e9; border-top: 0; border-radius: 0 0 1rem 1rem; background: transparent; }

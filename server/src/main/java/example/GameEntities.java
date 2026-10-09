@@ -105,6 +105,9 @@ final class Player {
     }
     boolean secondaryFiring;
     double secondaryAimX, secondaryAimY;
+    int hookTargetId = -1;
+    boolean hookReeling, hookPressHandled, secondaryHookPressHandled;
+    String gachaWeapon;
     boolean firing;
     double aimX;
     double aimY;
@@ -256,9 +259,12 @@ final class Enemy {
     double hp;
     double attackCooldown;
     double specialCooldown;
+    double chargeCooldown = 4, chargeWarning, chargeRemaining, chargeDx, chargeDy;
     final WardenRules.State warden;
     boolean exploded;
     boolean offspringSpawned;
+    boolean hookPulled;
+    double bagHp, releaseProgress;
     double fuse = -1;
     double slow = 1;
     double facingX;
@@ -285,6 +291,7 @@ final class Enemy {
     Enemy(int id, String type, SpawnPoint spawn, double hp, double speed, double damage, int reward) {
         this.id = id;
         this.type = type;
+        this.bagHp = type.equals("carrier") ? SpecialEnemyRules.BAG_HP : 0;
         this.warden = type.equals("warden") ? new WardenRules.State() : null;
         this.lane = spawn.lane();
         this.spawnId = spawn.id();
@@ -303,7 +310,7 @@ final class Enemy {
             }
         }
         this.targetPriority = switch (type) {
-            case "hunter", "ghost" -> "players";
+            case "hunter", "ghost", "blueAce", "carrier" -> "players";
             case "siege" -> "defenses";
             case "warlord", "titan" -> "core";
             default -> spawn.targetPriority();

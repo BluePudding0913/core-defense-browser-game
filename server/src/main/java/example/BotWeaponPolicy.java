@@ -17,7 +17,7 @@ final class BotWeaponPolicy {
         bot.equipWeapon(selected.id()); bot.selectedBuild = null;
     }
     private static boolean available(Player bot, WeaponCatalog.Definition weapon) {
-        return bot.weapons.owns(weapon.id()) && (!weapon.usesAmmo() || bot.weapons.ammo(weapon.id()) > 0)
+        return weapon.mode() != WeaponCatalog.AttackMode.HOOK && bot.weapons.owns(weapon.id()) && (!weapon.usesAmmo() || bot.weapons.ammo(weapon.id()) > 0)
                 && !DroneRules.mounted(bot, weapon.id());
     }
     private static double score(Player bot, WeaponCatalog.Definition weapon, double distance, double hp, int count) {

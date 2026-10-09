@@ -29,18 +29,21 @@ class EnemyTravelTest {
             double x = (col + .5) * 40, y = (row + .5) * 40;
             if (GameMap.canOccupy(x, y, 17, areas)) points.add(new MapPoint(x, y));
         }
+        // This route clips tile (8,17) for only 0.22px; 0.5px sampling missed it.
+        assertFalse(GameMap.canOccupy(303.08, 736.9257142857, 17, areas));
+        assertFalse(travel.canTravel(260, 700, 820, 1180, 17, areas));
         Random random = new Random(308);
         for (int test = 0; test < 200; test++) {
             MapPoint from = points.get(random.nextInt(points.size()));
             MapPoint to = points.get(random.nextInt(points.size()));
             boolean expected = true;
-            int steps = (int) Math.ceil(Math.hypot(to.x() - from.x(), to.y() - from.y()) / .5);
+            int steps = (int) Math.ceil(Math.hypot(to.x() - from.x(), to.y() - from.y()) / .1);
             for (int i = 0; i <= steps; i++) {
                 double t = steps == 0 ? 0 : (double) i / steps;
                 if (!GameMap.canOccupy(from.x() + (to.x() - from.x()) * t,
                         from.y() + (to.y() - from.y()) * t, 17, areas)) { expected = false; break; }
             }
-            assertEquals(expected, travel.canTravel(from.x(), from.y(), to.x(), to.y(), 17, areas));
+            assertEquals(expected, travel.canTravel(from.x(), from.y(), to.x(), to.y(), 17, areas), from + " -> " + to);
         }
         UnlockArea area = GameMap.AREAS.get(0);
         MapPoint center = GameMap.TILE_MAP.center(area.tiles().get(0));

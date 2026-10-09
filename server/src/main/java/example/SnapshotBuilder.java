@@ -216,6 +216,9 @@ final class SnapshotBuilder {
                 json.append('"').append(escapeJson(entry.getKey())).append("\":").append(entry.getValue());
             }
             json.append('}');
+            json.append(",\"hookTargetId\":").append(player.hookTargetId)
+                    .append(",\"hookReeling\":").append(player.hookReeling)
+                    .append(",\"gachaWeapon\":").append(player.gachaWeapon == null ? "null" : "\"" + escapeJson(player.gachaWeapon) + "\"");
             json.append(",\"cooldownMax\":").append(roundOne(player.cooldownMax));
             json.append(",\"railgunCharge\":").append(roundOne(player.railgunCharge))
                     .append(",\"railgunRemaining\":").append(roundOne(player.railgunRemaining))
@@ -375,6 +378,15 @@ final class SnapshotBuilder {
                         .append(",\"pulseRadius\":").append(WardenRules.PULSE_RADIUS);
             }
             if (enemy.type.equals("explosionBoss")) json.append(",\"fuse\":").append(enemy.fuse);
+            if (enemy.type.equals("carrier")) {
+                MapPoint bag = SpecialEnemyRules.bag(enemy);
+                json.append(",\"bagHp\":").append(roundOne(enemy.bagHp))
+                    .append(",\"bagX\":").append(roundOne(bag.x())).append(",\"bagY\":").append(roundOne(bag.y()))
+                    .append(",\"releaseProgress\":").append(roundOne(enemy.releaseProgress));
+            }
+            if (enemy.type.equals("boss")) json.append(",\"chargeWarning\":").append(roundOne(enemy.chargeWarning))
+                    .append(",\"chargeRemaining\":").append(roundOne(enemy.chargeRemaining))
+                    .append(",\"chargeDx\":").append(enemy.chargeDx).append(",\"chargeDy\":").append(enemy.chargeDy);
             if (enemy.type.equals("shield")) {
                 json.append(",\"facingX\":").append(enemy.facingX)
                         .append(",\"facingY\":").append(enemy.facingY);
