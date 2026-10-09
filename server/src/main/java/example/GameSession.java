@@ -88,7 +88,7 @@ final class GameSession {
     final List<EnemyProjectileSystem.Shot> enemyProjectiles = new ArrayList<>();
     final List<CombatSystem.RocketFlight> rockets = new ArrayList<>();
     int nextProjectileId;
-    double rewindRemaining;
+    double rewindRemaining, rewindDelayRemaining;
     final List<Decoy> decoys = new ArrayList<>();
     final List<ArtilleryShell> artilleryShells = new ArrayList<>();
     final List<TrapSlot> trapSlots = GameMap.createTrapSlots();
@@ -138,6 +138,7 @@ final class GameSession {
             "carrier", "blackout", "seeker", "boss", "warlord", "titan", "warden", "explosionBoss");
     static final int BACKUP_COST = 100_000;
     static final double BACKUP_RESTORE_DURATION = 6;
+    static final double BACKUP_RESTORE_DELAY = 1.5;
     private final EnemyTravel laterFeatureTravel = new EnemyTravel();
     private final EnemyNavigation enemyNavigation = new EnemyNavigation();
     private double spawnTimer;
@@ -443,14 +444,16 @@ final class GameSession {
         activeSpawnIds.clear(); activeSpawnIds.addAll(saved.spawns());
         activeLanes.clear(); activeLanes.addAll(saved.lanes());
         random = BackupCopies.random(saved.random());
-        phase = GamePhase.PREPARING; backupUsed = true; backup = null; rewindVersion++; rewindRemaining = 0;
+        phase = GamePhase.PREPARING; backupUsed = true; backup = null; rewindVersion++; rewindRemaining = rewindDelayRemaining = 0;
         setNotice("バックアップから復元しました");
     }
 
     void update(double dt) {
         updateReconnectReservations(dt);
         if (phase == GamePhase.LOST && rewindRemaining > 0) {
-            rewindRemaining = Math.max(0, rewindRemaining - dt);
+            double waiting = Math.min(dt, rewindDelayRemaining);
+            rewindDelayRemaining = Math.max(0, rewindDelayRemaining - waiting);
+            rewindRemaining = Math.max(0, rewindRemaining - (dt - waiting));
             if (rewindRemaining <= 1e-9) restoreBackup();
             return;
         }
@@ -532,13 +535,19 @@ final class GameSession {
         }
         if (coreHp <= 0) {
             phase = GamePhase.LOST;
-            if (backup != null && !backupUsed) rewindRemaining = BACKUP_RESTORE_DURATION;
+            if (backup != null && !backupUsed) {
+                rewindRemaining = BACKUP_RESTORE_DURATION;
+                rewindDelayRemaining = BACKUP_RESTORE_DELAY;
+            }
             setNotice("コアが破壊されました");
             return;
         }
         if (players.stream().noneMatch(player -> !player.down) && !hasHealingRescue()) {
             phase = GamePhase.LOST;
-            if (backup != null && !backupUsed) rewindRemaining = BACKUP_RESTORE_DURATION;
+            if (backup != null && !backupUsed) {
+                rewindRemaining = BACKUP_RESTORE_DURATION;
+                rewindDelayRemaining = BACKUP_RESTORE_DELAY;
+            }
             setNotice("全員がダウンしました");
             return;
         }
@@ -3629,7 +3638,7 @@ final class GameSession {
     }
 
     private void resetWorld() {
-        backup = null; backupUsed = false; rewindRemaining = 0;
+        backup = null; backupUsed = false; rewindRemaining = rewindDelayRemaining = 0;
         enemyProjectiles.clear(); combat.rockets.clear(); nextProjectileId = 0;
         elapsedSeconds = 0;
         victoryMoveRemaining = 0;

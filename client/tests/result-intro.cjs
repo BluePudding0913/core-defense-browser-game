@@ -33,8 +33,8 @@ const context = vm.createContext({
 });
 vm.runInContext('let roundIntroTimer, previousPhase, previousRound, lastCoreHp, state; let activeMenuAccess = null;'
     + ['showRoundIntro', 'showScreenIntro', 'hideScreenIntro', 'receiveState'].map(extract).join('\n'), context);
-function receive(phase, round = 5) {
-    context.next = { phase, round, elapsedSeconds: 125, players: [], core: { hp: 100, x: 0, y: 0 } };
+function receive(phase, round = 5, extra = {}) {
+    context.next = { phase, round, elapsedSeconds: 125, players: [], core: { hp: 100, x: 0, y: 0 }, ...extra };
     vm.runInContext('receiveState(next)', context);
 }
 receive('wave');
@@ -107,3 +107,12 @@ assert(!fadeClasses.has('show'), 'New scene fades in after the switch');
 vm.runInContext('keepEndArea({phase:"preparing"})', fade);
 assert(!fadeClasses.has('show'));
 console.log('Result intro passed: persistent result, result color, delayed display, replay, cancellation and coordinated scene fade');
+
+now = 0; receive("wave");
+receive("lost", 5, { rewindDelayRemaining: 1.5, rewindRemaining: 0 });
+assert(classes.has("show"), "backup defeat shows immediately before loading");
+assert.equal(context.roundIntro.textContent, "防衛失敗");
+receive("lost", 5, { rewindDelayRemaining: .5, rewindRemaining: 0 });
+assert(classes.has("show"), "defeat stays visible throughout the pause");
+receive("lost", 5, { rewindDelayRemaining: 0, rewindRemaining: 6 });
+assert(!classes.has("show"), "restore effect replaces defeat only after the pause");
