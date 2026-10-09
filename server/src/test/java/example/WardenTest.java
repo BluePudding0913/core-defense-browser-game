@@ -106,6 +106,28 @@ class WardenTest {
             assertTrue(game.enemies.stream().allMatch(Enemy::isBoss));
         }
     }
+    @Test void debugSpawnsOneWardenOnlyInRoundFiveAndNormalRestartRestoresTheSchedule() throws Exception {
+        game.setRoomOwner(player); game.phase = GamePhase.LOST; player.roomReady = true;
+        game.handleMessage(player, "START:DEBUG");
+        assertEquals(500_000, player.credits);
+        var begin = GameSession.class.getDeclaredMethod("beginRound"); begin.setAccessible(true);
+        for (int round : new int[]{1, 4, 5, 6, 10, 16, 32, 48}) {
+            game.enemies.clear(); game.round = round - 1; begin.invoke(game);
+            int total = game.queuedBosses; game.queuedEnemies = game.queuedTinyEnemies = 0;
+            for (int i = 0; i < 100; i++) invoke("updateSpawning", 2);
+            assertEquals(total, game.enemies.size());
+            assertEquals(round == 5 ? 1 : 0, game.enemies.stream().filter(e -> e.type.equals("warden")).count(), "Round " + round);
+            if (round == 5) assertEquals(1, total);
+        }
+        game.phase = GamePhase.LOST; player.roomReady = true;
+        game.handleMessage(player, "START"); assertEquals(0, player.credits);
+        game.round = 4; begin.invoke(game); assertEquals(0, game.queuedBosses);
+        game.enemies.clear(); game.round = 15; begin.invoke(game);
+        game.queuedEnemies = game.queuedTinyEnemies = 0;
+        for (int i = 0; i < 100; i++) invoke("updateSpawning", 2);
+        assertEquals(1, game.enemies.stream().filter(e -> e.type.equals("warden")).count());
+    }
+
     @Test void knockbackInterruptsChargeWarningInsteadOfChangingTheAnnouncedPath() throws Exception {
         boss.hp = 600; update(.05); boss.y += 30; update(.05);
         assertEquals(WardenRules.Action.IDLE, boss.warden.action);

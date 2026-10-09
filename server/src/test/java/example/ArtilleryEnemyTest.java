@@ -172,7 +172,7 @@ class ArtilleryEnemyTest {
         invoke("updateSpawning", new Class<?>[]{double.class}, 8.1);
         assertEquals(1, game.enemies.size());
         assertEquals("grunt", game.enemies.get(0).type);
-        assertEquals(100_000, player.credits);
+        assertEquals(500_000, player.credits);
         assertEquals(4, game.queuedEnemies);
         game.round = 2;
         var randomField = GameSession.class.getDeclaredField("random"); randomField.setAccessible(true);
