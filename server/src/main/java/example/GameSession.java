@@ -1404,7 +1404,7 @@ final class GameSession {
             case "blueAce" -> { hp = 2600 + round * 70; speed = 320; damage = 55; reward = 900; }
             case "carrier" -> { hp = 500 + round * 20; speed = 72; damage = 22 + round * .5; reward = 120; }
             case "warden" -> {
-                hp = 1600 + round * 50;
+                hp = (1600 + round * 50) * 10;
                 speed = 44;
                 damage = 38 + round * .6;
                 reward = 600;

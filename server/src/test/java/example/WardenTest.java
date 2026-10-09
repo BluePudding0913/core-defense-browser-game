@@ -27,6 +27,21 @@ class WardenTest {
     }
     void update(double dt) throws Exception { invoke("updateEnemies", dt); }
 
+    @Test void spawnedWardenHasTenfoldHealthInDebugAndNormalRounds() throws Exception {
+        var spawn = GameSession.class.getDeclaredMethod("spawnEnemy", String.class, SpawnPoint.class);
+        spawn.setAccessible(true);
+        for (int round : new int[]{5,16,32,48}) {
+            game.round = round; game.enemies.clear();
+            spawn.invoke(game, "warden", GameMap.SPAWN_POINTS.get(0));
+            Enemy spawned = game.enemies.get(0);
+            double previousHp = (1600 + round * 50) * 2;
+            assertEquals(previousHp * 10, spawned.hp);
+            assertEquals(previousHp * 10, spawned.maxHp);
+            var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game)).path("enemies").get(0);
+            assertEquals(spawned.maxHp, snapshot.path("maxHp").asDouble());
+        }
+    }
+
     @Test void hpThresholdsAndAppearanceAreExplicit() {
         assertEquals(1, WardenRules.phase(601, 1000));
         assertEquals(2, WardenRules.phase(600, 1000));
