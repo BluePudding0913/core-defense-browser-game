@@ -145,6 +145,10 @@ class RocketAndBalanceTest {
         Enemy direct = enemy(1, 1120, 1900, 4000), splash = enemy(2, 1120, 1960, 4000), outside = enemy(3, 1340, 1900);
         game.handleMessage(player, "WEAPON:rocket");
         game.handleMessage(player, "FIRE:1300:1900:1");
+        assertEquals(4000, direct.hp, "No damage before arrival");
+        assertEquals(1, game.combat.rockets.size());
+        game.combat.updateRockets(.1); assertEquals(4000, direct.hp);
+        game.combat.updateRockets(.5);
         assertTrue(direct.hp < splash.hp); assertTrue(splash.hp < 4000);
         assertEquals(2000, outside.hp); assertEquals(1, player.weapons.ammo("rocket"));
         assertEquals(100, player.hp); // Explosions only damage enemies.
@@ -163,12 +167,14 @@ class RocketAndBalanceTest {
         Enemy splash = enemy(1, 1120, 1970, 4000);
         game.handleMessage(player, "WEAPON:rocket");
         game.handleMessage(player, "FIRE:1120:1900:1");
+        game.combat.updateRockets(1);
         assertEquals(1525, splash.hp, 1e-6);
         assertTrue(effects.stream().anyMatch(m -> m.contains("\"effect\":\"explosion\"") && m.contains("1120.0")));
         game.enemies.clear(); effects.clear(); player.cooldown = 0; player.firing = false;
         player.x = 1020; player.y = 1580;
         Enemy behindWall = enemy(2, 1240, 1580);
         game.handleMessage(player, "FIRE:1340:1580:1");
+        game.combat.updateRockets(1);
         assertEquals(2000, behindWall.hp);
         assertTrue(effects.stream().anyMatch(m -> m.contains("\"effect\":\"explosion\"")));
     }

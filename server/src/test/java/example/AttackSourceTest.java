@@ -9,6 +9,6 @@ class AttackSourceTest {
   var game=new GameSession(new GameEventSink(){public void broadcast(String s){events.add(s);}public void send(Player p,String s){}});
   var p=game.connectPlayer("colors");game.setRoomOwner(p);game.handleMessage(p,"START");game.phase=GamePhase.WAVE;p.x=1020;p.y=1900;
   game.combat.missileImpact(p,1100,1900);assertTrue(events.stream().filter(s->s.contains("\"effect\":\"explosion\"")).reduce((a,b)->b).orElseThrow().contains("\"source\":\"ally\""));
-  p.weapons.grant("rocket");p.equipWeapon("rocket");game.combat.attackAt(p,1100,1900);assertTrue(events.stream().filter(s->s.contains("\"effect\":\"explosion\"")).reduce((a,b)->b).orElseThrow().contains("\"source\":\"ally\""));
+  p.weapons.grant("rocket");p.equipWeapon("rocket");game.combat.attackAt(p,1100,1900);game.combat.updateRockets(1);assertTrue(events.stream().filter(s->s.contains("\"effect\":\"explosion\"")).reduce((a,b)->b).orElseThrow().contains("\"source\":\"ally\""));
  }
 }

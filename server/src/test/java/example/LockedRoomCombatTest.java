@@ -93,6 +93,7 @@ class LockedRoomCombatTest {
                 assertTrue(unlocked ? range > 20 : range <= 20);
             }
             game.handleMessage(player, "FIRE:1020:1620:0");
+            if (weapon.equals("rocket")) game.combat.updateRockets(1);
             if (WeaponCatalog.capacity(player.weapon) > 0 && !weapon.equals("drone"))
                 assertEquals(ammo - 1, player.weapons.ammo(player.weapon));
             assertTrue(player.cooldown > 0 || player.drone != null || weapon.equals("railgun"));

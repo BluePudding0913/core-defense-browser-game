@@ -379,6 +379,7 @@ final class Enemy {
     double specialCooldown;
     double chargeCooldown = 4, chargeWarning, chargeRemaining, chargeDx, chargeDy;
     final WardenRules.State warden;
+    boolean powerCut;
     boolean exploded;
     boolean offspringSpawned;
     boolean hookPulled;
@@ -429,7 +430,7 @@ final class Enemy {
             }
         }
         this.targetPriority = switch (type) {
-            case "hunter", "ghost", "blueAce", "carrier" -> "players";
+            case "hunter", "ghost", "blueAce", "carrier", "blackout", "seeker" -> "players";
             case "siege" -> "defenses";
             case "warlord", "titan" -> "core";
             default -> spawn.targetPriority();

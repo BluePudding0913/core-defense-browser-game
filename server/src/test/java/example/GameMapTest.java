@@ -97,7 +97,8 @@ class GameMapTest {
             assertEquals(definition.areas(), GameMap.AREAS, "never relocate terminals to walls");
             JsonNode delivered = new ObjectMapper().readTree(GameMap.clientMapMessage()).path("map");
             assertEquals(new ObjectMapper().valueToTree(definition.areas()), delivered.path("areas"));
-            assertEquals(definition.workbenchUnits(), GameMap.WORKBENCH_UNITS);
+            assertEquals(definition.workbenchUnits().stream().filter(unit -> !unit.id().equals("backup-terminal")).toList(), GameMap.WORKBENCH_UNITS);
+            assertTrue(definition.workbenchUnits().contains(GameMap.BACKUP_TERMINAL));
             assertEquals(definition.breakerTerminals(), GameMap.BREAKER_TERMINALS);
             assertEquals(definition.prepConsole(), GameMap.PREP_CONSOLE);
             assertEquals(definition.resourceNodes(), GameMap.RESOURCE_NODES);
@@ -311,7 +312,7 @@ class GameMapTest {
         assertEquals(GameMap.SHOP_UNITS.size(), message.path("map").path("shopUnits").size());
         assertEquals(GameMap.BREAKER_TERMINALS.size(),
                 message.path("map").path("breakerTerminals").size());
-        assertEquals(GameMap.WORKBENCH_UNITS.size(),
+        assertEquals(GameMap.WORKBENCH_UNITS.size() + 1,
                 message.path("map").path("workbenchUnits").size());
         assertEquals(GameMap.PREP_CONSOLE.id(),
                 message.path("map").path("prepConsole").path("id").asText());

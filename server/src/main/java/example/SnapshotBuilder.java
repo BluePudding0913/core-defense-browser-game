@@ -32,7 +32,8 @@ final class SnapshotBuilder {
             .append(",\"backupUsed\":").append(game.backupUsed).append(",\"backupCost\":").append(GameSession.BACKUP_COST)
             .append(",\"backupRound\":").append(game.backup == null ? 0 : game.backup.world().round() + 1)
             .append(",\"backupOwnerId\":").append(game.backup == null ? "null" : "\"" + escapeJson(game.backup.ownerId()) + "\"")
-            .append(",\"rewindVersion\":").append(game.rewindVersion);
+            .append(",\"rewindVersion\":").append(game.rewindVersion)
+            .append(",\"rewindRemaining\":").append(game.rewindRemaining);
         json.append(",\"prepTime\":").append(roundOne(game.prepTime));
         json.append(",\"elapsedSeconds\":").append(roundOne(game.elapsedSeconds));
         json.append(",\"victoryMoveRemaining\":").append(roundOne(game.victoryMoveRemaining));
@@ -41,7 +42,7 @@ final class SnapshotBuilder {
         json.append(",\"prepExtensionCost\":").append(game.prepExtensionCost());
         json.append(",\"queued\":").append(game.queuedEnemies + game.queuedBosses);
         json.append(",\"roundEvent\":\"").append(game.roundEvent).append('"');
-        json.append(",\"blackoutActive\":").append(game.blackoutActive)
+        json.append(",\"blackoutActive\":").append(game.blackoutActive || EnemyProjectileSystem.activeBlackout(game.enemies))
                 .append(",\"blackoutBreakerTotal\":").append(game.blackoutBreakerTotal);
         appendStringArray(json, "trippedBreakers",
                 game.trippedBreakers.stream().sorted().toList());
@@ -72,6 +73,8 @@ final class SnapshotBuilder {
         }
         json.append(']');
         appendEnemies(json, game.enemies);
+        json.append(",\"enemyBlackout\":").append(EnemyProjectileSystem.activeBlackout(game.enemies));
+        appendProjectiles(json, game);
         appendArtilleryShells(json, game);
         json.append(",\"poisonClouds\":[");
         for (int i = 0; i < game.poisonClouds.size(); i++) {
@@ -98,6 +101,21 @@ final class SnapshotBuilder {
         return json.toString();
     }
 
+    private static void appendProjectiles(StringBuilder json, GameSession game) {
+        json.append(",\"projectiles\":["); boolean first=true;
+        for (var shot : game.enemyProjectiles) {
+            if (!first) json.append(','); first=false;
+            json.append("{\"id\":\"enemy-").append(shot.id).append("\",\"source\":\"enemy\",\"x\":").append(shot.x)
+                .append(",\"y\":").append(shot.y).append(",\"angle\":").append(shot.angle).append(",\"speed\":").append(EnemyProjectileSystem.SPEED).append('}');
+        }
+        for (var shot : game.rockets) {
+            if (!first) json.append(','); first=false;
+            json.append("{\"id\":\"ally-").append(shot.id).append("\",\"source\":\"ally\",\"x\":").append(shot.x)
+                .append(",\"y\":").append(shot.y).append(",\"angle\":").append(Math.atan2(shot.dy,shot.dx))
+                .append(",\"speed\":").append(CombatSystem.ROCKET_SPEED).append('}');
+        }
+        json.append(']');
+    }
     private static void appendArtilleryShells(StringBuilder json, GameSession game) {
         json.append(",\"artilleryShells\":[");
         for (int i = 0; i < game.artilleryShells.size(); i++) {
@@ -398,6 +416,7 @@ final class SnapshotBuilder {
                         .append(",\"targetY\":").append(roundOne(enemy.warden.targetY))
                         .append(",\"pulseRadius\":").append(WardenRules.PULSE_RADIUS);
             }
+            json.append(",\"powerCut\":").append(enemy.powerCut);
             json.append(",\"frozenRemaining\":").append(roundOne(enemy.frozenRemaining));
             if (enemy.type.equals("explosionBoss")) json.append(",\"fuse\":").append(enemy.fuse);
             if (enemy.type.equals("carrier")) {
