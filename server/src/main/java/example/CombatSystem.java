@@ -11,16 +11,17 @@ import java.util.Set;
 
 /** Weapon execution and shared enemy damage; emits domain events without JSON. */
 final class CombatSystem {
-    interface World {
+    interface World extends HookSystem.World {
         boolean canAttack();
         Set<String> unlockedAreas();
         List<Enemy> enemies();
+        List<PoisonGasRules.Cloud> poisonClouds();
         List<Player> players();
         void damagePlayer(Player player, double damage);
         boolean canOccupy(double x, double y, double radius);
         void onEnemyDefeated(Enemy enemy);
         default double damageMultiplier(Player player, String weapon) {
-            return UpgradeRules.weaponMultiplier(player.enchantments.getOrDefault(weapon, 0));
+            return UpgradeRules.weaponMultiplier(player.enchantments.getOrDefault(weapon, 0)) * JobRules.damageMultiplier(player.job);
         }
     }
     private final World world;
@@ -44,6 +45,13 @@ final class CombatSystem {
         if (!world.canAttack() || player.missileControl || player.down || player.movingCore || player.selectedBuild != null || player.cooldown > 0
                 || DroneRules.mounted(player, player.weapon)) return;
 
+        if (player.weapon.equals("hook")) {
+            if (!player.weapons.owns("hook") || player.hookPressHandled) return;
+            player.hookPressHandled = true;
+            HookSystem.click(player, aimX, aimY, world);
+            player.cooldown = player.cooldownMax = .2;
+            return;
+        }
         if (player.weapon.equals("railgun")) {
             if (!player.firing || player.selectedBuild != null) return;
             if (!player.weapons.owns("railgun") || player.weapons.ammo("railgun") <= 0 && player.railgunRemaining <= 0) {
@@ -57,6 +65,8 @@ final class CombatSystem {
             return;
         }
         WeaponStats weapon = JobRules.weaponStats(player.job, player.weapon);
+        MapPoint aim = assistedAim(player, player.weapon, player.x, player.y, aimX, aimY);
+        aimX = aim.x(); aimY = aim.y();
         if (!player.weapons.consume(player.weapon)) {
             events.outOfAmmo(player);
             player.firing = false;
@@ -89,6 +99,17 @@ final class CombatSystem {
             fireFlame(player, weapon, directionX, directionY);
             return;
         }
+        if (WeaponCatalog.find(player.weapon).mode() == WeaponCatalog.AttackMode.GAS) {
+            firePoisonGas(player, weapon, directionX, directionY, Math.min(length, weapon.range()));
+            return;
+        }
+        if (WeaponCatalog.find(player.weapon).mode() == WeaponCatalog.AttackMode.PUSH) {
+            fireRepulsor(player, weapon, directionX, directionY);
+            return;
+        }
+        if (player.weapon.equals("plasmaBlade")) {
+            firePlasmaBlade(player, weapon, directionX, directionY); return;
+        }
         if (player.weapon.equals("bat")) {
             double effectDistance = GameMap.distanceToWall(player.x, player.y, directionX, directionY,
                     Math.min(Math.hypot(aimX - player.x, aimY - player.y), weapon.range()), world.unlockedAreas());
@@ -105,6 +126,91 @@ final class CombatSystem {
         }
     }
 
+    private MapPoint assistedAim(Player player, String weapon, double x, double y, double aimX, double aimY) {
+        Enemy target = AutoAimRules.target(player.enchantments.getOrDefault(weapon, 0), x, y,
+                aimX, aimY, WeaponCatalog.stats(weapon).range(), world.enemies(),
+                enemy -> GameMap.hasClearLine(x, y, enemy.x, enemy.y, world.unlockedAreas()));
+        return target == null ? new MapPoint(aimX, aimY) : new MapPoint(target.x, target.y);
+    }
+
+    private void aimRailgun(Player player) {
+        MapPoint aim = assistedAim(player, "railgun", player.x, player.y, player.aimX, player.aimY);
+        double dx = aim.x() - player.x, dy = aim.y() - player.y;
+        double length = Math.hypot(dx, dy);
+        player.railgunDx = length < .001 ? 1 : dx / length;
+        player.railgunDy = length < .001 ? 0 : dy / length;
+    }
+
+
+    private void firePlasmaBlade(Player player, WeaponStats weapon, double dx, double dy) {
+        events.hit(player.id, "plasmaBlade", player.x, player.y,
+                player.x + dx * weapon.range(), player.y + dy * weapon.range(), 0, false, 0, false, null);
+        for (Enemy enemy : List.copyOf(world.enemies())) {
+            if (enemy.hp <= 0 || !RepulsorRules.contains(player.x, player.y, dx, dy, weapon.range(), enemy.x, enemy.y, enemyRadius(enemy))
+                    || !GameMap.hasClearLine(player.x, player.y, enemy.x, enemy.y, world.unlockedAreas())) continue;
+            int credits = player.credits;
+            double damage = damageEnemy(enemy, weapon.damage(), player);
+            knockbackEnemy(player.x, player.y, enemy, weapon.knockback());
+            events.hit(player.id, "plasmaBlade", player.x, player.y, enemy.x, enemy.y, damage, enemy.hp <= 0,
+                    player.credits - credits, false, enemy.id);
+        }
+    }
+
+    private void fireRepulsor(Player player, WeaponStats weapon, double dx, double dy) {
+        double range = GameMap.distanceToWall(player.x, player.y, dx, dy, weapon.range(), world.unlockedAreas());
+        events.hit(player.id, "repulsor", player.x, player.y, player.x + dx * range, player.y + dy * range,
+                0, false, 0, false, null);
+        for (Enemy enemy : world.enemies()) {
+            if (enemy.hp > 0 && RepulsorRules.contains(player.x, player.y, dx, dy, weapon.range(), enemy.x, enemy.y, enemyRadius(enemy))
+                    && GameMap.hasClearLine(player.x, player.y, enemy.x, enemy.y, world.unlockedAreas()))
+                knockbackEnemy(player.x, player.y, enemy, weapon.knockback());
+        }
+    }
+
+    private void firePoisonGas(Player player, WeaponStats weapon, double dx, double dy, double range) {
+        double travel = Math.max(0, GameMap.distanceToWall(player.x, player.y, dx, dy, range, world.unlockedAreas()) - .01);
+        var cloud = new PoisonGasRules.Cloud(player.id, player.x + dx * travel, player.y + dy * travel, weapon.damage());
+        if (world.poisonClouds().size() >= PoisonGasRules.MAX_CLOUDS) world.poisonClouds().remove(0);
+        world.poisonClouds().add(cloud);
+        events.hit(player.id, "poisonGas", player.x, player.y, cloud.x, cloud.y, 0, false, 0, false, null);
+        poisonTick(cloud, player);
+    }
+
+    void updatePoisonGas(double dt) {
+        for (var cloud : List.copyOf(world.poisonClouds())) {
+            Player owner = world.players().stream().filter(p -> p.id.equals(cloud.ownerId)).findFirst().orElse(null);
+            if (owner == null) { cloud.remaining = 0; continue; }
+            int ticks = PoisonGasRules.advance(cloud, dt);
+            for (int tick = 0; tick < ticks; tick++) poisonTick(cloud, owner);
+        }
+        world.poisonClouds().removeIf(cloud -> cloud.remaining <= 1e-9);
+    }
+
+    private void poisonTick(PoisonGasRules.Cloud cloud, Player owner) {
+        for (Enemy enemy : List.copyOf(world.enemies())) {
+            if (enemy.hp <= 0) continue;
+            if (SpecialEnemyRules.carriesHunters(enemy)) {
+                MapPoint bag = SpecialEnemyRules.bag(enemy);
+                if (PoisonGasRules.contains(cloud, bag.x(), bag.y(), SpecialEnemyRules.BAG_RADIUS)
+                        && GameMap.hasClearLine(cloud.x, cloud.y, bag.x(), bag.y(), world.unlockedAreas()))
+                    damageBag(enemy, cloud.damage, owner, "poisonGas", cloud.x, cloud.y);
+            }
+            if (!PoisonGasRules.contains(cloud, enemy.x, enemy.y, enemyRadius(enemy))
+                    || !GameMap.hasClearLine(cloud.x, cloud.y, enemy.x, enemy.y, world.unlockedAreas())) continue;
+            int credits = owner.credits;
+            double dealt = damageEnemy(enemy, cloud.damage, owner, "poisonGas");
+            events.hit(owner.id, "poisonGas", cloud.x, cloud.y, enemy.x, enemy.y, dealt,
+                    enemy.hp <= 0, owner.credits - credits, false, enemy.id);
+        }
+        for (Player target : world.players()) {
+            if (JobRules.canHitDisguisedAlly(owner, target) && PoisonGasRules.contains(cloud, target.x, target.y, 12)
+                    && GameMap.hasClearLine(cloud.x, cloud.y, target.x, target.y, world.unlockedAreas()))
+                world.damagePlayer(target, cloud.damage);
+        }
+    }
+
+    void updateHooks(double dt) { HookSystem.update(dt, world.canAttack(), world); }
+
     void attackSecondary(Player player, double aimX, double aimY) {
         if (!player.job.equals("attacker") || player.weapon.equals(player.secondaryWeapon) || !player.weapons.owns(player.secondaryWeapon)) return;
         withSecondaryHand(player, () -> attackAt(player, aimX, aimY));
@@ -120,25 +226,25 @@ final class CombatSystem {
     }
 
     // Run both hands through the same weapon rules; only hand state is swapped.
-    private record HandState(String weapon, double cooldown, double cooldownMax, boolean firing,
+    private record HandState(String weapon, double cooldown, double cooldownMax, boolean firing, boolean hookPressHandled,
             double aimX, double aimY, double charge, double remaining, double tick, double dx, double dy) {
         static HandState primary(Player p) {
-            return new HandState(p.weapon, p.cooldown, p.cooldownMax, p.firing, p.aimX, p.aimY,
+            return new HandState(p.weapon, p.cooldown, p.cooldownMax, p.firing, p.hookPressHandled, p.aimX, p.aimY,
                     p.railgunCharge, p.railgunRemaining, p.railgunTick, p.railgunDx, p.railgunDy);
         }
         static HandState secondary(Player p) {
             return new HandState(p.secondaryWeapon, p.secondaryCooldown, p.secondaryCooldownMax,
-                    p.secondaryFiring, p.secondaryAimX, p.secondaryAimY, p.secondaryRailgunCharge,
+                    p.secondaryFiring, p.secondaryHookPressHandled, p.secondaryAimX, p.secondaryAimY, p.secondaryRailgunCharge,
                     p.secondaryRailgunRemaining, p.secondaryRailgunTick, p.secondaryRailgunDx, p.secondaryRailgunDy);
         }
         void applyPrimary(Player p) {
-            p.weapon = weapon; p.cooldown = cooldown; p.cooldownMax = cooldownMax; p.firing = firing;
+            p.weapon = weapon; p.cooldown = cooldown; p.cooldownMax = cooldownMax; p.firing = firing; p.hookPressHandled = hookPressHandled;
             p.aimX = aimX; p.aimY = aimY; p.railgunCharge = charge; p.railgunRemaining = remaining;
             p.railgunTick = tick; p.railgunDx = dx; p.railgunDy = dy;
         }
         void applySecondary(Player p) {
             p.secondaryWeapon = weapon; p.secondaryCooldown = cooldown; p.secondaryCooldownMax = cooldownMax;
-            p.secondaryFiring = firing; p.secondaryAimX = aimX; p.secondaryAimY = aimY;
+            p.secondaryFiring = firing; p.secondaryHookPressHandled = hookPressHandled; p.secondaryAimX = aimX; p.secondaryAimY = aimY;
             p.secondaryRailgunCharge = charge; p.secondaryRailgunRemaining = remaining;
             p.secondaryRailgunTick = tick; p.secondaryRailgunDx = dx; p.secondaryRailgunDy = dy;
         }
@@ -156,7 +262,7 @@ final class CombatSystem {
     }
 
     void droneExplosion(Player player, Drone drone) {
-        events.explosion(drone.x, drone.y, DroneRules.SELF_DESTRUCT_RADIUS);
+        events.alliedExplosion(drone.x, drone.y, DroneRules.SELF_DESTRUCT_RADIUS);
         droneShot = new DroneShot(player, "droneExplosion", drone.x, drone.y, drone);
         try {
             for (Enemy enemy : List.copyOf(world.enemies())) {
@@ -173,7 +279,7 @@ final class CombatSystem {
     }
 
     void missileImpact(Player player, double x, double y) {
-        events.explosion(x, y, MissileRules.radius());
+        events.alliedExplosion(x, y, MissileRules.radius());
         for (Enemy enemy : List.copyOf(world.enemies())) {
             double separation = distance(x, y, enemy.x, enemy.y);
             if (enemy.hp <= 0 || separation > MissileRules.radius()
@@ -190,6 +296,12 @@ final class CombatSystem {
         double range = GameMap.distanceToWall(x, y, dx, dy, weapon.range(), world.unlockedAreas());
         events.hit(player.id, weaponId, x, y, x + dx * range, y + dy * range, 0, false, 0, false, null);
         for (Enemy enemy : List.copyOf(world.enemies())) {
+            if (SpecialEnemyRules.carriesHunters(enemy)) {
+                MapPoint bag = SpecialEnemyRules.bag(enemy);
+                if (FlameRules.contains(bag.x(), bag.y(), SpecialEnemyRules.BAG_RADIUS, x, y, dx, dy, range)
+                        && GameMap.hasClearLine(x, y, bag.x(), bag.y(), world.unlockedAreas()))
+                    damageBag(enemy, weapon.damage(), player, weaponId, x, y);
+            }
             if (enemy.hp <= 0 || !FlameRules.contains(enemy.x, enemy.y, enemyRadius(enemy), x, y, dx, dy, range)
                     || !GameMap.hasClearLine(x, y, enemy.x, enemy.y, world.unlockedAreas())) continue;
             int credits = player.credits;
@@ -214,7 +326,8 @@ final class CombatSystem {
         Drone drone = player.drone;
         if (!world.canAttack() || player.down || drone.hp <= 0 || drone.cooldown > 0
                 || !DroneRules.mountable(drone.weapon) || !player.weapons.owns(drone.weapon)) return;
-        double dx = aimX - drone.x, dy = aimY - drone.y;
+        MapPoint aim = assistedAim(player, drone.weapon, drone.x, drone.y, aimX, aimY);
+        double dx = aim.x() - drone.x, dy = aim.y() - drone.y;
         double length = Math.hypot(dx, dy);
         if (length < .001) return;
         if (!player.weapons.consume(drone.weapon)) {
@@ -260,15 +373,13 @@ final class CombatSystem {
             player.railgunCharge = 0;
             if (player.weapons.ammo("railgun") <= 0) return;
             player.weapons.consume("railgun");
-            double dx = player.aimX - player.x, dy = player.aimY - player.y;
-            double length = Math.hypot(dx, dy);
-            player.railgunDx = length < .001 ? 1 : dx / length;
-            player.railgunDy = length < .001 ? 0 : dy / length;
+            aimRailgun(player);
             player.railgunRemaining = GameConfig.RAILGUN_DURATION;
             player.railgunTick = 0;
             events.sound(player, "shot", "railgun");
         }
         if (player.railgunRemaining <= 0) return;
+        if (UpgradeRules.autoAim(player.enchantments.getOrDefault("railgun", 0))) aimRailgun(player);
         double elapsed = Math.min(remainingDt, player.railgunRemaining);
         player.railgunRemaining = Math.max(0, player.railgunRemaining - elapsed);
         player.railgunTick += elapsed;
@@ -284,6 +395,10 @@ final class CombatSystem {
             for (Enemy enemy : List.copyOf(world.enemies())) {
                 if (enemy.hp <= 0 || !isInsideAttack(enemy, player.x, player.y, player.railgunDx, player.railgunDy, stats, range)
                         || !GameMap.hasClearLine(player.x, player.y, enemy.x, enemy.y, world.unlockedAreas())) continue;
+                if (SpecialEnemyRules.hitsBag(enemy, player.x, player.y, player.railgunDx, player.railgunDy, range, stats.width())) {
+                    damageBag(enemy, stats.damage() * GameConfig.RAILGUN_TICK, player, "railgun", player.x, player.y);
+                    continue;
+                }
                 int before = player.credits;
                 double dealt = damageEnemy(enemy, stats.damage() * GameConfig.RAILGUN_TICK, player);
                 events.hit(player.id, "railgun", player.x, player.y, enemy.x, enemy.y,
@@ -322,7 +437,7 @@ final class CombatSystem {
         }
         double x = player.x + dx * impactDistance, y = player.y + dy * impactDistance;
         events.hit(player.id, "rocket", player.x, player.y, x, y, 0, false, 0, false, null);
-        events.explosion(x, y, GameConfig.ROCKET_BLAST_RADIUS);
+        events.alliedExplosion(x, y, GameConfig.ROCKET_BLAST_RADIUS);
         for (Player target : world.players()) {
             double blastDistance = distance(x, y, target.x, target.y);
             if (JobRules.canHitDisguisedAlly(player, target) && blastDistance <= GameConfig.ROCKET_BLAST_RADIUS
@@ -331,6 +446,13 @@ final class CombatSystem {
             }
         }
         for (Enemy enemy : world.enemies()) {
+            if (SpecialEnemyRules.carriesHunters(enemy)) {
+                MapPoint bag = SpecialEnemyRules.bag(enemy);
+                double separation = distance(x, y, bag.x(), bag.y());
+                if (separation <= GameConfig.ROCKET_BLAST_RADIUS + SpecialEnemyRules.BAG_RADIUS
+                        && GameMap.hasClearLine(x, y, bag.x(), bag.y(), world.unlockedAreas()))
+                    damageBag(enemy, weapon.damage() * Math.max(.5, 1 - .5 * separation / GameConfig.ROCKET_BLAST_RADIUS), player, "rocket", x, y);
+            }
             double blastDistance = distance(x, y, enemy.x, enemy.y);
             if (enemy.hp <= 0 || blastDistance > GameConfig.ROCKET_BLAST_RADIUS
                     || !GameMap.hasClearLine(x, y, enemy.x, enemy.y, world.unlockedAreas())) continue;
@@ -406,18 +528,35 @@ final class CombatSystem {
             events.hit(player.id, shotWeapon(player), originX, originY, endX, endY, 0, false, 0, false, null);
         }
         for (Enemy hit : targets) {
+            if (shotWeapon(player).equals("freezeGun")) {
+                hit.frozenRemaining = Math.max(hit.frozenRemaining, 3);
+                events.hit(player.id, "freezeGun", originX, originY, hit.x, hit.y, 0, false, 0, false, hit.id);
+                continue;
+            }
+            if (SpecialEnemyRules.hitsBag(hit, originX, originY, directionX, directionY, shotDistance, weapon.width())) {
+                damageBag(hit, weapon.damage(), player, shotWeapon(player), originX, originY);
+                continue;
+            }
             int creditsBeforeHit = player.credits;
             boolean headshot = isHeadshot(hit, player, originX, originY, directionX, directionY, weapon, shotDistance);
             double damage = weapon.damage() * (headshot ? 2 : 1);
             if (WeaponCatalog.find(shotWeapon(player)).mode() != WeaponCatalog.AttackMode.MELEE) damage = hit.shieldedDamage(damage, originX, originY);
             double dealt = damageEnemy(hit, damage, player);
-            if (headshot) awardCredits(player, 3, shotWeapon(player));
+            if (headshot && !hit.type.equals("explosionBoss")) awardCredits(player, 3, shotWeapon(player));
             knockbackEnemy(originX, originY, hit, weapon.knockback());
             events.hit(player.id, shotWeapon(player), shotX(player), shotY(player), hit.x, hit.y,
                     dealt, hit.hp <= 0, player.credits - creditsBeforeHit, headshot, hit.id);
         }
         for (Player target : allies) world.damagePlayer(target, weapon.damage());
         return !targets.isEmpty() || !allies.isEmpty();
+    }
+
+    private void damageBag(Enemy enemy, double amount, Player player, String weapon, double x, double y) {
+        if (enemy.hp <= 0 || !SpecialEnemyRules.carriesHunters(enemy)) return;
+        double dealt = Math.min(enemy.bagHp, amount * world.damageMultiplier(player, weapon));
+        enemy.bagHp -= dealt;
+        MapPoint bag = SpecialEnemyRules.bag(enemy);
+        events.hit(player.id, weapon, x, y, bag.x(), bag.y(), dealt, false, 0, false, enemy.id);
     }
 
     private List<Player> friendlyRayTargets(Player shooter, double originX, double originY,
@@ -430,7 +569,8 @@ final class CombatSystem {
 
     static boolean isInsideAttack(Enemy enemy, double originX, double originY, double directionX,
             double directionY, WeaponStats weapon, double shotDistance) {
-        return isInsideAttack(enemy.x, enemy.y, enemyRadius(enemy), originX, originY,
+        return SpecialEnemyRules.hitsBag(enemy, originX, originY, directionX, directionY, shotDistance, weapon.width())
+                || isInsideAttack(enemy.x, enemy.y, enemyRadius(enemy), originX, originY,
                 directionX, directionY, weapon, shotDistance);
     }
 
@@ -446,7 +586,7 @@ final class CombatSystem {
 
     private boolean isHeadshot(Enemy enemy, Player player, double originX, double originY, double directionX,
             double directionY, WeaponStats weapon, double shotDistance) {
-        if (WeaponCatalog.find(shotWeapon(player)).mode() == WeaponCatalog.AttackMode.MELEE) return false;
+        if (shotWeapon(player).equals("laserCannon") || WeaponCatalog.find(shotWeapon(player)).mode() == WeaponCatalog.AttackMode.MELEE) return false;
         double radius = enemyRadius(enemy);
         double headX = enemy.x;
         double headY = enemy.y - radius * 0.5;
@@ -462,11 +602,12 @@ final class CombatSystem {
         return perpendicular <= headRadius + aimTolerance;
     }
 
-    private static double enemyRadius(Enemy enemy) {
+    static double enemyRadius(Enemy enemy) {
         return switch (enemy.type) {
             case "explosionBoss" -> 42;
             case "bomber" -> 20;
             case "tiny" -> 3;
+            case "blueAce" -> 9;
             case "boss" -> 42;
             case "warlord" -> 44;
             case "warden" -> 44;
@@ -496,7 +637,7 @@ final class CombatSystem {
         if (player != null && dealt > 0) {
             JobRules.recordSpyAttack(player, enemy, random);
             enemy.creditProgress += enemy.reward * dealt / enemy.maxHp;
-            int earnedCredits = Math.min(enemy.reward,
+            int earnedCredits = enemy.type.equals("explosionBoss") ? 0 : Math.min(enemy.reward,
                     (int) Math.floor(enemy.creditProgress + 1e-9));
             int payout = earnedCredits - enemy.paidCredits;
             if (payout > 0) {

@@ -8,7 +8,7 @@ import java.util.Set;
 /** Ownership and ammunition; cooldown and active attack state belong to Player. */
 final class WeaponInventory {
     static final int MAX_WEAPONS = 3;
-    private final Set<String> owned = new HashSet<>(Set.of("pistol"));
+    private final Set<String> owned = new HashSet<>(Set.of("bat", "pistol"));
     private final Map<String, Integer> ammunition = new HashMap<>();
     private int silverAmmo;
     private final java.util.function.Supplier<String> job;
@@ -22,6 +22,13 @@ final class WeaponInventory {
         silverAmmo += SilverAmmoRules.PACK_SIZE;
         return true;
     }
+    boolean addSilverAmmo(int amount) {
+        if (amount <= 0 || silverAmmo > Integer.MAX_VALUE - amount) return false;
+        silverAmmo += amount; return true;
+    }
+    void copyFrom(WeaponInventory source) {
+        owned.clear(); owned.addAll(source.owned); ammunition.clear(); ammunition.putAll(source.ammunition); silverAmmo = source.silverAmmo;
+    }
     boolean consumeSilverAmmo(String weapon) {
         if (silverAmmo <= 0 || !SilverAmmoRules.eligible(weapon)) return false;
         silverAmmo--;
@@ -29,7 +36,7 @@ final class WeaponInventory {
     }
     boolean owns(String id) {
         var definition = WeaponCatalog.find(id);
-        return definition != null && (id.equals("bat") || owned.contains(id));
+        return definition != null && owned.contains(id);
     }
     void setOwned(String id, boolean value) {
         var definition = WeaponCatalog.find(id);
@@ -42,7 +49,7 @@ final class WeaponInventory {
     }
     boolean consume(String id) {
         var definition = WeaponCatalog.find(id);
-        if (definition == null) return false;
+        if (definition == null || definition.meleeSlot() && !owns(id)) return false;
         if (!definition.usesAmmo()) return true;
         if (ammo(id) <= 0) return false;
         setAmmo(id, ammo(id) - 1);
@@ -50,20 +57,21 @@ final class WeaponInventory {
     }
     int weaponCount() {
         return (int) WeaponCatalog.ALL.stream()
-                .filter(definition -> !definition.id().equals("bat") && owns(definition.id())).count();
+                .filter(definition -> !definition.meleeSlot() && owns(definition.id())).count();
     }
     boolean canAcquire(String id) {
-        return WeaponCatalog.find(id) != null && (owns(id) || weaponCount() < MAX_WEAPONS);
+        return WeaponCatalog.find(id) != null && (WeaponCatalog.find(id).meleeSlot() || owns(id) || weaponCount() < MAX_WEAPONS);
     }
     boolean grant(String id) {
         if (!canAcquire(id)) return false;
+        if (id.equals("plasmaBlade")) owned.remove("bat");
         setOwned(id, true);
         setAmmo(id, capacity(id));
         return true;
     }
     boolean canExchange(String incoming, String outgoing) {
         return WeaponCatalog.find(incoming) != null && !owns(incoming)
-                && weaponCount() >= MAX_WEAPONS && outgoing != null && !"bat".equals(outgoing) && owns(outgoing);
+                && weaponCount() >= MAX_WEAPONS && outgoing != null && WeaponCatalog.find(outgoing) != null && !WeaponCatalog.find(outgoing).meleeSlot() && owns(outgoing);
     }
     boolean exchange(String incoming, String outgoing) {
         if (!canExchange(incoming, outgoing)) return false;
@@ -71,10 +79,11 @@ final class WeaponInventory {
         ammunition.remove(outgoing);
         return grant(incoming);
     }
-    void clear() { owned.clear(); owned.add("pistol"); ammunition.clear(); silverAmmo = 0; }
+    void clear() { owned.clear(); owned.addAll(Set.of("bat", "pistol")); ammunition.clear(); silverAmmo = 0; }
     void remove(String id) {
         if (id.equals("bat")) return;
         owned.remove(id);
+        if (id.equals("plasmaBlade")) owned.add("bat");
         ammunition.remove(id);
     }
 }

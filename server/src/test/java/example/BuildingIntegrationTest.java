@@ -41,6 +41,31 @@ class BuildingIntegrationTest {
             game.trapSlots.clear();
         }
     }
+
+    @Test void carryNearestRecoversSelectedTurretWithoutChangingSelectionAndKeepsDamage() {
+        player.turretItems = 1;
+        game.handleMessage(player, "EQUIP_BUILD:turret");
+        var slot = new TrapSlot("recover-held", "free", 1060, 1900, null);
+        slot.defense = new Defense("turret"); slot.defense.hp = 123;
+        game.trapSlots.add(slot);
+        game.handleMessage(player, "CARRY_NEAREST:" + slot.id);
+        assertFalse(game.trapSlots.contains(slot)); assertEquals(2, player.turretItems);
+        assertEquals("turret", player.selectedBuild); assertEquals("pistol", player.weapon);
+        assertEquals(123, player.takeDefense("turret").hp);
+        player.movingCore = true;
+        game.trapSlots.add(slot);
+        game.handleMessage(player, "CARRY_NEAREST:" + slot.id);
+        assertTrue(game.trapSlots.contains(slot), "core carrier cannot recover");
+    }
+
+    @Test void carryNearestRecoversFactoryWhileHoldingAnotherOfTheSameType() {
+        player.addBuildItem("oreFactory", 1); player.selectedBuild = "oreFactory";
+        var factory = new MaterialFactory("recover-factory", GameMap.shopByItem("oreFactory"), new MapPoint(1060, 1900));
+        game.factories.add(factory);
+        game.handleMessage(player, "CARRY_NEAREST:" + factory.id);
+        assertFalse(game.factories.contains(factory)); assertEquals(2, player.buildItemCount("oreFactory"));
+        assertEquals("oreFactory", player.selectedBuild);
+    }
     private int materialsCount(String type) { return type.equals("copper") ? player.copper : player.silver; }
     @Test void pickupPreservesSelectedBuildWeaponAndCoreWhileRecoveringInventory() {
         for (String selection : new String[]{null, "wire"}) {

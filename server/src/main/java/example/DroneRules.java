@@ -24,7 +24,7 @@ final class DroneRules {
     static boolean mountable(String weapon) {
         var definition = WeaponCatalog.find(weapon);
         return definition != null && definition.mode() != WeaponCatalog.AttackMode.MELEE
-                && !java.util.Set.of("rocket", "railgun", "lmg").contains(weapon);
+                && !java.util.Set.of("rocket", "railgun", "lmg", "hook", "laserCannon", "poisonGas", "repulsor", "freezeGun").contains(weapon);
     }
 
     static boolean mounted(Player player, String weapon) {
