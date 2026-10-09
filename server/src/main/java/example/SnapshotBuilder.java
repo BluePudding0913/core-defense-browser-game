@@ -161,6 +161,7 @@ final class SnapshotBuilder {
             .append(",\"amount\":").append(SilverAmmoRules.PACK_SIZE)
             .append(",\"damageMultiplier\":").append(SilverAmmoRules.DAMAGE_MULTIPLIER)
             .append("},\"upgrades\":{\"enchantMax\":").append(UpgradeRules.ENCHANT_MAX)
+            .append(",\"autoAimLevel\":").append(UpgradeRules.ENCHANT_MAX)
             .append(",\"enchantStep\":").append(UpgradeRules.ENCHANT_STEP).append(",\"enchantCosts\":[")
             .append(UpgradeRules.enchantCost(0)).append(',').append(UpgradeRules.enchantCost(1)).append(',').append(UpgradeRules.enchantCost(2))
             .append("],\"bottomsCost\":").append(UpgradeRules.BOTTOMS_COST).append(",\"topsCost\":").append(UpgradeRules.TOPS_COST)

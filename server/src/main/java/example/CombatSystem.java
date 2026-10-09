@@ -65,6 +65,8 @@ final class CombatSystem {
             return;
         }
         WeaponStats weapon = JobRules.weaponStats(player.job, player.weapon);
+        MapPoint aim = assistedAim(player, player.weapon, player.x, player.y, aimX, aimY);
+        aimX = aim.x(); aimY = aim.y();
         if (!player.weapons.consume(player.weapon)) {
             events.outOfAmmo(player);
             player.firing = false;
@@ -119,6 +121,21 @@ final class CombatSystem {
             double spreadAngle = shotgun ? (pellet - (rays - 1) / 2.0) * .14 : 0;
             fireRay(player, weapon, Math.cos(angle + spreadAngle), Math.sin(angle + spreadAngle));
         }
+    }
+
+    private MapPoint assistedAim(Player player, String weapon, double x, double y, double aimX, double aimY) {
+        Enemy target = AutoAimRules.target(player.enchantments.getOrDefault(weapon, 0), x, y,
+                aimX, aimY, WeaponCatalog.stats(weapon).range(), world.enemies(),
+                enemy -> GameMap.hasClearLine(x, y, enemy.x, enemy.y, world.unlockedAreas()));
+        return target == null ? new MapPoint(aimX, aimY) : new MapPoint(target.x, target.y);
+    }
+
+    private void aimRailgun(Player player) {
+        MapPoint aim = assistedAim(player, "railgun", player.x, player.y, player.aimX, player.aimY);
+        double dx = aim.x() - player.x, dy = aim.y() - player.y;
+        double length = Math.hypot(dx, dy);
+        player.railgunDx = length < .001 ? 1 : dx / length;
+        player.railgunDy = length < .001 ? 0 : dy / length;
     }
 
     private void fireRepulsor(Player player, WeaponStats weapon, double dx, double dy) {
@@ -291,7 +308,8 @@ final class CombatSystem {
         Drone drone = player.drone;
         if (!world.canAttack() || player.down || drone.hp <= 0 || drone.cooldown > 0
                 || !DroneRules.mountable(drone.weapon) || !player.weapons.owns(drone.weapon)) return;
-        double dx = aimX - drone.x, dy = aimY - drone.y;
+        MapPoint aim = assistedAim(player, drone.weapon, drone.x, drone.y, aimX, aimY);
+        double dx = aim.x() - drone.x, dy = aim.y() - drone.y;
         double length = Math.hypot(dx, dy);
         if (length < .001) return;
         if (!player.weapons.consume(drone.weapon)) {
@@ -337,15 +355,13 @@ final class CombatSystem {
             player.railgunCharge = 0;
             if (player.weapons.ammo("railgun") <= 0) return;
             player.weapons.consume("railgun");
-            double dx = player.aimX - player.x, dy = player.aimY - player.y;
-            double length = Math.hypot(dx, dy);
-            player.railgunDx = length < .001 ? 1 : dx / length;
-            player.railgunDy = length < .001 ? 0 : dy / length;
+            aimRailgun(player);
             player.railgunRemaining = GameConfig.RAILGUN_DURATION;
             player.railgunTick = 0;
             events.sound(player, "shot", "railgun");
         }
         if (player.railgunRemaining <= 0) return;
+        if (UpgradeRules.autoAim(player.enchantments.getOrDefault("railgun", 0))) aimRailgun(player);
         double elapsed = Math.min(remainingDt, player.railgunRemaining);
         player.railgunRemaining = Math.max(0, player.railgunRemaining - elapsed);
         player.railgunTick += elapsed;

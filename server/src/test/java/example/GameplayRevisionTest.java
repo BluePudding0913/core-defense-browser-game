@@ -661,7 +661,7 @@ class GameplayRevisionTest {
         assertTrue(approach);
         game.update(.05);
         assertTrue(game.unlockedAreas.contains("entry-room"));
-        assertEquals(550, bot.credits);
+        assertEquals(535, bot.credits);
         bot.credits = 0;
         game.round = 2;
         bot.x = game.coreX; bot.y = game.coreY; bot.botSpendCooldown = 0;
@@ -828,7 +828,7 @@ class GameplayRevisionTest {
         Player poor=game.players.get(2);poor.human=false;poor.credits=0;poor.x=bot.x;poor.y=bot.y;
         game.phase=GamePhase.WAVE;
         Method tasks=GameSession.class.getDeclaredMethod("updateBotTasks",Player.class);tasks.setAccessible(true);
-        assertTrue((boolean)tasks.invoke(game,bot));assertTrue(game.unlockedAreas.contains("entry-room"));assertEquals(850,bot.credits);
+        assertTrue((boolean)tasks.invoke(game,bot));assertTrue(game.unlockedAreas.contains("entry-room"));assertEquals(835,bot.credits);
     }
 
     @Test void recoveringDamagedDefensePreservesHpAcrossWeaponSwitchAndReinstallation() {

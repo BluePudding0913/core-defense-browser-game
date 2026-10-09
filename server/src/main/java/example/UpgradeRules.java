@@ -12,6 +12,7 @@ final class UpgradeRules {
     static final double TEAM_DAMAGE = 1.25, TEAM_DEFENSE = .8;
 
     static int enchantCost(int level) { return 40_000 * (level + 1) * (level + 1); }
+    static boolean autoAim(int level) { return level >= ENCHANT_MAX; }
     static double weaponMultiplier(int level) { return 1 + ENCHANT_STEP * Math.min(ENCHANT_MAX, Math.max(0, level)); }
     static double armorMultiplier(boolean bottoms, boolean tops) {
         return 1 - (bottoms ? BOTTOMS_REDUCTION : 0) - (tops ? TOPS_REDUCTION : 0);
