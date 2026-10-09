@@ -35,7 +35,7 @@ class LastLineTest {
     @Test void roomHasFiveDevicesAndWideDirectAccessFromHeavyArms() {
         UnlockArea area = GameMap.areaById(UpgradeRules.AREA);
         assertEquals(77, area.tiles().size());
-        assertEquals(5, GameMap.SHOP_UNITS.stream().filter(s -> area.contains(s.x(), s.y())).count());
+        assertEquals(6, GameMap.SHOP_UNITS.stream().filter(s -> area.contains(s.x(), s.y())).count());
         for (int col = 5; col <= 15; col++) {
             assertTrue(GameMap.areaById("heavy-arms-area").tiles().contains(new AreaTile(col, 29)));
             assertTrue(area.tiles().contains(new AreaTile(col, 30)));
@@ -60,9 +60,9 @@ class LastLineTest {
     }
 
     @Test void armorChargesOnceAndStacksToThirtyPercentWithoutProtectingCarriedCore() throws Exception {
-        at("armor"); player.credits = 160_000;
+        at("armor"); player.credits = 40_000;
         game.handleMessage(player, "BUY:armor:bottoms");
-        assertTrue(player.armorBottoms); assertEquals(100_000, player.credits);
+        assertTrue(player.armorBottoms); assertEquals(25_000, player.credits);
         player.hp = 100; damage(50); assertEquals(55, player.hp, 1e-9);
         game.handleMessage(player, "BUY:armor:tops");
         assertTrue(player.armorTops); assertEquals(0, player.credits);
@@ -156,11 +156,12 @@ class LastLineTest {
     @Test void lateAmmoRefillsSnapshotAndRestartIncludeUpgradeState() throws Exception {
         ShopUnit shop = GameMap.SHOP_UNITS.stream().filter(s -> s.id().equals("last-ammo")).findFirst().orElseThrow();
         player.x = shop.x(); player.y = shop.y(); player.weapons.setOwned("railgun", true); player.weapons.setAmmo("railgun", 0);
-        player.credits = 11_999; game.handleMessage(player, "BUY:ammo"); assertEquals(0, player.weapons.ammo("railgun"));
-        player.credits = 12_000; game.handleMessage(player, "BUY:ammo");
+        player.credits = 2_999; game.handleMessage(player, "BUY:ammo"); assertEquals(0, player.weapons.ammo("railgun"));
+        player.credits = 3_000; game.handleMessage(player, "BUY:ammo");
         assertEquals(0, player.credits); assertEquals(WeaponCatalog.capacity("railgun"), player.weapons.ammo("railgun"));
         player.armorTops = true; player.enchantments.put("pistol", 1); player.overclockSilverItems = 2; game.teamBuffRemaining = 100;
         var state = new ObjectMapper().readTree(SnapshotBuilder.build(game));
+        assertEquals(3, state.path("rules").path("upgrades").path("autoAimLevel").asInt());
         assertTrue(state.path("players").get(0).path("armorTops").asBoolean());
         assertEquals(1, state.path("players").get(0).path("enchantments").path("pistol").asInt());
         assertEquals(2, state.path("players").get(0).path("buildItems").path("overclockSilver").asInt());
@@ -175,12 +176,12 @@ class LastLineTest {
         var shops = GameMap.SHOP_UNITS.stream().filter(s -> s.item().equals("ammo")).toList();
         assertEquals(2, shops.size());
         for (ShopUnit shop : shops) {
-            assertEquals(500, shop.cost());
+            assertEquals(250, shop.cost());
             player.x = shop.x(); player.y = shop.y();
             for (String weapon : new String[]{"shotgun", "flamethrower", "rocket", "railgun"}) {
                 for (var definition : WeaponCatalog.ALL) if (definition.usesAmmo()) player.weapons.setOwned(definition.id(), false);
                 player.weapons.setOwned(weapon, true); player.weapons.setAmmo(weapon, 0);
-                int price = Math.max(500, GameSession.ammoRefillCost(weapon));
+                int price = Math.max(250, GameSession.ammoRefillCost(weapon));
                 player.credits = price - 1; game.handleMessage(player, "BUY:ammo");
                 assertEquals(0, player.weapons.ammo(weapon)); assertEquals(price - 1, player.credits);
                 player.credits = price; game.handleMessage(player, "BUY:ammo");

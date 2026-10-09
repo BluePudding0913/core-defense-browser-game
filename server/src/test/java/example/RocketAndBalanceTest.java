@@ -37,13 +37,14 @@ class RocketAndBalanceTest {
     @Test void heavyArmsUnlockAndPurchaseRequireTheirFullPrices() throws Exception {
         game.unlockedAreas.remove("heavy-arms-area");
         UnlockArea area = GameMap.areaById("heavy-arms-area");
+        int unlockPrice = game.unlockCost(area.id());
         player.x = 220; player.y = 620;
-        player.credits = 59_999;
+        player.credits = unlockPrice - 1;
         game.handleMessage(player, "UNLOCK:heavy-arms-area");
         assertFalse(game.unlockedAreas.contains(area.id()));
-        assertEquals(59_999, player.credits);
+        assertEquals(unlockPrice - 1, player.credits);
         game.unlockedAreas.remove("sniper-room");
-        player.credits = 60_000;
+        player.credits = unlockPrice;
         game.handleMessage(player, "UNLOCK:heavy-arms-area");
         assertFalse(game.unlockedAreas.contains(area.id()), "Sniper room must open first");
         game.unlockedAreas.add("sniper-room");
@@ -52,17 +53,17 @@ class RocketAndBalanceTest {
         assertEquals(0, player.credits);
 
         ShopUnit shop = GameMap.shopByItem("rocket");
-        player.x = shop.x(); player.y = shop.y(); player.credits = 59_999;
+        player.x = shop.x(); player.y = shop.y(); player.credits = shop.cost() - 1;
         game.handleMessage(player, "BUY:rocket");
         assertFalse(player.weapons.owns("rocket"));
-        assertEquals(59_999, player.credits);
-        player.credits = 60_000;
+        assertEquals(shop.cost() - 1, player.credits);
+        player.credits = shop.cost();
         game.handleMessage(player, "BUY:rocket");
         assertTrue(player.weapons.owns("rocket"));
         assertEquals(0, player.credits);
         var rules = new com.fasterxml.jackson.databind.ObjectMapper()
                 .readTree(SnapshotBuilder.build(game)).path("rules");
-        assertEquals(60_000, rules.path("areaUnlockCosts").path(area.id()).asInt());
+        assertEquals(unlockPrice, rules.path("areaUnlockCosts").path(area.id()).asInt());
         assertEquals(game.unlockCost(), rules.path("areaUnlockCosts").path("entry-room").asInt());
     }
 
@@ -70,11 +71,11 @@ class RocketAndBalanceTest {
         UnlockArea area = GameMap.areaById("wood-room");
         game.unlockedAreas.remove(area.id());
         player.x = area.terminalX(); player.y = area.terminalY();
-        player.credits = 199;
+        player.credits = 219;
         game.handleMessage(player, "UNLOCK:" + area.id());
         assertFalse(game.unlockedAreas.contains(area.id()));
-        assertEquals(199, player.credits);
-        player.credits = 200;
+        assertEquals(219, player.credits);
+        player.credits = 220;
         game.handleMessage(player, "UNLOCK:" + area.id());
         assertTrue(game.unlockedAreas.contains(area.id()));
         assertEquals(0, player.credits);

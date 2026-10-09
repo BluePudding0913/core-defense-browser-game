@@ -30,9 +30,13 @@ final class GameEffects implements CombatEvents {
                 + "\",\"item\":\"" + escapeJson(item) + "\"}");
     }
 
-    public void explosion(double x, double y, double radius) {
+    public void explosion(double x, double y, double radius) { explosion(x, y, radius, "enemy"); }
+
+    public void alliedExplosion(double x, double y, double radius) { explosion(x, y, radius, "ally"); }
+
+    private void explosion(double x, double y, double radius, String source) {
         sink.broadcast("{\"type\":\"effect\",\"effect\":\"explosion\",\"x\":" + roundOne(x)
-                + ",\"y\":" + roundOne(y) + ",\"radius\":" + radius + "}");
+                + ",\"y\":" + roundOne(y) + ",\"radius\":" + radius + ",\"source\":\"" + source + "\"}");
     }
 
     void droneSelfDestruct(Player player, Drone drone) {

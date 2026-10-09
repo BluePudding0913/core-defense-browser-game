@@ -57,7 +57,7 @@ const WeaponUI = Object.freeze({
             .join("\n");
     },
     atLimit(player, definitions, limit) {
-        return Object.entries(definitions).filter(([id, definition]) => id !== "bat" && this.owns(player, definition)).length >= limit;
+        return Object.entries(definitions).filter(([id, definition]) => id !== "bat" && !definition.meleeSlot && this.owns(player, definition)).length >= limit;
     },
 });
 if (typeof module !== "undefined") module.exports = WeaponUI;

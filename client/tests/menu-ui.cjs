@@ -391,3 +391,10 @@ context.window.coreMenu.disconnected();
 assert(!context.window.coreMenu.settingsOpen());
 assert.match(root.innerHTML,/メインメニュー/);
 console.log('In-game settings passed: no name edit, snapshot persistence, slider release preview, return, keyboard isolation, disconnect');
+
+const backupState={...state,phase:"lost",backupAvailable:true,backupRound:15,backupOwnerId:"p1"};
+context.window.coreMenu.snapshot(backupState,"p1");assert.match(root.innerHTML,/restore-backup/);assert.match(root.innerHTML,/ROUND 15/);
+click("restore-backup");assert.equal(calls.at(-1),"HACKER_RESTORE");
+context.window.coreMenu.snapshot({...backupState,backupAvailable:false},"p1");assert.doesNotMatch(root.innerHTML,/restore-backup/);
+context.window.coreMenu.snapshot({...backupState,backupOwnerId:"other"},"p1");assert.doesNotMatch(root.innerHTML,/restore-backup/);
+console.log("Backup results UI passed: restore action, room save owner, and consumed checkpoint");

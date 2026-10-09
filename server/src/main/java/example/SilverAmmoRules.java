@@ -2,8 +2,8 @@ package example;
 
 final class SilverAmmoRules {
     static final int COST = 1;
-    static final int PACK_SIZE = 10;
-    static final double DAMAGE_MULTIPLIER = 2.0;
+    static final int PACK_SIZE = 20;
+    static final double DAMAGE_MULTIPLIER = 3.0;
 
     static boolean eligible(String weapon) {
         var definition = WeaponCatalog.find(weapon);

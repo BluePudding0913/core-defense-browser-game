@@ -23,29 +23,29 @@ final class GameConfig {
     }
     static final double RECONNECT_GRACE_SECONDS = 600;
     static final double GATHER_COOLDOWN_SECONDS = 3.5;
-    // Late-game rooms and heavy weapons absorb the larger rewards of later waves.
+    // Shared room unlocks cost more than each personal weapon; heavy arms share one unlock.
     static final Map<String, Integer> AREA_UNLOCK_COSTS = Map.ofEntries(
-            Map.entry("entry-room", 150),
-            Map.entry("transit-hall", 350),
-            Map.entry("armory-wing", 350),
-            Map.entry("forest", 1_000),
-            Map.entry("relay-gallery", 1_000),
-            Map.entry("mine", 1_000),
-            Map.entry("security-hall", 2_000),
-            Map.entry("command-room", 2_000),
-            Map.entry("wood-room", 200),
-            Map.entry("ore-room", 300),
-            Map.entry("operations-room", 500),
-            Map.entry("shotgun-room", 300),
-            Map.entry("ricochet-room", 300),
-            Map.entry("smg-room", 500),
-            Map.entry("lmg-room", 1_500),
-            Map.entry("rifle-room", 2_000),
-            Map.entry("sniper-room", 3_000),
-            Map.entry("heavy-arms-area", 60_000),
-            Map.entry("last-line", 100_000),
-            Map.entry("revolver-room", 2_000),
-            Map.entry("recovery-room", 250));
+            Map.entry("entry-room", 165),
+            Map.entry("transit-hall", 385),
+            Map.entry("armory-wing", 385),
+            Map.entry("forest", 1_100),
+            Map.entry("relay-gallery", 1_100),
+            Map.entry("mine", 1_100),
+            Map.entry("security-hall", 2_200),
+            Map.entry("command-room", 2_200),
+            Map.entry("wood-room", 220),
+            Map.entry("ore-room", 330),
+            Map.entry("operations-room", 550),
+            Map.entry("shotgun-room", 550),
+            Map.entry("ricochet-room", 990),
+            Map.entry("smg-room", 990),
+            Map.entry("lmg-room", 3_300),
+            Map.entry("rifle-room", 1_980),
+            Map.entry("sniper-room", 6_600),
+            Map.entry("heavy-arms-area", 99_000),
+            Map.entry("last-line", 110_000),
+            Map.entry("revolver-room", 4_950),
+            Map.entry("recovery-room", 275));
     static final Map<String, Integer> BUILD_COSTS = Map.of(
             "block", 60,
             "turret", 250,
@@ -74,7 +74,8 @@ final class GameConfig {
     static final double BOMBER_PLAYER_DAMAGE_FRACTION = .5;
     static final double EXPLOSION_BOSS_BLAST_RADIUS = 12 * GameMap.TILE_SIZE;
     static final double EXPLOSION_BOSS_FUSE_SECONDS = 30;
-    static final double EXPLOSION_BOSS_DAMAGE = 100 * 1.10;
+    static final double EXPLOSION_BOSS_DAMAGE = 300;
+    static final double EXPLOSION_BOSS_DEFENSE_DAMAGE = 6000;
     static final double ROCKET_BLAST_RADIUS = 200;
     static final double ARTILLERY_RANGE = 420;
     static final double ARTILLERY_BLAST_RADIUS = 64;

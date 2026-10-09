@@ -17,14 +17,14 @@ final class BotWeaponPolicy {
         bot.equipWeapon(selected.id()); bot.selectedBuild = null;
     }
     private static boolean available(Player bot, WeaponCatalog.Definition weapon) {
-        return bot.weapons.owns(weapon.id()) && (!weapon.usesAmmo() || bot.weapons.ammo(weapon.id()) > 0)
+        return weapon.stats().damage() > 0 && bot.weapons.owns(weapon.id()) && (!weapon.usesAmmo() || bot.weapons.ammo(weapon.id()) > 0)
                 && !DroneRules.mounted(bot, weapon.id());
     }
     private static double score(Player bot, WeaponCatalog.Definition weapon, double distance, double hp, int count) {
         var stats = weapon.stats();
         double pellets = weapon.mode() == WeaponCatalog.AttackMode.SPREAD ? (distance < 150 ? 3 : 1.5) : 1;
         double targets = switch (weapon.mode()) {
-            case FLAME, ROCKET, BEAM -> Math.min(4, Math.max(1, count));
+            case FLAME, ROCKET, BEAM, GAS -> Math.min(4, Math.max(1, count));
             default -> weapon.piercing() ? Math.min(3, Math.max(1, count)) : 1;
         };
         double cycle = stats.cooldown() + (weapon.mode() == WeaponCatalog.AttackMode.BEAM ? GameConfig.RAILGUN_CHARGE : 0);

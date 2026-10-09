@@ -32,20 +32,20 @@ class SilverAmmoPurchaseTest {
         player.down = false; messages.clear();
         player.selectedBuild = "wire";
         game.handleMessage(player, "CRAFT:silverAmmo");
-        assertEquals(10, player.weapons.silverAmmo()); assertEquals(1, player.silver); assertEquals(137, player.credits);
+        assertEquals(20, player.weapons.silverAmmo()); assertEquals(1, player.silver); assertEquals(137, player.credits);
         assertEquals("wire", player.selectedBuild);
         assertEquals("pistol", player.weapon);
         assertTrue(messages.stream().anyMatch(message -> message.contains("purchase-complete") && message.contains("\"closeMenu\":false")));
         game.handleMessage(player, "CRAFT:silverAmmo");
-        assertEquals(20, player.weapons.silverAmmo()); assertEquals(0, player.silver);
+        assertEquals(40, player.weapons.silverAmmo()); assertEquals(0, player.silver);
         messages.clear(); game.handleMessage(player, "CRAFT:silverAmmo");
-        assertEquals(20, player.weapons.silverAmmo()); assertEquals(137, player.credits);
+        assertEquals(40, player.weapons.silverAmmo()); assertEquals(137, player.credits);
         assertFalse(messages.stream().anyMatch(message -> message.contains("purchase-complete")));
         var snapshot = new ObjectMapper().readTree(SnapshotBuilder.build(game));
-        assertEquals(20, snapshot.path("players").get(player.slot - 1).path("silverAmmo").asInt());
+        assertEquals(40, snapshot.path("players").get(player.slot - 1).path("silverAmmo").asInt());
         assertEquals(1, snapshot.path("rules").path("silverAmmo").path("cost").asInt());
-        assertEquals(10, snapshot.path("rules").path("silverAmmo").path("amount").asInt());
-        assertEquals(2.0, snapshot.path("rules").path("silverAmmo").path("damageMultiplier").asDouble());
+        assertEquals(20, snapshot.path("rules").path("silverAmmo").path("amount").asInt());
+        assertEquals(3.0, snapshot.path("rules").path("silverAmmo").path("damageMultiplier").asDouble());
         for (var definition : WeaponCatalog.ALL) {
             assertEquals(SilverAmmoRules.eligible(definition.id()), snapshot.path("rules").path("weapons")
                     .path(definition.id()).path("silverAmmoEligible").asBoolean());
@@ -56,10 +56,10 @@ class SilverAmmoPurchaseTest {
         enemy.x = 1100; enemy.y = 1900; game.enemies.add(enemy);
         game.handleMessage(player, "FIRE:1400:1900:1");
         game.handleMessage(player, "FIRE:1400:1900:0");
-        assertEquals(19, player.weapons.silverAmmo());
+        assertEquals(39, player.weapons.silverAmmo());
         assertTrue(enemy.hp < enemy.maxHp);
         snapshot = new ObjectMapper().readTree(SnapshotBuilder.build(game));
-        assertEquals(19, snapshot.path("players").get(player.slot - 1).path("silverAmmo").asInt());
+        assertEquals(39, snapshot.path("players").get(player.slot - 1).path("silverAmmo").asInt());
         game.phase = GamePhase.LOST; game.players.forEach(candidate -> candidate.roomReady = true);
         game.handleMessage(player, "START");
         assertEquals(GamePhase.PREPARING, game.phase);

@@ -37,8 +37,8 @@ class ExplosionBossTest {
         invoke("updateEnemies", new Class<?>[]{double.class}, dt);
     }
 
-    @Test void requiresStrictlyBelowFivePercentIncludingUnspawnedEnemiesAndIgnoresDeadEnemies() throws Exception {
-        game.queuedEnemies = 4; game.queuedBosses = 1;
+    @Test void requiresAtMostTenPercentIncludingUnspawnedEnemiesAndIgnoresDeadEnemies() throws Exception {
+        game.queuedEnemies = 10; game.queuedBosses = 1;
         update(10);
         assertEquals(-1, boss.fuse);
         game.queuedBosses = 0;
@@ -70,19 +70,19 @@ class ExplosionBossTest {
         double hp = boss.hp;
         game.combat.damageEnemy(boss, 1000., player);
         assertEquals(hp - 1000, boss.hp);
-        assertEquals((2200 + game.round * 60) * 2, boss.maxHp);
+        assertEquals((2200 + game.round * 60) * 2 * 15, boss.maxHp);
         assertTrue(boss.speed <= 24);
         update(10);
         assertEquals(100, player.hp);
         assertFalse(boss.exploded);
     }
 
-    @Test void thirtySecondBlastIsUniformIncludesBoundaryIgnoresWallsAndSparesAllTurrets() throws Exception {
+    @Test void thirtySecondBlastIsUniformIncludesBoundaryIgnoresWallsAndDestroysDefenses() throws Exception {
         double x = boss.x, y = boss.y, radius = GameConfig.EXPLOSION_BOSS_BLAST_RADIUS;
         for (Player p : game.players) p.hp = 200;
         player.x = x; player.y = y;
-        Player edge = game.players.get(1); edge.x = x + radius; edge.y = y;
-        Player outside = game.players.get(2); outside.x = x + radius + .01; outside.y = y;
+        Player edge = game.players.get(1); edge.x = x + radius + 11; edge.y = y;
+        Player outside = game.players.get(2); outside.x = x + radius + 12 + .01; outside.y = y;
         Player behindWall = game.players.get(3);
         boolean found = false;
         for (int dx = -400; dx <= 400 && !found; dx += 20) {
@@ -93,7 +93,7 @@ class ExplosionBossTest {
             }
         }
         assertTrue(found);
-        for (String type : List.of("turret", "copperTurret", "silverTurret")) {
+        for (String type : List.of("turret", "copperTurret", "silverTurret", "barricade", "copperBarricade", "silverBarricade")) {
             TrapSlot slot = new TrapSlot(type, "free", x, y, null);
             slot.defense = new Defense(type); game.trapSlots.add(slot);
         }
@@ -102,9 +102,9 @@ class ExplosionBossTest {
         boss.x = x; boss.y = y;
         update(.1);
         assertTrue(boss.exploded);
-        assertEquals(90, player.hp, .0001); assertEquals(90, edge.hp, .0001);
-        assertEquals(200, outside.hp); assertEquals(90, behindWall.hp, .0001);
-        game.trapSlots.forEach(slot -> assertEquals(slot.defense.maxHp, slot.defense.hp));
+        assertEquals(0, player.hp, .0001); assertEquals(0, edge.hp, .0001);
+        assertEquals(200, outside.hp); assertEquals(0, behindWall.hp, .0001);
+        game.trapSlots.forEach(slot -> assertNull(slot.defense));
         update(100);
         assertEquals(1, effects.stream().filter(s -> s.contains("\"effect\":\"explosion\"")).count());
     }
@@ -115,7 +115,7 @@ class ExplosionBossTest {
         assertTrue(player.down); assertEquals(0, player.hp);
     }
 
-    @Test void ordinaryShotsApplyFullDamageHeadshotsAndGold() throws Exception {
+    @Test void ordinaryShotsApplyFullDamageAndHeadshotsWithoutGold() throws Exception {
         player.x = 1020; player.y = 1900;
         boss.x = 1120; boss.y = 1900;
         double before = boss.hp;
@@ -128,7 +128,7 @@ class ExplosionBossTest {
             assertEquals(damage, before - boss.hp, .000001);
             assertTrue(effects.stream().anyMatch(s -> s.contains("\"damage\":" + damage)
                     && s.contains("\"headshot\":" + headshot)));
-            assertTrue(player.credits > 0);
+            assertEquals(0, player.credits, "including headshots");
             var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
             assertEquals(boss.hp, snapshot.path("enemies").get(0).path("hp").asDouble());
             before = boss.hp;
@@ -170,15 +170,15 @@ class ExplosionBossTest {
         assertFalse(boss.exploded);
     }
 
-    @Test void silverAmmoDoublesNormalDamageAgainstExplosionBoss() {
+    @Test void silverAmmoTriplesNormalDamageAgainstExplosionBoss() {
         game.phase = GamePhase.WAVE;
         player.x = 1020; player.y = 1900;
         boss.x = 1120; boss.y = 1900;
         assertTrue(player.weapons.buySilverAmmo(1));
         double hp = boss.hp;
         game.combat.attackAt(player, boss.x, boss.y);
-        assertEquals(52, hp - boss.hp, .000001);
-        assertEquals(9, player.weapons.silverAmmo());
+        assertEquals(78, hp - boss.hp, .000001);
+        assertEquals(19, player.weapons.silverAmmo());
     }
 
     @Test void areaAndSpreadKillsLeaveOneHealthyOffspringBatch() throws Exception {

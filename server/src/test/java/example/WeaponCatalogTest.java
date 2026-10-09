@@ -54,7 +54,7 @@ class WeaponCatalogTest {
         }
         inventory.clear();
         for (var weapon : WeaponCatalog.ALL) {
-            assertEquals(!weapon.usesAmmo(), inventory.owns(weapon.id()));
+            assertEquals(weapon.id().equals("bat") || weapon.id().equals("pistol"), inventory.owns(weapon.id()));
             assertEquals(0, inventory.ammo(weapon.id()));
         }
         inventory.grant("unknown");
