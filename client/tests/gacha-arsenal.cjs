@@ -8,7 +8,7 @@ const ctx={save(){},restore(){},beginPath(){},moveTo(){},lineTo(){},
 const context=vm.createContext({ctx,Math,performance:{now:()=>now},state:{rules:{weapons:{laserCannon:{width:10}}},
  artilleryReceivedAt:1000,poisonClouds:[{x:100,y:100,radius:120,remaining:6}]}});
 for(const name of ['drawPoisonGas','drawGachaWeaponEffect'])vm.runInContext(extract(name),context);
-vm.runInContext('drawPoisonGas()',context);assert.equal(arcs[0][2],120);assert.equal(arcs.length,1);
+vm.runInContext('drawPoisonGas()',context);assert.equal(arcs[0][2],120);assert.equal(arcs.length,11);
 arcs.length=0;now=7001;vm.runInContext('drawPoisonGas()',context);assert.equal(arcs.length,0);
 context.effect={weapon:'laserCannon',started:900,damage:0,fromX:100,fromY:100,x:500,y:100};
 vm.runInContext('drawGachaWeaponEffect(effect,1000)',context);
