@@ -3342,6 +3342,7 @@ function drawReviveEffect(x, y, progress) {
 
 function drawHitEffects() {
     const now = performance.now();
+    const flameBudget = typeof FlameParticles !== "undefined" ? FlameParticles.createBudget() : null;
     hitEffects = hitEffects.filter(effect => now - effect.started
         < (effect.effect === "player-hit" ? 600 : effect.effect === "player-down" ? 1200 : effect.effect === "pickup"
             || (effect.credits > 0 || effect.headshot) && effect.playerId === myPlayerId
@@ -3404,7 +3405,7 @@ function drawHitEffects() {
         if (effect.weapon === "flamethrower") {
             if (effect.damage === 0 && effect.enemyId == null && typeof FlameParticles !== "undefined") {
                 FlameParticles.draw(ctx, effect, now, state.rules.flameHalfAngle,
-                    (origin, target) => canPredictOccupy(target.x, target.y, 0, false) && hasInteractionPath(origin, target));
+                    (origin, target) => canPredictOccupy(target.x, target.y, 0, false) && hasInteractionPath(origin, target), flameBudget);
             }
             continue;
         }
