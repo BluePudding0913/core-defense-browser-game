@@ -136,7 +136,7 @@ final class GameSession {
     static final List<String> DEBUG_ENEMY_TYPES = List.of(
             "grunt", "runner", "brute", "shield", "hunter", "ghost", "armored",
             "siege", "champion", "tiny", "bomber", "artillery", "gilded", "blueAce",
-            "carrier", "blackout", "seeker", "boss", "warlord", "titan", "warden", "explosionBoss");
+            "carrier", "blackout", "seeker", "coreHunter", "boss", "warlord", "titan", "warden", "explosionBoss");
     static final int BACKUP_COST = 100_000;
     static final double BACKUP_RESTORE_DURATION = 6;
     static final double BACKUP_RESTORE_DELAY = 1.5;
@@ -1001,6 +1001,21 @@ final class GameSession {
         }
     }
 
+    private void advanceEnemyToCore(Enemy enemy, double moveSpeed, double dt) {
+        if (distance(enemy.x, enemy.y, coreX, coreY) <= 72
+                && GameMap.hasClearLine(enemy.x, enemy.y, coreX, coreY)) {
+            enemy.faceToward(coreX, coreY);
+            if (enemy.attackCooldown <= 0) {
+                damageCore(enemy.damage);
+                enemy.attackCooldown = 0.9;
+            }
+        } else {
+            MapPoint target = enemyNavigation.coreTarget(enemy, dt);
+            moveEnemyDirect(enemy, target.x(), target.y(),
+                moveSpeed * enemy.slow * dt);
+        }
+    }
+
     private void startMatch(Player host, boolean debugMode) {
         resetWorld();
         this.debugMode = debugMode;
@@ -1414,6 +1429,7 @@ final class GameSession {
         double damage;
         int reward;
         switch (type) {
+            case "coreHunter" -> { hp = 100 + round * 8; speed = 110 + round * 2; damage = 18 + round; reward = 40; }
             case "blackout" -> { hp = 180 + round * 12; speed = 100; damage = 14 + round * .6; reward = 90; }
             case "seeker" -> { hp = 100 + round * 9; speed = 70; damage = 22 + round * .4; reward = 65; }
             case "gilded" -> { hp = 120 + round * 10; speed = 82; damage = 12 + round; reward = 1200; }
@@ -1660,6 +1676,10 @@ final class GameSession {
                 continue;
             }
 
+            if (enemy.type.equals("coreHunter")) {
+                advanceEnemyToCore(enemy, moveSpeed, dt);
+                continue;
+            }
             Decoy decoyTarget = DecoyRules.target(enemy, decoys,
                     (x, y) -> GameMap.hasClearLine(enemy.x, enemy.y, x, y, unlockedAreas));
             if (decoyTarget != null) {
@@ -1729,18 +1749,7 @@ final class GameSession {
                 continue;
             }
 
-            if (distance(enemy.x, enemy.y, coreX, coreY) <= 72
-                    && GameMap.hasClearLine(enemy.x, enemy.y, coreX, coreY)) {
-                enemy.faceToward(coreX, coreY);
-                if (enemy.attackCooldown <= 0) {
-                    damageCore(enemy.damage);
-                    enemy.attackCooldown = 0.9;
-                }
-            } else {
-                MapPoint target = enemyNavigation.coreTarget(enemy, dt);
-                moveEnemyDirect(enemy, target.x(), target.y(),
-                        moveSpeed * enemy.slow * dt);
-            }
+            advanceEnemyToCore(enemy, moveSpeed, dt);
         }
         // Add offspring after iteration for both combat deaths and timed explosions.
         for (Enemy summoner : summoners) summonBossEnemies(summoner);

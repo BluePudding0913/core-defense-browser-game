@@ -30,7 +30,7 @@ class DebugEnemyPreviewTest {
     @Test void summonEveryEnemyAtTheRoomCenterAndKeepNormalQueues() throws Exception {
         var snapshot = new ObjectMapper().readTree(SnapshotBuilder.build(game));
         assertTrue(snapshot.path("debugMode").asBoolean());
-        assertEquals(22, snapshot.path("debugEnemyTypes").size());
+        assertEquals(23, snapshot.path("debugEnemyTypes").size());
         game.queuedEnemies = 7; game.queuedBosses = 2;
         for (String type : GameSession.DEBUG_ENEMY_TYPES) {
             game.handleMessage(host, "DEBUG:SUMMON:" + type);
@@ -38,12 +38,12 @@ class DebugEnemyPreviewTest {
             assertEquals(type, enemy.type); assertEquals(240, enemy.x); assertEquals(280, enemy.y);
             assertTrue(enemy.hp > 0); assertEquals(enemy.hp, enemy.maxHp);
         }
-        assertEquals(22, game.enemies.size()); assertEquals(22, game.roundEnemyTotal);
+        assertEquals(23, game.enemies.size()); assertEquals(23, game.roundEnemyTotal);
         assertEquals(7, game.queuedEnemies); assertEquals(2, game.queuedBosses);
         game.handleMessage(host, "DEBUG:SUMMON:unknown"); game.handleMessage(host, "DEBUG:SUMMON");
-        assertEquals(22, game.enemies.size());
+        assertEquals(23, game.enemies.size());
         game.backupUsed = true; game.phase = GamePhase.WAVE;
-        game.handleMessage(host, "DEBUG:SUMMON:grunt"); assertEquals(23, game.enemies.size());
+        game.handleMessage(host, "DEBUG:SUMMON:grunt"); assertEquals(24, game.enemies.size());
     }
     @Test void goldAddsExactlyOneHundredThousandEachTime() {
         game.handleMessage(host, "DEBUG:GOLD"); assertEquals(600_000, host.credits);
