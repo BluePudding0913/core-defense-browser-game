@@ -82,3 +82,21 @@ for(const [i,type] of ['grunt','runner','carrier','shield','warden','ghost'].ent
     assert(Math.abs(scene.getObjectByName('enemy:'+(200+i)).rotation.y-Math.atan2(-.6,-.8))<1e-8,'All enemy models use transmitted facing');
 }
 console.log('FPS trajectory regressions passed: muzzle screen alignment, pitch, zoom, fixed fired segments, aim excludes red lines, all enemy facing');
+
+// A room opening into a two-tile passage must have a sealed, lower ceiling.
+frame.map={tileSize:40,rows:['###########','#....######','#.........#','#.........#','#....######','###########']};
+frame.reachable=new Set();for(let r=0;r<frame.map.rows.length;r++)for(let c=0;c<frame.map.rows[r].length;c++)if(frame.map.rows[r][c]==='.')frame.reachable.add(r+':'+c);
+frame.eye={x:100,y:160};frame.view={yaw:0,pitch:0};renderer.render(frame);
+const roof=find('lab-ceilings'),heightAt=(x,z)=>{
+    for(let i=0;i<roof.count;i++){roof.getMatrixAt(i,m);m.decompose(pos,q,scale);if(pos.x===x&&pos.z===z)return pos.y-scale.y/2;}
+    assert.fail('Missing ceiling tile');
+};
+assert.equal(roof.count,frame.reachable.size,'Every accessible floor tile has a ceiling');
+assert.equal(heightAt(100,100),camera.position.y*5,'Room ceiling is five times standing eye height');
+assert.equal(heightAt(260,100),64,'Two-tile passages have lower ceilings');
+assert.equal(find('lab-bulkheads').count,2,'The full passage entrance is closed above the low ceiling');
+assert.equal(renderer.project(100,100,150).visible,false,'Labels cannot be seen through the ceiling');
+const farLabel=renderer.project(100,40,38);frame.eye={x:100,y:100};renderer.render(frame);
+const nearLabel=renderer.project(100,40,38);assert(nearLabel.pixelsPerUnit>farLabel.pixelsPerUnit,'Projected label scale increases when approaching');
+frame.view.zoom=true;renderer.render(frame);assert(renderer.project(100,40,38).pixelsPerUnit>nearLabel.pixelsPerUnit,'Label scale follows camera zoom');
+console.log('Lab ceilings passed: room/passage heights, full coverage, sealed transitions, occlusion, label distance and zoom scale');

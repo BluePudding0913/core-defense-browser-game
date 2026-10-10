@@ -2,12 +2,12 @@
 window.FPSInput = {
     create(canvas) {
         const view={yaw:0,pitch:0,zoom:false};
-        let active=false,touch=null,resumeAfterUI=false,pendingLock=false;
+        let active=false,touch=null,resumeAfterUI=false,pendingLock=false,skipMouseMove=false;
         const locked=()=>document.pointerLockElement===canvas;
         function release() {resumeAfterUI=false;pendingLock=false;view.zoom=false;touch=null;if(locked())document.exitPointerLock();}
         function capture() {
             if(!active || locked() || pendingLock)return false;
-            pendingLock=true;
+            pendingLock=true;skipMouseMove=true;
             try {
                 const request=canvas.requestPointerLock();
                 if(request?.then)request.then(()=>{
@@ -20,7 +20,14 @@ window.FPSInput = {
             return true;
         }
         function look(dx,dy,sensitivity=.0024) {view.yaw+=dx*sensitivity;view.pitch=Math.max(-1.2,Math.min(1.2,view.pitch-dy*sensitivity));}
-        canvas.addEventListener('pointermove',e=>{if(!active)return;if(e.pointerType==='mouse' && locked())look(e.movementX,e.movementY);else if(touch?.id===e.pointerId){look(e.clientX-touch.x,e.clientY-touch.y,.006);touch.x=e.clientX;touch.y=e.clientY;}});
+        // MouseEvent supplies relative motion under pointer lock; PointerEvent can include cursor warps.
+        document.addEventListener('pointerlockchange',()=>{skipMouseMove=true;});
+        canvas.addEventListener('mousemove',e=>{
+            if(!active || !locked())return;
+            if(skipMouseMove){skipMouseMove=false;return;}
+            if(Number.isFinite(e.movementX) && Number.isFinite(e.movementY))look(e.movementX,e.movementY);
+        });
+        canvas.addEventListener('pointermove',e=>{if(active && e.pointerType!=='mouse' && touch?.id===e.pointerId){look(e.clientX-touch.x,e.clientY-touch.y,.006);touch.x=e.clientX;touch.y=e.clientY;}});
         canvas.addEventListener('pointerdown',e=>{if(active && e.pointerType==='touch' && e.clientX>innerWidth*.42)touch={id:e.pointerId,x:e.clientX,y:e.clientY};});
         for(const type of ['pointerup','pointercancel'])window.addEventListener(type,e=>{if(touch?.id===e.pointerId)touch=null;});
         return {

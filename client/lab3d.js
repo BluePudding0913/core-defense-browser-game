@@ -55,27 +55,59 @@ window.Lab3D = (() => {
             scene.remove(terrain);
             terrain.traverse(o => { if (o.isInstancedMesh) o.dispose(); });
             terrain = new T.Group(); scene.add(terrain);
-            const floors = [], walls = [], strips = [];
+            const floors = [], walls = [], ceilings = [], bulkheads = [], lights = [], strips = [];
             const size = map.tileSize;
+            const roomHeight = 26 * 5, corridorHeight = 64;
+            // Use the full floor plan so unlocking a sector does not change ceiling height.
+            const isFloor = (r,c) => {
+                const tile = map.rows[r]?.[c];
+                return tile != null && (map.legend ? map.legend[tile]?.solid === false : tile === '.');
+            };
+            const ceilingHeight = (r,c) => {
+                const span = (dr,dc) => {
+                    let count = 1;
+                    for (const sign of [-1,1]) for (let n=1; isFloor(r+dr*n*sign,c+dc*n*sign); n++) count++;
+                    return count;
+                };
+                return Math.min(span(1,0),span(0,1)) <= 2 ? corridorHeight : roomHeight;
+            };
             for (let r = 0; r < map.rows.length; r++) for (let c = 0; c < map.rows[r].length; c++) {
                 if (reachable.has(r + ':' + c)) {
-                    floors.push([c * size + size / 2, -2, r * size + size / 2, size, 4, size]);
+                    const x = c * size + size / 2, z = r * size + size / 2;
+                    const height = ceilingHeight(r,c);
+                    floors.push([x, -2, z, size, 4, size]);
+                    ceilings.push([x, height + 3, z, size, 6, size]);
+                    if ((r + c) % 6 === 0) lights.push([x, height - .5, z, size * .6, 1, 4]);
+                    // Seal the height transition above the passage doorway.
+                    if (height === corridorHeight) for (const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+                        if (reachable.has((r+dz)+':'+(c+dx)) && ceilingHeight(r+dz,c+dx) > height)
+                            bulkheads.push([x+dx*size/2, (height+roomHeight)/2, z+dz*size/2,
+                                dx ? 2 : size, roomHeight-height, dz ? 2 : size]);
+                    }
                     if ((r + c) % 6 === 0) strips.push([c * size + size / 2, .2, r * size + size - 4, size * .6, .5, 2]);
                 } else if ([[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy]) => reachable.has((r+dy)+':'+(c+dx)))) {
-                    walls.push([c * size + size / 2, 32, r * size + size / 2, size, 64, size]);
+                    walls.push([c * size + size / 2, roomHeight / 2, r * size + size / 2, size, roomHeight, size]);
 
                 }
             }
-            function instances(items, color) {
-                const mesh = new T.InstancedMesh(boxGeometry, material(color), items.length);
+            function instances(items, color, name, glowing = false) {
+                const mesh = new T.InstancedMesh(boxGeometry, material(color, glowing), items.length);
                 const dummy = new T.Object3D();
                 items.forEach(([x,y,z,w,h,d], i) => {
                     dummy.position.set(x,y,z); dummy.scale.set(w,h,d); dummy.updateMatrix();
                     mesh.setMatrixAt(i, dummy.matrix);
                 });
-                mesh.receiveShadow = true; mesh.castShadow = true; terrain.add(mesh);
+                mesh.name = name; mesh.receiveShadow = !glowing; mesh.castShadow = !glowing && name !== 'lab-ceilings'; terrain.add(mesh);
             }
-            instances(floors, '#8799a2'); instances(walls, '#d8e2e6'); instances(strips, '#64b9c8');
+            instances(floors, '#8799a2', 'lab-floors');
+            instances(walls, '#d8e2e6', 'lab-walls');
+            // Keep the underside readable without adding a light per tile.
+            material('#aebfc8').emissive.set('#aebfc8');
+            material('#aebfc8').emissiveIntensity = .25;
+            instances(ceilings, '#aebfc8', 'lab-ceilings');
+            instances(bulkheads, '#d8e2e6', 'lab-bulkheads');
+            instances(lights, '#d5f3ff', 'lab-ceiling-lights', true);
+            instances(strips, '#64b9c8', 'lab-floor-strips');
         }
         // Like the reference demo, render first-person arms separately to avoid wall clipping.
         const viewScene = new T.Scene();
@@ -277,7 +309,9 @@ window.Lab3D = (() => {
             const p=new T.Vector3(x,height,y).project(camera);
             let visible=p.z>=-1 && p.z<=1 && Math.abs(p.x)<1.1 && Math.abs(p.y)<1.1;
             if(visible){const target=new T.Vector3(x,height,y),delta=target.clone().sub(camera.position);raycaster.set(camera.position,delta.clone().normalize());const wall=raycaster.intersectObject(terrain,true)[0];if(wall && wall.distance<delta.length()-3)visible=false;}
-            return {x:(p.x+1)*overlay.width/2,y:(1-p.y)*overlay.height/2,visible};
+            const depth = -new T.Vector3(x,height,y).applyMatrix4(camera.matrixWorldInverse).z;
+            const pixelsPerUnit = overlay.height * camera.projectionMatrix.elements[5] / (2 * Math.max(.5, depth));
+            return {x:(p.x+1)*overlay.width/2,y:(1-p.y)*overlay.height/2,visible,pixelsPerUnit};
         }
 
         const ringGeometry=new T.RingGeometry(.88,1,48);
