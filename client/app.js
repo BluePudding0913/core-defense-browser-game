@@ -527,6 +527,7 @@ function renderRoomList(rooms) {
 function send(message) {
     if (socket?.readyState !== WebSocket.OPEN) return;
     if (message === "START" && DEBUG_MODE) message = "START:DEBUG";
+    if (/^(FIRE|SECONDARY_FIRE):/.test(message) && fpsInput) message += ':' + fpsInput.view.pitch.toFixed(6);
     const sequence = nextInputSequence++;
     socket.send(`INPUT:${sequence}:${message}`);
     pendingInputs.push({ sequence, kind: message.split(":", 1)[0] });
@@ -2521,7 +2522,7 @@ function drawFirstPerson() {
     for(const key of smoothed.keys())if(key.startsWith("projectile-") && !activeProjectiles.has(key))smoothed.delete(key);
     const text=(label,x,y,height=32,color='#e8f4f8')=>{const p=labRenderer.project(x,y,height);if(!p.visible)return;ctx.save();const pixelRatio=canvas.width/innerWidth;const fontSize=Math.max(12,Math.min(28,p.pixelsPerUnit*6/pixelRatio));ctx.font=`bold ${fontSize*pixelRatio}px system-ui`;ctx.textAlign='center';ctx.fillStyle=color;ctx.shadowColor='#08121a';ctx.shadowBlur=4;ctx.fillText(label,p.x,p.y);ctx.restore();};
     const bar=(entity,p,height,color)=>{const a=labRenderer.project(p.x,p.y,height);if(!a.visible)return;const w=38*canvas.width/innerWidth,h=4*canvas.width/innerWidth;ctx.fillStyle='#16232c';ctx.fillRect(a.x-w/2,a.y,w,h);ctx.fillStyle=color;ctx.fillRect(a.x-w/2,a.y,w*clamp(entity.hp/Math.max(1,entity.maxHp || entity.hp),0,1),h);};
-    for(const [p,label,color] of labStations()) if(Math.hypot(p.x-eye.x,p.y-eye.y)<420)text(label,p.x,p.y,38,color);
+    for(const [p,label,color] of labStations()) if(Math.hypot(p.x-eye.x,p.y-eye.y)<420){const anchor=labRenderer.stationPosition(p);text(label,anchor.x,anchor.y,38,color);}
     for(const enemy of state.enemies)if(enemy.hp>0){const p=smoothEntity('enemy',enemy);if(enemy.hp<enemy.maxHp)bar(enemy,p,enemyRadius(enemy)*2.2,'#ff7780');}
     for(const player of state.players)if(player.id!==myPlayerId){const p=smoothEntity('player',player);text(player.name,p.x,p.y,34,player.down?'#ff7780':'#e8f4f8');bar(player,p,30,'#91dcc1');}
     for(const slot of state.slots || [])if(slot.defense)bar(slot.defense,slot,32,'#79d8ff');
@@ -2534,14 +2535,14 @@ function drawFirstPerson() {
         const x=innerWidth/2,y=innerHeight/2;ctx.strokeStyle='#e8f4f8';ctx.lineWidth=1.5;ctx.beginPath();for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]){ctx.moveTo(x+dx*4,y+dy*4);ctx.lineTo(x+dx*10,y+dy*10);}ctx.stroke();
         const target=placement ? (placement.valid ? placement : null) : interaction?.target;
         if(target) {
-            const prompt=labRenderer.project(target.x,target.y,40);
+            const anchor=labRenderer.stationPosition(target);const prompt=labRenderer.project(anchor.x,anchor.y,40);
             drawKeyPrompt('R',prompt.visible ? prompt.x/dpr : x,prompt.visible ? prompt.y/dpr : y+50);
         }
         if(placement)ctx.fillText(placement.valid?'R PLACE':'BLOCKED',x,y+70);
         if(!fpsInput.locked() && !matchMedia('(pointer: coarse)').matches)ctx.fillText('クリックで視点操作 · Escで解除',x,y+100);
     }
     ctx.restore();
-    if(state.blackoutActive && !me?.drone?.controlled){ctx.fillStyle='rgba(0,5,10,.68)';ctx.fillRect(0,0,canvas.width,canvas.height);}
+    if(state.blackoutActive && !me?.drone?.controlled){ctx.fillStyle='rgba(0,5,10,.28)';ctx.fillRect(0,0,canvas.width,canvas.height);}
     drawDamageEdges();drawJoystick();drawRewindScreen();
 }
 

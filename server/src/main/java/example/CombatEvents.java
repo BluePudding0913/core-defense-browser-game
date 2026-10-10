@@ -4,6 +4,11 @@ package example;
 interface CombatEvents {
     void hit(String playerId, String weapon, double fromX, double fromY,
             double x, double y, double damage, boolean defeated, int credits, boolean headshot, Integer enemyId);
+    default void hitAtHeight(String playerId, String weapon, double fromX, double fromY,
+            double x, double y, double damage, boolean defeated, int credits, boolean headshot, Integer enemyId,
+            double fromHeight, double hitHeight) {
+        hit(playerId, weapon, fromX, fromY, x, y, damage, defeated, credits, headshot, enemyId);
+    }
     void sound(Player player, String effect, String item);
     void explosion(double x, double y, double radius);
     default void alliedExplosion(double x, double y, double radius) { explosion(x, y, radius); }

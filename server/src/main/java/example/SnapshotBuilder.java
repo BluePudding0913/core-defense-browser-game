@@ -78,7 +78,8 @@ final class SnapshotBuilder {
         for (int i = 0; i < game.decoys.size(); i++) {
             if (i > 0) json.append(',');
             Decoy decoy = game.decoys.get(i);
-            json.append("{\"x\":").append(roundOne(decoy.x)).append(",\"y\":").append(roundOne(decoy.y))
+            json.append("{\"ownerId\":\"").append(escapeJson(decoy.ownerId)).append("\",\"facingX\":").append(decoy.dx)
+                    .append(",\"facingY\":").append(decoy.dy).append(",\"x\":").append(roundOne(decoy.x)).append(",\"y\":").append(roundOne(decoy.y))
                     .append(",\"hp\":").append(roundOne(decoy.hp)).append(",\"maxHp\":").append(DecoyRules.HP)
                     .append(",\"remaining\":").append(roundOne(decoy.remaining)).append('}');
         }
@@ -273,6 +274,7 @@ final class SnapshotBuilder {
                     .append(",\"railgunRemaining\":").append(roundOne(player.railgunRemaining))
                     .append(",\"railgunDx\":").append(player.railgunDx)
                     .append(",\"railgunDy\":").append(player.railgunDy)
+                    .append(",\"railgunPitch\":").append(player.railgunPitch)
                     .append(",\"railgunRange\":").append(player.railgunRemaining > 0
                         ? GameMap.distanceToWall(player.x, player.y, player.railgunDx, player.railgunDy,
                             GameSession.weaponStats("railgun").range(), game.unlockedAreas) : 0);
@@ -284,6 +286,7 @@ final class SnapshotBuilder {
                     .append(",\"secondaryRailgunRemaining\":").append(roundOne(player.secondaryRailgunRemaining))
                     .append(",\"secondaryRailgunDx\":").append(player.secondaryRailgunDx)
                     .append(",\"secondaryRailgunDy\":").append(player.secondaryRailgunDy)
+                    .append(",\"secondaryRailgunPitch\":").append(player.secondaryRailgunPitch)
                     .append(",\"secondaryRailgunRange\":").append(player.secondaryRailgunRemaining > 0
                         ? GameMap.distanceToWall(player.x, player.y, player.secondaryRailgunDx, player.secondaryRailgunDy,
                             GameSession.weaponStats("railgun").range(), game.unlockedAreas) : 0);

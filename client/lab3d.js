@@ -143,8 +143,7 @@ window.Lab3D = (() => {
                 if (hit.distance<2 || hit.distance>distance) continue;
                 let root=hit.object; while(root.parent && root.parent!==scene) root=root.parent;
                 if (root.name?.startsWith('player:'+latestFrame.localId)) continue;
-                const entity=root.userData.entity;
-                result=entity ? {x:entity.x,y:entity.y} : {x:hit.point.x,y:hit.point.z};
+                result={x:hit.point.x,y:hit.point.z};
                 distance=hit.distance; break;
             }
             if (result) return result;
@@ -167,8 +166,20 @@ window.Lab3D = (() => {
             if (!objects.has(key)) { const value = build(); objects.set(key, value); scene.add(value.root); }
             return objects.get(key);
         }
+        const stationAnchors = new Map();
+        const stationPosition = point => stationAnchors.get(point.x+':'+point.y) || point;
         function station(key, point, color, kind = 'terminal') {
-            const item = object(key + ':' + kind + ':' + color, () => {
+            let anchor = point, facing = 0;
+            if ((kind === 'terminal' || kind === 'breaker') && lastMap && lastReachable) {
+                const size=lastMap.tileSize,r=Math.floor(point.y/size),c=Math.floor(point.x/size);
+                if (!lastReachable.has(r+':'+c)) {
+                    const edge=[[0,1],[1,0],[0,-1],[-1,0]].find(([dx,dz])=>lastReachable.has((r+dz)+':'+(c+dx)));
+                    if(edge){const [dx,dz]=edge;anchor={x:(c+.5)*size+dx*(size/2+4),y:(r+.5)*size+dz*(size/2+4)};facing=Math.atan2(dx,dz);}
+                }
+            }
+            const mounted=anchor!==point;
+            stationAnchors.set(point.x+':'+point.y,anchor);
+            const item = object(key + ':' + kind + ':' + color + ':' + mounted, () => {
                 const root = new T.Group();
                 let turretHead, muzzle;
                 root.name = key + ':' + kind;
@@ -203,6 +214,11 @@ window.Lab3D = (() => {
                     const brace=box(root, 29, 3, 5, '#516873', 0, 16, -4); brace.rotation.z=.55;
                 } else if (kind === 'block') {
                     box(root, 36, 24, 36, color);
+                } else if (kind === 'terminal' && mounted) {
+                    box(root, 26, 32, 6, '#263e4e', 0, 20);
+                    box(root, 18, 18, 2, color, 0, 23, 4, true);
+                    for(const x of [-11,11])box(root, 2, 28, 2, '#65d6ee', x, 20, 4, true);
+                    box(root, 16, 3, 3, '#172832', 0, 10, 5);
                 } else if (kind === 'breaker') {
                     box(root, 20, 29, 9, '#7b909b');
                     box(root, 15, 24, 2, '#d2dce1', 0, 16, 5);
@@ -210,13 +226,14 @@ window.Lab3D = (() => {
                     box(root, 6, 3, 3, color, 0, 24, 7, true);
                 } else {
                     box(root, 32, 5, 30, '#354855');
-                    box(root, 28, 21, 24, '#cedbe0', 0, 15);
+                    box(root, 28, 21, 24, '#426577', 0, 15);
                     const screen = box(root, 21, 2, 15, color, 0, 27, 0, true); screen.rotation.x = -.18;
                     box(root, 23, 3, 4, '#425966', 0, 17, 13);
                 }
                 return { root, turretHead, muzzle };
             });
-            item.root.position.set(point.x, 0, point.y);
+            item.root.position.set(anchor.x, 0, anchor.y);
+            item.root.rotation.y=facing;
             return item;
         }
         const enemyColors = { grunt: '#687a73', runner: '#b4b18a', brute: '#596260', armored: '#6d8395',
@@ -230,7 +247,7 @@ window.Lab3D = (() => {
                 const body = new T.Mesh(sphereGeometry, material(enemyColors[entity.type] || '#869095'));
                 body.scale.set(radius * .9, radius * .8, radius * .8); body.position.y = radius * .8;
                 body.castShadow = true; root.add(body);
-                for (const x of [-.3,.3]) box(root, radius * .18, radius * .15, radius * .12, '#ff826c', radius*x, radius, radius*.76, true);
+                for (const x of [-.3,.3]) box(root, radius * .18, radius * .15, radius * .12, '#ff826c', radius*x, radius*1.2, radius*.7, true);
                 if (entity.type === 'shield') box(root, radius * 1.5, radius * 1.5, 6, '#78b7ca', 0, radius, radius);
                 if (entity.type === 'carrier') box(root, 22, 27, 20, '#886543', 0, 17, -radius);
                 if (entity.type === 'artillery') box(root, 10, 20, 10, '#b7d471', 0, radius*1.8);
@@ -298,6 +315,7 @@ window.Lab3D = (() => {
                     const distance=Math.hypot(effect.x-effect.fromX,effect.y-effect.fromY);
                     height=camera.position.y+Math.tan(latestFrame.view?.pitch || 0)*distance;
                 }
+                if(Number.isFinite(effect.hitHeight))height=effect.hitHeight;
                 const end=new T.Vector3(effect.x,height,effect.y);
                 const positions=item.root.geometry.attributes.position;
                 positions.setXYZ(0,start.x,start.y,start.z); positions.setXYZ(1,end.x,end.y,end.z);positions.needsUpdate=true;
@@ -332,7 +350,11 @@ window.Lab3D = (() => {
             for(const [i,gas] of (state.poisonClouds || state.poisonGas || []).entries()) ring('gas:'+i,gas.x,gas.y,gas.radius || 80,'#8de276',.5);
             for(const player of state.players) {
                 const p=player.id===frame.localId && frame.predicted ? frame.predicted : smooth('player',player);
-                for(const [side,remaining,dx,dy,range] of [['main',player.railgunRemaining,player.railgunDx,player.railgunDy,player.railgunRange],['sub',player.secondaryRailgunRemaining,player.secondaryRailgunDx,player.secondaryRailgunDy,player.secondaryRailgunRange]]) if(remaining>0) beam('rail:'+player.id+side,new T.Vector3(p.x,22,p.y),new T.Vector3(p.x+dx*range,22,p.y+dy*range),'#ff7390',2);
+                for(const [side,remaining,dx,dy,range,pitch] of [['main',player.railgunRemaining,player.railgunDx,player.railgunDy,player.railgunRange,player.railgunPitch],['sub',player.secondaryRailgunRemaining,player.secondaryRailgunDx,player.secondaryRailgunDy,player.secondaryRailgunRange,player.secondaryRailgunPitch]]) if(remaining>0) {
+                    const height=Number.isFinite(pitch)?26:22;
+                    const start=player.id===frame.localId && viewVisible ? fpsMuzzleWorld() : new T.Vector3(p.x,height,p.y);
+                    beam('rail:'+player.id+side,start,new T.Vector3(p.x+dx*range,height+Math.tan(pitch || 0)*range,p.y+dy*range),'#ff7390',2);
+                }
             }
             for(const enemy of state.enemies) if(enemy.hp>0 && enemy.chargeWarning>0) {const p=smooth('enemy',enemy);beam('charge:'+enemy.id,new T.Vector3(p.x,1,p.y),new T.Vector3(p.x+enemy.chargeDx*286,1,p.y+enemy.chargeDy*286),'#ff5964',5);}
             const placement=frame.placement;if(placement) ring('placement',placement.x,placement.y,19,placement.valid?'#79d8ff':'#ff5964',.9);
@@ -341,13 +363,22 @@ window.Lab3D = (() => {
                 if(owner.healRemaining>0)ring('heal:'+owner.id,owner.healX,owner.healY,owner.healHalfSize,'#84e6b5',.4);
                 if(owner.hookTargetId>=0){const target=state.enemies.find(e=>e.id===owner.hookTargetId && e.hp>0);if(target)beam('hook:'+owner.id,new T.Vector3(owner.x,22,owner.y),new T.Vector3(target.x,20,target.y),'#b4e9ff',.7);}
             }
-            for(const decoy of state.decoys || []) if(decoy.hp>0)station('decoy:'+decoy.id,decoy,'#eecb65','terminal');
+            for(const decoy of state.decoys || []) if(decoy.hp>0) {
+                const item=object('decoy:'+decoy.ownerId,()=>{
+                    const model=window.buildSoldier(T),root=new T.Group();root.name='decoy:'+decoy.ownerId;
+                    root.add(model.root);model.root.scale.setScalar(16);model.setWeapon('pistol');
+                    for(const mat of Object.values(model.materials)){mat.color.set('#c9af62');mat.transparent=true;mat.opacity=.7;}
+                    const mixer=new T.AnimationMixer(model.root);mixer.clipAction(model.clips.find(c=>c.name==='Aim')).play();
+                    return {root,mixer,materials:model.materials};
+                });
+                item.root.position.set(decoy.x,0,decoy.y);item.root.rotation.y=Math.atan2(decoy.facingX || 0,decoy.facingY ?? 1);item.mixer.update(.016);
+            }
             for(const effect of frame.effects || []) {
                 const age=now-effect.started;
                 if(effect.effect==='hit' && age>=0 && age<360 && ['rocket','mine','droneExplosion','repulsor','freezeGun','poisonGas'].includes(effect.weapon)) ring('blast:'+effectIds.get(effect)+':'+effect.started,effect.x,effect.y,Math.max(4,(effect.radius || 35)*age/360),effect.weapon==='freezeGun'?'#95dded':'#ffae62',1-age/360);
                 if(effect.effect==='hit' && age>=0 && age<220 && effect.damage===0 && ['laserCannon','freezeGun','plasmaBlade','bat'].includes(effect.weapon)) {
                     const start=effect.playerId===frame.localId && viewVisible ? fpsMuzzleWorld() : new T.Vector3(effect.fromX,22,effect.fromY);
-                    beam('special:'+effect.playerId+':'+effect.weapon+':'+effect.started,start,new T.Vector3(effect.x,22,effect.y),effect.weapon==='freezeGun'?'#b8efff':'#50d7ff',effect.weapon==='laserCannon'?3:1.5);
+                    beam('special:'+effect.playerId+':'+effect.weapon+':'+effect.started,start,new T.Vector3(effect.x,Number.isFinite(effect.hitHeight)?effect.hitHeight:22,effect.y),effect.weapon==='freezeGun'?'#b8efff':'#50d7ff',effect.weapon==='laserCannon'?3:1.5);
                 }
                 if(effect.effect==='hit' && age>=0 && age<180 && effect.weapon==='flamethrower') beam('flame:'+effect.started,new T.Vector3(effect.fromX,22,effect.fromY),new T.Vector3(effect.x,18,effect.y),'#ff962e',5);
             }
@@ -365,7 +396,8 @@ window.Lab3D = (() => {
                 const dx=(effect.fromX ?? point.x)-point.x,dz=(effect.fromY ?? point.y)-point.y;
                 const distance=Math.hypot(dx,dz),nx=distance>.001 ? dx/distance : 0,nz=distance>.001 ? dz/distance : -1;
                 // Start on the struck side, so the small burst is visible in front of the body.
-                root.position.set(point.x+nx*radius*.85,Math.max(3,radius*.95),point.y+nz*radius*.85);
+                if(Number.isFinite(effect.hitHeight))root.position.set(effect.x,effect.hitHeight,effect.y);
+                else root.position.set(point.x+nx*radius*.85,Math.max(3,radius*.95),point.y+nz*radius*.85);
                 const velocities=Array.from({length:5},(_,i)=>{
                     const angle=i*Math.PI*2/5+effectIds.get(effect)*.7;
                     return new T.Vector3(nx*12+Math.cos(angle)*16,15+(i%3)*7,nz*12+Math.sin(angle)*16);
@@ -383,7 +415,7 @@ window.Lab3D = (() => {
                 item.dispose?.();
                 if (item.mixer) { item.mixer.stopAllAction(); item.mixer.uncacheRoot(item.mixer.getRoot());
                     item.root.traverse(o => { if (o.isMesh) o.geometry.dispose(); });
-                    const unique = new Set(); item.root.traverse(o => { if (o.isMesh) unique.add(o.material); }); unique.forEach(m => m.dispose());
+                    const unique = new Set(); item.root.traverse(o => { if (o.isMesh) unique.add(o.material); }); Object.values(item.materials || {}).forEach(m=>unique.add(m));unique.forEach(m => m.dispose());
                 }
                 objects.delete(key);
             }
@@ -394,7 +426,7 @@ window.Lab3D = (() => {
             const now = performance.now(), dt = Math.min(.1, (now - lastFrame) / 1000); lastFrame = now;
             if (renderer.domElement.width !== overlay.width || renderer.domElement.height !== overlay.height)
                 renderer.setSize(overlay.width, overlay.height, false);
-            latestFrame=frame;
+            latestFrame=frame;stationAnchors.clear();
             const me=state?.players.find(p=>p.id===localId), view=frame.view || {yaw:0,pitch:0};
             const eye=frame.eye || predicted || me || center;
             camera.aspect=overlay.width/overlay.height; camera.fov=view.zoom ? 48 : 72; camera.updateProjectionMatrix();
@@ -403,7 +435,7 @@ window.Lab3D = (() => {
             camera.updateMatrixWorld(true);
             viewCamera.aspect=camera.aspect;viewCamera.updateProjectionMatrix();
             viewCamera.position.set(view.zoom ? -.1 : .03,view.zoom ? 1.58 : 1.65,view.zoom ? .16 : -.32);
-            viewMixer.update(dt);
+            viewModel.setWeapon(me?.weapon || 'pistol');viewMixer.update(dt);
             viewVisible=!!me && !me.down && !me.movingCore && !me.selectedBuild && !me.drone?.controlled && !me.missileControl;
             viewModel.root.visible=viewVisible;
             sun.position.set(center.x - 300, 700, center.y - 250); sun.target.position.set(center.x, 0, center.y);
@@ -430,13 +462,13 @@ window.Lab3D = (() => {
                         model.materials.OliveDark.color.set('#344b58');
                         const mixer = new T.AnimationMixer(model.root);
                         const actions = Object.fromEntries(model.clips.map(c => [c.name, mixer.clipAction(c)]));
-                        actions.Idle.play(); return { root, mixer, actions, muzzle: model.root.getObjectByName('Muzzle'), materials: model.materials, clip: 'Idle', previous: { ...point } };
+                        actions.Idle.play(); return { root, mixer, actions, model, muzzle: model.root.getObjectByName('Muzzle'), materials: model.materials, clip: 'Idle', previous: { ...point } };
                     });
                     const moving = Math.hypot(point.x-item.previous.x, point.y-item.previous.y) > .12;
                     const aiming = !player.down && !player.drone?.controlled;
                     const clip = aiming ? moving ? 'AimWalk' : 'Aim' : moving ? 'Walk' : 'Idle';
                     if (clip !== item.clip) { item.actions[item.clip].fadeOut(.15); item.actions[clip].reset().fadeIn(.15).play(); item.clip = clip; }
-                    item.mixer.update(dt); item.previous = { ...point };
+                    item.model.setWeapon(player.weapon || 'rifle');item.mixer.update(dt); item.previous = { ...point };
                     item.materials.Olive.color.set(player.down ? '#a86b70' : player.spyRemaining > 0 ? '#8b8e91' : player.id === localId ? '#63879a' : '#67786a');
                     item.root.position.set(point.x, player.down ? 4 : 0, point.y);
                     const shot=effects.filter(e=>e.playerId===player.id && e.effect==='hit' && now-e.started<360 && e.fromX!=null).at(-1);
@@ -478,7 +510,7 @@ window.Lab3D = (() => {
             if (viewVisible) { renderer.autoClear=false; renderer.clearDepth(); renderer.render(viewScene,viewCamera); renderer.autoClear=true; }
         }
         renderer.domElement.addEventListener('webglcontextlost', event => { event.preventDefault(); });
-        return { render, groundScale, project, aimPoint, firstPerson:true };
+        return { render, groundScale, project, aimPoint, stationPosition, firstPerson:true };
     }
     return { create, groundScale };
 })();
