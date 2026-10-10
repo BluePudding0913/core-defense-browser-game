@@ -1583,6 +1583,7 @@ final class GameSession {
                 .filter(e -> e.hp > 0 && !e.type.equals("explosionBoss")).count();
         List<Enemy> defeatedExplosionBosses = new ArrayList<>();
         List<Enemy> releasingCarriers = new ArrayList<>();
+        List<Enemy> summoners = new ArrayList<>();
         for (Enemy enemy : enemies) {
             if (enemy.hp <= 0) {
                 if (enemy.type.equals("explosionBoss") && !enemy.offspringSpawned) defeatedExplosionBosses.add(enemy);
@@ -1601,7 +1602,10 @@ final class GameSession {
             if (enemy.hookPulled || frozen) continue;
             if (updateBossCharge(enemy, dt)) continue;
             if ((enemy.type.equals("warlord") || enemy.type.equals("titan"))
-                    && BossAbilitySystem.update(enemy, dt, bossAbilityTarget(enemy), wardenWorld, artilleryShells)) continue;
+                    && BossAbilitySystem.update(enemy, dt, bossAbilityTarget(enemy), wardenWorld, artilleryShells,
+                            enemies.stream().filter(e -> e.hp > 0 && e.summonerId == enemy.id).count()
+                                    <= BossAbilitySystem.SUMMON_LIMIT - BossAbilitySystem.SUMMON_COUNT,
+                            summoners::add)) continue;
             if (SpecialEnemyRules.carriesHunters(enemy)) {
                 Player witness = players.stream().filter(p -> SpecialEnemyRules.canRelease(enemy, p,
                         GameMap.hasClearLine(enemy.x, enemy.y, p.x, p.y, unlockedAreas))).findFirst().orElse(null);
@@ -1737,6 +1741,7 @@ final class GameSession {
             }
         }
         // Add offspring after iteration for both combat deaths and timed explosions.
+        for (Enemy summoner : summoners) summonBossEnemies(summoner);
         for (Enemy boss : defeatedExplosionBosses) spawnExplosionBossRunners(boss);
         for (Enemy carrier : releasingCarriers) {
             SpawnPoint source = GameMap.spawnById(carrier.spawnId);
@@ -1745,6 +1750,20 @@ final class GameSession {
             for (int i = 0; i < SpecialEnemyRules.HUNTERS; i++) spawnEnemy("hunter", release);
             roundEnemyTotal += SpecialEnemyRules.HUNTERS;
         }
+    }
+
+    private void summonBossEnemies(Enemy summoner) {
+        for (int i = 0; i < BossAbilitySystem.SUMMON_COUNT; i++) {
+            MapPoint point = BossAbilitySystem.summonPoint(summoner.x, summoner.y, i);
+            if (!canOccupy(point.x(), point.y(), 17)
+                    || !GameMap.hasClearLine(summoner.x, summoner.y, point.x(), point.y(), unlockedAreas))
+                point = new MapPoint(summoner.x, summoner.y);
+            SpawnPoint release = new SpawnPoint("warlord-summon", "WARLORD", point.x(), point.y(),
+                    summoner.lane, "balanced", 1, "core", List.of(point, new MapPoint(coreX, coreY)));
+            spawnEnemy(BossAbilitySystem.summonType(i), release);
+            enemies.get(enemies.size() - 1).summonerId = summoner.id;
+        }
+        roundEnemyTotal += BossAbilitySystem.SUMMON_COUNT;
     }
 
     private boolean updateBossCharge(Enemy enemy, double dt) {
