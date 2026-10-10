@@ -62,15 +62,15 @@ class ShieldEnemyTest {
             shield.hp = 2000; shield.creditProgress = 0; shield.paidCredits = 0;
             player.credits = 0; player.goldRewardRemainder = 0; effects.clear();
             shoot(weapon, 1120, 1900);
-            double damage = GameSession.weaponStats(weapon).damage() * .20;
+            double damage = WeaponDamageRules.atDistance(weapon, GameSession.weaponStats(weapon).damage(), 100) * .20;
             assertEquals(2000 - damage, shield.hp, .001, weapon);
             assertEquals((int) Math.floor(100 * damage / 2000), shield.paidCredits, weapon);
             int expectedGold = switch (weapon) { case "sniper" -> 1; case "revolver" -> 2; default -> 0; };
             assertEquals(expectedGold, player.credits, weapon);
-            assertTrue(effects.stream().anyMatch(e -> e.contains("\"damage\":" + damage)), weapon);
+            assertTrue(effects.stream().anyMatch(e -> e.contains("\"damage\":" + GameSupport.roundOne(damage))), weapon);
             shield.hp = 2000;
             shoot(weapon, 920, 1900);
-            assertEquals(2000 - GameSession.weaponStats(weapon).damage(), shield.hp, .001, weapon);
+            assertEquals(2000 - WeaponDamageRules.atDistance(weapon, GameSession.weaponStats(weapon).damage(), 100), shield.hp, .001, weapon);
         }
         shield.hp = 2000;
         shoot("pistol", 1020, 2000);
