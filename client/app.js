@@ -3499,6 +3499,7 @@ function drawProjectiles() {
         ctx.beginPath(); ctx.moveTo(p.x - dx * 20, p.y - dy * 20); ctx.lineTo(p.x, p.y); ctx.stroke();
         ctx.translate(p.x, p.y); ctx.rotate(shot.angle); ctx.fillStyle = "#fff5e9";
         ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-5, -4); ctx.lineTo(-3, 0); ctx.lineTo(-5, 4); ctx.closePath(); ctx.fill(); ctx.restore();
+        if (shot.source === "enemy" && shot.hp < shot.maxHp) drawBar(p.x - 9, p.y - 12, 18, 2, shot.hp / shot.maxHp, "#ff7050");
     }
 }
 

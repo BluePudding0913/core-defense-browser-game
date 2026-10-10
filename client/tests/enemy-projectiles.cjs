@@ -26,3 +26,13 @@ state.rewindRemaining=0;vm.runInContext("rewindFinishedAt=900",context);rects.le
 now=1800;rects.length=0;vm.runInContext("drawRewindScreen()",context);assert.equal(rects.length,0,"Overlay expires");
 console.log("Enemy/rewind visuals passed: source colors, trajectories, living disruptors, map view, automatic stages and fade");
 
+
+const durabilityBars = []; context.drawBar = (...args) => durabilityBars.push(args);
+state.projectiles[0].hp=74; state.projectiles[0].maxHp=100;
+vm.runInContext("drawProjectiles()",context);
+assert.equal(durabilityBars.length,1); assert.equal(durabilityBars[0][4],.74);
+durabilityBars.length=0; state.projectiles[0].hp=100;
+state.projectiles[1].hp=10; state.projectiles[1].maxHp=100;
+vm.runInContext("drawProjectiles()",context);
+assert.equal(durabilityBars.length,0,"only damaged enemy missiles show durability");
+console.log("Missile durability display passed");

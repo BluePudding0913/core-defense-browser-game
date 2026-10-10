@@ -6,14 +6,21 @@ import static example.GameSupport.distance;
 /** Enemy power disruption and steerable missiles, independent of UI and transport. */
 final class EnemyProjectileSystem {
     static final double BLACKOUT_RANGE = 280, SHOT_RANGE = 420, SPEED = 170, TURN_RATE = 2.2;
+    static final double SHOT_HP = 100;
     static final class Shot {
         final int id; final Player target; final double damage;
-        double x, y, angle, remaining = 5;
+        double x, y, angle, remaining = 5, hp = SHOT_HP;
         Shot(int id, Enemy enemy, Player target) {
             this.id = id; this.target = target; damage = enemy.damage;
             x = enemy.x; y = enemy.y; angle = Math.atan2(target.y-y, target.x-x);
         }
     }
+    static boolean damage(Shot shot, double amount) {
+        if (!Double.isFinite(amount) || amount <= 0 || shot.hp <= 0) return false;
+        shot.hp = Math.max(0, shot.hp - amount);
+        return shot.hp == 0;
+    }
+
     static final double SHOT_RADIUS = 8;
     static double rayEntry(Shot shot, double x, double y, double dx, double dy, double range, double width) {
         double projection = (shot.x - x) * dx + (shot.y - y) * dy;
@@ -43,6 +50,7 @@ final class EnemyProjectileSystem {
         var iterator = shots.iterator();
         while (iterator.hasNext()) {
             Shot shot = iterator.next();
+            if (shot.hp <= 0) { iterator.remove(); continue; }
             double time = Math.min(dt, shot.remaining);
             boolean hit = false;
             while (time > 1e-9 && !hit) {
