@@ -469,13 +469,20 @@ final class Enemy {
 final class ArtilleryShell {
     final int enemyId;
     final double sourceX, sourceY, x, y, damage;
-    double remaining = GameConfig.ARTILLERY_FLIGHT_SECONDS;
+    final double duration;
+    double remaining;
 
     ArtilleryShell(double sourceX, double sourceY, double x, double y, double damage) {
         this(sourceX, sourceY, x, y, damage, -1);
     }
 
     ArtilleryShell(double sourceX, double sourceY, double x, double y, double damage, int enemyId) {
+        this(sourceX, sourceY, x, y, damage, enemyId, GameConfig.ARTILLERY_FLIGHT_SECONDS);
+    }
+
+    ArtilleryShell(double sourceX, double sourceY, double x, double y, double damage, int enemyId, double duration) {
+        this.duration = duration;
+        this.remaining = duration;
         this.enemyId = enemyId;
         this.sourceX = sourceX;
         this.sourceY = sourceY;

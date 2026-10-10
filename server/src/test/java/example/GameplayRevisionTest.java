@@ -378,7 +378,7 @@ class GameplayRevisionTest {
         spawn.setAccessible(true);
         game.round = 8;
         double[] hp = {106, 67, 254, 12800};
-        double[] speed = {70, 168, 46, 48};
+        double[] speed = {70, 168, 46, 168};
         int[] gold = {35, 45, 100, 1188};
         String[] types = {"grunt", "runner", "brute", "boss"};
         SpawnPoint point = GameMap.SPAWN_POINTS.get(0);

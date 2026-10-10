@@ -61,7 +61,8 @@ class WardenTest {
         assertEquals(1020, boss.x); assertEquals(100, player.hp);
         assertEquals(1900, boss.warden.targetY);
         player.y = 1980;
-        update(1); assertEquals(WardenRules.Action.CHARGING, boss.warden.action);
+        update(.64); assertEquals(WardenRules.Action.CHARGE_WARNING, boss.warden.action);
+        update(.02); assertEquals(WardenRules.Action.CHARGING, boss.warden.action);
         update(.5); assertTrue(boss.x > 1020); assertEquals(1900, boss.y);
         assertEquals(100, player.hp);
     }
@@ -86,7 +87,7 @@ class WardenTest {
         game.coreX = 1070; game.coreY = 1900; game.coreShield = 50;
         double coreHp = game.coreHp;
         update(.05); assertEquals(WardenRules.Action.PULSE_WARNING, boss.warden.action);
-        update(1.1); assertEquals(100, player.hp);
+        update(.79); assertEquals(100, player.hp);
         update(.1); assertEquals(74, player.hp, 1e-6); assertEquals(24, game.coreShield, 1e-6);
         assertEquals(coreHp, game.coreHp);
         update(.1); assertEquals(74, player.hp, 1e-6);
@@ -97,8 +98,8 @@ class WardenTest {
         assertEquals(3, snapshot.path("bossPhase").asInt());
         assertEquals("PULSE_WARNING", snapshot.path("bossAction").asText());
         assertEquals(160, snapshot.path("pulseRadius").asInt());
-        assertEquals(1.2, snapshot.path("actionRemaining").asDouble());
-        assertEquals(1.2, snapshot.path("actionDuration").asDouble());
+        assertEquals(.8, snapshot.path("actionRemaining").asDouble());
+        assertEquals(.8, snapshot.path("actionDuration").asDouble());
     }
     @Test void defeatingBossCancelsAPendingPulse() throws Exception {
         boss.hp = 300; boss.warden.nextPulse = true; player.x = 1120;

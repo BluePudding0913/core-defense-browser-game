@@ -1400,6 +1400,7 @@ final class GameSession {
         if (!summoned && type.equals("explosionBoss")) spawn = explosionBossSpawn(spawn);
         double hp;
         double speed;
+        double runnerSpeed = 140 + round * 3.5;
         double damage;
         int reward;
         switch (type) {
@@ -1448,7 +1449,7 @@ final class GameSession {
             }
             case "runner" -> {
                 hp = 35 + round * 4;
-                speed = 140 + round * 3.5; // After the global 0.5 scale, clearly faster than grunts.
+                speed = runnerSpeed; // After the global 0.5 scale, clearly faster than grunts.
                 damage = 8 + round;
                 reward = 18;
             }
@@ -1511,7 +1512,7 @@ final class GameSession {
         if (GameMap.spawnArea(spawn) != null) spawn = new SpawnPoint(spawn.id(), spawn.name(),
                 spawn.x(), spawn.y(), spawn.lane(), spawn.enemyBias(), spawn.speedMultiplier(),
                 spawn.targetPriority(), List.of(new MapPoint(spawn.x(), spawn.y()), new MapPoint(coreX, coreY)));
-        enemies.add(new Enemy(nextEnemyId++, type, spawn, hp * 2, speed * 0.5 * BossRules.baseSpeedMultiplier(type), damage,
+        enemies.add(new Enemy(nextEnemyId++, type, spawn, hp * 2, BossRules.baseSpeed(type, speed, runnerSpeed) * 0.5, damage,
                 (int) Math.round(reward * 2.5 * GameConfig.goldMultiplier(round))));
     }
 
