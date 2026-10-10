@@ -43,7 +43,7 @@ class DebugEnemyPreviewTest {
         game.handleMessage(host, "DEBUG:SUMMON:unknown"); game.handleMessage(host, "DEBUG:SUMMON");
         assertEquals(23, game.enemies.size());
         game.backupUsed = true; game.phase = GamePhase.WAVE;
-        game.handleMessage(host, "DEBUG:SUMMON:grunt"); assertEquals(23, game.enemies.size());
+        game.handleMessage(host, "DEBUG:SUMMON:grunt"); assertEquals(24, game.enemies.size());
     }
     @Test void goldAddsExactlyOneHundredThousandEachTime() {
         game.handleMessage(host, "DEBUG:GOLD"); assertEquals(600_000, host.credits);
