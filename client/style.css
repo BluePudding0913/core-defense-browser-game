@@ -330,6 +330,7 @@ button, input { font: inherit; }
 }
 .how-to-link:hover, .how-to-link:active { border-color: var(--accent-blue); color: var(--accent-blue); }
 .inventory-items { display: grid; gap: 1rem; padding: 1rem; }
+.inventory-job { color: #fff; font: 850 .95rem ui-monospace, monospace; }
 .inventory-health { color: var(--accent-blue); font: 800 1rem ui-monospace, monospace; }
 .inventory-status { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 .inventory-gold { color: #edcf86; font: 850 .95rem ui-monospace, monospace; }

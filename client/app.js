@@ -1096,6 +1096,7 @@ document.querySelector("#attacker-loadout").addEventListener("change", event => 
 function updateInventory(me) {
     if (!inventoryItems.querySelector(".equipment-grid")) {
         inventoryItems.innerHTML = `
+            <div class="inventory-job" aria-label="現在の職業"></div>
             <div class="inventory-status"><div class="inventory-health" role="status"></div><strong class="inventory-gold"></strong></div>
             <div class="inventory-section"><h3>ARMOR <span class="armor-total"></span></h3><div class="inventory-grid armor-grid">
                 <div class="armor-slot" data-armor="tops"><i class="armor-icon tops" aria-hidden="true"></i><strong>TOPS</strong><span></span></div>
@@ -1123,6 +1124,7 @@ function updateInventory(me) {
                 </div>
             </div>`;
     }
+    inventoryItems.querySelector(".inventory-job").textContent = `JOB · ${JOBS[me.job]?.name || me.job || "—"}`;
     inventoryItems.querySelector(".inventory-health").textContent = `HP ${Math.ceil(me.hp)} / ${me.maxHp || 100}${me.down ? "（ダウン中）" : ""}`;
     const medkitCard = inventoryItems.querySelector('[data-item="medkit"]');
     medkitCard.querySelector(".item-count").textContent = `×${me.medkits || 0}`;
