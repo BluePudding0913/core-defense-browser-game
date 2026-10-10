@@ -145,7 +145,7 @@ final class SnapshotBuilder {
     }
 
     private static void appendRules(StringBuilder json, GameSession game) {
-        json.append(",\"rules\":{\"weaponLimit\":").append(WeaponInventory.MAX_WEAPONS).append(",\"weapons\":{");
+        json.append(",\"rules\":{\"weaponLimit\":").append(JobRules.weaponLimit(JobRules.DEFAULT)).append(",\"weapons\":{");
         boolean first = true;
         for (var definition : WeaponCatalog.ALL) {
             if (!first) json.append(',');
@@ -245,6 +245,7 @@ final class SnapshotBuilder {
                     .append(",\"hp\":").append(roundOne(player.hp))
                     .append(",\"maxHp\":").append(JobRules.maxHp(player.job))
                     .append(",\"ammoCapacityMultiplier\":").append(JobRules.ammoCapacityMultiplier(player.job))
+                    .append(",\"weaponLimit\":").append(player.weapons.weaponLimit())
                     .append(",\"tankAuraRadius\":").append(JobRules.TANK_AURA_RADIUS)
                     .append(",\"decoyCooldown\":").append(roundOne(player.decoyCooldown))
                     .append(",\"tpInvulnerableRemaining\":").append(roundOne(player.tpInvulnerableRemaining))

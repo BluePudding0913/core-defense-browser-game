@@ -7,13 +7,13 @@ import java.util.Set;
 
 /** Ownership and ammunition; cooldown and active attack state belong to Player. */
 final class WeaponInventory {
-    static final int MAX_WEAPONS = 3;
     private final Set<String> owned = new HashSet<>(Set.of("bat", "pistol"));
     private final Map<String, Integer> ammunition = new HashMap<>();
     private int silverAmmo;
     private final java.util.function.Supplier<String> job;
     WeaponInventory() { this(() -> JobRules.DEFAULT); }
     WeaponInventory(java.util.function.Supplier<String> job) { this.job = job; }
+    int weaponLimit() { return JobRules.weaponLimit(job.get()); }
     int capacity(String id) { return WeaponCatalog.capacity(id) * JobRules.ammoCapacityMultiplier(job.get()); }
     void clampAmmoToCapacity() { ammunition.replaceAll((id, amount) -> Math.min(amount, capacity(id))); }
     int silverAmmo() { return silverAmmo; }
@@ -60,10 +60,13 @@ final class WeaponInventory {
                 .filter(definition -> !definition.meleeSlot() && owns(definition.id())).count();
     }
     boolean canAcquire(String id) {
-        return WeaponCatalog.find(id) != null && (WeaponCatalog.find(id).meleeSlot() || owns(id) || weaponCount() < MAX_WEAPONS);
+        return WeaponCatalog.find(id) != null && (WeaponCatalog.find(id).meleeSlot() || owns(id) || weaponCount() < weaponLimit());
     }
     boolean grant(String id) {
         if (!canAcquire(id)) return false;
+        return addWeapon(id);
+    }
+    private boolean addWeapon(String id) {
         if (id.equals("plasmaBlade")) owned.remove("bat");
         setOwned(id, true);
         setAmmo(id, capacity(id));
@@ -71,13 +74,13 @@ final class WeaponInventory {
     }
     boolean canExchange(String incoming, String outgoing) {
         return WeaponCatalog.find(incoming) != null && !owns(incoming)
-                && weaponCount() >= MAX_WEAPONS && outgoing != null && WeaponCatalog.find(outgoing) != null && !WeaponCatalog.find(outgoing).meleeSlot() && owns(outgoing);
+                && weaponCount() >= weaponLimit() && outgoing != null && WeaponCatalog.find(outgoing) != null && !WeaponCatalog.find(outgoing).meleeSlot() && owns(outgoing);
     }
     boolean exchange(String incoming, String outgoing) {
         if (!canExchange(incoming, outgoing)) return false;
         owned.remove(outgoing);
         ammunition.remove(outgoing);
-        return grant(incoming);
+        return addWeapon(incoming);
     }
     void clear() { owned.clear(); owned.addAll(Set.of("bat", "pistol")); ammunition.clear(); silverAmmo = 0; }
     void remove(String id) {

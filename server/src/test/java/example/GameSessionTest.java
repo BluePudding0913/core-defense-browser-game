@@ -1324,6 +1324,34 @@ class GameSessionTest {
         assertEquals(GamePhase.WAVE, game.phase);
     }
 
+    @Test void attackerPurchasesFourWeaponsAndExchangesTheFifth() throws Exception {
+        game.handleMessage(player, "JOB:attacker");
+        startPreparing();
+        GameMap.AREAS.forEach(area -> game.unlockedAreas.add(area.id()));
+        player.credits = 100_000;
+        for (String id : List.of("shotgun", "smg", "rifle")) {
+            var shop = GameMap.shopByItem(id);
+            player.x = shop.x(); player.y = shop.y();
+            int credits = player.credits;
+            game.handleMessage(player, "BUY:" + id);
+            assertTrue(player.weapons.owns(id));
+            assertEquals(credits - shop.cost(), player.credits);
+        }
+        assertEquals(4, player.weapons.weaponCount());
+        var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
+        assertEquals(4, snapshot.path("players").get(player.slot - 1).path("weaponLimit").asInt());
+        assertEquals(3, snapshot.path("rules").path("weaponLimit").asInt());
+        var shop = GameMap.shopByItem("sniper");
+        player.x = shop.x(); player.y = shop.y();
+        int credits = player.credits;
+        game.handleMessage(player, "BUY:sniper");
+        assertFalse(player.weapons.owns("sniper")); assertEquals(credits, player.credits);
+        game.handleMessage(player, "BUY:sniper:shotgun");
+        assertTrue(player.weapons.owns("sniper")); assertFalse(player.weapons.owns("shotgun"));
+        assertEquals(4, player.weapons.weaponCount());
+        assertEquals(credits - shop.cost(), player.credits);
+    }
+
     @Test void purchaseAtLimitExchangesOnlySelectedWeaponAndChargesOnlyOnSuccess() throws Exception {
         startPreparing();
         GameMap.AREAS.forEach(area -> game.unlockedAreas.add(area.id()));

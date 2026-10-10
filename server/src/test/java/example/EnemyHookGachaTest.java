@@ -54,6 +54,20 @@ class EnemyHookGachaTest {
         assertEquals(2,player.enchantments.get("laserCannon")); assertEquals("pistol",player.weapon);
         assertEquals(100_000,player.credits); assertEquals(2,player.weapons.weaponCount());
     }
+    @Test void attackerTakesFourthGachaWeaponButMustExchangeTheFifth() {
+        player.job = "attacker";
+        atGacha(); player.weapons.grant("rifle"); player.weapons.grant("smg");
+        player.gachaWeapon = "hook";
+        game.handleMessage(player, "BUY:gacha:take");
+        assertNull(player.gachaWeapon); assertTrue(player.weapons.owns("hook"));
+        assertEquals(4, player.weapons.weaponCount());
+        player.gachaWeapon = "laserCannon";
+        game.handleMessage(player, "BUY:gacha:take");
+        assertEquals("laserCannon", player.gachaWeapon); assertFalse(player.weapons.owns("laserCannon"));
+        game.handleMessage(player, "BUY:gacha:rifle");
+        assertNull(player.gachaWeapon); assertTrue(player.weapons.owns("laserCannon"));
+        assertFalse(player.weapons.owns("rifle")); assertEquals(4, player.weapons.weaponCount());
+    }
     @Test void fullInventoryRequiresValidExchangeAndPendingResultSurvivesDistance() {
         atGacha(); player.weapons.grant("rifle"); player.weapons.grant("smg");
         player.gachaWeapon="hook"; player.enchantments.put("rifle",1);
