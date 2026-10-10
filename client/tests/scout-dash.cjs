@@ -5,7 +5,7 @@ const source = fs.readFileSync('client/app.js', 'utf8');
 const handlers = {}, commands = [];
 const hidden = { classList: { contains: () => true } };
 const me = { job: 'scout', stamina: 100, scoutDashStamina: 20, scoutDashSpeed: 800, scoutDashStep: 4 };
-const context = vm.createContext({ window: {}, getMe: () => me, state: { phase: 'wave' },
+const context = vm.createContext({ fpsInput:null, window: {}, getMe: () => me, state: { phase: 'wave' },
     exitDialog: { open: false }, howToMenu: hidden, inventoryMenu: hidden, actionMenu: hidden,
     canvas: { addEventListener: (name, handler) => handlers[name] = handler, focus() {} },
     worldFromScreen: (x, y) => ({ x, y }), send: command => commands.push(command),

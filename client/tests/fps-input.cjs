@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const listeners={},globalListeners={},document={pointerLockElement:null,exitPointerLock(){this.pointerLockElement=null;}};
+const canvas={addEventListener(type,fn){listeners[type]=fn;},requestPointerLock(){document.pointerLockElement=canvas;return Promise.resolve();}};
+const context=vm.createContext({document,window:{addEventListener(type,fn){globalListeners[type]=fn;}},innerWidth:1000});vm.runInContext(fs.readFileSync('client/fps-input.js','utf8'),context);const input=context.window.FPSInput.create(canvas);
+input.setActive(true);assert.equal(input.capture(),true);assert(input.locked());assert.equal(input.capture(),false);
+listeners.pointermove({pointerType:'mouse',movementX:Math.PI/2/.0024,movementY:0});assert(Math.abs(input.view.yaw-Math.PI/2)<1e-8);
+let direction=input.movement(0,-1);assert(Math.abs(direction.x-1)<1e-8);assert(Math.abs(direction.y)<1e-8);
+direction=input.movement(1,0);assert(Math.abs(direction.y-1)<1e-8);
+listeners.pointermove({pointerType:'mouse',movementX:0,movementY:-10000});assert.equal(input.view.pitch,1.2);assert(Math.abs(input.facing().x-1)<1e-8);
+input.setActive(false);assert(!input.locked());const yaw=input.view.yaw;listeners.pointermove({pointerType:'mouse',movementX:200,movementY:200});assert.equal(input.view.yaw,yaw);
+input.setActive(true);listeners.pointerdown({pointerType:'touch',pointerId:5,clientX:750,clientY:300});listeners.pointermove({pointerType:'touch',pointerId:5,clientX:760,clientY:320});assert.equal(input.view.yaw,yaw+.06);globalListeners.pointerup({pointerId:5});const stopped=input.view.yaw;listeners.pointermove({pointerType:'touch',pointerId:5,clientX:800,clientY:320});assert.equal(input.view.yaw,stopped);
+console.log('FPS input passed: pointer lock, yaw/pitch limits, view-relative forward/strafe, menu release, touch look');
