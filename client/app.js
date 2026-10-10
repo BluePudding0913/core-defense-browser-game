@@ -2907,14 +2907,14 @@ function drawArtilleryShells() {
         if (remaining <= 0) continue;
         const progress = clamp(1 - remaining / shell.duration, 0, 1);
         ctx.save();
-        ctx.fillStyle = "rgb(255 112 80 / 18%)";
-        ctx.strokeStyle = "rgb(255 112 80 / 40%)"; ctx.lineWidth = 3;
+        ctx.fillStyle = "rgb(126 220 122 / 18%)";
+        ctx.strokeStyle = "rgb(126 220 122 / 40%)"; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.arc(shell.x, shell.y, shell.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.strokeStyle = "#ff805c"; ctx.lineWidth = 4;
+        ctx.strokeStyle = "#7edc7a"; ctx.lineWidth = 4;
         ctx.beginPath(); ctx.arc(shell.x, shell.y, shell.radius, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2); ctx.stroke();
         const x = shell.sourceX + (shell.x - shell.sourceX) * progress;
         const y = shell.sourceY + (shell.y - shell.sourceY) * progress - Math.sin(progress * Math.PI) * 65;
-        ctx.fillStyle = "#ff805c";
+        ctx.fillStyle = "#7edc7a";
         ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
     }
@@ -3347,8 +3347,9 @@ function drawHitEffects() {
             const progress = (now - effect.started) / 360;
             ctx.save(); ctx.globalAlpha = 1 - progress;
             const allied = effect.source === "ally";
-            ctx.fillStyle = allied ? "rgb(105 223 255 / 25%)" : "rgb(255 112 80 / 25%)";
-            ctx.strokeStyle = allied ? "#69dfff" : "#ff805c"; ctx.lineWidth = 4;
+            const artillery = effect.effect === "acid-impact";
+            ctx.fillStyle = allied ? "rgb(105 223 255 / 25%)" : artillery ? "rgb(126 220 122 / 25%)" : "rgb(255 112 80 / 25%)";
+            ctx.strokeStyle = allied ? "#69dfff" : artillery ? "#7edc7a" : "#ff805c"; ctx.lineWidth = 4;
             ctx.beginPath(); ctx.arc(effect.x, effect.y, effect.radius * (.25 + .75 * progress), 0, Math.PI * 2);
             ctx.fill(); ctx.stroke(); ctx.restore(); continue;
         }
