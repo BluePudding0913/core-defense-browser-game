@@ -1,7 +1,15 @@
 package example;
 
-/** Shared boss walking speed and HP phases, without session state. */
+/** Shared boss spawn health, walking speed and HP phases, without session state. */
 final class BossRules {
+    static double spawnHp(String type, double originalHp) {
+        return switch (type) {
+            case "boss", "warden", "warlord", "titan", "explosionBoss" ->
+                    Math.max(100, Math.round(originalHp * 0.65 / 100) * 100.0);
+            default -> originalHp;
+        };
+    }
+
     static double baseSpeed(String type, double ordinarySpeed, double runnerSpeed) {
         return switch (type) {
             case "boss", "warden", "warlord", "titan" -> runnerSpeed;
