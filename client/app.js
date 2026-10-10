@@ -2,6 +2,8 @@
 
 const canvas = document.querySelector("#game");
 const ctx = canvas.getContext("2d");
+const labRenderer = window.Lab3D?.create(canvas) || null;
+let renderPositions = null;
 const menu = document.querySelector("#menu");
 const menuStatus = document.querySelector("#menu-status");
 const startButton = document.querySelector("#start");
@@ -145,6 +147,7 @@ let droneAftermath = null;
 let predictedLocal = null;
 let localMove = { x: 0, y: 0 };
 let localFacing = { x: 0, y: -1 };
+let aimPointer = null;
 let dashRequested = false;
 let lastFrameAt = performance.now();
 let mapReady = false;
@@ -1850,11 +1853,13 @@ function resize() {
 window.addEventListener("resize", resize);
 resize();
 
+function worldYScale() { return typeof labRenderer !== "undefined" && labRenderer ? labRenderer.groundScale : 1; }
+
 function worldFromScreen(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     const px = (clientX - rect.left) * canvas.width / rect.width;
     const py = (clientY - rect.top) * canvas.height / rect.height;
-    return { x: camera.x + (px - canvas.width / 2) / scale, y: camera.y + (py - canvas.height / 2) / scale };
+    return { x: camera.x + (px - canvas.width / 2) / scale, y: camera.y + (py - canvas.height / 2) / (scale * worldYScale()) };
 }
 
 function requestDecoy(point) {
@@ -1927,6 +1932,7 @@ canvas.addEventListener("pointerdown", event => {
 });
 
 canvas.addEventListener("pointermove", event => {
+    if (event.pointerType === "mouse" || firingPointer?.id === event.pointerId) aimPointer = { x: event.clientX, y: event.clientY };
     if (pendingMove?.id === event.pointerId) { pendingMove.x = event.clientX; pendingMove.y = event.clientY; }
     if (joystick?.id === event.pointerId) updateJoystick(event.clientX, event.clientY);
     if (firingPointer?.id === event.pointerId || event.pointerType === "mouse" && firingPointer?.id === "mouse") updateFiringAim(event.clientX, event.clientY);
@@ -1974,6 +1980,7 @@ function startFiring(pointerId, clientX, clientY) {
         return;
     }
     const point = worldFromScreen(clientX, clientY);
+    aimPointer = { x: clientX, y: clientY };
     firingPointer = { id: pointerId, clientX, clientY, lastAimSent: performance.now() };
     send(`FIRE:${point.x.toFixed(1)}:${point.y.toFixed(1)}:1`);
 }
@@ -2408,6 +2415,7 @@ function droneCameraView() {
 }
 
 function draw() {
+    renderPositions = labRenderer ? new Map() : null;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const me = getMe();
@@ -2415,12 +2423,20 @@ function draw() {
     if (cameraTarget) {
         camera.x += (cameraTarget.x - camera.x) * .12;
         camera.y += (cameraTarget.y - camera.y) * .12;
-        const halfW = canvas.width / scale / 2, halfH = canvas.height / scale / 2;
+        const halfW = canvas.width / scale / 2, halfH = canvas.height / (scale * worldYScale()) / 2;
         camera.x = clamp(camera.x, halfW, WORLD.width - halfW);
         camera.y = clamp(camera.y, halfH, WORLD.height - halfH);
     }
-    ctx.setTransform(scale, 0, 0, scale, canvas.width / 2 - camera.x * scale, canvas.height / 2 - camera.y * scale);
-    drawWorld();
+    ctx.setTransform(scale, 0, 0, scale * worldYScale(), canvas.width / 2 - camera.x * scale, canvas.height / 2 - camera.y * scale * worldYScale());
+    if (labRenderer) labRenderer.render({ map: TILE_MAP, reachable: reachableFloorTiles(), center: camera, scale,
+        state, localId: myPlayerId, predicted: predictedLocal, smooth: smoothEntity, radius: enemyRadius,
+        stations: labStations(), effects: hitEffects,
+        aim: aimPointer ? worldFromScreen(aimPointer.x, aimPointer.y) : null });
+    else drawWorld();
+    if (labRenderer) {
+        SPAWN_POINTS.forEach(drawSpawnEntrance);
+        if (DEBUG_MODE) SPAWN_POINTS.forEach(drawDebugSpawn);
+    }
     if (state) {
         drawAreas();
         drawBreakers();
@@ -2451,7 +2467,7 @@ function draw() {
         drawBlackoutEnemyGlow();
     }
     if (state && typeof CoreFeedback !== "undefined") {
-        ctx.setTransform(scale, 0, 0, scale, canvas.width / 2 - camera.x * scale, canvas.height / 2 - camera.y * scale);
+        ctx.setTransform(scale, 0, 0, scale * worldYScale(), canvas.width / 2 - camera.x * scale, canvas.height / 2 - camera.y * scale * worldYScale());
         CoreFeedback.draw(ctx, performance.now(), WORLD, scale);
         ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
@@ -2495,7 +2511,7 @@ function drawBlackoutSignals() {
         if (!tripped.has(breaker.id)
                 || (breaker.requiredArea && !state.areas[breaker.requiredArea])) continue;
         const x = (breaker.x - camera.x) * scale + canvas.width / 2;
-        const y = (breaker.y - camera.y) * scale + canvas.height / 2;
+        const y = (breaker.y - camera.y) * scale * worldYScale() + canvas.height / 2;
         for (let ring = 0; ring < 3; ring++) {
             const expansion = (progress + ring / 3) % 1;
             ctx.globalAlpha = .75 * (1 - expansion);
@@ -2520,7 +2536,7 @@ function drawBlackout() {
     const me = predictedLocal || local;
     if (!me) return;
     const x = (me.x - camera.x) * scale + canvas.width / 2;
-    const y = (me.y - camera.y) * scale + canvas.height / 2;
+    const y = (me.y - camera.y) * scale * worldYScale() + canvas.height / 2;
     const remaining = (state.trippedBreakers || []).length;
     const total = Math.max(1, state.blackoutBreakerTotal || remaining);
     const severity = state.enemyBlackout ? 1 : remaining / total;
@@ -2663,10 +2679,12 @@ function drawAreas() {
         }
 
         if (!unlocked && terminalVisible) {
-            ctx.fillStyle = "#d8d8d8";
-            ctx.fillRect(area.terminalX - 15, area.terminalY - 15, 30, 30);
-            ctx.strokeStyle = "#79d8ff"; ctx.lineWidth = 2;
-            ctx.strokeRect(area.terminalX - 18, area.terminalY - 18, 36, 36);
+            if (typeof labRenderer === "undefined" || !labRenderer) {
+                ctx.fillStyle = "#d8d8d8";
+                ctx.fillRect(area.terminalX - 15, area.terminalY - 15, 30, 30);
+                ctx.strokeStyle = "#79d8ff"; ctx.lineWidth = 2;
+                ctx.strokeRect(area.terminalX - 18, area.terminalY - 18, 36, 36);
+            }
             ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace"; ctx.textAlign = "center";
             ctx.fillText("UNLOCK", area.terminalX, area.terminalY - 24);
         }
@@ -2681,22 +2699,24 @@ function drawBreakers() {
         const needsReset = state.blackoutActive && tripped.has(breaker.id);
         const pulse = (Math.sin(performance.now() / 130) + 1) / 2;
         ctx.save();
-        ctx.fillStyle = needsReset ? "#ff5964" : "#8b8b8b";
-        ctx.strokeStyle = needsReset ? "#fff" : "#d8d8d8";
-        ctx.lineWidth = 2;
-        if (needsReset) {
-            ctx.shadowColor = "#ff5964";
-            ctx.shadowBlur = 10 + pulse * 8;
+        if (typeof labRenderer === "undefined" || !labRenderer) {
+            ctx.fillStyle = needsReset ? "#ff5964" : "#8b8b8b";
+            ctx.strokeStyle = needsReset ? "#fff" : "#d8d8d8";
+            ctx.lineWidth = 2;
+            if (needsReset) {
+                ctx.shadowColor = "#ff5964";
+                ctx.shadowBlur = 10 + pulse * 8;
+            }
+            ctx.fillRect(breaker.x - 10, breaker.y - 14, 20, 28);
+            ctx.strokeRect(breaker.x - 10, breaker.y - 14, 20, 28);
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = "#111";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(breaker.x, breaker.y - 7);
+            ctx.lineTo(breaker.x, breaker.y + 6);
+            ctx.stroke();
         }
-        ctx.fillRect(breaker.x - 10, breaker.y - 14, 20, 28);
-        ctx.strokeRect(breaker.x - 10, breaker.y - 14, 20, 28);
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = "#111";
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(breaker.x, breaker.y - 7);
-        ctx.lineTo(breaker.x, breaker.y + 6);
-        ctx.stroke();
         if (needsReset) {
             ctx.fillStyle = "#ff5964";
             ctx.font = "900 9px ui-monospace, monospace";
@@ -2754,19 +2774,22 @@ function drawCore() {
         ctx.lineTo(x + 5, carrierY - 4);
         ctx.stroke();
     }
-    ctx.fillStyle = "#666";
-    ctx.fillRect(x - size / 2, y - size / 2, size, size);
-    ctx.fillStyle = "#79d8ff";
-    ctx.fillRect(x - size / 2, y + size / 2 - size * ratio, size, size * ratio);
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 3;
-    ctx.strokeRect(x - size / 2, y - size / 2, size, size);
+    if (typeof labRenderer === "undefined" || !labRenderer) {
+        ctx.fillStyle = "#666";
+        ctx.fillRect(x - size / 2, y - size / 2, size, size);
+        ctx.fillStyle = "#79d8ff";
+        ctx.fillRect(x - size / 2, y + size / 2 - size * ratio, size, size * ratio);
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x - size / 2, y - size / 2, size, size);
+    }
     if (core.shield > 0) {
         ctx.strokeStyle = "#70bfff";
         ctx.globalAlpha = .8;
         ctx.lineWidth = 2;
         ctx.strokeRect(x - size / 2 - 5, y - size / 2 - 5, size + 10, size + 10);
     }
+    if (typeof labRenderer !== "undefined" && labRenderer) drawBar(x - 20, y + size / 2 + 10, 40, 4, ratio, "#79d8ff");
     const hitAge = performance.now() - coreHitStarted;
     if (hitAge < 350) {
         ctx.strokeStyle = "#ff4e58"; ctx.globalAlpha = 1 - hitAge / 350; ctx.lineWidth = 9;
@@ -2814,12 +2837,15 @@ function isUnlockedPoint(point) {
 }
 
 function drawStation(station, label, color, labelColor = "#111") {
-    ctx.fillStyle = color; ctx.fillRect(station.x - 20, station.y - 20, 40, 40);
-    ctx.fillStyle = "#111"; ctx.fillRect(station.x - 11, station.y - 11, 22, 22);
+    if (typeof labRenderer === "undefined" || !labRenderer) {
+        ctx.fillStyle = color; ctx.fillRect(station.x - 20, station.y - 20, 40, 40);
+        ctx.fillStyle = "#111"; ctx.fillRect(station.x - 11, station.y - 11, 22, 22);
+    }
     ctx.fillStyle = labelColor; ctx.font = "900 9px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText(label, station.x, station.y + 31);
 }
 
 function drawResources() {
+    if (typeof labRenderer !== "undefined" && labRenderer) return;
     for (const node of state.resources || []) {
         if (!node.available) continue;
         const bob = Math.sin(performance.now() / 260 + node.x * .01) * 3;
@@ -2845,23 +2871,25 @@ function drawDroppedResources() {
         const bob = Math.sin(performance.now() / 230 + drop.id) * 2;
         ctx.save();
         ctx.translate(drop.x, drop.y + bob);
-        ctx.fillStyle = drop.type === "wood" ? "#b8b8b8" : drop.type === "copper" ? "#aa754d" : drop.type === "silver" ? "#eee" : "#777";
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 1.5;
-        if (drop.type === "medkit") {
-            ctx.fillStyle = "#eee";
-            ctx.fillRect(-10, -8, 20, 16);
-            ctx.strokeRect(-10, -8, 20, 16);
-            ctx.fillStyle = "#e45151";
-            ctx.fillRect(-2, -6, 4, 12);
-            ctx.fillRect(-6, -2, 12, 4);
-        } else if (drop.type === "wood") {
-            ctx.fillRect(-8, -6, 16, 12);
-            ctx.strokeRect(-8, -6, 16, 12);
-        } else {
-            ctx.beginPath();
-            ctx.moveTo(0, -10); ctx.lineTo(10, -2); ctx.lineTo(6, 9);
-            ctx.lineTo(-7, 8); ctx.lineTo(-10, -3); ctx.closePath(); ctx.fill(); ctx.stroke();
+        if (typeof labRenderer === "undefined" || !labRenderer) {
+            ctx.fillStyle = drop.type === "wood" ? "#b8b8b8" : drop.type === "copper" ? "#aa754d" : drop.type === "silver" ? "#eee" : "#777";
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 1.5;
+            if (drop.type === "medkit") {
+                ctx.fillStyle = "#eee";
+                ctx.fillRect(-10, -8, 20, 16);
+                ctx.strokeRect(-10, -8, 20, 16);
+                ctx.fillStyle = "#e45151";
+                ctx.fillRect(-2, -6, 4, 12);
+                ctx.fillRect(-6, -2, 12, 4);
+            } else if (drop.type === "wood") {
+                ctx.fillRect(-8, -6, 16, 12);
+                ctx.strokeRect(-8, -6, 16, 12);
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(0, -10); ctx.lineTo(10, -2); ctx.lineTo(6, 9);
+                ctx.lineTo(-7, 8); ctx.lineTo(-10, -3); ctx.closePath(); ctx.fill(); ctx.stroke();
+            }
         }
         ctx.fillStyle = "#fff";
         ctx.font = "900 10px ui-monospace, monospace";
@@ -2884,25 +2912,27 @@ function drawTrapSlots() {
 
 function drawDefense(slot) {
     const defense = slot.defense;
-    if (defense.type === "block") {
-        ctx.fillStyle = "#666"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
-        ctx.fillStyle = "#929292"; ctx.fillRect(slot.x - 14, slot.y - 14, 28, 7);
-        ctx.fillStyle = "#444"; ctx.fillRect(slot.x - 14, slot.y - 3, 10, 13);
-        ctx.strokeStyle = "#bbb"; ctx.lineWidth = 2; ctx.strokeRect(slot.x - 18, slot.y - 18, 36, 36);
-    } else if (["turret", "copperTurret", "silverTurret", "overclockSilver"].includes(defense.type)) {
-        ctx.fillStyle = "#79d8ff"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
-        ctx.strokeStyle = "#fff"; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(slot.x, slot.y); ctx.lineTo(slot.x, slot.y - 29); ctx.stroke();
-        if (defense.type !== "turret") { ctx.fillStyle = defense.type === "overclockSilver" ? "#b686ff" : defense.type === "copperTurret" ? "#aa754d" : "#eee"; ctx.fillRect(slot.x - 8, slot.y - 8, 16, 16); }
-    } else if (defense.type === "wire") {
-        ctx.strokeStyle = "#b8b8b8"; ctx.lineWidth = 3; ctx.beginPath();
-        for (let i = -24; i <= 24; i += 8) { ctx.moveTo(slot.x + i, slot.y - 20); ctx.lineTo(slot.x + i + 10, slot.y + 20); }
-        ctx.stroke();
-    } else if (defense.type === "mine") {
-        ctx.fillStyle = "#ff5964"; ctx.beginPath(); ctx.arc(slot.x, slot.y, 17, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(slot.x, slot.y, 5, 0, Math.PI * 2); ctx.fill();
-    } else {
-        ctx.fillStyle = defense.type === "copperBarricade" ? "#986543" : defense.type === "silverBarricade" ? "#c3cbd0" : "#666"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
-        ctx.strokeStyle = "#bbb"; ctx.lineWidth = 3; ctx.strokeRect(slot.x - 18, slot.y - 18, 36, 36);
+    if (typeof labRenderer === "undefined" || !labRenderer) {
+        if (defense.type === "block") {
+            ctx.fillStyle = "#666"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
+            ctx.fillStyle = "#929292"; ctx.fillRect(slot.x - 14, slot.y - 14, 28, 7);
+            ctx.fillStyle = "#444"; ctx.fillRect(slot.x - 14, slot.y - 3, 10, 13);
+            ctx.strokeStyle = "#bbb"; ctx.lineWidth = 2; ctx.strokeRect(slot.x - 18, slot.y - 18, 36, 36);
+        } else if (["turret", "copperTurret", "silverTurret", "overclockSilver"].includes(defense.type)) {
+            ctx.fillStyle = "#79d8ff"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
+            ctx.strokeStyle = "#fff"; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(slot.x, slot.y); ctx.lineTo(slot.x, slot.y - 29); ctx.stroke();
+            if (defense.type !== "turret") { ctx.fillStyle = defense.type === "overclockSilver" ? "#b686ff" : defense.type === "copperTurret" ? "#aa754d" : "#eee"; ctx.fillRect(slot.x - 8, slot.y - 8, 16, 16); }
+        } else if (defense.type === "wire") {
+            ctx.strokeStyle = "#b8b8b8"; ctx.lineWidth = 3; ctx.beginPath();
+            for (let i = -24; i <= 24; i += 8) { ctx.moveTo(slot.x + i, slot.y - 20); ctx.lineTo(slot.x + i + 10, slot.y + 20); }
+            ctx.stroke();
+        } else if (defense.type === "mine") {
+            ctx.fillStyle = "#ff5964"; ctx.beginPath(); ctx.arc(slot.x, slot.y, 17, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(slot.x, slot.y, 5, 0, Math.PI * 2); ctx.fill();
+        } else {
+            ctx.fillStyle = defense.type === "copperBarricade" ? "#986543" : defense.type === "silverBarricade" ? "#c3cbd0" : "#666"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
+            ctx.strokeStyle = "#bbb"; ctx.lineWidth = 3; ctx.strokeRect(slot.x - 18, slot.y - 18, 36, 36);
+        }
     }
     if (["barricade", "copperBarricade", "silverBarricade"].includes(defense.type)) drawBar(slot.x - 14, slot.y + 10, 28, 4, defense.hp / defense.maxHp, "#fff");
     else if (defense.type !== "mine") drawBar(slot.x - 25, slot.y + 29, 50, 4, defense.hp / defense.maxHp, "#fff");
@@ -2910,9 +2940,12 @@ function drawDefense(slot) {
 
 function smoothEntity(prefix, entity) {
     const key = `${prefix}-${entity.id}`;
+    if (typeof renderPositions !== "undefined" && renderPositions?.has(key)) return renderPositions.get(key);
     const point = smoothed.get(key) || { x: entity.x, y: entity.y };
     point.x += (entity.x - point.x) * .32; point.y += (entity.y - point.y) * .32;
-    smoothed.set(key, point); return point;
+    smoothed.set(key, point);
+    if (typeof renderPositions !== "undefined" && renderPositions) renderPositions.set(key, point);
+    return point;
 }
 
 function enemyRadius(enemy) {
@@ -2989,6 +3022,7 @@ function drawEnemies() {
             ctx.beginPath(); ctx.arc(p.x, p.y, radius + 7, 0, Math.PI * 2); ctx.fill();
             ctx.restore();
         }
+        const isBoss = ["boss", "warlord", "titan", "warden"].includes(enemy.type);
         const explosionBoss = enemy.type === "explosionBoss";
         let flashing = false;
         if (explosionBoss && enemy.fuse >= 0) {
@@ -2997,35 +3031,37 @@ function drawEnemies() {
             // Integrate a frequency rising from 0.5 Hz to 5 Hz for a continuous blink phase.
             flashing = Math.sin(2 * Math.PI * (.5 * elapsed + .075 * elapsed * elapsed)) > 0;
         }
-        ctx.fillStyle = enemy.type === "warden" ? ["#4c5965", "#73563e", "#8b343b"][(enemy.bossPhase || 1) - 1]
-            : explosionBoss ? (flashing ? "#b52b32" : "#080808") : colors[enemy.type] || colors.grunt;
-        ctx.beginPath();
-        if (explosionBoss) {
-            for (let i = 0; i < 6; i++) {
-                const angle = Math.PI / 3 * i - Math.PI / 6;
-                const x = p.x + Math.cos(angle) * radius, y = p.y + Math.sin(angle) * radius;
-                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-            }
-            ctx.closePath();
-        } else if (enemy.type === "blueAce") {
-            ctx.moveTo(p.x-radius, p.y-radius); ctx.lineTo(p.x+radius, p.y-radius);
-            ctx.lineTo(p.x+radius, p.y+radius); ctx.lineTo(p.x-radius, p.y+radius); ctx.closePath();
-        } else ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-        ctx.fill();
-        const isBoss = ["boss", "warlord", "titan", "warden"].includes(enemy.type);
-        ctx.strokeStyle = isBoss ? "#fff" : "#c8c8c8"; ctx.lineWidth = isBoss ? 5 : Math.min(2, radius / 3); ctx.stroke();
-        const eyeRadius = Math.min(3, radius * .2), eyeOffset = Math.min(3, radius * .5);
-        ctx.fillStyle = explosionBoss ? "#ff1527" : "#fff"; ctx.beginPath(); ctx.arc(p.x - radius * .3, p.y - eyeOffset, eyeRadius, 0, Math.PI * 2); ctx.arc(p.x + radius * .3, p.y - eyeOffset, eyeRadius, 0, Math.PI * 2); ctx.fill();
+        if (typeof labRenderer === "undefined" || !labRenderer) {
+            ctx.fillStyle = enemy.type === "warden" ? ["#4c5965", "#73563e", "#8b343b"][(enemy.bossPhase || 1) - 1]
+                : explosionBoss ? (flashing ? "#b52b32" : "#080808") : colors[enemy.type] || colors.grunt;
+            ctx.beginPath();
+            if (explosionBoss) {
+                for (let i = 0; i < 6; i++) {
+                    const angle = Math.PI / 3 * i - Math.PI / 6;
+                    const x = p.x + Math.cos(angle) * radius, y = p.y + Math.sin(angle) * radius;
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+            } else if (enemy.type === "blueAce") {
+                ctx.moveTo(p.x-radius, p.y-radius); ctx.lineTo(p.x+radius, p.y-radius);
+                ctx.lineTo(p.x+radius, p.y+radius); ctx.lineTo(p.x-radius, p.y+radius); ctx.closePath();
+            } else ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = isBoss ? "#fff" : "#c8c8c8"; ctx.lineWidth = isBoss ? 5 : Math.min(2, radius / 3); ctx.stroke();
+            const eyeRadius = Math.min(3, radius * .2), eyeOffset = Math.min(3, radius * .5);
+            ctx.fillStyle = explosionBoss ? "#ff1527" : "#fff"; ctx.beginPath(); ctx.arc(p.x - radius * .3, p.y - eyeOffset, eyeRadius, 0, Math.PI * 2); ctx.arc(p.x + radius * .3, p.y - eyeOffset, eyeRadius, 0, Math.PI * 2); ctx.fill();
+        }
         if (enemy.frozenRemaining > 0) {
             ctx.save(); ctx.fillStyle = "rgb(90 211 255 / 35%)"; ctx.strokeStyle = "#a7edff"; ctx.lineWidth = 2;
             ctx.beginPath(); ctx.arc(p.x, p.y, radius + 3, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.restore();
         }
-        if (enemy.type === "shield") {
+        if (enemy.type === "shield" && (typeof labRenderer === "undefined" || !labRenderer)) {
             const angle = Math.atan2(enemy.facingY ?? 1, enemy.facingX ?? 0);
             ctx.strokeStyle = "#83d5f2"; ctx.lineWidth = 7;
             ctx.beginPath(); ctx.arc(p.x, p.y, radius + 4, angle - Math.PI / 3, angle + Math.PI / 3); ctx.stroke();
         }
-        if (enemy.type === "artillery") {
+        if (enemy.type === "artillery" && (typeof labRenderer === "undefined" || !labRenderer)) {
             ctx.fillStyle = "#cce76b";
             ctx.beginPath(); ctx.arc(p.x, p.y - radius * .7, 9, 0, Math.PI * 2); ctx.fill();
         }
@@ -3190,56 +3226,58 @@ function drawPlayers() {
         }
         const rescuers = state.players.filter(worker => worker.action === player.id);
         if (player.down && rescuers.length && (player.id === myPlayerId || rescuers.some(worker => worker.id === myPlayerId))) drawReviveEffect(p.x, p.y, Math.max(...rescuers.map(worker => worker.actionProgress / (worker.reviveSeconds ?? 4))));
-        ctx.save();
-        if (player.down) { ctx.translate(p.x, p.y + 8); ctx.scale(1.35, .65); }
-        else ctx.translate(p.x, p.y);
-        if (!player.down && (player.tpInvulnerableRemaining > 0 || player.reviveInvulnerableRemaining > 0)) {
-            ctx.globalAlpha = Math.floor(performance.now() / 100) % 2 ? .25 : 1;
-        }
-        const hit = hitEffects.findLast(effect => effect.effect === "player-hit"
-            && effect.playerId === player.id && performance.now() - effect.started < 300);
-        if (hit) {
+        if (typeof labRenderer === "undefined" || !labRenderer) {
             ctx.save();
-            ctx.globalAlpha = .3 * (1 - (performance.now() - hit.started) / 300);
-            ctx.fillStyle = "#ff3948";
-            ctx.shadowColor = "#ff3948";
-            ctx.shadowBlur = 8;
-            ctx.fillRect(-9, -9, 18, 18);
+            if (player.down) { ctx.translate(p.x, p.y + 8); ctx.scale(1.35, .65); }
+            else ctx.translate(p.x, p.y);
+            if (!player.down && (player.tpInvulnerableRemaining > 0 || player.reviveInvulnerableRemaining > 0)) {
+                ctx.globalAlpha = Math.floor(performance.now() / 100) % 2 ? .25 : 1;
+            }
+            const hit = hitEffects.findLast(effect => effect.effect === "player-hit"
+                && effect.playerId === player.id && performance.now() - effect.started < 300);
+            if (hit) {
+                ctx.save();
+                ctx.globalAlpha = .3 * (1 - (performance.now() - hit.started) / 300);
+                ctx.fillStyle = "#ff3948";
+                ctx.shadowColor = "#ff3948";
+                ctx.shadowBlur = 8;
+                ctx.fillRect(-9, -9, 18, 18);
+                ctx.restore();
+            }
+            ctx.fillStyle = hit || player.down ? "#ff5964" : player.id === myPlayerId ? "#79d8ff" : "#454545";
+            if (player.job === "attacker" && !player.down) {
+                ctx.save();
+                ctx.fillStyle = "#b5b5b5";
+                ctx.fillRect(-12, -3, 4, 12); ctx.fillRect(8, -3, 4, 12);
+                ctx.fillStyle = "#454545";
+                ctx.fillRect(-12, -3, 4, 4); ctx.fillRect(8, -3, 4, 4);
+                ctx.restore();
+            }
+            const playerSize = 10;
+            const disguised = player.spyRemaining > 0 && !player.down;
+            if (disguised) {
+                ctx.fillStyle = "#707070"; ctx.strokeStyle = "#c8c8c8"; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                ctx.fillStyle = "#fff";
+                ctx.fillRect(-6, -5, 3, 3); ctx.fillRect(3, -5, 3, 3);
+                ctx.fillStyle = "#79d8ff"; ctx.fillRect(-2, 6, 4, 2);
+            } else ctx.fillRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize);
+            if (player.id === myPlayerId && !disguised) { ctx.strokeStyle = "white"; ctx.lineWidth = 1.5; ctx.strokeRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize); }
+            if (player.drone?.controlled && player.drone?.active && !player.down) {
+                ctx.fillStyle = "#b7c9d1"; ctx.fillRect(-8, 5, 16, 8);
+                ctx.fillStyle = "#253f49"; ctx.fillRect(-5, 7, 3, 3); ctx.fillRect(2, 7, 3, 3);
+            }
+            if (player.selectedBuild?.endsWith("Factory") && player.buildItems?.[player.selectedBuild] > 0) {
+                ctx.fillStyle = "#70bfff";
+                ctx.fillRect(-9, -24, 18, 16);
+                ctx.fillStyle = "#111";
+                ctx.fillRect(-5, -20, 10, 8);
+            }
             ctx.restore();
         }
-        ctx.fillStyle = hit || player.down ? "#ff5964" : player.id === myPlayerId ? "#79d8ff" : "#454545";
-        if (player.job === "attacker" && !player.down) {
-            ctx.save();
-            ctx.fillStyle = "#b5b5b5";
-            ctx.fillRect(-12, -3, 4, 12); ctx.fillRect(8, -3, 4, 12);
-            ctx.fillStyle = "#454545";
-            ctx.fillRect(-12, -3, 4, 4); ctx.fillRect(8, -3, 4, 4);
-            ctx.restore();
-        }
-        const playerSize = 10;
-        const disguised = player.spyRemaining > 0 && !player.down;
-        if (disguised) {
-            ctx.fillStyle = "#707070"; ctx.strokeStyle = "#c8c8c8"; ctx.lineWidth = 1.5;
-            ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-            ctx.fillStyle = "#fff";
-            ctx.fillRect(-6, -5, 3, 3); ctx.fillRect(3, -5, 3, 3);
-            ctx.fillStyle = "#79d8ff"; ctx.fillRect(-2, 6, 4, 2);
-        } else ctx.fillRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize);
-        if (player.id === myPlayerId && !disguised) { ctx.strokeStyle = "white"; ctx.lineWidth = 1.5; ctx.strokeRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize); }
-        if (player.drone?.controlled && player.drone?.active && !player.down) {
-            ctx.fillStyle = "#b7c9d1"; ctx.fillRect(-8, 5, 16, 8);
-            ctx.fillStyle = "#253f49"; ctx.fillRect(-5, 7, 3, 3); ctx.fillRect(2, 7, 3, 3);
-        }
-        if (player.selectedBuild?.endsWith("Factory") && player.buildItems?.[player.selectedBuild] > 0) {
-            ctx.fillStyle = "#70bfff";
-            ctx.fillRect(-9, -24, 18, 16);
-            ctx.fillStyle = "#111";
-            ctx.fillRect(-5, -20, 10, 8);
-        }
-        ctx.restore();
         if (player.id === myPlayerId) drawLocalWeaponCooldown(p.x, p.y, player);
-        ctx.textAlign = "center"; ctx.fillStyle = "#454545"; ctx.font = "800 11px system-ui";
-        ctx.fillText(player.name, p.x, p.y - 14);
+        ctx.textAlign = "center"; ctx.fillStyle = typeof labRenderer !== "undefined" && labRenderer ? "#f2f7fa" : "#454545"; ctx.font = "800 11px system-ui";
+        ctx.fillText(player.name, p.x, p.y - (typeof labRenderer !== "undefined" && labRenderer ? 37 : 14));
         drawMedbayParticles(player, p);
 
     }
@@ -3258,15 +3296,17 @@ function drawDrones() {
         const p = smoothEntity("drone", { ...owner.drone, id: owner.id });
         ctx.save();
         ctx.translate(p.x, p.y);
-        ctx.fillStyle = "#0005";
-        ctx.beginPath(); ctx.ellipse(0, 12, 15, 6, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#8be8f5"; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(-9, -9); ctx.lineTo(9, 9);
-        ctx.moveTo(9, -9); ctx.lineTo(-9, 9); ctx.stroke();
-        for (const [x, y] of [[-9, -9], [9, -9], [-9, 9], [9, 9]]) {
-            ctx.beginPath(); ctx.ellipse(x, y, 6, 3, performance.now() / 70, 0, Math.PI * 2); ctx.stroke();
+        if (typeof labRenderer === "undefined" || !labRenderer) {
+            ctx.fillStyle = "#0005";
+            ctx.beginPath(); ctx.ellipse(0, 12, 15, 6, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = "#8be8f5"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(-9, -9); ctx.lineTo(9, 9);
+            ctx.moveTo(9, -9); ctx.lineTo(-9, 9); ctx.stroke();
+            for (const [x, y] of [[-9, -9], [9, -9], [-9, 9], [9, 9]]) {
+                ctx.beginPath(); ctx.ellipse(x, y, 6, 3, performance.now() / 70, 0, Math.PI * 2); ctx.stroke();
+            }
+            ctx.fillStyle = "#ddfbff"; ctx.fillRect(-4, -4, 8, 8);
         }
-        ctx.fillStyle = "#ddfbff"; ctx.fillRect(-4, -4, 8, 8);
         drawBar(-15, -23, 30, 3, owner.drone.hp / owner.drone.maxHp, "#8be8f5");
         if (owner.id === myPlayerId && droneRecoveryAvailable(owner)
                 && actionMenu.classList.contains("hidden") && inventoryMenu.classList.contains("hidden")
@@ -3420,7 +3460,7 @@ function drawHitEffects() {
                 ctx.arc(effect.x, effect.y, 4 + progress * 6, 0, Math.PI * 2);
                 ctx.stroke();
             }
-            if ((effect.weapon === "turret" || effect.damage === 0)
+            if ((typeof labRenderer === "undefined" || !labRenderer) && (effect.weapon === "turret" || effect.damage === 0)
                 && !["bat", "mine"].includes(effect.weapon) && progress < .55) {
                 ctx.lineWidth = 1.35;
                 ctx.beginPath(); ctx.moveTo(effect.fromX, effect.fromY); ctx.lineTo(effect.x, effect.y); ctx.stroke();
@@ -3428,7 +3468,13 @@ function drawHitEffects() {
             ctx.restore();
         }
     }
-    if (typeof CombatFeedback !== "undefined") CombatFeedback.draw(ctx, now);
+    if (typeof CombatFeedback !== "undefined") {
+        if (typeof labRenderer !== "undefined" && labRenderer) {
+            ctx.save(); ctx.setTransform(scale, 0, 0, scale, 0, 0);
+            CombatFeedback.draw(ctx, now, projectCombatPopup);
+            ctx.restore();
+        } else CombatFeedback.draw(ctx, now);
+    }
     ctx.textAlign = "left";
 }
 
@@ -3519,7 +3565,7 @@ function drawBlackoutEnemyGlow() {
     for (const enemy of state.enemies || []) {
         if (enemy.type !== "blackout" || !enemy.powerCut || enemy.hp <= 0) continue;
         const p = smoothed.get("enemy-" + enemy.id) || enemy;
-        const x = (p.x - camera.x) * scale + canvas.width / 2, y = (p.y - camera.y) * scale + canvas.height / 2;
+        const x = (p.x - camera.x) * scale + canvas.width / 2, y = (p.y - camera.y) * scale * worldYScale() + canvas.height / 2;
         ctx.strokeStyle = "#8affd7"; ctx.shadowColor = "#66ffcb"; ctx.shadowBlur = 16; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(x, y, enemyRadius(enemy) * scale, 0, Math.PI * 2); ctx.stroke();
         ctx.fillStyle = "#e2fff5"; ctx.fillRect(x-8*scale, y-6*scale, 5*scale, 4*scale);
@@ -3557,4 +3603,32 @@ function drawRewindScreen() {
         ctx.fillStyle = "rgba(170,255,230," + flash * .75 + ")"; ctx.fillRect(0, 0, w, h);
     }
     ctx.restore();
+}
+
+function projectCombatPopup(popup) {
+    const enemy = state.enemies.find(entity => entity.id === popup.enemyId && entity.hp > 0);
+    const point = enemy ? smoothEntity('enemy', enemy) : popup;
+    if (enemy) popup.height = enemyRadius(enemy) * 1.6;
+    const projected = labRenderer.project(point.x, point.y, popup.height || 24);
+    return { x: projected.x / scale, y: projected.y / scale };
+}
+
+function labStations() {
+    if (!state) return [];
+    const stations = SHOP_UNITS.filter(isUnlockedPoint).map(p => [p, p.label, '#80cee1']);
+    for (const p of MEDBAYS.filter(isUnlockedPoint)) stations.push([p, 'MED BAY', '#88d7b1']);
+    for (const p of [WOODCUTTER, QUARRY].filter(isUnlockedPoint)) stations.push([p, '', '#d3b78c']);
+    for (const p of [...WORKBENCHES, PREP_CONSOLE, MISSILE_COMPUTER, JOB_STATION].filter(Boolean))
+        if (!p.requiredArea || state.areas[p.requiredArea]) stations.push([p, '', '#89cbd8']);
+    const tripped = new Set(state.trippedBreakers || []);
+    for (const p of BREAKER_TERMINALS) if (!p.requiredArea || state.areas[p.requiredArea])
+        stations.push([p, '', state.blackoutActive && tripped.has(p.id) ? '#ff5964' : '#89cbd8', 'breaker']);
+    const reachable = reachableFloorTiles(), size = TILE_MAP.tileSize;
+    for (const area of AREAS) {
+        const c = Math.floor(area.terminalX / size), r = Math.floor(area.terminalY / size);
+        if (!state.areas[area.id] && [[0,0],[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy]) => reachable.has((r+dy)+':'+(c+dx))))
+            stations.push([{id:'unlock:'+area.id, x:area.terminalX, y:area.terminalY}, 'UNLOCK', '#79d8ff', 'terminal']);
+    }
+    for (const p of state.factories || []) stations.push([p, '', '#80cee1']);
+    return stations;
 }

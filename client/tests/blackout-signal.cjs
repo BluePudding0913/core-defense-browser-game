@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const source = fs.readFileSync('client/app.js', 'utf8');
 let now = 0;
 const circles = [];
-const context = vm.createContext({
+const context = vm.createContext({ labRenderer: null, worldYScale: () => 1,
     performance: { now: () => now },
     state: { blackoutActive: true, trippedBreakers: ['outside', 'inside', 'locked'], areas: { room: true } },
     BREAKER_TERMINALS: [
