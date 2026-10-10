@@ -9,7 +9,8 @@ final class BossAbilitySystem {
     static final double TITAN_WARNING = 1.5, TITAN_RADIUS = 200, COOLDOWN = 8;
     static boolean update(Enemy enemy, double dt, MapPoint target, WardenCombatSystem.World world, List<ArtilleryShell> shells) {
         if (!enemy.type.equals("warlord") && !enemy.type.equals("titan") || enemy.hp <= 0) return false;
-        enemy.specialCooldown = Math.max(0, enemy.specialCooldown-dt);
+        enemy.specialCooldown = Math.max(0, enemy.specialCooldown
+                - dt * BossRules.attackRate(enemy.type, enemy.hp, enemy.maxHp));
         if (enemy.bossPulseRemaining > 0) {
             enemy.bossPulseRemaining = Math.max(0,enemy.bossPulseRemaining-dt);
             if (enemy.bossPulseRemaining <= 1e-9) {

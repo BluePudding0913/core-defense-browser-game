@@ -1511,7 +1511,7 @@ final class GameSession {
         if (GameMap.spawnArea(spawn) != null) spawn = new SpawnPoint(spawn.id(), spawn.name(),
                 spawn.x(), spawn.y(), spawn.lane(), spawn.enemyBias(), spawn.speedMultiplier(),
                 spawn.targetPriority(), List.of(new MapPoint(spawn.x(), spawn.y()), new MapPoint(coreX, coreY)));
-        enemies.add(new Enemy(nextEnemyId++, type, spawn, hp * 2, speed * 0.5, damage,
+        enemies.add(new Enemy(nextEnemyId++, type, spawn, hp * 2, speed * 0.5 * BossRules.baseSpeedMultiplier(type), damage,
                 (int) Math.round(reward * 2.5 * GameConfig.goldMultiplier(round))));
     }
 
@@ -1611,7 +1611,8 @@ final class GameSession {
                     releasingCarriers.add(enemy);
                 }
             }
-            enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
+            enemy.attackCooldown = Math.max(0, enemy.attackCooldown
+                    - dt * BossRules.attackRate(enemy.type, enemy.hp, enemy.maxHp));
             if (enemy.type.equals("seeker")) {
                 Player target = EnemyProjectileSystem.target(enemy, players, EnemyProjectileSystem.SHOT_RANGE, unlockedAreas);
                 if (target != null) {
@@ -1628,7 +1629,8 @@ final class GameSession {
             enemy.pathTimer -= dt;
             updateEnemyWander(enemy, dt);
             if (enemy.type.equals("artillery") && updateArtillery(enemy, dt)) continue;
-            double moveSpeed = enemy.speed * (enemy.warden == null ? 1
+            double moveSpeed = enemy.speed * BossRules.movementMultiplier(enemy.type, enemy.hp, enemy.maxHp)
+                    * (enemy.warden == null ? 1
                     : WardenRules.movementMultiplier(WardenRules.phase(enemy.hp, enemy.maxHp)));
             if (enemy.warden != null && WardenCombatSystem.update(enemy, dt, wardenTarget(enemy), wardenWorld)) continue;
 
