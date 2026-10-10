@@ -59,3 +59,7 @@ run('openShopPurchase(shop)'); assert.equal(options[0].label, 'FULL'); assert(op
 me.ownsShotgun = false;
 run('openShopPurchase(shop)'); assert.equal(options[0].label, 'BUY');
 console.log('Placement/shop regressions passed: edges, directions, server validation, silent interaction, English labels');
+
+me.selectedBuild='block';me.x=1100;me.y=1900;context.fpsInput={facing:()=>({x:-1,y:0})};
+assert.equal(run('frontPlacementTile(me).x'),1060,'FPS preview uses gaze instead of movement facing');
+run('placeSelectedInFront()');assert.equal(messages.at(-1),'PLACE_FRONT:-1.0000:0.0000','Server receives the same FPS direction as the preview');

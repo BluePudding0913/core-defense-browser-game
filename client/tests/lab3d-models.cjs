@@ -2,11 +2,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const THREE = require('../vendor/three.min.js');
-let scene, camera, now=1000;
+let scene, camera, viewScene, viewCamera, now=1000;
 THREE.WebGLRenderer = class {
     constructor() { this.domElement={width:0,height:0,addEventListener(){}};this.shadowMap={}; }
     setSize(w,h) { this.domElement.width=w;this.domElement.height=h; }
-    render(s,c) { scene=s;camera=c;scene.updateMatrixWorld(true);camera.updateMatrixWorld(true); }
+    clearDepth() {}
+    render(s,c) { if(!s.children.some(o=>o.isDirectionalLight)){viewScene=s;viewCamera=c;viewScene.updateMatrixWorld(true);viewCamera.updateMatrixWorld(true);return;}scene=s;camera=c;scene.updateMatrixWorld(true);camera.updateMatrixWorld(true); }
 };
 const context=vm.createContext({window:{THREE},document:{body:{classList:{add(){}}}},performance:{now:()=>now},console});
 for (const file of ['soldier-model.js','lab3d.js']) vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
@@ -41,9 +42,15 @@ renderer.render(frame);
 assert(Math.abs(head.rotation.y-Math.PI/2)<1e-8,'Turret turns toward its shot');
 const traces=scene.children.filter(o=>o.name==='muzzle-tracer');assert.equal(traces.length,2);
 const turretOrigin=muzzle.getWorldPosition(new THREE.Vector3());
-const soldierOrigin=soldier.getObjectByName('Muzzle').getWorldPosition(new THREE.Vector3());
+const soldierOrigin=viewScene.getObjectByName('Muzzle').getWorldPosition(new THREE.Vector3()).applyMatrix4(viewCamera.matrixWorldInverse).applyMatrix4(camera.matrixWorld);
+assert.equal(soldier.visible,false,'Local third-person body hidden in FPS');
+assert(camera.isPerspectiveCamera);assert.equal(camera.position.y,26);
+assert.equal(renderer.project(100,150,26).visible,false,'Behind-camera labels are hidden');
+assert(renderer.aimPoint());
+assert.equal(viewScene.getObjectByName('Head').visible,false,'Viewmodel excludes the head');
+const startingAim=renderer.aimPoint();frame.view={yaw:Math.PI/2,pitch:0};renderer.render(frame);assert(Math.abs(camera.rotation.y+Math.PI/2)<1e-8);assert.notDeepEqual(renderer.aimPoint(),startingAim,'Reticle ray follows mouse yaw');frame.view={yaw:0,pitch:0};renderer.render(frame);
 for(const expected of [turretOrigin,soldierOrigin]) assert(traces.some(line=>{const p=line.geometry.attributes.position;return Math.hypot(p.getX(0)-expected.x,p.getY(0)-expected.y,p.getZ(0)-expected.z)<1e-4;}),'Tracer starts at actual muzzle');
-const ground=renderer.project(100,100,0),raised=renderer.project(100,100,40);assert(raised.y<ground.y,'Floating labels project above ground');
+const ground=renderer.project(100,60,0),raised=renderer.project(100,60,40);assert(raised.y<ground.y,'Floating labels project above ground');
 now+=400;frame.effects=[];state.drops=[];state.resources[0].available=false;renderer.render(frame);
 assert.equal(scene.children.filter(o=>o.name==='muzzle-tracer').length,0,'Expired shots removed');
 assert(!scene.getObjectByName('drop:1:medkit'));assert(!scene.getObjectByName('resource:ore:ore'));

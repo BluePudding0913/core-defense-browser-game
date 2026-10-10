@@ -363,7 +363,16 @@ final class GameSession {
             case "EQUIP_CORE" -> equipCore(player);
             case "CARRY_NEAREST" -> carryNearest(player, parts.length > 1 ? parts[1] : null);
             case "USE" -> { if(parts.length > 1) useItem(player,parts[1]); }
-            case "PLACE_FRONT" -> placeInFacingTile(player);
+            case "PLACE_FRONT" -> {
+                // FPS supplies a horizontal look direction; old clients and CPU keep their facing.
+                if (parts.length >= 3) {
+                    double x = Double.parseDouble(parts[1]), y = Double.parseDouble(parts[2]);
+                    double length = Math.hypot(x, y);
+                    if (!Double.isFinite(length) || length < .001) break;
+                    updateFacing(player, x / length, y / length);
+                }
+                placeInFacingTile(player);
+            }
             case "READY" -> { if (phase == GamePhase.PREPARING && !player.down
                     && player.id.equals(roomOwnerId)) prepTime = 0; }
             default -> { }

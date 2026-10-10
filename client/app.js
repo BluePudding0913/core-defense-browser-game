@@ -148,6 +148,8 @@ let predictedLocal = null;
 let localMove = { x: 0, y: 0 };
 let localFacing = { x: 0, y: -1 };
 let aimPointer = null;
+const fpsInput = labRenderer?.firstPerson ? window.FPSInput.create(canvas) : null;
+document.addEventListener('pointerlockchange',()=>{if(fpsInput && !fpsInput.locked()) {if(firingPointer)stopFiring(firingPointer.clientX,firingPointer.clientY);if(secondaryHeld)stopSecondaryFiring();keys.clear();sendMovement();}});
 let dashRequested = false;
 let lastFrameAt = performance.now();
 let mapReady = false;
@@ -1856,6 +1858,12 @@ resize();
 function worldYScale() { return typeof labRenderer !== "undefined" && labRenderer ? labRenderer.groundScale : 1; }
 
 function worldFromScreen(clientX, clientY) {
+    if (typeof fpsInput !== "undefined" && fpsInput) {
+        const aim=labRenderer.aimPoint();
+        if (aim) return aim;
+        const me=predictedLocal || getMe() || camera, f=fpsInput.facing();
+        return {x:me.x+f.x*2400,y:me.y+f.y*2400};
+    }
     const rect = canvas.getBoundingClientRect();
     const px = (clientX - rect.left) * canvas.width / rect.width;
     const py = (clientY - rect.top) * canvas.height / rect.height;
@@ -1894,6 +1902,9 @@ function requestTankWall(point) {
 // Mouse down also fires when the left button is held, allowing a dash while shooting.
 canvas.addEventListener("mousedown", event => {
     if (!state || !getMe()) return;
+    if (event.button === 0 && fpsInput?.capture()) return;
+    if (event.button === 1 && fpsInput) { event.preventDefault(); fpsInput.view.zoom=true; return; }
+    if (event.button === 2 && fpsInput && !["attacker","tank","scout","spy"].includes(getMe()?.job)) { event.preventDefault();fpsInput.view.zoom=true;return; }
     if (event.button === 0) {
         canvas.focus({ preventScroll: true });
         startFiring("mouse", event.clientX, event.clientY);
@@ -1918,8 +1929,8 @@ canvas.addEventListener("mousedown", event => {
 canvas.addEventListener("pointerdown", event => {
     if (!state || !getMe()) return;
     canvas.focus({ preventScroll: true });
-    canvas.setPointerCapture(event.pointerId);
     if (event.pointerType === "mouse") return;
+    canvas.setPointerCapture(event.pointerId);
     const inMovementArea = event.pointerType !== "mouse"
         && event.clientX < innerWidth * .42 && event.clientY > innerHeight * .42;
     if (inMovementArea) {
@@ -1961,6 +1972,7 @@ function stopSecondaryFiring() {
     window.coreAudio?.stopRailgun?.(myPlayerId + ":right");
 }
 window.addEventListener("mouseup", event => {
+    if (fpsInput && [1,2].includes(event.button)) fpsInput.view.zoom=false;
     if (event.button === 0 && firingPointer?.id === "mouse") stopFiring(event.clientX, event.clientY);
     if (event.button === 2) stopSecondaryFiring();
 });
@@ -2048,6 +2060,7 @@ function sendMovement(force = false) {
     if (predictedLocal?.movementPauseUntil && performance.now() < predictedLocal.movementPauseUntil) x = y = 0;
     const length = Math.hypot(x, y);
     if (length > 1) { x /= length; y /= length; }
+    if (typeof fpsInput !== "undefined" && fpsInput) ({x,y}=fpsInput.movement(x,y));
     localMove.x = Number(x.toFixed(2));
     localMove.y = Number(y.toFixed(2));
     if (length > .12) localFacing = quantizeFacing(localMove.x, localMove.y);
@@ -2070,6 +2083,9 @@ window.addEventListener("keydown", event => {
     }
     if (isTypingTarget(event.target)) return;
     const key = window.coreKeySettings.gameKey(event);
+    if (key === "escape" && typeof fpsInput !== "undefined" && fpsInput?.locked()) {
+        event.preventDefault(); fpsInput.release(); return;
+    }
     if (exitDialog.open) {
         if (key === "e") { event.preventDefault(); if (!event.repeat) exitDialog.close("cancel"); }
         return;
@@ -2140,6 +2156,7 @@ window.addEventListener("keyup", event => {
     keys.delete(key); sendMovement();
 });
 window.addEventListener("blur", () => {
+    if (fpsInput) fpsInput.release();
     stopSecondaryFiring();
     endInteractionHold(true);
     keys.clear(); joystick = null;
@@ -2267,7 +2284,7 @@ function quantizeFacing(x, y) {
 
 function frontPlacementTile(player) {
     const origin = snapToTile(player);
-    const direction = player.id === myPlayerId ? localFacing
+    const direction = player.id === myPlayerId ? (typeof fpsInput !== "undefined" && fpsInput ? fpsInput.facing() : localFacing)
         : { x: player.facingX, y: player.facingY };
     const facing = quantizeFacing(Number.isFinite(direction.x) ? direction.x : 0,
         Number.isFinite(direction.y) ? direction.y : -1);
@@ -2289,7 +2306,9 @@ function placeSelectedInFront() {
     const selection = placementSelection(me);
     if (!selection) return false;
     // The preview is advisory; only the server has the current collision state.
-    send("PLACE_FRONT");
+    if (typeof fpsInput !== 'undefined' && fpsInput) {
+        const facing=fpsInput.facing();send(`PLACE_FRONT:${facing.x.toFixed(4)}:${facing.y.toFixed(4)}`);
+    } else send("PLACE_FRONT");
     return true;
 }
 
@@ -2415,6 +2434,7 @@ function droneCameraView() {
 }
 
 function draw() {
+    if (fpsInput) { drawFirstPerson(); return; }
     renderPositions = labRenderer ? new Map() : null;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -2474,6 +2494,51 @@ function draw() {
     if (state) drawDamageEdges();
     drawJoystick();
     drawRewindScreen();
+}
+
+
+function drawFirstPerson() {
+    renderPositions=new Map();
+    const me=getMe(), eye=droneCameraView() || predictedLocal || me || camera;
+    const playing=!!me && ['preparing','wave'].includes(state?.phase);
+    const menusOpen=exitDialog.open || !actionMenu.classList.contains('hidden') || !inventoryMenu.classList.contains('hidden') || !howToMenu.classList.contains('hidden') || window.coreMenu?.settingsOpen?.() || window.JobUI?.isConfirming?.() || me?.missileControl;
+    fpsInput.setActive(playing && !menusOpen);
+    if(menusOpen || !playing) {
+        if(firingPointer)stopFiring(firingPointer.clientX,firingPointer.clientY);
+        if(secondaryHeld)stopSecondaryFiring();
+        if(keys.size || joystick){keys.clear();joystick=null;sendMovement();}
+    } else sendMovement(); // Turning changes the world direction of a held movement key.
+    if(eye){camera.x=eye.x;camera.y=eye.y;}
+    const selection=me && placementSelection(me), point=selection ? frontPlacementTile(me) : null;
+    const placement=point ? {...point,valid:canBuildAt(point,selection.forCore)} : null;
+    labRenderer.render({map:TILE_MAP,reachable:reachableFloorTiles(),center:camera,eye,scale,state,localId:myPlayerId,predicted:predictedLocal,smooth:smoothEntity,radius:enemyRadius,stations:labStations(),effects:hitEffects,aim:worldFromScreen(0,0),view:fpsInput.view,placement});
+    if(firingPointer)updateFiringAim(firingPointer.clientX,firingPointer.clientY);
+    if(secondaryHeld){const p=worldFromScreen(0,0);const now=performance.now();if(now-(drawFirstPerson.secondaryAt || 0)>70){send(`SECONDARY_FIRE:${p.x.toFixed(1)}:${p.y.toFixed(1)}:1`);drawFirstPerson.secondaryAt=now;}}
+    ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);
+    if(!state)return;
+    const now=performance.now();hitEffects=hitEffects.filter(e=>now-e.started<1200);
+    const activeProjectiles=new Set((state.projectiles || []).map(p=>"projectile-"+p.id));
+    for(const key of smoothed.keys())if(key.startsWith("projectile-") && !activeProjectiles.has(key))smoothed.delete(key);
+    const text=(label,x,y,height=32,color='#e8f4f8')=>{const p=labRenderer.project(x,y,height);if(!p.visible)return;ctx.save();ctx.font=`bold ${Math.max(12,12*canvas.width/innerWidth)}px system-ui`;ctx.textAlign='center';ctx.fillStyle=color;ctx.shadowColor='#08121a';ctx.shadowBlur=4;ctx.fillText(label,p.x,p.y);ctx.restore();};
+    const bar=(entity,p,height,color)=>{const a=labRenderer.project(p.x,p.y,height);if(!a.visible)return;const w=38*canvas.width/innerWidth,h=4*canvas.width/innerWidth;ctx.fillStyle='#16232c';ctx.fillRect(a.x-w/2,a.y,w,h);ctx.fillStyle=color;ctx.fillRect(a.x-w/2,a.y,w*clamp(entity.hp/Math.max(1,entity.maxHp || entity.hp),0,1),h);};
+    for(const [p,label,color] of labStations()) if(Math.hypot(p.x-eye.x,p.y-eye.y)<420)text(label,p.x,p.y,38,color);
+    for(const enemy of state.enemies)if(enemy.hp>0){const p=smoothEntity('enemy',enemy);if(enemy.hp<enemy.maxHp)bar(enemy,p,enemyRadius(enemy)*2.2,'#ff7780');}
+    for(const player of state.players)if(player.id!==myPlayerId){const p=smoothEntity('player',player);text(player.name,p.x,p.y,34,player.down?'#ff7780':'#e8f4f8');bar(player,p,30,'#91dcc1');}
+    for(const slot of state.slots || [])if(slot.defense)bar(slot.defense,slot,32,'#79d8ff');
+    if(!state.players.some(p=>p.movingCore)) {text('CORE',state.core.x,state.core.y,50);bar(state.core,state.core,45,'#79d8ff');}
+    for(const drop of state.drops || [])if(Math.hypot(drop.x-eye.x,drop.y-eye.y)<160)text(RESOURCE_NAMES[drop.type] || drop.type,drop.x,drop.y,20);
+    if(typeof CombatFeedback!=='undefined'){ctx.setTransform(scale,0,0,scale,0,0);CombatFeedback.draw(ctx,now,popup=>{const p=projectCombatPopup(popup);return p;});ctx.setTransform(1,0,0,1,0,0);}
+    const interaction=findNearestInteraction();
+    ctx.save();const dpr=canvas.width/innerWidth;ctx.scale(dpr,dpr);ctx.textAlign='center';ctx.font='bold 14px system-ui';ctx.fillStyle='#f1f8fb';ctx.shadowColor='#07121b';ctx.shadowBlur=4;
+    if(playing && !menusOpen){
+        const x=innerWidth/2,y=innerHeight/2;ctx.strokeStyle='#e8f4f8';ctx.lineWidth=1.5;ctx.beginPath();for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]){ctx.moveTo(x+dx*4,y+dy*4);ctx.lineTo(x+dx*10,y+dy*10);}ctx.stroke();
+        if(interaction)ctx.fillText('R',x,y+50);
+        if(placement)ctx.fillText(placement.valid?'R PLACE':'BLOCKED',x,y+70);
+        if(!fpsInput.locked() && !matchMedia('(pointer: coarse)').matches)ctx.fillText('クリックで視点操作 · Escで解除',x,y+100);
+    }
+    ctx.restore();
+    if(state.blackoutActive && !me?.drone?.controlled){ctx.fillStyle='rgba(0,5,10,.68)';ctx.fillRect(0,0,canvas.width,canvas.height);}
+    drawDamageEdges();drawJoystick();drawRewindScreen();
 }
 
 function drawDamageEdges() {
@@ -3610,7 +3675,7 @@ function projectCombatPopup(popup) {
     const point = enemy ? smoothEntity('enemy', enemy) : popup;
     if (enemy) popup.height = enemyRadius(enemy) * 1.6;
     const projected = labRenderer.project(point.x, point.y, popup.height || 24);
-    return { x: projected.x / scale, y: projected.y / scale };
+    return { x: projected.visible===false ? -10000 : projected.x / scale, y: projected.visible===false ? -10000 : projected.y / scale };
 }
 
 function labStations() {

@@ -9,7 +9,7 @@ const selects = ['left', 'right'].map(hand => ({dataset:{hand}, innerHTML:''}));
 let panelHidden, change;
 const panel = {classList:{toggle:(_, hidden)=>panelHidden=hidden}, querySelectorAll:()=>selects,
     addEventListener:(_, handler)=>change=handler};
-const context = vm.createContext({ state: {phase:'wave'}, getMe:()=>me, firingPointer:null,
+const context = vm.createContext({ fpsInput:null, state: {phase:'wave'}, getMe:()=>me, firingPointer:null,
     myPlayerId:'me', exitDialog:{open:false}, howToMenu:hidden, actionMenu:hidden, inventoryMenu:hidden,
     canvas:{addEventListener:(name, handler)=>canvasHandlers[name]=handler, focus(){}},
     window:{addEventListener:(name, handler)=>windowHandlers[name]=handler},

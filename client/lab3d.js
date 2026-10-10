@@ -20,7 +20,7 @@ window.Lab3D = (() => {
         document.body.classList.add('lab-3d');
         const scene = new T.Scene();
         scene.background = new T.Color('#141e26');
-        const camera = new T.OrthographicCamera(-450, 450, 250, -250, 1, 5000);
+        const camera = new T.PerspectiveCamera(72, 1, .5, 5000);
         scene.add(new T.HemisphereLight(0xe4f5ff, 0x455262, .75));
         const sun = new T.DirectionalLight(0xfff3dd, 1.0);
         sun.castShadow = true;
@@ -62,7 +62,7 @@ window.Lab3D = (() => {
                     floors.push([c * size + size / 2, -2, r * size + size / 2, size, 4, size]);
                     if ((r + c) % 6 === 0) strips.push([c * size + size / 2, .2, r * size + size - 4, size * .6, .5, 2]);
                 } else if ([[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy]) => reachable.has((r+dy)+':'+(c+dx)))) {
-                    walls.push([c * size + size / 2, 11, r * size + size / 2, size, 22, size]);
+                    walls.push([c * size + size / 2, 32, r * size + size / 2, size, 64, size]);
 
                 }
             }
@@ -76,6 +76,52 @@ window.Lab3D = (() => {
                 mesh.receiveShadow = true; mesh.castShadow = true; terrain.add(mesh);
             }
             instances(floors, '#8799a2'); instances(walls, '#d8e2e6'); instances(strips, '#64b9c8');
+        }
+        // Like the reference demo, render first-person arms separately to avoid wall clipping.
+        const viewScene = new T.Scene();
+        viewScene.add(new T.HemisphereLight(0xe4f5ff, 0x455262, 1.8));
+        const viewCamera = new T.PerspectiveCamera(58, 1, .01, 10);
+        viewCamera.rotation.y = Math.PI;
+        const viewModel = window.buildSoldier(T);
+        viewScene.add(viewModel.root);
+        for (const part of ['Hips','Head']) {
+            const node = viewModel.root.getObjectByName(part);
+            if (part === 'Head') node.visible = false;
+            else for (const child of node.children) if (child.name !== 'Spine') child.visible = false;
+        }
+        const spine = viewModel.root.getObjectByName('Spine');
+        for (const child of spine.children) if (!['UpperArm_L','UpperArm_R','Rifle'].includes(child.name)) child.visible=false;
+        // Shoulder blocks sit at eye level in the reference; hide them in first person.
+        viewModel.root.traverse(o=>{if(o.isMesh){o.castShadow=false;if(o.parent.name.startsWith('UpperArm_') && o.geometry.parameters.height<.2)o.visible=false;}});
+        const viewMixer = new T.AnimationMixer(viewModel.root);
+        const viewAction = viewMixer.clipAction(viewModel.clips.find(c=>c.name==='Aim')); viewAction.play();
+        const viewMuzzle = viewModel.root.getObjectByName('Muzzle');
+        let latestFrame, viewVisible=false;
+        const raycaster = new T.Raycaster();
+        function aimPoint() {
+            if (!latestFrame) return null;
+            raycaster.setFromCamera(new T.Vector2(0,0), camera);
+            const origin=raycaster.ray.origin, direction=raycaster.ray.direction;
+            let distance=2400, result=null;
+            // Pick the visible 3D body under the reticle, while the server retains 2D combat rules.
+            const hits=raycaster.intersectObjects([...objects.values()].filter(o=>o.root.visible).map(o=>o.root),true);
+            const wallHits=raycaster.intersectObject(terrain,true);
+            for (const hit of [...hits,...wallHits].sort((a,b)=>a.distance-b.distance)) {
+                if (hit.distance<2 || hit.distance>distance) continue;
+                let root=hit.object; while(root.parent && root.parent!==scene) root=root.parent;
+                if (root.name?.startsWith('player:'+latestFrame.localId)) continue;
+                const entity=root.userData.entity;
+                result=entity ? {x:entity.x,y:entity.y} : {x:hit.point.x,y:hit.point.z};
+                distance=hit.distance; break;
+            }
+            if (result) return result;
+            const horizontal=Math.hypot(direction.x,direction.z)||1;
+            return {x:origin.x+direction.x/horizontal*2400,y:origin.z+direction.z/horizontal*2400};
+        }
+        function fpsMuzzleWorld() {
+            viewScene.updateMatrixWorld(true); viewCamera.updateMatrixWorld(true);
+            const point=viewMuzzle.getWorldPosition(new T.Vector3()).applyMatrix4(viewCamera.matrixWorldInverse);
+            return point.applyMatrix4(camera.matrixWorld);
         }
         const objects = new Map();
         let seen = new Set();
@@ -154,6 +200,7 @@ window.Lab3D = (() => {
                 return { root, body };
             });
             item.root.position.set(point.x, 0, point.y);
+            item.root.userData.entity={x:point.x,y:point.y};
             item.root.rotation.y = Math.atan2(entity.facingX || 0, entity.facingY ?? 1);
             item.body.material = material(entity.frozenRemaining > 0 ? '#95dded'
                 : entity.type === 'explosionBoss' && entity.fuse >= 0 && Math.sin(now / Math.max(50, entity.fuse * 15)) > 0 ? '#d64e58'
@@ -204,7 +251,7 @@ window.Lab3D = (() => {
                     const drone=objects.get('drone:'+owner.id);if(drone) {muzzle=drone.muzzle;}
                 } else muzzle=objects.get('player:'+effect.playerId)?.muzzle;
             }
-            const start=muzzle ? muzzle.getWorldPosition(new T.Vector3()) : new T.Vector3(effect.fromX,22,effect.fromY);
+            const start=effect.playerId===latestFrame.localId && effect.weapon!=='turret' && viewVisible ? fpsMuzzleWorld() : muzzle ? muzzle.getWorldPosition(new T.Vector3()) : new T.Vector3(effect.fromX,22,effect.fromY);
             const target=state.enemies.find(e=>e.id===effect.enemyId);
             const end=new T.Vector3(effect.x,target ? Math.max(6,radius(target)*.8) : start.y,effect.y);
             const positions=item.root.geometry.attributes.position;
@@ -213,9 +260,49 @@ window.Lab3D = (() => {
         }
         function project(x,y,height=0) {
             const p=new T.Vector3(x,height,y).project(camera);
-            return {x:(p.x+1)*overlay.width/2,y:(1-p.y)*overlay.height/2};
+            let visible=p.z>=-1 && p.z<=1 && Math.abs(p.x)<1.1 && Math.abs(p.y)<1.1;
+            if(visible){const target=new T.Vector3(x,height,y),delta=target.clone().sub(camera.position);raycaster.set(camera.position,delta.clone().normalize());const wall=raycaster.intersectObject(terrain,true)[0];if(wall && wall.distance<delta.length()-3)visible=false;}
+            return {x:(p.x+1)*overlay.width/2,y:(1-p.y)*overlay.height/2,visible};
         }
 
+        const ringGeometry=new T.RingGeometry(.88,1,48);
+        function ring(key,x,y,r,color,opacity=.6) {
+            const item=object(key,()=>{const mat=new T.MeshBasicMaterial({color,transparent:true,opacity,side:T.DoubleSide,depthWrite:false});const root=new T.Mesh(ringGeometry,mat);root.rotation.x=-Math.PI/2;return {root,dispose(){mat.dispose();}};});
+            item.root.position.set(x,.7,y);item.root.scale.setScalar(r);item.root.material.color.set(color);item.root.material.opacity=opacity;
+        }
+        function beam(key,a,b,color,width=1) {
+            const item=object(key,()=>{const root=new T.Mesh(cylinderGeometry,material(color,true));return {root};});
+            const delta=b.clone().sub(a);item.root.position.copy(a).add(b).multiplyScalar(.5);item.root.scale.set(width,delta.length(),width);item.root.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),delta.normalize());
+        }
+        function renderCombat(frame,now) {
+            const {state,smooth}=frame;
+            for(const shot of state.projectiles || []) {const p=smooth('projectile',shot),dx=Math.cos(shot.angle),dy=Math.sin(shot.angle);beam('projectile:'+shot.id,new T.Vector3(p.x-dx*20,16,p.y-dy*20),new T.Vector3(p.x,16,p.y),shot.source==='enemy'?'#ff7050':'#69dfff',1.5);}
+            for(const shell of state.artilleryShells || []) {ring('shell:'+shell.id,shell.x,shell.y,shell.radius,'#7edc7a');const remaining=shell.remaining-Math.max(0,(now-(state.artilleryReceivedAt || now))/1000);const progress=Math.max(0,Math.min(1,1-remaining/shell.duration));const x=shell.sourceX+(shell.x-shell.sourceX)*progress,y=shell.sourceY+(shell.y-shell.sourceY)*progress;beam('shell-body:'+shell.id,new T.Vector3(x,5+Math.sin(progress*Math.PI)*65,y),new T.Vector3(x,12+Math.sin(progress*Math.PI)*65,y),'#7edc7a',3);}
+            for(const [i,strike] of (state.missiles || []).entries()) ring('missile:'+i,strike.x,strike.y,strike.radius || 120,'#79bfff');
+            for(const [i,area] of (state.healingAreas || []).entries()) ring('healing:'+i,area.x,area.y,area.radius || 100,'#84e6b5',.3);
+            for(const [i,gas] of (state.poisonClouds || state.poisonGas || []).entries()) ring('gas:'+i,gas.x,gas.y,gas.radius || 80,'#8de276',.5);
+            for(const player of state.players) {
+                const p=player.id===frame.localId && frame.predicted ? frame.predicted : smooth('player',player);
+                for(const [side,remaining,dx,dy,range] of [['main',player.railgunRemaining,player.railgunDx,player.railgunDy,player.railgunRange],['sub',player.secondaryRailgunRemaining,player.secondaryRailgunDx,player.secondaryRailgunDy,player.secondaryRailgunRange]]) if(remaining>0) beam('rail:'+player.id+side,new T.Vector3(p.x,22,p.y),new T.Vector3(p.x+dx*range,22,p.y+dy*range),'#ff7390',2);
+            }
+            for(const enemy of state.enemies) if(enemy.hp>0 && enemy.chargeWarning>0) {const p=smooth('enemy',enemy);beam('charge:'+enemy.id,new T.Vector3(p.x,1,p.y),new T.Vector3(p.x+enemy.chargeDx*286,1,p.y+enemy.chargeDy*286),'#ff5964',5);}
+            const placement=frame.placement;if(placement) ring('placement',placement.x,placement.y,19,placement.valid?'#79d8ff':'#ff5964',.9);
+            for(const owner of state.players) {
+                for(const [i,pad] of (owner.teleportPads || []).entries()) ring('teleport:'+owner.id+':'+i,pad.x,pad.y,18,'#ab9cff');
+                if(owner.healRemaining>0)ring('heal:'+owner.id,owner.healX,owner.healY,owner.healHalfSize,'#84e6b5',.4);
+                if(owner.hookTargetId>=0){const target=state.enemies.find(e=>e.id===owner.hookTargetId && e.hp>0);if(target)beam('hook:'+owner.id,new T.Vector3(owner.x,22,owner.y),new T.Vector3(target.x,20,target.y),'#b4e9ff',.7);}
+            }
+            for(const decoy of state.decoys || []) if(decoy.hp>0)station('decoy:'+decoy.id,decoy,'#eecb65','terminal');
+            for(const effect of frame.effects || []) {
+                const age=now-effect.started;
+                if(effect.effect==='hit' && age>=0 && age<360 && ['rocket','mine','droneExplosion','repulsor','freezeGun','poisonGas'].includes(effect.weapon)) ring('blast:'+effectIds.get(effect)+':'+effect.started,effect.x,effect.y,Math.max(4,(effect.radius || 35)*age/360),effect.weapon==='freezeGun'?'#95dded':'#ffae62',1-age/360);
+                if(effect.effect==='hit' && age>=0 && age<220 && effect.damage===0 && ['laserCannon','freezeGun','plasmaBlade','bat'].includes(effect.weapon)) {
+                    const start=effect.playerId===frame.localId && viewVisible ? fpsMuzzleWorld() : new T.Vector3(effect.fromX,22,effect.fromY);
+                    beam('special:'+effect.playerId+':'+effect.weapon+':'+effect.started,start,new T.Vector3(effect.x,22,effect.y),effect.weapon==='freezeGun'?'#b8efff':'#50d7ff',effect.weapon==='laserCannon'?3:1.5);
+                }
+                if(effect.effect==='hit' && age>=0 && age<180 && effect.weapon==='flamethrower') beam('flame:'+effect.started,new T.Vector3(effect.fromX,22,effect.fromY),new T.Vector3(effect.x,18,effect.y),'#ff962e',5);
+            }
+        }
         function collect() {
             for (const [key,item] of objects) if (!seen.has(key)) {
                 scene.remove(item.root);
@@ -233,10 +320,18 @@ window.Lab3D = (() => {
             const now = performance.now(), dt = Math.min(.1, (now - lastFrame) / 1000); lastFrame = now;
             if (renderer.domElement.width !== overlay.width || renderer.domElement.height !== overlay.height)
                 renderer.setSize(overlay.width, overlay.height, false);
-            const hw = overlay.width / scale / 2, hh = overlay.height / scale / 2;
-            Object.assign(camera, { left: -hw, right: hw, top: hh, bottom: -hh }); camera.updateProjectionMatrix();
-            camera.position.set(center.x, 1000, center.y + 1000 * tilt);
-            camera.lookAt(center.x, 0, center.y);
+            latestFrame=frame;
+            const me=state?.players.find(p=>p.id===localId), view=frame.view || {yaw:0,pitch:0};
+            const eye=frame.eye || predicted || me || center;
+            camera.aspect=overlay.width/overlay.height; camera.fov=view.zoom ? 48 : 72; camera.updateProjectionMatrix();
+            camera.position.set(eye.x, me?.down ? 6 : me?.drone?.controlled ? 23 : 26, eye.y);
+            camera.rotation.set(view.pitch,-view.yaw,me?.down ? .2 : 0,'YXZ');
+            camera.updateMatrixWorld(true);
+            viewCamera.aspect=camera.aspect;viewCamera.updateProjectionMatrix();
+            viewCamera.position.set(view.zoom ? -.1 : .03,view.zoom ? 1.58 : 1.65,view.zoom ? .16 : -.32);
+            viewMixer.update(dt);
+            viewVisible=!!me && !me.down && !me.movingCore && !me.selectedBuild && !me.drone?.controlled && !me.missileControl;
+            viewModel.root.visible=viewVisible;
             sun.position.set(center.x - 300, 700, center.y - 250); sun.target.position.set(center.x, 0, center.y);
             rebuild(map, reachable); seen = new Set();
             if (state) {
@@ -275,9 +370,10 @@ window.Lab3D = (() => {
                     const dx=target ? target.x-point.x : shot ? shot.x-shot.fromX : player.facingX || 0;
                     const dz=target ? target.y-point.y : shot ? shot.y-shot.fromY : player.facingY ?? -1;
                     item.root.rotation.set(player.down ? Math.PI/2 : 0, Math.atan2(dx,dz), 0);
-                    item.root.visible = !(player.tpInvulnerableRemaining > 0 || player.reviveInvulnerableRemaining > 0) || Math.floor(now/100)%2 === 0;
+                    item.root.userData.entity={x:point.x,y:point.y};
+                    item.root.visible = player.id!==localId && (!(player.tpInvulnerableRemaining > 0 || player.reviveInvulnerableRemaining > 0) || Math.floor(now/100)%2 === 0);
                 }
-                for (const entity of state.enemies) if (entity.hp > 0 && entity.type !== 'ghost')
+                for (const entity of state.enemies) if (entity.hp > 0)
                     enemy(entity, smooth('enemy', entity), radius(entity), now);
                 for (const owner of state.players) if (owner.drone?.active) {
                     const point = smooth('drone', { ...owner.drone, id: owner.id });
@@ -296,12 +392,14 @@ window.Lab3D = (() => {
                 scene.updateMatrixWorld(true);
                 for (const effect of effects) if (isTracer(effect, now)) tracer(effect, state, now, radius);
             }
+            if (state) renderCombat(frame,now);
             // Transient objects are collected after resources and tracers have marked themselves live.
             collect();
-            renderer.render(scene, camera);
+            renderer.autoClear=true; renderer.render(scene, camera);
+            if (viewVisible) { renderer.autoClear=false; renderer.clearDepth(); renderer.render(viewScene,viewCamera); renderer.autoClear=true; }
         }
         renderer.domElement.addEventListener('webglcontextlost', event => { event.preventDefault(); });
-        return { render, groundScale, project };
+        return { render, groundScale, project, aimPoint, firstPerson:true };
     }
     return { create, groundScale };
 })();
