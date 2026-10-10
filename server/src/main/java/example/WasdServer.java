@@ -245,6 +245,12 @@ public final class WasdServer extends WebSocketServer {
                 WebSocket connection = room.playerConnections.get(player);
                 sendIfOpen(connection, message);
             }
+
+            @Override
+            public void gameStarted(int humans, int cpus, boolean debugMode) {
+                System.out.println(java.time.Instant.now() + " GAME START room=" + room.id
+                        + " humans=" + humans + " cpus=" + cpus + " debug=" + debugMode);
+            }
         });
         return room;
     }

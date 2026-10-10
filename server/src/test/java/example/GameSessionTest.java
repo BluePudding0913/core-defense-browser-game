@@ -116,11 +116,15 @@ class GameSessionTest {
         game.handleMessage(guest, "ROOM_READY:1");
         game.handleMessage(guest, "START");
         assertEquals(GamePhase.LOBBY, game.phase, "a guest must not be able to start the room");
+        assertTrue(events.starts.isEmpty());
 
         game.handleMessage(player, "START");
         assertEquals(GamePhase.PREPARING, game.phase);
         assertTrue(game.players.stream().noneMatch(candidate -> candidate.roomReady),
                 "ready flags should reset once the match starts");
+        assertEquals(List.of("2:2:false"), events.starts);
+        game.handleMessage(player, "START");
+        assertEquals(1, events.starts.size());
     }
 
     @Test
@@ -163,6 +167,7 @@ class GameSessionTest {
         game.handleMessage(player, "START:DEBUG");
         assertEquals(GamePhase.PREPARING, game.phase);
         assertEquals(500_000, player.credits);
+        assertEquals(List.of("2:2:true"), events.starts);
         assertEquals("pistol", player.weapon);
         for (String weapon : WeaponCatalog.ALL.stream().filter(WeaponCatalog.Definition::usesAmmo).map(WeaponCatalog.Definition::id).toList()) {
             game.handleMessage(player, "WEAPON:" + weapon);
@@ -1392,6 +1397,12 @@ class GameSessionTest {
     private static final class RecordingEvents implements GameEventSink {
         final List<String> broadcasts = new ArrayList<>();
         final List<String> directMessages = new ArrayList<>();
+        final List<String> starts = new ArrayList<>();
+
+        @Override
+        public void gameStarted(int humans, int cpus, boolean debugMode) {
+            starts.add(humans + ":" + cpus + ":" + debugMode);
+        }
 
         @Override
         public void broadcast(String message) {
