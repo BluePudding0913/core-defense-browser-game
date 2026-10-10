@@ -14,6 +14,7 @@ class LateRoundPressureTest {
             public void broadcast(String message) { }
             public void send(Player player, String message) { }
         });
+        game.players.forEach(player -> player.human = true);
     }
 
     void beginRound(int round) throws Exception {
