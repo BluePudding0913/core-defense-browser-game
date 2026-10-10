@@ -50,9 +50,11 @@ class RailgunTest {
         assertEquals(11000, near.hp, .001);
         assertEquals(11000, far.hp, .001);
         assertEquals(0, player.railgunRemaining);
-        assertEquals(2, player.cooldown, .001);
+        assertEquals(4, player.cooldown, .001);
         advance(2);
+        assertEquals(0, player.railgunCharge);
         assertEquals(WeaponCatalog.capacity("railgun") - 1, player.weapons.ammo("railgun"));
+        advance(2);
         advance(1.2);
         assertEquals(WeaponCatalog.capacity("railgun") - 2, player.weapons.ammo("railgun"));
     }
@@ -64,7 +66,7 @@ class RailgunTest {
         fire(); advance(1.2); advance(.5);
         game.handleMessage(player, "FIRE:1020:1980:0");
         assertEquals(0, player.railgunRemaining); assertEquals(WeaponCatalog.capacity("railgun") - 1, player.weapons.ammo("railgun"));
-        assertEquals(2, player.cooldown);
+        assertEquals(4, player.cooldown);
     }
 
     @Test void directionStaysFixedBeamFollowsMovementAndNewEnemiesTakeOnlyExposureDamage() {
@@ -82,7 +84,7 @@ class RailgunTest {
         game.handleMessage(player, "WEAPON:pistol");
         assertEquals(0, player.railgunRemaining);
         game.handleMessage(player, "WEAPON:railgun");
-        assertEquals(2, player.cooldown);
+        assertEquals(4, player.cooldown);
     }
 
     @Test void wallBlocksDamageAndDeathStopsBeam() {

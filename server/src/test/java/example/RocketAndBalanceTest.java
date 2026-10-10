@@ -152,7 +152,7 @@ class RocketAndBalanceTest {
         assertTrue(direct.hp < splash.hp); assertTrue(splash.hp < 4000);
         assertEquals(2000, outside.hp); assertEquals(1, player.weapons.ammo("rocket"));
         assertEquals(100, player.hp); // Explosions only damage enemies.
-        assertEquals(5, player.cooldown);
+        assertEquals(10, player.cooldown);
         assertTrue(effects.stream().anyMatch(m -> m.contains("\"effect\":\"explosion\"") && m.contains("1097.0")));
         assertTrue(effects.stream().noneMatch(m -> m.contains("\"headshot\":true")));
         game.handleMessage(player, "FIRE:1300:1900:1");
