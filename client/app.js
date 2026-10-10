@@ -126,6 +126,7 @@ let scale = 1;
 let camera = { x: 0, y: 0 };
 let lastNoticeVersion = -1;
 let lastCoreHp;
+let lastCoreShield;
 let coreHitStarted = 0;
 let feedbackTimer;
 let roundIntroTimer;
@@ -591,8 +592,15 @@ function receiveState(next) {
     const beginsRound = next.phase === "wave"
         && (previousPhase !== "wave" || next.round !== previousRound);
     const endsDefense = ["won", "lost"].includes(next.phase) && previousPhase !== next.phase;
-    if (lastCoreHp !== undefined && next.core.hp < lastCoreHp) coreHitStarted = performance.now();
+    const resetCoreAlerts = next.phase === "lobby"
+            || state && (next.rewindVersion !== state.rewindVersion || next.phase === "preparing" && state.phase !== "preparing");
+    if (resetCoreAlerts && typeof CoreFeedback !== "undefined") CoreFeedback.reset();
+    if (lastCoreHp !== undefined && (next.core.hp < lastCoreHp || (next.core.shield || 0) < lastCoreShield)) {
+        coreHitStarted = performance.now();
+        if (!resetCoreAlerts && typeof CoreFeedback !== "undefined") CoreFeedback.add(next.core, coreHitStarted);
+    }
     lastCoreHp = next.core.hp;
+    lastCoreShield = next.core.shield || 0;
     const incomingMe = next.players.find(p => p.id === myPlayerId);
     const controlChanged = Boolean(getMe()?.drone?.controlled) !== Boolean(incomingMe?.drone?.controlled)
         || Boolean(getMe()?.missileControl) !== Boolean(incomingMe?.missileControl);
@@ -2433,6 +2441,11 @@ function draw() {
         drawBlackout();
         drawBlackoutSignals();
         drawBlackoutEnemyGlow();
+    }
+    if (state && typeof CoreFeedback !== "undefined") {
+        ctx.setTransform(scale, 0, 0, scale, canvas.width / 2 - camera.x * scale, canvas.height / 2 - camera.y * scale);
+        CoreFeedback.draw(ctx, performance.now(), WORLD, scale);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
     if (state) drawDamageEdges();
     drawJoystick();
