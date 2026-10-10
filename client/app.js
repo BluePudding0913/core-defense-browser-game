@@ -2502,7 +2502,7 @@ function drawFirstPerson() {
     const me=getMe(), eye=droneCameraView() || predictedLocal || me || camera;
     const playing=!!me && ['preparing','wave'].includes(state?.phase);
     const menusOpen=exitDialog.open || !actionMenu.classList.contains('hidden') || !inventoryMenu.classList.contains('hidden') || !howToMenu.classList.contains('hidden') || window.coreMenu?.settingsOpen?.() || window.JobUI?.isConfirming?.() || me?.missileControl;
-    fpsInput.setActive(playing && !menusOpen);
+    fpsInput.setActive(playing && !menusOpen,playing && !!menusOpen);
     if(menusOpen || !playing) {
         if(firingPointer)stopFiring(firingPointer.clientX,firingPointer.clientY);
         if(secondaryHeld)stopSecondaryFiring();
