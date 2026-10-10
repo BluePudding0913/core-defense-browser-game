@@ -102,6 +102,18 @@ final class JobRules {
     static double staminaRecovery(String job) { return job.equals("scout") ? 60 : 24; }
     static double downSpeed(String job) { return job.equals("scout") ? 60 : 45; }
     static double staminaMax(String job) { return job.equals("scout") ? 300 : 100; }
+    static Player reviveTarget(Player rescuer, java.util.List<Player> allies,
+            java.util.function.Predicate<Player> visible) {
+        if (rescuer.down || DroneRules.controlling(rescuer)) return null;
+        return allies.stream()
+                .filter(other -> other != rescuer && other.down
+                        && Math.hypot(rescuer.x - other.x, rescuer.y - other.y) <= 78
+                        && visible.test(other))
+                .min(java.util.Comparator.<Player>comparingInt(other -> other.id.equals(rescuer.actionTarget) ? 0 : 1)
+                        .thenComparingDouble(other -> Math.hypot(rescuer.x - other.x, rescuer.y - other.y)))
+                .orElse(null);
+    }
+
     static double reviveSeconds(String job) { return job.equals("healer") ? 2 : 4; }
     static boolean canScoutDash(String job, boolean down, boolean carrying, boolean placing,
             boolean railgunBusy, double stamina) {
