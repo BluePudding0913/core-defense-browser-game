@@ -5,13 +5,18 @@ import org.junit.jupiter.api.Test;
 
 class UpgradeRulesTest {
     @Test void enchantDecisionRequiresAnOwnedRecoveredWeaponAndTheFullNextTierPrice() {
-        assertFalse(UpgradeRules.canEnchant(true, false, 0, 39_999));
-        assertTrue(UpgradeRules.canEnchant(true, false, 0, 40_000));
+        assertFalse(UpgradeRules.canEnchant(true, false, 0, 19_999));
+        assertTrue(UpgradeRules.canEnchant(true, false, 0, 20_000));
         assertFalse(UpgradeRules.canEnchant(false, false, 0, 1_000_000));
         assertFalse(UpgradeRules.canEnchant(true, true, 0, 1_000_000));
         assertFalse(UpgradeRules.canEnchant(true, false, 3, 1_000_000));
-        assertFalse(UpgradeRules.canEnchant(true, false, 1, 159_999));
-        assertTrue(UpgradeRules.canEnchant(true, false, 1, 160_000));
+        assertFalse(UpgradeRules.canEnchant(true, false, 1, 39_999));
+        assertTrue(UpgradeRules.canEnchant(true, false, 1, 40_000));
+    }
+    @Test void finalTierKeepsItsOwnAffordabilityBoundary() {
+        assertFalse(UpgradeRules.canEnchant(true, false, 2, 79_999));
+        assertTrue(UpgradeRules.canEnchant(true, false, 2, 80_000));
+        assertEquals(140_000, UpgradeRules.enchantCost(0) + UpgradeRules.enchantCost(1) + UpgradeRules.enchantCost(2));
     }
     @Test void armorPiecesComposeAndWeaponBoostIsBounded() {
         assertEquals(1, UpgradeRules.armorMultiplier(false, false));

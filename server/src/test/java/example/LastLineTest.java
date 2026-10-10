@@ -73,13 +73,21 @@ class LastLineTest {
     }
 
     @Test void enchantmentsHaveTierCostsAndBoostActualDamageWithoutChangingBaseStats() throws Exception {
-        at("enchant"); player.credits = 39_999;
+        at("enchant"); player.credits = 19_999;
         game.handleMessage(player, "BUY:enchant:pistol"); assertTrue(player.enchantments.isEmpty());
-        player.credits = 560_000;
+        player.credits = 140_000;
+        int[] prices = {20_000, 40_000, 80_000};
         for (int i = 1; i <= 3; i++) {
+            int before = player.credits;
             game.handleMessage(player, "BUY:enchant:pistol"); assertEquals(i, player.enchantments.get("pistol"));
+            assertEquals(before - prices[i - 1], player.credits);
         }
         assertEquals(0, player.credits);
+        var json = new ObjectMapper().readTree(SnapshotBuilder.build(game)).path("rules").path("upgrades");
+        assertEquals(20_000, json.path("enchantCosts").get(0).asInt());
+        assertEquals(40_000, json.path("enchantCosts").get(1).asInt());
+        assertEquals(80_000, json.path("enchantCosts").get(2).asInt());
+        assertEquals(20_000, GameMap.shopByItem("enchant").cost());
         player.credits = 1_000_000; game.handleMessage(player, "BUY:enchant:pistol");
         game.handleMessage(player, "BUY:enchant:railgun"); assertFalse(player.enchantments.containsKey("railgun"));
         assertEquals(1_000_000, player.credits);
