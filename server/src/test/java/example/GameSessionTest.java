@@ -1324,6 +1324,36 @@ class GameSessionTest {
         assertEquals(GamePhase.WAVE, game.phase);
     }
 
+    @Test void attackerMustChooseOwnedRangedWeaponBeforeChangingJob() {
+        game.handleMessage(player, "JOB:attacker");
+        player.weapons.grant("shotgun"); player.weapons.grant("smg"); player.weapons.grant("rifle");
+        player.equipWeapon("rifle"); player.enchantments.put("rifle", 2);
+        for (String command : List.of("JOB:healer", "JOB:healer:bat", "JOB:healer:unknown", "JOB:healer:sniper")) {
+            game.handleMessage(player, command);
+            assertEquals("attacker", player.job); assertEquals(4, player.weapons.weaponCount());
+            assertTrue(player.weapons.owns("rifle")); assertEquals(2, player.enchantments.get("rifle"));
+        }
+        game.handleMessage(player, "JOB:healer:rifle");
+        assertEquals("healer", player.job); assertEquals(3, player.weapons.weaponCount());
+        assertFalse(player.weapons.owns("rifle")); assertEquals(0, player.weapons.ammo("rifle"));
+        assertFalse(player.enchantments.containsKey("rifle")); assertTrue(player.weapons.owns(player.weapon));
+        assertEquals("bat", player.secondaryWeapon);
+    }
+
+    @Test void rejectedJobChangeDoesNotDiscardWeaponAndUnneededDiscardIsIgnored() {
+        game.handleMessage(player, "JOB:attacker");
+        player.weapons.grant("shotgun"); player.weapons.grant("smg"); player.weapons.grant("rifle");
+        startPreparing();
+        player.weapons.grant("shotgun"); player.weapons.grant("smg"); player.weapons.grant("rifle");
+        player.x = 1020; player.y = 1900;
+        game.handleMessage(player, "JOB:healer:rifle");
+        assertEquals("attacker", player.job); assertTrue(player.weapons.owns("rifle"));
+        game.phase = GamePhase.LOBBY;
+        player.weapons.remove("smg");
+        game.handleMessage(player, "JOB:healer:rifle");
+        assertEquals("healer", player.job); assertTrue(player.weapons.owns("rifle"));
+    }
+
     @Test void attackerPurchasesFourWeaponsAndExchangesTheFifth() throws Exception {
         game.handleMessage(player, "JOB:attacker");
         startPreparing();

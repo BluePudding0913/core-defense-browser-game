@@ -25,3 +25,11 @@
     .job-panel .job-picker { grid-template-columns: minmax(0, 1fr); }
     .job-panel .job-detail { padding-left: 2px; }
 }
+
+.job-confirm { color: #eee; background: #171717; border: 1px solid #555; border-radius: 6px; padding: 24px; max-width: calc(100vw - 40px); }
+.job-confirm::backdrop { background: rgb(0 0 0 / 55%); }
+.job-confirm p { margin: 0 0 20px; }
+.job-confirm label { display: grid; gap: 8px; margin-bottom: 20px; }
+.job-confirm select { padding: 8px; background: #222; color: #eee; }
+.job-confirm-actions { display: flex; justify-content: flex-end; gap: 12px; }
+.job-confirm button { min-width: 72px; padding: 8px 16px; }

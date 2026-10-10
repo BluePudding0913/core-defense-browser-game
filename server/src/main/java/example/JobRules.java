@@ -64,6 +64,12 @@ final class JobRules {
     }
 
     static double maxHp(String job) { return job.equals("tank") ? 200 : 100; }
+    static boolean validJobDiscard(WeaponInventory inventory, String job, String discard) {
+        if (discard == null) return false;
+        var definition = WeaponCatalog.find(discard);
+        return inventory.weaponCount() - 1 <= weaponLimit(job)
+                && definition != null && !definition.meleeSlot() && inventory.owns(discard);
+    }
     static int weaponLimit(String job) { return job.equals("attacker") ? 4 : 3; }
     static int ammoCapacityMultiplier(String job) { return job.equals("attacker") ? 2 : 1; }
     static WeaponCatalog.WeaponStats weaponStats(String job, String weapon) {

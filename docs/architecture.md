@@ -205,7 +205,10 @@ client/core-feedback.jsはコアのHP・シールド減少時に2.8秒の通知�
 
 ゲーム開始成功時にGameSessionがGameEventSink.gameStartedで人数・デバッグ状態を通知し、WasdServerが日時・ルームID付きのGAME STARTを標準出力へ記録する。開始拒否・開始中の再送・ラウンド更新では記録しない。
 
-JobRules.weaponLimitはAttackerの武器上限を4、他職業を3とし、近接専用枠は数えない。WeaponInventoryの取得・交換とSnapshotBuilderのプレイヤー別weaponLimit、WeaponUIの購入・ガチャ交換判定で共通に使う。職業変更時は所持武器を保持し、上限以上では新規取得を拒否するが、補充と1対1交換は許可する。
+JobRules.weaponLimitはAttackerの武器上限を4、他職業を3とし、近接専用枠は数えない。WeaponInventoryの取得・交換とSnapshotBuilderのプレイヤー別weaponLimit、WeaponUIの購入・ガチャ交換判定で共通に使う。転職先の上限を超える場合は、プレイヤーが指定した武器1つを破棄してから転職する。
+
+JobUI.confirmChangeが待機画面・JOB装置でYes/No確認を共用し、4武器からの転職では破棄する武器の選択を必須にする。JOB:職業:武器の検証はJobRules、破棄・強化削除・装備の補正と転職はGameSessionで同時に行う。不正な選択や転職不可の場所では何も消費しない。
+
 
 Tankの一時壁はJobRulesで持続15秒・再使用10秒とし、既存の2マス・各HP10000・回収不可の仕様を保持する。
 
