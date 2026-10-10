@@ -2,14 +2,15 @@
 
 const WardenUI = (() => {
     function draw(ctx, enemy) {
-        if (enemy.type !== "warden" && enemy.type !== "titan") return;
+        if (enemy.type !== "warden" && enemy.type !== "titan" && enemy.type !== "warlord") return;
+        const summon = enemy.bossAction === "SUMMON_WARNING";
         const pulse = enemy.bossAction === "PULSE_WARNING";
         const charge = enemy.bossAction === "CHARGE_WARNING" || enemy.bossAction === "CHARGING";
-        if (!pulse && !charge) return;
+        if (!pulse && !charge && !summon) return;
         ctx.save();
-        ctx.strokeStyle = "#ffac70";
-        ctx.fillStyle = "rgb(255 139 75 / 12%)";
-        if (pulse) {
+        ctx.strokeStyle = summon ? "#9ce8ff" : "#ffac70";
+        ctx.fillStyle = summon ? "rgb(100 210 255 / 12%)" : "rgb(255 139 75 / 12%)";
+        if (pulse || summon) {
             const radius = enemy.pulseRadius;
             ctx.lineWidth = 2;
             ctx.beginPath(); ctx.arc(enemy.x, enemy.y, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();

@@ -378,6 +378,9 @@ final class Enemy {
     double attackCooldown;
     double specialCooldown;
     double bossPulseRemaining;
+    double summonRemaining;
+    boolean nextSummon;
+    int summonerId;
     double chargeCooldown = 4, chargeWarning, chargeRemaining, chargeDx, chargeDy;
     final WardenRules.State warden;
     boolean powerCut;

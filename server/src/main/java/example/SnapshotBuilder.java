@@ -427,6 +427,12 @@ final class SnapshotBuilder {
                         .append(",\"targetY\":").append(roundOne(enemy.warden.targetY))
                         .append(",\"pulseRadius\":").append(WardenRules.PULSE_RADIUS);
             }
+            if (enemy.type.equals("warlord")) {
+                json.append(",\"bossAction\":\"").append(enemy.summonRemaining > 0 ? "SUMMON_WARNING" : "IDLE").append('"')
+                    .append(",\"actionRemaining\":").append(roundOne(enemy.summonRemaining))
+                    .append(",\"actionDuration\":").append(BossAbilitySystem.SUMMON_WARNING)
+                    .append(",\"pulseRadius\":").append(BossAbilitySystem.SUMMON_RADIUS);
+            }
             if (enemy.type.equals("titan")) {
                 json.append(",\"bossAction\":\"").append(enemy.bossPulseRemaining > 0 ? "PULSE_WARNING" : "IDLE").append('"')
                     .append(",\"actionRemaining\":").append(roundOne(enemy.bossPulseRemaining))
