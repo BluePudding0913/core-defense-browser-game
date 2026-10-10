@@ -1210,12 +1210,8 @@ final class GameSession {
 
     private void updateRevives(double dt) {
         for (Player player : players) {
-            Player target = player.down || DroneRules.controlling(player) ? null : players.stream()
-                    .filter(other -> other != player && other.down
-                            && distance(player.x, player.y, other.x, other.y) <= 78
-                            && GameMap.hasClearLine(player.x, player.y, other.x, other.y))
-                    .min(Comparator.comparingDouble(other -> distance(player.x, player.y, other.x, other.y)))
-                    .orElse(null);
+            Player target = JobRules.reviveTarget(player, players,
+                    other -> GameMap.hasClearLine(player.x, player.y, other.x, other.y));
             if (target == null) { cancelAction(player); continue; }
             if (!target.id.equals(player.actionTarget)) {
                 player.actionTarget = target.id;
