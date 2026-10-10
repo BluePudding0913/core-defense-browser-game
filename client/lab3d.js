@@ -318,6 +318,31 @@ window.Lab3D = (() => {
                 if(effect.effect==='hit' && age>=0 && age<180 && effect.weapon==='flamethrower') beam('flame:'+effect.started,new T.Vector3(effect.fromX,22,effect.fromY),new T.Vector3(effect.x,18,effect.y),'#ff962e',5);
             }
         }
+        function hitParticles(effect,frame,now) {
+            if (!effectIds.has(effect)) effectIds.set(effect,++nextEffectId);
+            const item=object('hit-particles:'+effectIds.get(effect),()=>{
+                const geometry=new T.BufferGeometry();
+                geometry.setAttribute('position',new T.Float32BufferAttribute(new Float32Array(15),3));
+                const mat=new T.PointsMaterial({color:'#f04b59',size:2,transparent:true,depthWrite:false});
+                const root=new T.Points(geometry,mat);root.name='enemy-hit-particles';
+                const target=frame.state.enemies.find(e=>e.id===effect.enemyId);
+                const point=target ? frame.smooth('enemy',target) : effect;
+                const radius=target ? frame.radius(target) : 18;
+                const dx=(effect.fromX ?? point.x)-point.x,dz=(effect.fromY ?? point.y)-point.y;
+                const distance=Math.hypot(dx,dz),nx=distance>.001 ? dx/distance : 0,nz=distance>.001 ? dz/distance : -1;
+                // Start on the struck side, so the small burst is visible in front of the body.
+                root.position.set(point.x+nx*radius*.85,Math.max(3,radius*.95),point.y+nz*radius*.85);
+                const velocities=Array.from({length:5},(_,i)=>{
+                    const angle=i*Math.PI*2/5+effectIds.get(effect)*.7;
+                    return new T.Vector3(nx*12+Math.cos(angle)*16,15+(i%3)*7,nz*12+Math.sin(angle)*16);
+                });
+                return {root,velocities,dispose(){geometry.dispose();mat.dispose();}};
+            });
+            const t=(now-effect.started)/1000,positions=item.root.geometry.attributes.position;
+            item.velocities.forEach((v,i)=>positions.setXYZ(i,v.x*t,v.y*t-45*t*t,v.z*t));
+            positions.needsUpdate=true;item.root.material.opacity=1-t/.28;
+        }
+
         function collect() {
             for (const [key,item] of objects) if (!seen.has(key)) {
                 scene.remove(item.root);
@@ -407,7 +432,12 @@ window.Lab3D = (() => {
                 scene.updateMatrixWorld(true);
                 for (const effect of effects) if (isTracer(effect, now)) tracer(effect, state, now, radius);
             }
-            if (state) renderCombat(frame,now);
+            if (state) {
+                renderCombat(frame,now);
+                const impacts=effects.filter(e=>e.effect==='hit' && e.enemyId!=null && e.damage>0
+                    && Number.isFinite(e.x) && Number.isFinite(e.y) && now-e.started>=0 && now-e.started<280);
+                for(const effect of impacts.slice(-12)) hitParticles(effect,frame,now);
+            }
             // Transient objects are collected after resources and tracers have marked themselves live.
             collect();
             renderer.autoClear=true; renderer.render(scene, camera);
