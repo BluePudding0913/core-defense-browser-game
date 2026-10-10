@@ -453,10 +453,8 @@ final class SnapshotBuilder {
             if (enemy.type.equals("boss")) json.append(",\"chargeWarning\":").append(roundOne(enemy.chargeWarning))
                     .append(",\"chargeRemaining\":").append(roundOne(enemy.chargeRemaining))
                     .append(",\"chargeDx\":").append(enemy.chargeDx).append(",\"chargeDy\":").append(enemy.chargeDy);
-            if (enemy.type.equals("shield")) {
-                json.append(",\"facingX\":").append(enemy.facingX)
-                        .append(",\"facingY\":").append(enemy.facingY);
-            }
+            json.append(",\"facingX\":").append(enemy.facingX)
+                    .append(",\"facingY\":").append(enemy.facingY);
             json.append('}');
         }
         json.append(']');
