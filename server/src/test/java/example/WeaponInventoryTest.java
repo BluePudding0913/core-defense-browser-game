@@ -4,6 +4,25 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 
 class WeaponInventoryTest {
+    @Test void attackerHasFourSlotsAndJobChangesPreserveWeaponsAndExchanges() {
+        String[] job = {"attacker"};
+        var inventory = new WeaponInventory(() -> job[0]);
+        assertEquals(4, inventory.weaponLimit());
+        assertTrue(inventory.grant("shotgun")); assertTrue(inventory.grant("smg"));
+        assertFalse(inventory.canExchange("rifle", "pistol"));
+        assertTrue(inventory.grant("rifle")); assertEquals(4, inventory.weaponCount());
+        assertFalse(inventory.grant("sniper"));
+        assertTrue(inventory.exchange("sniper", "rifle")); assertEquals(4, inventory.weaponCount());
+        assertTrue(inventory.grant("plasmaBlade")); assertEquals(4, inventory.weaponCount());
+        job[0] = "healer";
+        assertEquals(3, inventory.weaponLimit()); assertEquals(4, inventory.weaponCount());
+        assertFalse(inventory.grant("rifle"));
+        assertTrue(inventory.exchange("rifle", "sniper"));
+        assertEquals(4, inventory.weaponCount()); assertTrue(inventory.owns("rifle"));
+        assertTrue(inventory.grant("shotgun"));
+        assertEquals(WeaponCatalog.capacity("shotgun"), inventory.ammo("shotgun"));
+    }
+
     @Test void countsPistolButNotBatAndRejectsFourthWeaponWithoutAmmo() {
         var inventory = new WeaponInventory();
         assertEquals(1, inventory.weaponCount());

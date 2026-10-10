@@ -21,6 +21,11 @@ me.drone={active:true,weapon:'rifle'};open();assert(menu.options[0].disabled);me
 me.ownsSmg=true;me.gachaWeapon='hook';open();assert.equal(menu.options[0].command,undefined);
 menu.options[0].onSelect();assert(menu.options.some(o=>o.command==='BUY:gacha:pistol'));
 assert(!menu.options.some(o=>o.command==='BUY:gacha:bat'));
+me.weaponLimit=4;open();assert.equal(menu.options[0].command,'BUY:gacha:take');
+context.shop={item:'hook',label:'HOOK',cost:100};
+vm.runInContext('openShopPurchase(shop)',context);assert.equal(menu.options[0].command,'BUY:hook');
+me.weaponLimit=3;vm.runInContext('openShopPurchase(shop)',context);assert.equal(menu.options[0].command,undefined);
+context.shop={item:'gacha',label:'GACHA',cost:10000};
 me.ownsHook=true;open();assert(menu.options[0].disabled);assert.equal(menu.options.at(-1).command,'BUY:gacha:skip');
 const labels=[],paths=[];
 const ctx={save(){},restore(){},beginPath(){},closePath(){},fill(){},stroke(){},arc(){},

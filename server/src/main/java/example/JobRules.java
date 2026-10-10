@@ -64,6 +64,7 @@ final class JobRules {
     }
 
     static double maxHp(String job) { return job.equals("tank") ? 200 : 100; }
+    static int weaponLimit(String job) { return job.equals("attacker") ? 4 : 3; }
     static int ammoCapacityMultiplier(String job) { return job.equals("attacker") ? 2 : 1; }
     static WeaponCatalog.WeaponStats weaponStats(String job, String weapon) {
         var stats = WeaponCatalog.stats(weapon);

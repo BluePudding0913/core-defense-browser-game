@@ -204,3 +204,5 @@ QUARRYの基本価格は木材20,000G・鉄鉱石40,000G・銅60,000G・銀80,00
 client/core-feedback.jsはコアのHP・シールド減少時に2.8秒の通知円を追加し、マップ対角線より広く伝播させる。各被弾の円を独立して保持し、連続被弾で遠方への到達を妨げない。停電の暗転より上に細い赤線で描き、ダメージ判定は持たない。ロビー・新しい準備・巻き戻しで通知を解除する。
 
 ゲーム開始成功時にGameSessionがGameEventSink.gameStartedで人数・デバッグ状態を通知し、WasdServerが日時・ルームID付きのGAME STARTを標準出力へ記録する。開始拒否・開始中の再送・ラウンド更新では記録しない。
+
+JobRules.weaponLimitはAttackerの武器上限を4、他職業を3とし、近接専用枠は数えない。WeaponInventoryの取得・交換とSnapshotBuilderのプレイヤー別weaponLimit、WeaponUIの購入・ガチャ交換判定で共通に使う。職業変更時は所持武器を保持し、上限以上では新規取得を拒否するが、補充と1対1交換は許可する。
