@@ -40,7 +40,7 @@ assert.equal(circles.length, 0, 'older snapshots are supported');
 context.hitEffects = [{ effect: 'acid-impact', x: 300, y: 200, radius: 64, started: 0 }];
 now = 180;
 vm.runInContext('drawHitEffects()', context);
-assert.equal(context.ctx.strokeStyle, '#ff805c');
+assert.equal(context.ctx.strokeStyle, '#7edc7a');
 assert.equal(circles[0].radius, 40);
 now = 360; circles.length = 0;
 vm.runInContext('drawHitEffects()', context);
