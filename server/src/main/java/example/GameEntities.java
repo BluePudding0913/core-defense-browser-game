@@ -25,6 +25,7 @@ final class Player {
     boolean dashing;
     boolean dashExhausted;
     double stamina;
+    double jumpHeight, jumpVelocity;
     String job = JobRules.DEFAULT;
     double spyRemaining;
     final java.util.Set<Integer> spyCheckedEnemies = new java.util.HashSet<>();
@@ -188,6 +189,7 @@ final class Player {
         dashing = source.dashing;
         dashExhausted = source.dashExhausted;
         stamina = source.stamina;
+        jumpHeight = source.jumpHeight; jumpVelocity = source.jumpVelocity;
         job = source.job;
         spyRemaining = source.spyRemaining;
         spyCheckedEnemies.clear(); spyCheckedEnemies.addAll(source.spyCheckedEnemies);

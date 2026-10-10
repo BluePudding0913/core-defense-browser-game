@@ -527,7 +527,7 @@ function renderRoomList(rooms) {
 function send(message) {
     if (socket?.readyState !== WebSocket.OPEN) return;
     if (message === "START" && DEBUG_MODE) message = "START:DEBUG";
-    if (/^(FIRE|SECONDARY_FIRE):/.test(message) && fpsInput) message += ':' + fpsInput.view.pitch.toFixed(6);
+    if (/^(FIRE|SECONDARY_FIRE):/.test(message) && fpsInput) message += ':' + Math.max(-1.2,Math.min(1.2,fpsInput.view.pitch+(fpsInput.view.recoilPitch || 0))).toFixed(6);
     const sequence = nextInputSequence++;
     socket.send(`INPUT:${sequence}:${message}`);
     pendingInputs.push({ sequence, kind: message.split(":", 1)[0] });
@@ -1429,6 +1429,15 @@ function reconcileLocalPrediction(snapshot) {
         sendMovement(true);
     }
     predictedLocal.down = Boolean(serverMe.down);
+    const beforeX=predictedLocal.x, beforeY=predictedLocal.y, beforeHeight=predictedLocal.jumpHeight || 0;
+    if (typeof window !== "undefined" && window.JumpMovement) {
+        const jumpPending=pendingInputs.some(input=>input.kind==="JUMP");
+        if (!jumpPending) {
+            predictedLocal.jumpHeight=serverMe.jumpHeight || 0;
+            predictedLocal.jumpVelocity=serverMe.jumpVelocity || 0;
+            predictedLocal.renderOffsetHeight=(predictedLocal.renderOffsetHeight || 0)+beforeHeight-predictedLocal.jumpHeight;
+        }
+    }
     const errorX = serverMe.x - predictedLocal.x;
     const errorY = serverMe.y - predictedLocal.y;
     const error = Math.hypot(errorX, errorY);
@@ -1443,6 +1452,10 @@ function reconcileLocalPrediction(snapshot) {
         predictedLocal.x += errorX * correction;
         predictedLocal.y += errorY * correction;
     }
+    if (error <= 120 && !predictedLocal.movementPauseUntil) {
+        predictedLocal.renderOffsetX=(predictedLocal.renderOffsetX || 0)+beforeX-predictedLocal.x;
+        predictedLocal.renderOffsetY=(predictedLocal.renderOffsetY || 0)+beforeY-predictedLocal.y;
+    } else { predictedLocal.renderOffsetX=0; predictedLocal.renderOffsetY=0; predictedLocal.renderOffsetHeight=0; }
     predictedLocal.stamina += (serverMe.stamina - predictedLocal.stamina) * .4;
     predictedLocal.scoutDashRemaining = serverMe.scoutDashRemaining || 0;
     predictedLocal.scoutDashDx = serverMe.scoutDashDx || 0;
@@ -1905,7 +1918,7 @@ canvas.addEventListener("mousedown", event => {
     if (!state || !getMe()) return;
     if (event.button === 0 && fpsInput?.capture()) return;
     if (event.button === 1 && fpsInput) { event.preventDefault(); fpsInput.view.zoom=true; return; }
-    if (event.button === 2 && fpsInput && !["attacker","tank","scout","spy"].includes(getMe()?.job)) { event.preventDefault();fpsInput.view.zoom=true;return; }
+    if (event.button === 2 && fpsInput && (!["attacker","tank","scout","spy"].includes(getMe()?.job) || ["sniper","rifle","railgun"].includes(getMe()?.weapon))) { event.preventDefault();fpsInput.view.zoom=true;return; }
     if (event.button === 0) {
         canvas.focus({ preventScroll: true });
         startFiring("mouse", event.clientX, event.clientY);
@@ -2141,6 +2154,16 @@ window.addEventListener("keydown", event => {
         if (!event.repeat) beginInteractionHold();
         return;
     }
+    if (key === " " && state && ["preparing", "wave"].includes(state.phase)) {
+        event.preventDefault();
+        const me = getMe();
+        if (!event.repeat && actionMenu.classList.contains("hidden") && inventoryMenu.classList.contains("hidden")
+                && me && !me.down && !me.movingCore && !me.drone?.controlled && !me.missileControl) {
+            send("JUMP");
+            if (predictedLocal) window.JumpMovement.start(predictedLocal, state.slots || []);
+        }
+        return;
+    }
     if (key === "shift") {
         event.preventDefault();
         if (!dashKey) { dashKey = true; setDash(true); }
@@ -2334,8 +2357,13 @@ function openDroneLaunch() {
 
 function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
-function updateLocalPrediction(dt) {
+function updateLocalPrediction(dt, visualDt = dt) {
     const serverMe = getMe();
+    if (predictedLocal) {
+        predictedLocal.renderOffsetHeight=(predictedLocal.renderOffsetHeight || 0)*Math.exp(-18*visualDt);
+        predictedLocal.renderOffsetX=(predictedLocal.renderOffsetX || 0)*Math.exp(-14*visualDt);
+        predictedLocal.renderOffsetY=(predictedLocal.renderOffsetY || 0)*Math.exp(-14*visualDt);
+    }
     if (serverMe?.missileControl) return;
     if (serverMe?.drone?.controlled && predictedLocal) {
         predictedLocal.x = serverMe.x; predictedLocal.y = serverMe.y;
@@ -2349,11 +2377,15 @@ function updateLocalPrediction(dt) {
         predictedLocal.movementPauseUntil = 0;
         sendMovement(true);
     }
+    if (typeof window !== "undefined" && window.JumpMovement) {
+        if (serverMe.down || serverMe.movingCore) { predictedLocal.jumpHeight=0; predictedLocal.jumpVelocity=0; }
+        else window.JumpMovement.advance(predictedLocal, dt, state.slots || [], TILE_MAP);
+    }
     if (predictedLocal.scoutDashRemaining > 0 && !serverMe.down && !serverMe.movingCore
             && !serverMe.selectedBuild && !(serverMe.railgunRemaining > 0 || serverMe.railgunCharge > 0 || serverMe.secondaryRailgunRemaining > 0 || serverMe.secondaryRailgunCharge > 0)) {
         const travel = serverMe.scoutDashSpeed * Math.min(dt, predictedLocal.scoutDashRemaining);
         const next = window.ScoutMovement.advance(predictedLocal, predictedLocal.scoutDashDx,
-            predictedLocal.scoutDashDy, travel, serverMe.scoutDashStep, canPredictOccupy);
+            predictedLocal.scoutDashDy, travel, serverMe.scoutDashStep, (x,y)=>canPredictOccupy(x,y,5,true,predictedLocal.jumpHeight || 0));
         predictedLocal.x = next.x; predictedLocal.y = next.y;
         predictedLocal.scoutDashRemaining = next.blocked ? 0 : Math.max(0, predictedLocal.scoutDashRemaining - dt);
         if (predictedLocal.scoutDashRemaining < 1e-9) predictedLocal.scoutDashRemaining = 0;
@@ -2378,11 +2410,11 @@ function updateLocalPrediction(dt) {
     const speed = serverMe.railgunRemaining > 0 || serverMe.secondaryRailgunRemaining > 0 ? 155 * .3 : serverMe.railgunCharge > 0 || serverMe.secondaryRailgunCharge > 0 ? 155 * .6 : serverMe.down ? (serverMe.downSpeed ?? 45) : serverMe.movingCore ? 82 : predictedLocal.dashing ? (serverMe.dashSpeed ?? 265) : 155;
     const nextX = clamp(predictedLocal.x + localMove.x * speed * dt, 25, WORLD.width - 25);
     const nextY = clamp(predictedLocal.y + localMove.y * speed * dt, 25, WORLD.height - 25);
-    if (canPredictOccupy(nextX, predictedLocal.y, 5)) predictedLocal.x = nextX;
-    if (canPredictOccupy(predictedLocal.x, nextY, 5)) predictedLocal.y = nextY;
+    if (canPredictOccupy(nextX, predictedLocal.y, 5, true, predictedLocal.jumpHeight || 0)) predictedLocal.x = nextX;
+    if (canPredictOccupy(predictedLocal.x, nextY, 5, true, predictedLocal.jumpHeight || 0)) predictedLocal.y = nextY;
 }
 
-function canPredictOccupy(x, y, radius, includeDefenses = true) {
+function canPredictOccupy(x, y, radius, includeDefenses = true, feetHeight = 0) {
     if (![x, y, radius].every(Number.isFinite) || radius < 0) return false;
     if (x - radius < 0 || y - radius < 0 || x + radius > WORLD.width || y + radius > WORLD.height
             || x >= WORLD.width || y >= WORLD.height) return false;
@@ -2403,15 +2435,17 @@ function canPredictOccupy(x, y, radius, includeDefenses = true) {
             if (!symbol || !TILE_MAP.legend[symbol] || TILE_MAP.legend[symbol].solid) return false;
         }
     }
-    if (includeDefenses && state.slots.some(slot => slot.defense && ["block", "barricade", "copperBarricade", "silverBarricade"].includes(slot.defense.type)
+    if (feetHeight > 0 && window.JumpMovement && feetHeight + 32 > window.JumpMovement.ceiling(TILE_MAP,x,y) + .01) return false;
+    if (includeDefenses && feetHeight < 23.99 && state.slots.some(slot => slot.defense && ["block", "barricade", "copperBarricade", "silverBarricade"].includes(slot.defense.type)
             && Math.hypot(x - slot.x, y - slot.y) < radius + 18)) return false;
     return true;
 }
 
 function animate(now = performance.now()) {
-    const dt = Math.min(.05, Math.max(0, (now - lastFrameAt) / 1000));
+    const elapsed = Math.max(0, (now - lastFrameAt) / 1000);
+    const dt = Math.min(.05, elapsed);
     lastFrameAt = now;
-    updateLocalPrediction(dt);
+    updateLocalPrediction(dt, elapsed);
     window.coreAudio?.syncRailguns?.(socket?.readyState === WebSocket.OPEN ? state?.players || [] : [], predictedLocal || getMe(), myPlayerId, Boolean(firingPointer), secondaryHeld);
     window.TerminalUI?.update(state, getMe(), { map: { world: WORLD, tileMap: TILE_MAP, areas: AREAS, startingArea: STARTING_AREA, breakerTerminals: BREAKER_TERMINALS }, send });
     draw();
@@ -2500,7 +2534,10 @@ function draw() {
 
 function drawFirstPerson() {
     renderPositions=new Map();
-    const me=getMe(), eye=droneCameraView() || predictedLocal || me || camera;
+    const me=getMe(), baseEye=droneCameraView() || predictedLocal || me || camera;
+    const eye=baseEye===predictedLocal ? {...baseEye,x:baseEye.x+(baseEye.renderOffsetX || 0),y:baseEye.y+(baseEye.renderOffsetY || 0)} : baseEye;
+    const scoped=!!fpsInput.view.zoom && ['sniper','rifle','railgun'].includes(me?.weapon) && !me?.selectedBuild && !me?.drone?.controlled;
+    fpsInput.view.scoped=scoped;
     const playing=!!me && ['preparing','wave'].includes(state?.phase);
     const menusOpen=exitDialog.open || !actionMenu.classList.contains('hidden') || !inventoryMenu.classList.contains('hidden') || !howToMenu.classList.contains('hidden') || window.coreMenu?.settingsOpen?.() || window.JobUI?.isConfirming?.() || me?.missileControl;
     fpsInput.setActive(playing && !menusOpen,playing && !!menusOpen);
@@ -2512,7 +2549,7 @@ function drawFirstPerson() {
     if(eye){camera.x=eye.x;camera.y=eye.y;}
     const selection=me && placementSelection(me), point=selection ? frontPlacementTile(me) : null;
     const placement=point ? {...point,valid:canBuildAt(point,selection.forCore)} : null;
-    labRenderer.render({map:TILE_MAP,reachable:reachableFloorTiles(),center:camera,eye,scale,state,localId:myPlayerId,predicted:predictedLocal,smooth:smoothEntity,radius:enemyRadius,stations:labStations(),effects:hitEffects,aim:worldFromScreen(0,0),view:fpsInput.view,placement});
+    labRenderer.render({map:TILE_MAP,reachable:reachableFloorTiles(),center:camera,eye,scale,state,localId:myPlayerId,predicted:predictedLocal,smooth:smoothEntity,radius:enemyRadius,stations:labStations(),effects:hitEffects,aim:worldFromScreen(0,0),view:fpsInput.view,placement,scoped,motion:{moving:Math.hypot(localMove.x,localMove.y)>.12,dashing:predictedLocal?.dashing}});
     if(firingPointer)updateFiringAim(firingPointer.clientX,firingPointer.clientY);
     if(secondaryHeld){const p=worldFromScreen(0,0);const now=performance.now();if(now-(drawFirstPerson.secondaryAt || 0)>70){send(`SECONDARY_FIRE:${p.x.toFixed(1)}:${p.y.toFixed(1)}:1`);drawFirstPerson.secondaryAt=now;}}
     ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -2532,7 +2569,7 @@ function drawFirstPerson() {
     const interaction=findNearestInteraction();
     ctx.save();const dpr=canvas.width/innerWidth;ctx.scale(dpr,dpr);ctx.textAlign='center';ctx.font='bold 14px system-ui';ctx.fillStyle='#f1f8fb';ctx.shadowColor='#07121b';ctx.shadowBlur=4;
     if(playing && !menusOpen){
-        const x=innerWidth/2,y=innerHeight/2;ctx.strokeStyle='#e8f4f8';ctx.lineWidth=1.5;ctx.beginPath();for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]){ctx.moveTo(x+dx*4,y+dy*4);ctx.lineTo(x+dx*10,y+dy*10);}ctx.stroke();
+        const x=innerWidth/2,y=innerHeight/2;if(!scoped){ctx.strokeStyle='#e8f4f8';ctx.lineWidth=1.5;ctx.beginPath();for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]){ctx.moveTo(x+dx*4,y+dy*4);ctx.lineTo(x+dx*10,y+dy*10);}ctx.stroke();}
         const target=placement ? (placement.valid ? placement : null) : interaction?.target;
         if(target) {
             const anchor=labRenderer.stationPosition(target);const prompt=labRenderer.project(anchor.x,anchor.y,40);
@@ -2542,7 +2579,18 @@ function drawFirstPerson() {
         if(!fpsInput.locked() && !matchMedia('(pointer: coarse)').matches)ctx.fillText('クリックで視点操作 · Escで解除',x,y+100);
     }
     ctx.restore();
-    if(state.blackoutActive && !me?.drone?.controlled){ctx.fillStyle='rgba(0,5,10,.28)';ctx.fillRect(0,0,canvas.width,canvas.height);}
+    if(scoped && playing && !menusOpen) {
+        ctx.save();ctx.scale(dpr,dpr);
+        const x=innerWidth/2,y=innerHeight/2,r=Math.min(innerWidth,innerHeight)*.42;
+        ctx.fillStyle='#020406';ctx.beginPath();ctx.rect(0,0,innerWidth,innerHeight);ctx.arc(x,y,r,0,Math.PI*2,true);ctx.fill('evenodd');
+        ctx.strokeStyle='#111a1e';ctx.lineWidth=1;ctx.beginPath();
+        for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]){ctx.moveTo(x+dx*12,y+dy*12);ctx.lineTo(x+dx*r,y+dy*r);}ctx.stroke();
+        ctx.fillStyle='#ff5b63';ctx.fillRect(x-1,y-1,2,2);ctx.restore();
+    }
+    if(state.blackoutActive && !me?.drone?.controlled){
+        const shade=ctx.createRadialGradient(canvas.width/2,canvas.height/2,0,canvas.width/2,canvas.height/2,canvas.width*.65);
+        shade.addColorStop(0,'rgba(0,5,10,.48)');shade.addColorStop(1,'rgba(0,5,10,.82)');ctx.fillStyle=shade;ctx.fillRect(0,0,canvas.width,canvas.height);
+    }
     drawDamageEdges();drawJoystick();drawRewindScreen();
 }
 

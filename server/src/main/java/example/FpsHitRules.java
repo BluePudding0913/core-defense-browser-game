@@ -21,6 +21,10 @@ final class FpsHitRules {
         return body(ray, x, y, down ? 6 : 16, 12, down ? 6 : 16, 12, 0, 1, width);
     }
 
+    static Hit ally(Ray ray, double x, double y, boolean down, double width, double feetHeight) {
+        return body(ray, x, y, feetHeight + (down ? 6 : 16), 12, down ? 6 : 16, 12, 0, 1, width);
+    }
+
     static Hit projectile(Ray ray, double x, double y, double width) {
         return body(ray, x, y, 16, 8, 8, 8, 0, 1, width);
     }

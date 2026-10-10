@@ -290,7 +290,9 @@ final class SnapshotBuilder {
                     .append(",\"secondaryRailgunRange\":").append(player.secondaryRailgunRemaining > 0
                         ? GameMap.distanceToWall(player.x, player.y, player.secondaryRailgunDx, player.secondaryRailgunDy,
                             GameSession.weaponStats("railgun").range(), game.unlockedAreas) : 0);
-            json.append(",\"stamina\":").append(roundOne(player.stamina))
+            json.append(",\"jumpHeight\":").append(player.jumpHeight)
+                    .append(",\"jumpVelocity\":").append(player.jumpVelocity)
+                    .append(",\"stamina\":").append(roundOne(player.stamina))
                     .append(",\"dashing\":").append(player.dashing);
             json.append(",\"buildingCostMultiplier\":").append(player.job.equals("builder") ? .5 : 1);
             json.append(",\"job\":\"").append(player.job).append('"')

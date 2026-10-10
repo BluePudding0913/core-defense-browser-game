@@ -19,7 +19,7 @@ window.FPSInput = {
             } catch {pendingLock=false;}
             return true;
         }
-        function look(dx,dy,sensitivity=.0024) {view.yaw+=dx*sensitivity;view.pitch=Math.max(-1.2,Math.min(1.2,view.pitch-dy*sensitivity));}
+        function look(dx,dy,sensitivity=.0024) {sensitivity*=view.scoped ? .35 : 1;view.yaw+=dx*sensitivity;view.pitch=Math.max(-1.2,Math.min(1.2,view.pitch-dy*sensitivity));}
         // MouseEvent supplies relative motion under pointer lock; PointerEvent can include cursor warps.
         document.addEventListener('pointerlockchange',()=>{skipMouseMove=true;});
         canvas.addEventListener('mousemove',e=>{
