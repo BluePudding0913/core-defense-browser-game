@@ -1468,7 +1468,7 @@ final class GameSession {
                 reward = 35;
             }
             case "tiny" -> {
-                hp = 20 + round * 2;
+                hp = 25 + round * 2.5;
                 speed = 110 + round * 2;
                 damage = 8 + round;
                 reward = 35;
@@ -1546,7 +1546,7 @@ final class GameSession {
         for (Enemy enemy : enemies) enemy.slow = 1;
         for (TrapSlot slot : trapSlots) {
             Defense defense = slot.defense;
-            if (defense == null) continue;
+            if (defense == null || defense.hp <= 0) continue;
             defense.cooldown = Math.max(0, defense.cooldown - dt);
             if (defense.type.equals("wire")) {
                 for (Enemy enemy : enemies) {
@@ -1556,19 +1556,13 @@ final class GameSession {
                 }
             } else if (BuildingRules.isTurret(defense.type) && defense.cooldown <= 0) {
                 Enemy target = enemies.stream()
-                        .filter(enemy -> enemy.hp > 0 && distance(slot.x, slot.y, enemy.x, enemy.y) <= (defense.type.equals("overclockSilver") ? 480 : defense.type.equals("silverTurret") ? 380 : 300))
+                        .filter(enemy -> enemy.hp > 0 && distance(slot.x, slot.y, enemy.x, enemy.y) <= TurretRules.range(defense.type))
                         .filter(enemy -> GameMap.hasClearLine(slot.x, slot.y, enemy.x, enemy.y, unlockedAreas))
                         .min(Comparator.comparingDouble(enemy -> distance(enemy.x, enemy.y, coreX, coreY)))
                         .orElse(null);
                 if (target != null) {
-                    double tinyHitChance = switch (defense.type) {
-                        case "overclockSilver" -> .8;
-                        case "silverTurret" -> .4;
-                        case "copperTurret" -> .3;
-                        default -> .2;
-                    };
-                    boolean hit = !target.type.equals("tiny") || random.nextDouble() < tinyHitChance;
-                    double turretDamage = (17+round*.5)*(defense.type.equals("overclockSilver") ? 14 : defense.type.equals("silverTurret") ? 3.5 : defense.type.equals("copperTurret") ? 2 : 1);
+                    boolean hit = TurretRules.canHit(target.type);
+                    double turretDamage = TurretRules.damage(defense.type, round);
                     turretDamage = target.shieldedDamage(turretDamage, slot.x, slot.y);
                     double dealt = hit ? combat.damageEnemy(target, turretDamage, null) : 0;
                     double missAngle = Math.atan2(target.y - slot.y, target.x - slot.x) + Math.PI / 2;
@@ -1576,7 +1570,8 @@ final class GameSession {
                             target.x + (hit ? 0 : Math.cos(missAngle) * 16),
                             target.y + (hit ? 0 : Math.sin(missAngle) * 16),
                             dealt, target.hp <= 0, 0, false, hit ? target.id : null);
-                    defense.cooldown = defense.type.equals("overclockSilver") ? .15 : defense.type.equals("silverTurret") ? .45 : .7;
+                    defense.cooldown = TurretRules.cooldown(defense.type);
+                    defense.hp = Math.max(0, defense.hp - TurretRules.SHOT_HP_COST);
                 }
             } else if (defense.type.equals("mine")) {
                 Enemy trigger = enemies.stream()
