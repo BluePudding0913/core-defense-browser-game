@@ -10,3 +10,11 @@ listeners.pointermove({pointerType:'mouse',movementX:0,movementY:-10000});assert
 input.setActive(false);assert(!input.locked());const yaw=input.view.yaw;listeners.pointermove({pointerType:'mouse',movementX:200,movementY:200});assert.equal(input.view.yaw,yaw);
 input.setActive(true);listeners.pointerdown({pointerType:'touch',pointerId:5,clientX:750,clientY:300});listeners.pointermove({pointerType:'touch',pointerId:5,clientX:760,clientY:320});assert.equal(input.view.yaw,yaw+.06);globalListeners.pointerup({pointerId:5});const stopped=input.view.yaw;listeners.pointermove({pointerType:'touch',pointerId:5,clientX:800,clientY:320});assert.equal(input.view.yaw,stopped);
 console.log('FPS input passed: pointer lock, yaw/pitch limits, view-relative forward/strafe, menu release, touch look');
+
+input.capture();assert(input.locked());input.setActive(false,true);assert(!input.locked(),'UI releases the mouse');
+input.setActive(false,true);input.setActive(true);assert(input.locked(),'Closing UI restores the previous FPS mouse lock');
+input.release();input.setActive(true);assert(!input.locked(),'Explicit Esc release must not be undone by animation frames');
+input.setActive(false,true);input.setActive(true);assert(!input.locked(),'UI opened without an existing lock must not force one');
+input.capture();input.setActive(false,true);input.release();input.setActive(true);assert(!input.locked(),'Focus loss while UI is open cancels restoration');
+input.capture();input.setActive(false,true);input.setActive(false,false);input.setActive(true);assert(!input.locked(),'Leaving the match clears the saved lock');
+console.log('FPS UI cursor regressions passed: restoration after UI, Esc, unlocked UI, focus loss, leaving match');
