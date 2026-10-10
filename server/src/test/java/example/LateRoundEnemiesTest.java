@@ -148,14 +148,18 @@ class LateRoundEnemiesTest {
         assertTrue(warlord.reward > boss.reward && titan.reward > warlord.reward);
     }
 
-    @Test void chargingBossRetainsItsCorePulse() throws Exception {
-        for (String type : new String[]{"boss"}) {
-            game.enemies.clear(); game.round = 40; game.coreHp = 10000;
-            Enemy boss = spawn(type);
-            boss.x = game.coreX + 100; boss.y = game.coreY; boss.specialCooldown = 0;
-            invoke("updateEnemies", new Class<?>[]{double.class}, .05);
-            assertEquals(10000 - boss.damage * .55, game.coreHp, .001);
-            assertEquals(type.equals("titan") ? 4 : type.equals("warlord") ? 5 : 6, boss.specialCooldown);
-        }
+    @Test void chargingBossOnlyDamagesCoreWithinContactRange() throws Exception {
+        game.players.clear(); game.trapSlots.clear();
+        game.unlockedAreas.addAll(GameMap.AREAS.stream().map(UnlockArea::id).toList());
+        game.coreX = 1020; game.coreY = 1900;
+        game.enemies.clear(); game.round = 40; game.coreHp = 10000;
+        Enemy boss = spawn("boss");
+        boss.x = game.coreX + 100; boss.y = game.coreY; boss.specialCooldown = 0;
+        invoke("updateEnemies", new Class<?>[]{double.class}, .05);
+        assertEquals(10000, game.coreHp, .001);
+
+        boss.x = game.coreX + 60; boss.attackCooldown = 0;
+        invoke("updateEnemies", new Class<?>[]{double.class}, .05);
+        assertEquals(10000 - boss.damage, game.coreHp, .001);
     }
 }

@@ -1680,14 +1680,6 @@ final class GameSession {
             }
 
             advanceEnemyRoute(enemy);
-            if (enemy.type.equals("boss")) {
-                enemy.specialCooldown = Math.max(0, enemy.specialCooldown - dt);
-                if (enemy.specialCooldown <= 0
-                        && distance(enemy.x, enemy.y, coreX, coreY) <= 260) {
-                    useBossCorePulse(enemy);
-                    enemy.specialCooldown = enemy.type.equals("titan") ? 4 : enemy.type.equals("warlord") ? 5 : 6;
-                }
-            }
             double defenseRange = switch (enemy.targetPriority) {
                 case "defenses" -> 190;
                 case "players" -> 75;
@@ -2046,17 +2038,6 @@ final class GameSession {
             slot.defense.hp -= enemy.damage;
             enemy.attackCooldown = 0.9;
         }
-    }
-
-    private void useBossCorePulse(Enemy enemy) {
-        damageCore(enemy.damage * 0.55);
-        for (Player player : players) {
-            if (!player.down && distance(player.x, player.y, coreX, coreY) <= 175) {
-                damagePlayer(player, 12 + round * 0.6);
-            }
-        }
-        events.broadcast("{\"type\":\"effect\",\"effect\":\"core-pulse\",\"x\":"
-                + roundOne(coreX) + ",\"y\":" + roundOne(coreY) + "}");
     }
 
     private void moveEnemyToward(Enemy enemy, double targetX, double targetY, double amount) {
