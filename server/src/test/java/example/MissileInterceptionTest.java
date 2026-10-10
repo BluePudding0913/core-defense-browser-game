@@ -71,7 +71,7 @@ class MissileInterceptionTest {
         var center = shot(1020, 1900); center.hp = 5000;
         var edge = shot(1020 + MissileRules.radius(), 1900); edge.hp = 5000;
         game.combat.missileImpact(player, 1020, 1900);
-        assertEquals(2600, center.hp, 1e-6); assertEquals(3800, edge.hp, 1e-6);
+        assertEquals(2840, center.hp, 1e-6); assertEquals(3920, edge.hp, 1e-6);
     }
     @Test void rayIntersectionRejectsMissesAndFindsTheFrontOfTheMissile() {
         var shot = shot(1120, 1900);
