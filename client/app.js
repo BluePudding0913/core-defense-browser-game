@@ -147,6 +147,7 @@ let droneAftermath = null;
 let predictedLocal = null;
 let localMove = { x: 0, y: 0 };
 let localFacing = { x: 0, y: -1 };
+let aimPointer = null;
 let dashRequested = false;
 let lastFrameAt = performance.now();
 let mapReady = false;
@@ -1931,6 +1932,7 @@ canvas.addEventListener("pointerdown", event => {
 });
 
 canvas.addEventListener("pointermove", event => {
+    if (event.pointerType === "mouse" || firingPointer?.id === event.pointerId) aimPointer = { x: event.clientX, y: event.clientY };
     if (pendingMove?.id === event.pointerId) { pendingMove.x = event.clientX; pendingMove.y = event.clientY; }
     if (joystick?.id === event.pointerId) updateJoystick(event.clientX, event.clientY);
     if (firingPointer?.id === event.pointerId || event.pointerType === "mouse" && firingPointer?.id === "mouse") updateFiringAim(event.clientX, event.clientY);
@@ -1978,6 +1980,7 @@ function startFiring(pointerId, clientX, clientY) {
         return;
     }
     const point = worldFromScreen(clientX, clientY);
+    aimPointer = { x: clientX, y: clientY };
     firingPointer = { id: pointerId, clientX, clientY, lastAimSent: performance.now() };
     send(`FIRE:${point.x.toFixed(1)}:${point.y.toFixed(1)}:1`);
 }
@@ -2427,7 +2430,8 @@ function draw() {
     ctx.setTransform(scale, 0, 0, scale * worldYScale(), canvas.width / 2 - camera.x * scale, canvas.height / 2 - camera.y * scale * worldYScale());
     if (labRenderer) labRenderer.render({ map: TILE_MAP, reachable: reachableFloorTiles(), center: camera, scale,
         state, localId: myPlayerId, predicted: predictedLocal, smooth: smoothEntity, radius: enemyRadius,
-        stations: labStations() });
+        stations: labStations(), effects: hitEffects,
+        aim: aimPointer ? worldFromScreen(aimPointer.x, aimPointer.y) : null });
     else drawWorld();
     if (labRenderer) {
         SPAWN_POINTS.forEach(drawSpawnEntrance);
@@ -2675,10 +2679,12 @@ function drawAreas() {
         }
 
         if (!unlocked && terminalVisible) {
-            ctx.fillStyle = "#d8d8d8";
-            ctx.fillRect(area.terminalX - 15, area.terminalY - 15, 30, 30);
-            ctx.strokeStyle = "#79d8ff"; ctx.lineWidth = 2;
-            ctx.strokeRect(area.terminalX - 18, area.terminalY - 18, 36, 36);
+            if (typeof labRenderer === "undefined" || !labRenderer) {
+                ctx.fillStyle = "#d8d8d8";
+                ctx.fillRect(area.terminalX - 15, area.terminalY - 15, 30, 30);
+                ctx.strokeStyle = "#79d8ff"; ctx.lineWidth = 2;
+                ctx.strokeRect(area.terminalX - 18, area.terminalY - 18, 36, 36);
+            }
             ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace"; ctx.textAlign = "center";
             ctx.fillText("UNLOCK", area.terminalX, area.terminalY - 24);
         }
@@ -2693,22 +2699,24 @@ function drawBreakers() {
         const needsReset = state.blackoutActive && tripped.has(breaker.id);
         const pulse = (Math.sin(performance.now() / 130) + 1) / 2;
         ctx.save();
-        ctx.fillStyle = needsReset ? "#ff5964" : "#8b8b8b";
-        ctx.strokeStyle = needsReset ? "#fff" : "#d8d8d8";
-        ctx.lineWidth = 2;
-        if (needsReset) {
-            ctx.shadowColor = "#ff5964";
-            ctx.shadowBlur = 10 + pulse * 8;
+        if (typeof labRenderer === "undefined" || !labRenderer) {
+            ctx.fillStyle = needsReset ? "#ff5964" : "#8b8b8b";
+            ctx.strokeStyle = needsReset ? "#fff" : "#d8d8d8";
+            ctx.lineWidth = 2;
+            if (needsReset) {
+                ctx.shadowColor = "#ff5964";
+                ctx.shadowBlur = 10 + pulse * 8;
+            }
+            ctx.fillRect(breaker.x - 10, breaker.y - 14, 20, 28);
+            ctx.strokeRect(breaker.x - 10, breaker.y - 14, 20, 28);
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = "#111";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(breaker.x, breaker.y - 7);
+            ctx.lineTo(breaker.x, breaker.y + 6);
+            ctx.stroke();
         }
-        ctx.fillRect(breaker.x - 10, breaker.y - 14, 20, 28);
-        ctx.strokeRect(breaker.x - 10, breaker.y - 14, 20, 28);
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = "#111";
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(breaker.x, breaker.y - 7);
-        ctx.lineTo(breaker.x, breaker.y + 6);
-        ctx.stroke();
         if (needsReset) {
             ctx.fillStyle = "#ff5964";
             ctx.font = "900 9px ui-monospace, monospace";
@@ -2837,6 +2845,7 @@ function drawStation(station, label, color, labelColor = "#111") {
 }
 
 function drawResources() {
+    if (typeof labRenderer !== "undefined" && labRenderer) return;
     for (const node of state.resources || []) {
         if (!node.available) continue;
         const bob = Math.sin(performance.now() / 260 + node.x * .01) * 3;
@@ -2862,23 +2871,25 @@ function drawDroppedResources() {
         const bob = Math.sin(performance.now() / 230 + drop.id) * 2;
         ctx.save();
         ctx.translate(drop.x, drop.y + bob);
-        ctx.fillStyle = drop.type === "wood" ? "#b8b8b8" : drop.type === "copper" ? "#aa754d" : drop.type === "silver" ? "#eee" : "#777";
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 1.5;
-        if (drop.type === "medkit") {
-            ctx.fillStyle = "#eee";
-            ctx.fillRect(-10, -8, 20, 16);
-            ctx.strokeRect(-10, -8, 20, 16);
-            ctx.fillStyle = "#e45151";
-            ctx.fillRect(-2, -6, 4, 12);
-            ctx.fillRect(-6, -2, 12, 4);
-        } else if (drop.type === "wood") {
-            ctx.fillRect(-8, -6, 16, 12);
-            ctx.strokeRect(-8, -6, 16, 12);
-        } else {
-            ctx.beginPath();
-            ctx.moveTo(0, -10); ctx.lineTo(10, -2); ctx.lineTo(6, 9);
-            ctx.lineTo(-7, 8); ctx.lineTo(-10, -3); ctx.closePath(); ctx.fill(); ctx.stroke();
+        if (typeof labRenderer === "undefined" || !labRenderer) {
+            ctx.fillStyle = drop.type === "wood" ? "#b8b8b8" : drop.type === "copper" ? "#aa754d" : drop.type === "silver" ? "#eee" : "#777";
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 1.5;
+            if (drop.type === "medkit") {
+                ctx.fillStyle = "#eee";
+                ctx.fillRect(-10, -8, 20, 16);
+                ctx.strokeRect(-10, -8, 20, 16);
+                ctx.fillStyle = "#e45151";
+                ctx.fillRect(-2, -6, 4, 12);
+                ctx.fillRect(-6, -2, 12, 4);
+            } else if (drop.type === "wood") {
+                ctx.fillRect(-8, -6, 16, 12);
+                ctx.strokeRect(-8, -6, 16, 12);
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(0, -10); ctx.lineTo(10, -2); ctx.lineTo(6, 9);
+                ctx.lineTo(-7, 8); ctx.lineTo(-10, -3); ctx.closePath(); ctx.fill(); ctx.stroke();
+            }
         }
         ctx.fillStyle = "#fff";
         ctx.font = "900 10px ui-monospace, monospace";
@@ -3045,12 +3056,12 @@ function drawEnemies() {
             ctx.save(); ctx.fillStyle = "rgb(90 211 255 / 35%)"; ctx.strokeStyle = "#a7edff"; ctx.lineWidth = 2;
             ctx.beginPath(); ctx.arc(p.x, p.y, radius + 3, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.restore();
         }
-        if (enemy.type === "shield") {
+        if (enemy.type === "shield" && (typeof labRenderer === "undefined" || !labRenderer)) {
             const angle = Math.atan2(enemy.facingY ?? 1, enemy.facingX ?? 0);
             ctx.strokeStyle = "#83d5f2"; ctx.lineWidth = 7;
             ctx.beginPath(); ctx.arc(p.x, p.y, radius + 4, angle - Math.PI / 3, angle + Math.PI / 3); ctx.stroke();
         }
-        if (enemy.type === "artillery") {
+        if (enemy.type === "artillery" && (typeof labRenderer === "undefined" || !labRenderer)) {
             ctx.fillStyle = "#cce76b";
             ctx.beginPath(); ctx.arc(p.x, p.y - radius * .7, 9, 0, Math.PI * 2); ctx.fill();
         }
@@ -3449,7 +3460,7 @@ function drawHitEffects() {
                 ctx.arc(effect.x, effect.y, 4 + progress * 6, 0, Math.PI * 2);
                 ctx.stroke();
             }
-            if ((effect.weapon === "turret" || effect.damage === 0)
+            if ((typeof labRenderer === "undefined" || !labRenderer) && (effect.weapon === "turret" || effect.damage === 0)
                 && !["bat", "mine"].includes(effect.weapon) && progress < .55) {
                 ctx.lineWidth = 1.35;
                 ctx.beginPath(); ctx.moveTo(effect.fromX, effect.fromY); ctx.lineTo(effect.x, effect.y); ctx.stroke();
@@ -3457,7 +3468,13 @@ function drawHitEffects() {
             ctx.restore();
         }
     }
-    if (typeof CombatFeedback !== "undefined") CombatFeedback.draw(ctx, now);
+    if (typeof CombatFeedback !== "undefined") {
+        if (typeof labRenderer !== "undefined" && labRenderer) {
+            ctx.save(); ctx.setTransform(scale, 0, 0, scale, 0, 0);
+            CombatFeedback.draw(ctx, now, projectCombatPopup);
+            ctx.restore();
+        } else CombatFeedback.draw(ctx, now);
+    }
     ctx.textAlign = "left";
 }
 
@@ -3588,13 +3605,30 @@ function drawRewindScreen() {
     ctx.restore();
 }
 
+function projectCombatPopup(popup) {
+    const enemy = state.enemies.find(entity => entity.id === popup.enemyId && entity.hp > 0);
+    const point = enemy ? smoothEntity('enemy', enemy) : popup;
+    if (enemy) popup.height = enemyRadius(enemy) * 1.6;
+    const projected = labRenderer.project(point.x, point.y, popup.height || 24);
+    return { x: projected.x / scale, y: projected.y / scale };
+}
+
 function labStations() {
     if (!state) return [];
     const stations = SHOP_UNITS.filter(isUnlockedPoint).map(p => [p, p.label, '#80cee1']);
     for (const p of MEDBAYS.filter(isUnlockedPoint)) stations.push([p, 'MED BAY', '#88d7b1']);
     for (const p of [WOODCUTTER, QUARRY].filter(isUnlockedPoint)) stations.push([p, '', '#d3b78c']);
-    for (const p of [...WORKBENCHES, ...BREAKER_TERMINALS, PREP_CONSOLE, MISSILE_COMPUTER, JOB_STATION].filter(Boolean))
+    for (const p of [...WORKBENCHES, PREP_CONSOLE, MISSILE_COMPUTER, JOB_STATION].filter(Boolean))
         if (!p.requiredArea || state.areas[p.requiredArea]) stations.push([p, '', '#89cbd8']);
+    const tripped = new Set(state.trippedBreakers || []);
+    for (const p of BREAKER_TERMINALS) if (!p.requiredArea || state.areas[p.requiredArea])
+        stations.push([p, '', state.blackoutActive && tripped.has(p.id) ? '#ff5964' : '#89cbd8', 'breaker']);
+    const reachable = reachableFloorTiles(), size = TILE_MAP.tileSize;
+    for (const area of AREAS) {
+        const c = Math.floor(area.terminalX / size), r = Math.floor(area.terminalY / size);
+        if (!state.areas[area.id] && [[0,0],[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy]) => reachable.has((r+dy)+':'+(c+dx))))
+            stations.push([{id:'unlock:'+area.id, x:area.terminalX, y:area.terminalY}, 'UNLOCK', '#79d8ff', 'terminal']);
+    }
     for (const p of state.factories || []) stations.push([p, '', '#80cee1']);
     return stations;
 }

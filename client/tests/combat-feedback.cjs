@@ -100,3 +100,16 @@ vm.runInNewContext(source.slice(start,end), {message:{type:'ammo-refilled'},
     inventoryMenu:{classList:{add(){}}},closeActionMenu(){assert.fail('refill retains the shop');}});
 assert.deepEqual(sounds, [['refill',0]]);
 console.log('Combat feedback passed: individual hit rewards, separate label placement, independent expiry, red HS and refill sound');
+
+// Raised 3D anchors use screen-space spacing; damage labels stay upright and follow their target.
+feedback.reset();
+feedback.add({...hit(4,1,100,100),damage:80},0,'me',true);
+let targetX=240,targetY=160;
+let projected=feedback.layout(100,()=>({x:targetX,y:targetY}));
+assert.equal(projected[0].x,targetX);assert(projected[0].y<targetY);
+targetX=300;targetY=130;
+projected=feedback.layout(200,()=>({x:targetX,y:targetY}));
+assert.equal(projected[0].x,targetX);assert(projected[0].y<targetY);
+assert.equal(projected[0].damageText,'80 DMG');
+feedback.reset();
+console.log('3D combat labels passed: raised projection and moving target anchors');
