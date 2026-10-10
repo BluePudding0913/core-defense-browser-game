@@ -2532,7 +2532,11 @@ function drawFirstPerson() {
     ctx.save();const dpr=canvas.width/innerWidth;ctx.scale(dpr,dpr);ctx.textAlign='center';ctx.font='bold 14px system-ui';ctx.fillStyle='#f1f8fb';ctx.shadowColor='#07121b';ctx.shadowBlur=4;
     if(playing && !menusOpen){
         const x=innerWidth/2,y=innerHeight/2;ctx.strokeStyle='#e8f4f8';ctx.lineWidth=1.5;ctx.beginPath();for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]){ctx.moveTo(x+dx*4,y+dy*4);ctx.lineTo(x+dx*10,y+dy*10);}ctx.stroke();
-        if(interaction)ctx.fillText('R',x,y+50);
+        const target=placement ? (placement.valid ? placement : null) : interaction?.target;
+        if(target) {
+            const prompt=labRenderer.project(target.x,target.y,40);
+            drawKeyPrompt('R',prompt.visible ? prompt.x/dpr : x,prompt.visible ? prompt.y/dpr : y+50);
+        }
         if(placement)ctx.fillText(placement.valid?'R PLACE':'BLOCKED',x,y+70);
         if(!fpsInput.locked() && !matchMedia('(pointer: coarse)').matches)ctx.fillText('クリックで視点操作 · Escで解除',x,y+100);
     }
