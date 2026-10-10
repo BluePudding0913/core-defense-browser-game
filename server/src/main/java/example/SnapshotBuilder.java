@@ -28,6 +28,15 @@ final class SnapshotBuilder {
                         : "\"" + escapeJson(game.roomOwnerId) + "\"")
                 .append(",\"allReady\":").append(game.roomReadyForStart());
         json.append(",\"round\":").append(game.round).append(",\"maxRounds\":").append(MAX_ROUNDS);
+        json.append(",\"debugMode\":").append(game.debugMode);
+        json.append(",\"debugEnemyTypes\":[");
+        if (game.debugMode) {
+            for (int i = 0; i < GameSession.DEBUG_ENEMY_TYPES.size(); i++) {
+                if (i > 0) json.append(',');
+                json.append('"').append(GameSession.DEBUG_ENEMY_TYPES.get(i)).append('"');
+            }
+        }
+        json.append(']');
         json.append(",\"backupAvailable\":").append(game.backup != null && !game.backupUsed)
             .append(",\"backupUsed\":").append(game.backupUsed).append(",\"backupCost\":").append(GameSession.BACKUP_COST)
             .append(",\"backupRound\":").append(game.backup == null ? 0 : game.backup.world().round() + 1)
