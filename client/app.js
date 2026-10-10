@@ -393,7 +393,7 @@ function connect() {
             if (message.effect === "drone-self-destruct") receiveDroneSelfDestruct(message);
             playSoundEffect(message);
         }
-        if (message.type === "effect" && ["hit", "pickup", "player-hit", "player-down", "explosion", "acid-impact"].includes(message.effect)) {
+        if (message.type === "effect" && ["hit", "intercept", "pickup", "player-hit", "player-down", "explosion", "acid-impact"].includes(message.effect)) {
             if (typeof CombatFeedback !== "undefined") CombatFeedback.add(message, performance.now(), myPlayerId, DEBUG_MODE);
             hitEffects.push({ ...message, started: performance.now() });
             if (hitEffects.length > 100) hitEffects.shift();
@@ -3352,6 +3352,17 @@ function drawHitEffects() {
             ctx.strokeStyle = allied ? "#69dfff" : artillery ? "#7edc7a" : "#ff805c"; ctx.lineWidth = 4;
             ctx.beginPath(); ctx.arc(effect.x, effect.y, effect.radius * (.25 + .75 * progress), 0, Math.PI * 2);
             ctx.fill(); ctx.stroke(); ctx.restore(); continue;
+        }
+        if (effect.effect === "intercept") {
+            const progress = (now - effect.started) / 360;
+            ctx.save(); ctx.globalAlpha = 1 - progress;
+            ctx.strokeStyle = "#bcefff"; ctx.lineWidth = 2;
+            for (let i = 0; i < 6; i++) {
+                const angle = i * Math.PI / 3, radius = 5 + progress * 18;
+                ctx.beginPath(); ctx.moveTo(effect.x + Math.cos(angle) * radius, effect.y + Math.sin(angle) * radius);
+                ctx.lineTo(effect.x + Math.cos(angle) * (radius + 5), effect.y + Math.sin(angle) * (radius + 5)); ctx.stroke();
+            }
+            ctx.restore(); continue;
         }
         if (effect.effect === "pickup") {
             const progress = (now - effect.started) / 900;
