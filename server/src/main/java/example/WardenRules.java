@@ -5,8 +5,8 @@ import java.util.Set;
 
 /** HP thresholds and attack timing; no session, rendering or protocol dependencies. */
 final class WardenRules {
-    static final double CHARGE_WARNING = 1.0, CHARGE_SPEED = 480, CHARGE_DISTANCE = 360;
-    static final double PULSE_WARNING = 1.2, PULSE_RADIUS = 160;
+    static final double CHARGE_WARNING = .65, CHARGE_SPEED = 480, CHARGE_DISTANCE = 360;
+    static final double PULSE_WARNING = .8, PULSE_RADIUS = 160;
     static final double CHARGE_RADIUS = 42;
     enum Action { IDLE, CHARGE_WARNING, CHARGING, PULSE_WARNING }
     static final class State {

@@ -137,7 +137,7 @@ final class SnapshotBuilder {
                     .append(",\"sourceX\":").append(roundOne(shell.sourceX))
                     .append(",\"sourceY\":").append(roundOne(shell.sourceY))
                     .append(",\"remaining\":").append(shell.remaining)
-                    .append(",\"duration\":").append(GameConfig.ARTILLERY_FLIGHT_SECONDS)
+                    .append(",\"duration\":").append(shell.duration)
                     .append(",\"radius\":").append(GameConfig.ARTILLERY_BLAST_RADIUS).append('}');
         }
         json.append(']');

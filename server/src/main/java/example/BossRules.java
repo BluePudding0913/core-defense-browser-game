@@ -2,10 +2,10 @@ package example;
 
 /** Shared boss walking speed and HP phases, without session state. */
 final class BossRules {
-    static double baseSpeedMultiplier(String type) {
+    static double baseSpeed(String type, double ordinarySpeed, double runnerSpeed) {
         return switch (type) {
-            case "boss", "warden", "warlord", "titan" -> 1.5;
-            default -> 1;
+            case "boss", "warden", "warlord", "titan" -> runnerSpeed;
+            default -> ordinarySpeed;
         };
     }
 

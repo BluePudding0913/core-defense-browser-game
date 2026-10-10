@@ -130,7 +130,8 @@ class EnemyHookGachaTest {
         Enemy boss=enemy("boss",1020,1900); boss.chargeCooldown=0;
         invoke("updateEnemies",new Class<?>[]{double.class},.05);
         assertTrue(boss.chargeWarning>0); assertEquals(1020,boss.x);
-        invoke("updateEnemies",new Class<?>[]{double.class},.7); assertTrue(boss.chargeRemaining>0);
+        invoke("updateEnemies",new Class<?>[]{double.class},.44); assertEquals(0,boss.chargeRemaining);
+        invoke("updateEnemies",new Class<?>[]{double.class},.02); assertTrue(boss.chargeRemaining>0);
         invoke("updateEnemies",new Class<?>[]{double.class},.65);
         assertTrue(boss.x>1100); assertEquals(28,player.hp,.001); assertEquals(0,boss.chargeRemaining);
         assertTrue(boss.chargeCooldown>0);

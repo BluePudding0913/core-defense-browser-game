@@ -2,7 +2,7 @@ package example;
 import java.util.List;
 /** First boss: fixed heading after a visible windup, swept movement and one impact. */
 final class BossChargeSystem {
-    static final double WARNING = .7, DURATION = .65, SPEED = 440, COOLDOWN = 7;
+    static final double WARNING = .45, DURATION = .65, SPEED = 440, COOLDOWN = 7;
     interface World {
         List<Player> players();
         List<TrapSlot> slots();

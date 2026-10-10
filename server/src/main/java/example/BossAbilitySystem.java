@@ -6,7 +6,7 @@ import static example.GameSupport.distance;
 
 /** WARLORD salvos and TITAN telegraphed shockwaves share ordinary blast damage. */
 final class BossAbilitySystem {
-    static final double TITAN_WARNING = 1.5, TITAN_RADIUS = 200, COOLDOWN = 8;
+    static final double TITAN_WARNING = 1.0, WARLORD_WARNING = 1.0, TITAN_RADIUS = 200, COOLDOWN = 8;
     static boolean update(Enemy enemy, double dt, MapPoint target, WardenCombatSystem.World world, List<ArtilleryShell> shells) {
         if (!enemy.type.equals("warlord") && !enemy.type.equals("titan") || enemy.hp <= 0) return false;
         enemy.specialCooldown = Math.max(0, enemy.specialCooldown
@@ -33,7 +33,7 @@ final class BossAbilitySystem {
                 double x = target.x()-dy/length*offset;
                 double y = target.y()+dx/length*offset;
                 if (x < 18 || y < 18 || x > GameMap.WORLD_W-18 || y > GameMap.WORLD_H-18) continue;
-                shells.add(new ArtilleryShell(enemy.x,enemy.y,x,y,enemy.damage*.75,enemy.id));
+                shells.add(new ArtilleryShell(enemy.x,enemy.y,x,y,enemy.damage*.75,enemy.id,WARLORD_WARNING));
             }
             enemy.specialCooldown = COOLDOWN;
         }
