@@ -251,7 +251,7 @@ function mountMenu() {
             busy = true; matchResult = ""; updateMatchButtons(); updateMatchResult();
             try { window.coreGame.resume(); } catch (error) { status(error.message); }
         }
-        if (action === "job") window.coreGame.send(`JOB:${target.dataset.job}`);
+        if (action === "job") window.coreGame.changeJob(target.dataset.job);
         if (action === "start") window.coreGame.send("START");
         if (action === "ready") window.coreGame.send(`ROOM_READY:${snapshot.players.find(p => p.id === selfId)?.ready ? 0 : 1}`);
         if (action === "leave") {

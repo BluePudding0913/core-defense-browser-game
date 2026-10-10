@@ -305,7 +305,7 @@ final class GameSession {
                 }
             }
             case "MISSILE" -> { if (parts.length >= 3) launchMissile(player, Double.parseDouble(parts[1]), Double.parseDouble(parts[2])); }
-            case "JOB" -> { if (parts.length >= 2) selectJob(player, parts[1]); }
+            case "JOB" -> { if (parts.length >= 2) selectJob(player, parts[1], parts.length > 2 ? parts[2] : null); }
             case "JOB_ABILITY" -> { if (!player.job.equals("tank")) useJobAbility(player); }
             case "TANK_WALL" -> {
                 if (!player.job.equals("tank")) break;
@@ -626,10 +626,20 @@ final class GameSession {
         player.facingY = facingY;
     }
 
-    private void selectJob(Player player, String job) {
+    private void selectJob(Player player, String job, String discard) {
         if (!player.human || !JobRules.valid(job)
                 || !(phase == GamePhase.LOBBY || phase == GamePhase.WON || phase == GamePhase.LOST || canOperate(player, GameMap.JOB_STATION))) return;
         if (player.job.equals(job)) return;
+        if (player.weapons.weaponCount() > JobRules.weaponLimit(job)) {
+            if (!JobRules.validJobDiscard(player.weapons, job, discard)) {
+                gameEffects.feedback(player, "捨てる武器を選んでください");
+                return;
+            }
+            player.weapons.remove(discard);
+            player.enchantments.remove(discard);
+            if (player.weapon.equals(discard)) player.equipWeapon(WeaponCatalog.ALL.stream()
+                    .map(WeaponCatalog.Definition::id).filter(player.weapons::owns).findFirst().orElse("bat"));
+        }
         player.firing = player.dashing = player.dashHeld = player.missileControl = false;
         player.breakerControl = null;
         player.stopRailgun(); cancelAction(player);
