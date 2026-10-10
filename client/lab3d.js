@@ -104,7 +104,8 @@ window.Lab3D = (() => {
             const origin=raycaster.ray.origin, direction=raycaster.ray.direction;
             let distance=2400, result=null;
             // Pick the visible 3D body under the reticle, while the server retains 2D combat rules.
-            const hits=raycaster.intersectObjects([...objects.values()].filter(o=>o.root.visible).map(o=>o.root),true);
+            // Trajectories and warning meshes must never become aiming targets.
+            const hits=raycaster.intersectObjects([...objects.values()].filter(o=>o.root.visible && o.root.isGroup).map(o=>o.root),true);
             const wallHits=raycaster.intersectObject(terrain,true);
             for (const hit of [...hits,...wallHits].sort((a,b)=>a.distance-b.distance)) {
                 if (hit.distance<2 || hit.distance>distance) continue;
@@ -120,8 +121,12 @@ window.Lab3D = (() => {
         }
         function fpsMuzzleWorld() {
             viewScene.updateMatrixWorld(true); viewCamera.updateMatrixWorld(true);
-            const point=viewMuzzle.getWorldPosition(new T.Vector3()).applyMatrix4(viewCamera.matrixWorldInverse);
-            return point.applyMatrix4(camera.matrixWorld);
+            const point=viewMuzzle.getWorldPosition(new T.Vector3());
+            const depth=Math.max(1, -point.clone().applyMatrix4(viewCamera.matrixWorldInverse).z * 16);
+            const ndc=point.project(viewCamera);
+            // Match the on-screen muzzle across different world/viewmodel FOVs and model scales.
+            return new T.Vector3(ndc.x*depth/camera.projectionMatrix.elements[0],
+                ndc.y*depth/camera.projectionMatrix.elements[5],-depth).applyMatrix4(camera.matrixWorld);
         }
         const objects = new Map();
         let seen = new Set();
@@ -189,7 +194,7 @@ window.Lab3D = (() => {
             gilded: '#e8b94f', blueAce: '#358dff', carrier: '#9b7655', blackout: '#27584d', seeker: '#a35e70', explosionBoss: '#171b20' };
         function enemy(entity, point, radius, now) {
             const item = object('enemy:' + entity.id + ':' + entity.type, () => {
-                const root = new T.Group();
+                const root = new T.Group(); root.name='enemy:'+entity.id;
                 const body = new T.Mesh(sphereGeometry, material(enemyColors[entity.type] || '#869095'));
                 body.scale.set(radius * .9, radius * .8, radius * .8); body.position.y = radius * .8;
                 body.castShadow = true; root.add(body);
@@ -241,21 +246,31 @@ window.Lab3D = (() => {
                 const root=new T.Line(geometry,mat);root.frustumCulled=false; root.name='muzzle-tracer';
                 return {root,dispose(){geometry.dispose();mat.dispose();}};
             });
-            let muzzle;
-            if (effect.weapon==='turret') {
-                const slot=state.slots.find(s=>s.defense && Math.hypot(s.x-effect.fromX,s.y-effect.fromY)<2);
-                if (slot) for (const [key,value] of objects) if (key.startsWith('defense:'+slot.id+':')) {muzzle=value.muzzle;break;}
-            } else {
-                const owner=state.players.find(p=>p.id===effect.playerId);
-                if (owner?.drone?.active && Math.hypot(owner.drone.x-effect.fromX,owner.drone.y-effect.fromY)<12) {
-                    const drone=objects.get('drone:'+owner.id);if(drone) {muzzle=drone.muzzle;}
-                } else muzzle=objects.get('player:'+effect.playerId)?.muzzle;
+            // A fired trajectory belongs to the world; turning must not drag its origin.
+            if (!item.initialized) {
+                let muzzle;
+                if (effect.weapon==='turret') {
+                    const slot=state.slots.find(s=>s.defense && Math.hypot(s.x-effect.fromX,s.y-effect.fromY)<2);
+                    if (slot) for (const [key,value] of objects) if (key.startsWith('defense:'+slot.id+':')) {muzzle=value.muzzle;break;}
+                } else {
+                    const owner=state.players.find(p=>p.id===effect.playerId);
+                    if (owner?.drone?.active && Math.hypot(owner.drone.x-effect.fromX,owner.drone.y-effect.fromY)<12) {
+                        const drone=objects.get('drone:'+owner.id);if(drone) {muzzle=drone.muzzle;}
+                    } else muzzle=objects.get('player:'+effect.playerId)?.muzzle;
+                }
+                const localShot=effect.playerId===latestFrame.localId && effect.weapon!=='turret' && viewVisible;
+                const start=localShot ? fpsMuzzleWorld() : muzzle ? muzzle.getWorldPosition(new T.Vector3()) : new T.Vector3(effect.fromX,22,effect.fromY);
+                const target=state.enemies.find(e=>e.id===effect.enemyId);
+                let height=target ? Math.max(6,radius(target)*.8) : start.y;
+                if(localShot && !target) {
+                    const distance=Math.hypot(effect.x-effect.fromX,effect.y-effect.fromY);
+                    height=camera.position.y+Math.tan(latestFrame.view?.pitch || 0)*distance;
+                }
+                const end=new T.Vector3(effect.x,height,effect.y);
+                const positions=item.root.geometry.attributes.position;
+                positions.setXYZ(0,start.x,start.y,start.z); positions.setXYZ(1,end.x,end.y,end.z);positions.needsUpdate=true;
+                item.initialized=true;
             }
-            const start=effect.playerId===latestFrame.localId && effect.weapon!=='turret' && viewVisible ? fpsMuzzleWorld() : muzzle ? muzzle.getWorldPosition(new T.Vector3()) : new T.Vector3(effect.fromX,22,effect.fromY);
-            const target=state.enemies.find(e=>e.id===effect.enemyId);
-            const end=new T.Vector3(effect.x,target ? Math.max(6,radius(target)*.8) : start.y,effect.y);
-            const positions=item.root.geometry.attributes.position;
-            positions.setXYZ(0,start.x,start.y,start.z); positions.setXYZ(1,end.x,end.y,end.z);positions.needsUpdate=true;
             item.root.material.opacity=Math.max(0,1-(now-effect.started)/198);
         }
         function project(x,y,height=0) {

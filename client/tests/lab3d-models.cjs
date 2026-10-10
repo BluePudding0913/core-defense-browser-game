@@ -42,7 +42,8 @@ renderer.render(frame);
 assert(Math.abs(head.rotation.y-Math.PI/2)<1e-8,'Turret turns toward its shot');
 const traces=scene.children.filter(o=>o.name==='muzzle-tracer');assert.equal(traces.length,2);
 const turretOrigin=muzzle.getWorldPosition(new THREE.Vector3());
-const soldierOrigin=viewScene.getObjectByName('Muzzle').getWorldPosition(new THREE.Vector3()).applyMatrix4(viewCamera.matrixWorldInverse).applyMatrix4(camera.matrixWorld);
+const soldierTrace=traces.find(line=>{const p=line.geometry.attributes.position;return Math.hypot(p.getX(0)-turretOrigin.x,p.getY(0)-turretOrigin.y,p.getZ(0)-turretOrigin.z)>1;});
+const soldierOrigin=new THREE.Vector3().fromBufferAttribute(soldierTrace.geometry.attributes.position,0);
 assert.equal(soldier.visible,false,'Local third-person body hidden in FPS');
 assert(camera.isPerspectiveCamera);assert.equal(camera.position.y,26);
 assert.equal(renderer.project(100,150,26).visible,false,'Behind-camera labels are hidden');
@@ -57,3 +58,27 @@ assert(!scene.getObjectByName('drop:1:medkit'));assert(!scene.getObjectByName('r
 assert(Math.abs(head.rotation.y-Math.PI/2)<1e-8,'Turret retains last firing direction');
 console.log('3D models passed: pointer facing, default/shot turret direction, muzzle origins, wire/mine/barricade models, terminals, loot, expiry and raised projection');
 
+
+// Test projected positions rather than repeating the coordinate conversion under test.
+for(const view of [{yaw:0,pitch:0,zoom:false},{yaw:.7,pitch:.4,zoom:false},{yaw:-.8,pitch:-.6,zoom:true}]) {
+    now+=300;frame.view=view;frame.effects=[];renderer.render(frame);
+    const before=renderer.aimPoint();
+    frame.effects=[{effect:'hit',weapon:'pistol',playerId:'me',fromX:player.x,fromY:player.y,
+        x:player.x+Math.sin(view.yaw)*250,y:player.y-Math.cos(view.yaw)*250,damage:0,started:now}];
+    renderer.render(frame);
+    const shot=scene.children.find(o=>o.name==='muzzle-tracer'),attribute=shot.geometry.attributes.position;
+    const start=new THREE.Vector3().fromBufferAttribute(attribute,0).project(camera);
+    const muzzle=viewScene.getObjectByName('Muzzle').getWorldPosition(new THREE.Vector3()).project(viewCamera);
+    assert(Math.hypot(start.x-muzzle.x,start.y-muzzle.y)<1e-5,'Tracer visually starts at the muzzle despite different FOV/zoom/rotation');
+    const end=new THREE.Vector3().fromBufferAttribute(attribute,1).project(camera);
+    assert(Math.hypot(end.x,end.y)<1e-5,'Firing upward/downward retains the shot pitch');
+    assert.deepEqual(renderer.aimPoint(),before,'A red line cannot intercept the next aim ray');
+    const fixed=Array.from(attribute.array);
+    frame.view={yaw:view.yaw+.5,pitch:view.pitch-.2,zoom:view.zoom};renderer.render(frame);
+    assert.deepEqual(Array.from(attribute.array),fixed,'Camera turns cannot drag an existing shot into a fan');
+}
+for(const [i,type] of ['grunt','runner','carrier','shield','warden','ghost'].entries()) {
+    state.enemies=[{id:200+i,type,x:180,y:100,hp:100,facingX:-.6,facingY:-.8}];frame.effects=[];renderer.render(frame);
+    assert(Math.abs(scene.getObjectByName('enemy:'+(200+i)).rotation.y-Math.atan2(-.6,-.8))<1e-8,'All enemy models use transmitted facing');
+}
+console.log('FPS trajectory regressions passed: muzzle screen alignment, pitch, zoom, fixed fired segments, aim excludes red lines, all enemy facing');
