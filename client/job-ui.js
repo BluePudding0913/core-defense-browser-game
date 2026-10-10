@@ -67,6 +67,6 @@ window.JobUI = (() => {
         dialog.showModal(); dialog.querySelector("[data-cancel]").focus();
     }
 
-    return Object.freeze({ catalog, render, renderAllyIntel, confirmChange });
+    return Object.freeze({ catalog, render, renderAllyIntel, confirmChange, isConfirming: () => Boolean(pendingDialog?.open) });
 })();
 window.coreJobs = window.JobUI.catalog;

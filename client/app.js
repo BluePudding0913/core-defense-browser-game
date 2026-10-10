@@ -2054,6 +2054,7 @@ function isTypingTarget(target) {
 }
 
 window.addEventListener("keydown", event => {
+    if (window.JobUI?.isConfirming?.()) return;
     if (window.coreMenu?.settingsOpen?.()) {
         if (window.coreKeySettings.gameKey(event) === "e" && !isTypingTarget(event.target)) {
             event.preventDefault(); if (!event.repeat) window.coreMenu.closeSettings?.();
