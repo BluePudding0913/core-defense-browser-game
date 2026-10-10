@@ -45,7 +45,7 @@ final class GameSession {
     double teamBuffRemaining;
     private boolean explosionBossSpawned;
     private boolean wardenSpawned;
-    private boolean debugMode;
+    boolean debugMode;
 
     static int ammoRefillCost() {
         return 120;
@@ -279,6 +279,7 @@ final class GameSession {
         if (player.missileControl && !Set.of("MISSILE", "MAP_REPAIR", "COMPUTER", "HELLO", "HACKER_BACKUP").contains(parts[0])) return;
         switch (parts[0]) {
             case "HACKER_BACKUP" -> saveBackup(player);
+            case "DEBUG" -> debugConsole(player, parts);
             case "HELLO" -> updateName(player, parts);
             case "START" -> {
                 if (rewindRemaining <= 0 && (phase == GamePhase.LOBBY || phase == GamePhase.WON || phase == GamePhase.LOST)) {
@@ -363,6 +364,21 @@ final class GameSession {
             case "READY" -> { if (phase == GamePhase.PREPARING && !player.down
                     && player.id.equals(roomOwnerId)) prepTime = 0; }
             default -> { }
+        }
+    }
+
+    private void debugConsole(Player player, String[] parts) {
+        if (!debugMode || !player.job.equals("hacker") || !canOperate(player, GameMap.BACKUP_TERMINAL)
+                || parts.length < 2) return;
+        if (parts[1].equals("GOLD")) {
+            player.credits += 100_000;
+        } else if (parts[1].equals("SUMMON") && parts.length == 3 && DEBUG_ENEMY_TYPES.contains(parts[2])) {
+            var tiles = GameMap.areaById("command-room").tiles();
+            double x = tiles.stream().mapToDouble(tile -> (tile.column() + .5) * GameMap.TILE_SIZE).average().orElseThrow();
+            double y = tiles.stream().mapToDouble(tile -> (tile.row() + .5) * GameMap.TILE_SIZE).average().orElseThrow();
+            spawnEnemy(parts[2], new SpawnPoint("debug-console", "COMMAND ROOM", x, y, "west", "balanced",
+                    1, "core", List.of(new MapPoint(x, y), new MapPoint(coreX, coreY))), true);
+            roundEnemyTotal++;
         }
     }
 
@@ -1006,10 +1022,6 @@ final class GameSession {
         return EnemyWaveRules.explosionRound(round);
     }
 
-    private boolean isDebugGhostRound() { return debugMode && round == 4; }
-
-    private boolean isDebugEnemyPreview() { return debugMode && round == 5; }
-
     private void beginRound() {
         round++;
         selectRoundSpawns(round);
@@ -1017,27 +1029,19 @@ final class GameSession {
         queuedEnemies = EnemyWaveRules.regularCount(round);
         queuedBosses = EnemyWaveRules.bossCount(round);
         queuedBlueEnemies = round >= 40 ? random.nextInt(3) : 0;
-        if (isDebugEnemyPreview()) {
-            queuedEnemies = DEBUG_ENEMY_TYPES.size();
-            queuedBosses = queuedBlueEnemies = 0;
-        }
-        if (isDebugGhostRound()) {
-            queuedEnemies += queuedBosses;
-            queuedBosses = 0;
-        }
         roundEnemyTotal = queuedEnemies + queuedBosses;
         explosionBossSpawned = false;
         wardenSpawned = false;
         // Reserve one simultaneous swarm within the regular population on selected late rounds.
         queuedTinyEnemies = round >= 40 && (round - 40) % 3 == 0
                 ? Math.min(queuedEnemies, (int) Math.round((48 + (round - 40) * 4) * 0.8)) : 0;
-        roundEvent = isDebugEnemyPreview() || isDebugGhostRound() ? "none" : isExplosionBossRound() ? "boss_assault" : round % 4 == 3 ? "blackout"
+        roundEvent = isExplosionBossRound() ? "boss_assault" : round % 4 == 3 ? "blackout"
                 : round >= 5 && round % 4 == 1 ? "door_failure"
                 : round % 4 == 0 ? "boss_assault" : "none";
         failedSpawnId = roundEvent.equals("door_failure")
                 ? activeSpawnIds.get(random.nextInt(activeSpawnIds.size())) : null;
         if (roundEvent.equals("blackout") && !blackoutActive) startBlackout();
-        spawnTimer = isDebugEnemyPreview() ? 1 : 8;
+        spawnTimer = 8;
         nextSpawnIndex = 0;
         coreShield = coreMaxShield;
         switch (roundEvent) {
@@ -1046,8 +1050,6 @@ final class GameSession {
             case "boss_assault" -> setNotice("ボスが" + queuedBosses + "体出現します");
             default -> { }
         }
-        if (isDebugGhostRound()) setNotice("DEBUG: ゴーストのみ出現します");
-        if (isDebugEnemyPreview()) setNotice("DEBUG: 全" + DEBUG_ENEMY_TYPES.size() + "種類の敵が出現します");
     }
 
     private void finishRound() {
@@ -1324,17 +1326,14 @@ final class GameSession {
         for (int i = 0; i < batchSize && (queuedEnemies > 0 || queuedBosses > 0); i++) {
             // Each member uses the next entrance so a burst pressures multiple sides.
             SpawnPoint spawn = nextRoundSpawn();
-            if (isDebugEnemyPreview() && queuedEnemies > 0) {
-                spawnEnemy(DEBUG_ENEMY_TYPES.get(DEBUG_ENEMY_TYPES.size() - queuedEnemies), spawn);
-                queuedEnemies--;
-            } else if (queuedBosses > 0 && queuedEnemies <= queuedBosses * 2) {
+            if (queuedBosses > 0 && queuedEnemies <= queuedBosses * 2) {
                 String bossType = isExplosionBossRound() && !explosionBossSpawned ? "explosionBoss"
-                        : (debugMode ? round == 5 : WardenRules.appearsInRound(round)) && !wardenSpawned ? "warden"
+                        : WardenRules.appearsInRound(round) && !wardenSpawned ? "warden"
                         : round >= 40 ? "titan" : round >= 24 ? "warlord" : "boss";
                 spawnEnemy(bossType, spawn);
                 queuedBosses--;
             } else if (queuedEnemies > 0) {
-                spawnEnemy(isDebugGhostRound() ? "ghost" : queuedBlueEnemies > 0 ? "blueAce" : selectEnemyType(spawn), spawn);
+                spawnEnemy(queuedBlueEnemies > 0 ? "blueAce" : selectEnemyType(spawn), spawn);
                 if (queuedBlueEnemies > 0) queuedBlueEnemies--;
                 queuedEnemies--;
             }
@@ -1342,7 +1341,7 @@ final class GameSession {
                     && spawn.id().equals(failedSpawnId) ? 0.58 : 1;
             // Give R1-R25 more breathing room, including during door failures.
             double minimumInterval = 0.28 + 0.42 * earlyRoundReliefScale();
-            spawnTimer = isDebugEnemyPreview() ? .5 : Math.max(minimumInterval,
+            spawnTimer = Math.max(minimumInterval,
                     (1.15 - round * 0.045 + earlyRoundRelief() * 0.04) * eventMultiplier);
         }
     }
@@ -1394,7 +1393,11 @@ final class GameSession {
     }
 
     private void spawnEnemy(String type, SpawnPoint spawn) {
-        if (type.equals("explosionBoss")) spawn = explosionBossSpawn(spawn);
+        spawnEnemy(type, spawn, false);
+    }
+
+    private void spawnEnemy(String type, SpawnPoint spawn, boolean summoned) {
+        if (!summoned && type.equals("explosionBoss")) spawn = explosionBossSpawn(spawn);
         double hp;
         double speed;
         double damage;
@@ -1410,14 +1413,14 @@ final class GameSession {
                 speed = 44;
                 damage = 38 + round * .6;
                 reward = 600;
-                wardenSpawned = true;
+                if (!summoned) wardenSpawned = true;
             }
             case "explosionBoss" -> {
                 hp = (2200 + round * 60) * 15;
                 speed = 24;
                 damage = 0;
                 reward = 0;
-                explosionBossSpawned = true;
+                if (!summoned) explosionBossSpawned = true;
             }
             case "bomber" -> {
                 hp = 45 + round * 4;

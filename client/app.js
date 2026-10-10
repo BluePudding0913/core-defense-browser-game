@@ -853,9 +853,32 @@ function cycleEquipment(direction = 1) {
 weaponButton.addEventListener("click", () => cycleEquipment(1));
 function openSystemConsole(terminal) {
     const me = getMe();
-    if (me?.job !== "hacker" || state.phase !== "preparing" || state.backupUsed) return;
-    openNearbyActionMenu("SYSTEM CONSOLE", [{label: "SAVE",
-        detail: state.backupCost + "G", command: "HACKER_BACKUP", disabled: me.credits < state.backupCost}], terminal, 70, "single");
+    if (me?.job !== "hacker" || !["preparing", "wave"].includes(state.phase)) return;
+    const options = [];
+    if (state.phase === "preparing" && !state.backupUsed) options.push({label: "SAVE",
+        detail: state.backupCost + "G", command: "HACKER_BACKUP", disabled: me.credits < state.backupCost});
+    if (state.debugMode) options.push({label: "debug", onSelect: () => openDebugConsole(terminal)});
+    if (!options.length) return;
+    openNearbyActionMenu("SYSTEM CONSOLE", options, terminal, 70, "single", () => openSystemConsole(terminal));
+}
+
+function openDebugConsole(terminal) {
+    if (!state.debugMode || getMe()?.job !== "hacker") return;
+    openNearbyActionMenu("debug", [
+        {label: "Summon Enemy", onSelect: () => openDebugSummonMenu(terminal)},
+        {label: "get gold", detail: "100000G", onSelect: () => send("DEBUG:GOLD")},
+        {label: "BACK", onSelect: () => openSystemConsole(terminal)},
+    ], terminal, 70, "single", () => openDebugConsole(terminal));
+}
+
+function openDebugSummonMenu(terminal) {
+    if (!state.debugMode || getMe()?.job !== "hacker") return;
+    const options = (state.debugEnemyTypes || []).map(type => ({
+        label: type.replace(/([a-z])([A-Z])/g, "$1 $2").toUpperCase(),
+        onSelect: () => send("DEBUG:SUMMON:" + type),
+    }));
+    options.push({label: "BACK", onSelect: () => openDebugConsole(terminal)});
+    openNearbyActionMenu("Summon Enemy", options, terminal, 70, "single", () => openDebugSummonMenu(terminal));
 }
 
 function useJobAbility() {
@@ -2147,7 +2170,7 @@ function findNearestInteraction() {
         shop.label, () => openShopPurchase(shop)));
     WORKBENCHES
         .filter(workbench => (!workbench.requiredArea || state.areas[workbench.requiredArea])
-            && (workbench.id !== "backup-terminal" || me.job === "hacker" && state.phase === "preparing" && !state.backupUsed))
+            && (workbench.id !== "backup-terminal" || me.job === "hacker" && (state.debugMode || state.phase === "preparing" && !state.backupUsed)))
         .forEach(workbench => add("craft", workbench, workbench.id === "backup-terminal" ? 70 : INTERACTION_RANGE.workbench,
             workbench.id === "backup-terminal" ? "CONSOLE" : "CRAFT",
             () => workbench.id === "backup-terminal" ? openSystemConsole(workbench) : openWorkbenchMenu(workbench)));

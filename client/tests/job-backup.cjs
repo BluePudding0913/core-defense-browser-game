@@ -12,3 +12,20 @@ me.credits=99999;vm.runInContext("openSystemConsole({x:100,y:100})",context);ass
 menu=null;context.state.phase="wave";vm.runInContext("openSystemConsole({x:100,y:100})",context);assert.equal(menu,null);
 context.state.phase="preparing";context.state.backupUsed=true;vm.runInContext("openSystemConsole({x:100,y:100})",context);assert.equal(menu,null);
 console.log("Hacker backup menu passed: preparation, price and once-per-match restriction");
+
+vm.runInContext(extract("openDebugConsole"),context); vm.runInContext(extract("openDebugSummonMenu"),context);
+const commands=[]; context.send=command=>commands.push(command);
+context.state.debugMode=true; context.state.debugEnemyTypes=["grunt","warden","explosionBoss"];
+vm.runInContext("openSystemConsole({x:100,y:100})",context);
+assert.equal(menu.options.length,1); assert.equal(menu.options[0].label,"debug");
+menu.options[0].onSelect(); assert.equal(menu.title,"debug");
+menu.options[1].onSelect(); menu.options[1].onSelect(); assert.deepEqual(commands,["DEBUG:GOLD","DEBUG:GOLD"]);
+menu.options[0].onSelect(); assert.equal(menu.title,"Summon Enemy");
+assert.deepEqual(Array.from(menu.options,option=>option.label),["GRUNT","WARDEN","EXPLOSION BOSS","BACK"]);
+menu.options[2].onSelect(); assert.equal(commands.at(-1),"DEBUG:SUMMON:explosionBoss");
+menu.options.at(-1).onSelect(); assert.equal(menu.title,"debug");
+menu.options.at(-1).onSelect(); assert.equal(menu.title,"SYSTEM CONSOLE");
+context.state.phase="wave"; vm.runInContext("openSystemConsole({x:100,y:100})",context); assert.equal(menu.options[0].label,"debug");
+me.job="scout"; menu=null; vm.runInContext("openSystemConsole({x:100,y:100})",context); assert.equal(menu,null);
+me.job="hacker"; context.state.debugMode=false; vm.runInContext("openDebugConsole({x:100,y:100})",context); assert.equal(menu,null);
+console.log("Debug console passed: nested navigation, summon selection, repeatable gold and access restrictions");
