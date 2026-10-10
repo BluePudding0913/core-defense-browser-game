@@ -110,7 +110,7 @@ class GameplayRevisionTest {
         player.weapons.setAmmo("sniper", 0); player.weapons.setAmmo("revolver", 25); player.weapons.setAmmo("lmg", 150);
         game.handleMessage(player, "BUY:ammo");
         assertEquals(750, player.credits);
-        assertEquals(List.of(50, 240, 30, 15, 30, 600), List.of(player.weapons.ammo("shotgun"),
+        assertEquals(List.of(50, 240, 30, 30, 30, 600), List.of(player.weapons.ammo("shotgun"),
                 player.weapons.ammo("smg"), player.weapons.ammo("rifle"), player.weapons.ammo("sniper"), player.weapons.ammo("revolver"), player.weapons.ammo("lmg")));
         for (int i = 0; i < 3; i++) game.handleMessage(player, "BUY:ammo");
         assertEquals(750, player.credits);
@@ -186,7 +186,7 @@ class GameplayRevisionTest {
             ShopUnit shop = GameMap.shopByItem(weapon);
             int capacity = GameSession.weaponAmmoCapacity(weapon);
             int budget = shop.cost() + 1000;
-            int damage = weapon.equals("revolver") ? 320 : 18;
+            int damage = weapon.equals("revolver") ? 320 : 30;
             player.credits = budget;
             player.x = shop.x(); player.y = shop.y();
             game.handleMessage(player, "BUY:" + weapon);
