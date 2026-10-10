@@ -2519,7 +2519,7 @@ function drawFirstPerson() {
     const now=performance.now();hitEffects=hitEffects.filter(e=>now-e.started<1200);
     const activeProjectiles=new Set((state.projectiles || []).map(p=>"projectile-"+p.id));
     for(const key of smoothed.keys())if(key.startsWith("projectile-") && !activeProjectiles.has(key))smoothed.delete(key);
-    const text=(label,x,y,height=32,color='#e8f4f8')=>{const p=labRenderer.project(x,y,height);if(!p.visible)return;ctx.save();ctx.font=`bold ${Math.max(12,12*canvas.width/innerWidth)}px system-ui`;ctx.textAlign='center';ctx.fillStyle=color;ctx.shadowColor='#08121a';ctx.shadowBlur=4;ctx.fillText(label,p.x,p.y);ctx.restore();};
+    const text=(label,x,y,height=32,color='#e8f4f8')=>{const p=labRenderer.project(x,y,height);if(!p.visible)return;ctx.save();const pixelRatio=canvas.width/innerWidth;const fontSize=Math.max(12,Math.min(28,p.pixelsPerUnit*6/pixelRatio));ctx.font=`bold ${fontSize*pixelRatio}px system-ui`;ctx.textAlign='center';ctx.fillStyle=color;ctx.shadowColor='#08121a';ctx.shadowBlur=4;ctx.fillText(label,p.x,p.y);ctx.restore();};
     const bar=(entity,p,height,color)=>{const a=labRenderer.project(p.x,p.y,height);if(!a.visible)return;const w=38*canvas.width/innerWidth,h=4*canvas.width/innerWidth;ctx.fillStyle='#16232c';ctx.fillRect(a.x-w/2,a.y,w,h);ctx.fillStyle=color;ctx.fillRect(a.x-w/2,a.y,w*clamp(entity.hp/Math.max(1,entity.maxHp || entity.hp),0,1),h);};
     for(const [p,label,color] of labStations()) if(Math.hypot(p.x-eye.x,p.y-eye.y)<420)text(label,p.x,p.y,38,color);
     for(const enemy of state.enemies)if(enemy.hp>0){const p=smoothEntity('enemy',enemy);if(enemy.hp<enemy.maxHp)bar(enemy,p,enemyRadius(enemy)*2.2,'#ff7780');}
