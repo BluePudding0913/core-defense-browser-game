@@ -206,3 +206,5 @@ client/core-feedback.jsはコアのHP・シールド減少時に2.8秒の通知�
 ゲーム開始成功時にGameSessionがGameEventSink.gameStartedで人数・デバッグ状態を通知し、WasdServerが日時・ルームID付きのGAME STARTを標準出力へ記録する。開始拒否・開始中の再送・ラウンド更新では記録しない。
 
 JobRules.weaponLimitはAttackerの武器上限を4、他職業を3とし、近接専用枠は数えない。WeaponInventoryの取得・交換とSnapshotBuilderのプレイヤー別weaponLimit、WeaponUIの購入・ガチャ交換判定で共通に使う。職業変更時は所持武器を保持し、上限以上では新規取得を拒否するが、補充と1対1交換は許可する。
+
+CORE HUNTER（coreHunter）はR10から出現するコア専用の通常敵。プレイヤー・タンク・デコイ・ドローン・周辺設備を標的にせず、既存のコア経路と移動・接触攻撃を使う。進路を塞ぐ防壁だけは従来の障害物処理で破壊する。GameSession.advanceEnemyToCoreを通常敵と共用し、出現抽選・デバッグ召喚・撃破報酬も既存経路へ接続する。黄土色とCORE HUNTERラベルで区別する。

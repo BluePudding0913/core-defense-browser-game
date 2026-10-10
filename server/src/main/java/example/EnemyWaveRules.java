@@ -7,7 +7,7 @@ final class EnemyWaveRules {
     record Entry(String type, int firstRound, double weight) {}
     static final List<Entry> SPECIALS = List.of(
         new Entry("gilded",6,3), new Entry("shield",7,9), new Entry("armored",10,12),
-        new Entry("seeker",10,6), new Entry("artillery",12,5), new Entry("blackout",14,2),
+        new Entry("coreHunter",10,6), new Entry("seeker",10,6), new Entry("artillery",12,5), new Entry("blackout",14,2),
         new Entry("bomber",15,8), new Entry("hunter",18,10), new Entry("ghost",18,10),
         new Entry("carrier",22,2), new Entry("siege",26,8), new Entry("champion",34,7));
     static int regularCount(int round) {

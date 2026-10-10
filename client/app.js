@@ -2934,7 +2934,7 @@ function drawArtilleryShells() {
 }
 
 function drawEnemies() {
-    const colors = { grunt: "#707070", runner: "#999", brute: "#505050", boss: "#2f2f2f",
+    const colors = { grunt: "#707070", coreHunter: "#d4954b", runner: "#999", brute: "#505050", boss: "#2f2f2f",
         armored: "#626c78", hunter: "#a66e6e", siege: "#776951", champion: "#786283",
         warlord: "#4d3030", titan: "#34253f", tiny: "#a9bd75", shield: "#466c80", bomber: "#dd7b32", artillery: "#65803c", gilded: "#e8b94f", blueAce: "#358dff", carrier: "#836044", blackout: "#24443d", seeker: "#82434d" };
     for (const enemy of state.enemies) {
@@ -3021,7 +3021,7 @@ function drawEnemies() {
             ctx.fillStyle = "#cce76b";
             ctx.beginPath(); ctx.arc(p.x, p.y - radius * .7, 9, 0, Math.PI * 2); ctx.fill();
         }
-        if (enemy.type !== "grunt" && enemy.type !== "tiny") { ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText(enemy.type.toUpperCase(), p.x, p.y + radius + 15); }
+        if (enemy.type !== "grunt" && enemy.type !== "tiny") { ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText((enemy.type === "coreHunter" ? "CORE HUNTER" : enemy.type.toUpperCase()), p.x, p.y + radius + 15); }
         if (isBoss) {
             drawBar(p.x - 44, p.y - radius - 17, 88, 6, clamp(enemy.hp / enemy.maxHp, 0, 1), "#ff5964");
             ctx.fillStyle = "#fff"; ctx.font = "800 10px ui-monospace, monospace"; ctx.textAlign = "center";

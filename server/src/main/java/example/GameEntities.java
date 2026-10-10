@@ -436,7 +436,7 @@ final class Enemy {
         this.targetPriority = switch (type) {
             case "hunter", "ghost", "blueAce", "carrier", "blackout", "seeker" -> "players";
             case "siege" -> "defenses";
-            case "warlord", "titan" -> "core";
+            case "coreHunter", "warlord", "titan" -> "core";
             default -> spawn.targetPriority();
         };
         this.specialCooldown = isBoss() ? 4.5 : 0;
