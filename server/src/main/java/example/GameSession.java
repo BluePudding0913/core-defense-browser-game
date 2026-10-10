@@ -1512,7 +1512,7 @@ final class GameSession {
         if (GameMap.spawnArea(spawn) != null) spawn = new SpawnPoint(spawn.id(), spawn.name(),
                 spawn.x(), spawn.y(), spawn.lane(), spawn.enemyBias(), spawn.speedMultiplier(),
                 spawn.targetPriority(), List.of(new MapPoint(spawn.x(), spawn.y()), new MapPoint(coreX, coreY)));
-        enemies.add(new Enemy(nextEnemyId++, type, spawn, hp * 2, BossRules.baseSpeed(type, speed, runnerSpeed) * 0.5, damage,
+        enemies.add(new Enemy(nextEnemyId++, type, spawn, BossRules.spawnHp(type, hp * 2), BossRules.baseSpeed(type, speed, runnerSpeed) * 0.5, damage,
                 (int) Math.round(reward * 2.5 * GameConfig.goldMultiplier(round))));
     }
 

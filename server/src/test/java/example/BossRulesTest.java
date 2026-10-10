@@ -4,6 +4,29 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 
 class BossRulesTest {
+    @Test void bossSpawnHpIsReducedAndRoundedForNormalAndDebugSpawns() throws Exception {
+        GameSession game = new GameSession(new GameEventSink() {
+            public void broadcast(String s) {}
+            public void send(Player p, String s) {}
+        });
+        game.round = 40;
+        var spawn = GameSession.class.getDeclaredMethod("spawnEnemy", String.class, SpawnPoint.class, boolean.class);
+        spawn.setAccessible(true);
+        String[] types = {"boss", "warden", "warlord", "titan", "explosionBoss", "grunt"};
+        double[] expected = {37400, 46800, 46800, 56200, 89700, 612};
+        for (boolean summoned : new boolean[]{false, true}) {
+            for (int i = 0; i < types.length; i++) {
+                game.enemies.clear();
+                spawn.invoke(game, types[i], GameMap.SPAWN_POINTS.get(0), summoned);
+                Enemy enemy = game.enemies.get(0);
+                assertEquals(expected[i], enemy.maxHp, types[i]);
+                assertEquals(expected[i], enemy.hp, types[i]);
+                var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game)).path("enemies").get(0);
+                assertEquals(expected[i], snapshot.path("maxHp").asDouble(), types[i]);
+            }
+        }
+    }
+
     @Test void generatedBossSpeedMatchesRunnerAcrossRoundsAndEntrances() throws Exception {
         GameSession game = new GameSession(new GameEventSink() {
             public void broadcast(String s) {}

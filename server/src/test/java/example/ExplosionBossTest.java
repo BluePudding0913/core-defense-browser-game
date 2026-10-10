@@ -70,7 +70,7 @@ class ExplosionBossTest {
         double hp = boss.hp;
         game.combat.damageEnemy(boss, 1000., player);
         assertEquals(hp - 1000, boss.hp);
-        assertEquals((2200 + game.round * 60) * 2 * 15, boss.maxHp);
+        assertEquals(Math.round((2200 + game.round * 60) * 19.5 / 100) * 100.0, boss.maxHp);
         assertTrue(boss.speed <= 24);
         update(10);
         assertEquals(100, player.hp);

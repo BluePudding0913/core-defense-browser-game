@@ -38,8 +38,8 @@ class EnemyWaveRulesTest {
         var spawn = GameSession.class.getDeclaredMethod("spawnEnemy",String.class,SpawnPoint.class); spawn.setAccessible(true);
         game.round = 40;
         for (String type : List.of("boss","warden","warlord","titan")) spawn.invoke(game,type,GameMap.SPAWN_POINTS.get(0));
-        assertEquals(57600,game.enemies.get(0).maxHp); assertEquals(72000,game.enemies.get(1).maxHp);
-        assertEquals(72000,game.enemies.get(2).maxHp); assertEquals(86400,game.enemies.get(3).maxHp);
+        assertEquals(37400,game.enemies.get(0).maxHp); assertEquals(46800,game.enemies.get(1).maxHp);
+        assertEquals(46800,game.enemies.get(2).maxHp); assertEquals(56200,game.enemies.get(3).maxHp);
     }
 
     @Test void saturatedUtilityEnemyCapsRemoveThemFromTheLotteryAndKeepBaseEnemies() {

@@ -377,7 +377,7 @@ class GameplayRevisionTest {
         Method spawn = GameSession.class.getDeclaredMethod("spawnEnemy", String.class, SpawnPoint.class);
         spawn.setAccessible(true);
         game.round = 8;
-        double[] hp = {106, 67, 254, 12800};
+        double[] hp = {212, 134, 508, 16600};
         double[] speed = {70, 168, 46, 168};
         int[] gold = {35, 45, 100, 1188};
         String[] types = {"grunt", "runner", "brute", "boss"};
@@ -385,7 +385,7 @@ class GameplayRevisionTest {
         for (int i = 0; i < types.length; i++) {
             spawn.invoke(game, types[i], point);
             Enemy enemy = game.enemies.get(i);
-            assertEquals(hp[i] * 2, enemy.maxHp, 1e-6);
+            assertEquals(hp[i], enemy.maxHp, 1e-6);
             assertEquals(speed[i] * .5 * point.speedMultiplier(), enemy.speed, 1e-6);
             int before = player.credits;
             game.combat.damageEnemy(enemy, enemy.maxHp / 4, player);
