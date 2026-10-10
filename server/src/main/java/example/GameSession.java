@@ -33,6 +33,7 @@ enum GamePhase { LOBBY, PREPARING, WAVE, WON, LOST }
 interface GameEventSink {
     void broadcast(String message);
     void send(Player player, String message);
+    default void gameStarted(int humans, int cpus, boolean debugMode) {}
 }
 
 /** Authoritative state and rules for one four-player match. */
@@ -999,6 +1000,8 @@ final class GameSession {
         phase = GamePhase.PREPARING;
         prepTime = GameConfig.prepSeconds(1);
         setNotice("次のラウンドの準備を始めます");
+        int humans = (int) players.stream().filter(player -> player.human).count();
+        events.gameStarted(humans, players.size() - humans, debugMode);
     }
 
     void setRoomOwner(Player player) {
