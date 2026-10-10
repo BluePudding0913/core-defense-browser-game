@@ -41,6 +41,7 @@ final class GameSession {
     private static final double BOT_REACTION_SECONDS = 1.5;
     final List<PoisonGasRules.Cloud> poisonClouds = new ArrayList<>();
     int roundEnemyTotal;
+    int roundHumanCount = PLAYER_COUNT;
     double elapsedSeconds;
     double victoryMoveRemaining;
     double teamBuffRemaining;
@@ -391,7 +392,7 @@ final class GameSession {
         if (!spend(player, BACKUP_COST)) { gameEffects.feedback(player, "お金が足りません"); return; }
         var savedPlayers = players.stream().map(Player::gameplayCopy).toList();
         backup = new PreparationBackup(new PreparationBackup.World(
-                roundEnemyTotal, round, queuedEnemies, queuedTinyEnemies, queuedBlueEnemies,
+                roundEnemyTotal, round, roundHumanCount, queuedEnemies, queuedTinyEnemies, queuedBlueEnemies,
                 queuedBosses, coreDefenseLevel, coreRegenLevel, blackoutBreakerTotal, nextPrepBonusSeconds,
                 nextEnemyId, nextDefenseId, nextDroppedResourceId, nextFactoryId, nextSpawnIndex,
                 elapsedSeconds, victoryMoveRemaining, teamBuffRemaining, prepTime, coreHp,
@@ -413,6 +414,7 @@ final class GameSession {
         var world = saved.world();
         roundEnemyTotal = world.roundEnemyTotal();
         round = world.round();
+        roundHumanCount = world.roundHumanCount();
         queuedEnemies = world.queuedEnemies();
         queuedTinyEnemies = world.queuedTinyEnemies();
         queuedBlueEnemies = world.queuedBlueEnemies();
@@ -1053,9 +1055,13 @@ final class GameSession {
 
     private void beginRound() {
         round++;
+        // Freeze difficulty before creating any budgets or enemies for this round.
+        roundHumanCount = RoundDifficultyRules.humanCount((int) players.stream()
+                .filter(player -> RoundDifficultyRules.countsAsHuman(player.human, player.sessionId != null,
+                        RECONNECT_GRACE_SECONDS - player.reconnectGrace)).count());
         selectRoundSpawns(round);
         phase = GamePhase.WAVE;
-        queuedEnemies = EnemyWaveRules.regularCount(round);
+        queuedEnemies = RoundDifficultyRules.population(EnemyWaveRules.regularCount(round), roundHumanCount);
         queuedBosses = EnemyWaveRules.bossCount(round);
         queuedBlueEnemies = round >= 40 ? random.nextInt(3) : 0;
         roundEnemyTotal = queuedEnemies + queuedBosses;
@@ -1063,7 +1069,8 @@ final class GameSession {
         wardenSpawned = false;
         // Reserve one simultaneous swarm within the regular population on selected late rounds.
         queuedTinyEnemies = round >= 40 && (round - 40) % 3 == 0
-                ? Math.min(queuedEnemies, (int) Math.round((48 + (round - 40) * 4) * 0.8)) : 0;
+                ? Math.min(queuedEnemies, RoundDifficultyRules.population(
+                        (int) Math.round((48 + (round - 40) * 4) * 0.8), roundHumanCount)) : 0;
         roundEvent = isExplosionBossRound() ? "boss_assault" : round % 4 == 3 ? "blackout"
                 : round >= 5 && round % 4 == 1 ? "door_failure"
                 : round % 4 == 0 ? "boss_assault" : "none";
@@ -1538,7 +1545,9 @@ final class GameSession {
         if (GameMap.spawnArea(spawn) != null) spawn = new SpawnPoint(spawn.id(), spawn.name(),
                 spawn.x(), spawn.y(), spawn.lane(), spawn.enemyBias(), spawn.speedMultiplier(),
                 spawn.targetPriority(), List.of(new MapPoint(spawn.x(), spawn.y()), new MapPoint(coreX, coreY)));
-        enemies.add(new Enemy(nextEnemyId++, type, spawn, BossRules.spawnHp(type, hp * 2), BossRules.baseSpeed(type, speed, runnerSpeed) * 0.5, damage,
+        double spawnHp = RoundDifficultyRules.enemyHp(type, BossRules.spawnHp(type, hp * 2), roundHumanCount);
+        enemies.add(new Enemy(nextEnemyId++, type, spawn, spawnHp,
+                BossRules.baseSpeed(type, speed, runnerSpeed) * 0.5, damage,
                 (int) Math.round(reward * 2.5 * GameConfig.goldMultiplier(round))));
     }
 
@@ -3636,6 +3645,7 @@ final class GameSession {
         explosionBossSpawned = false;
         wardenSpawned = false;
         roundEnemyTotal = 0;
+        roundHumanCount = PLAYER_COUNT;
         debugMode = false;
         phase = GamePhase.LOBBY;
         round = 0;

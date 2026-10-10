@@ -73,7 +73,7 @@ class DebugEnemyPreviewTest {
     @Test void debugRoundsUseExactlyTheNormalPopulationsEventsAndTiming() throws Exception {
         for (int round : new int[]{4, 5, 6, 16, 32, 48}) {
             game.debugMode = true; begin(round);
-            assertEquals(EnemyWaveRules.regularCount(round), game.queuedEnemies);
+            assertEquals(RoundDifficultyRules.population(EnemyWaveRules.regularCount(round), 1), game.queuedEnemies);
             assertEquals(EnemyWaveRules.bossCount(round), game.queuedBosses);
             String event = game.roundEvent;
             spawn(1); assertTrue(game.enemies.isEmpty(), "Keep the normal eight-second delay");
