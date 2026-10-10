@@ -243,6 +243,7 @@ final class GameSession {
         if (!player.human) return;
         String displayName = player.name;
         player.human = false;
+        player.aimPitch = player.secondaryAimPitch = null;
         releaseDroneControl(player);
         player.missileControl = false;
         player.breakerControl = null;
@@ -339,8 +340,8 @@ final class GameSession {
             case "MOVE" -> handleMove(player, parts);
             case "DASH" -> handleDash(player, parts);
             case "ATTACK" -> combat.attackAt(player, player.aimX, player.aimY);
-            case "FIRE" -> handleFire(player, parts);
-            case "SECONDARY_FIRE" -> handleSecondaryFire(player, parts);
+            case "FIRE" -> handleFire(player, message.split(":", 5));
+            case "SECONDARY_FIRE" -> handleSecondaryFire(player, message.split(":", 5));
             case "INTERACT" -> { if (parts.length >= 2) interact(player, parts[1]); }
             case "WEAPON" -> { if (parts.length >= 2) switchWeapon(player, parts[1]); }
             case "SECONDARY_WEAPON" -> { if (parts.length >= 2) switchSecondaryWeapon(player, parts[1]); }
@@ -985,7 +986,11 @@ final class GameSession {
         if (!canMove() || !player.job.equals("attacker") || player.down || player.movingCore || player.selectedBuild != null) return;
         double x = Double.parseDouble(parts[1]), y = Double.parseDouble(parts[2]);
         if (!Double.isFinite(x) || !Double.isFinite(y)) return;
-        player.secondaryAimX = clamp(x, 0, WORLD_W); player.secondaryAimY = clamp(y, 0, WORLD_H);
+        Double pitch = parts.length >= 5 ? Double.valueOf(parts[4]) : null;
+        if (pitch != null && !FpsHitRules.validPitch(pitch)) return;
+        player.secondaryAimPitch = pitch;
+        player.secondaryAimX = clamp(x, pitch == null ? 0 : -WORLD_W * 2, pitch == null ? WORLD_W : WORLD_W * 3);
+        player.secondaryAimY = clamp(y, pitch == null ? 0 : -WORLD_H * 2, pitch == null ? WORLD_H : WORLD_H * 3);
         boolean begins = !player.secondaryFiring;
         player.secondaryFiring = true;
         if (begins) combat.attackSecondary(player, player.secondaryAimX, player.secondaryAimY);
@@ -1001,9 +1006,12 @@ final class GameSession {
             player.firing = player.secondaryFiring = false;
             return;
         }
+        Double pitch = parts.length >= 5 ? Double.valueOf(parts[4]) : null;
+        if (pitch != null && !FpsHitRules.validPitch(pitch)) return;
+        player.aimPitch = pitch;
         boolean beginsPress = active && !player.firing;
-        player.aimX = clamp(x, 0, WORLD_W);
-        player.aimY = clamp(y, 0, WORLD_H);
+        player.aimX = clamp(x, pitch == null ? 0 : -WORLD_W * 2, pitch == null ? WORLD_W : WORLD_W * 3);
+        player.aimY = clamp(y, pitch == null ? 0 : -WORLD_H * 2, pitch == null ? WORLD_H : WORLD_H * 3);
         player.firing = active;
         if (!active) player.hookPressHandled = false;
         if (!active) player.stopRailgun();
@@ -3733,6 +3741,7 @@ final class GameSession {
             player.firing = player.secondaryFiring = false;
             player.aimX = player.x + 100;
             player.aimY = player.y;
+            player.aimPitch = player.secondaryAimPitch = null;
             player.stopRailgun();
             HookSystem.clear(player);
             player.hookPressHandled = false;

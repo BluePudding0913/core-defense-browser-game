@@ -144,6 +144,7 @@ final class CombatSystem {
         double length = Math.hypot(dx, dy);
         player.railgunDx = length < .001 ? 1 : dx / length;
         player.railgunDy = length < .001 ? 0 : dy / length;
+        player.railgunPitch = player.aimPitch;
     }
 
 
@@ -255,26 +256,26 @@ final class CombatSystem {
 
     // Run both hands through the same weapon rules; only hand state is swapped.
     private record HandState(String weapon, double cooldown, double cooldownMax, boolean firing, boolean hookPressHandled,
-            double aimX, double aimY, double charge, double remaining, double tick, double dx, double dy) {
+            double aimX, double aimY, Double pitch, double charge, double remaining, double tick, double dx, double dy, Double beamPitch) {
         static HandState primary(Player p) {
-            return new HandState(p.weapon, p.cooldown, p.cooldownMax, p.firing, p.hookPressHandled, p.aimX, p.aimY,
-                    p.railgunCharge, p.railgunRemaining, p.railgunTick, p.railgunDx, p.railgunDy);
+            return new HandState(p.weapon, p.cooldown, p.cooldownMax, p.firing, p.hookPressHandled, p.aimX, p.aimY, p.aimPitch,
+                    p.railgunCharge, p.railgunRemaining, p.railgunTick, p.railgunDx, p.railgunDy, p.railgunPitch);
         }
         static HandState secondary(Player p) {
             return new HandState(p.secondaryWeapon, p.secondaryCooldown, p.secondaryCooldownMax,
-                    p.secondaryFiring, p.secondaryHookPressHandled, p.secondaryAimX, p.secondaryAimY, p.secondaryRailgunCharge,
-                    p.secondaryRailgunRemaining, p.secondaryRailgunTick, p.secondaryRailgunDx, p.secondaryRailgunDy);
+                    p.secondaryFiring, p.secondaryHookPressHandled, p.secondaryAimX, p.secondaryAimY, p.secondaryAimPitch, p.secondaryRailgunCharge,
+                    p.secondaryRailgunRemaining, p.secondaryRailgunTick, p.secondaryRailgunDx, p.secondaryRailgunDy, p.secondaryRailgunPitch);
         }
         void applyPrimary(Player p) {
             p.weapon = weapon; p.cooldown = cooldown; p.cooldownMax = cooldownMax; p.firing = firing; p.hookPressHandled = hookPressHandled;
-            p.aimX = aimX; p.aimY = aimY; p.railgunCharge = charge; p.railgunRemaining = remaining;
-            p.railgunTick = tick; p.railgunDx = dx; p.railgunDy = dy;
+            p.aimX = aimX; p.aimY = aimY; p.aimPitch = pitch; p.railgunCharge = charge; p.railgunRemaining = remaining;
+            p.railgunTick = tick; p.railgunDx = dx; p.railgunDy = dy; p.railgunPitch = beamPitch;
         }
         void applySecondary(Player p) {
             p.secondaryWeapon = weapon; p.secondaryCooldown = cooldown; p.secondaryCooldownMax = cooldownMax;
-            p.secondaryFiring = firing; p.secondaryHookPressHandled = hookPressHandled; p.secondaryAimX = aimX; p.secondaryAimY = aimY;
+            p.secondaryFiring = firing; p.secondaryHookPressHandled = hookPressHandled; p.secondaryAimX = aimX; p.secondaryAimY = aimY; p.secondaryAimPitch = pitch;
             p.secondaryRailgunCharge = charge; p.secondaryRailgunRemaining = remaining;
-            p.secondaryRailgunTick = tick; p.secondaryRailgunDx = dx; p.secondaryRailgunDy = dy;
+            p.secondaryRailgunTick = tick; p.secondaryRailgunDx = dx; p.secondaryRailgunDy = dy; p.secondaryRailgunPitch = beamPitch;
         }
     }
 
@@ -418,24 +419,30 @@ final class CombatSystem {
         while (player.railgunTick + 1e-9 >= GameConfig.RAILGUN_TICK) {
             player.railgunTick -= GameConfig.RAILGUN_TICK;
             double range = GameMap.distanceToWall(player.x, player.y, player.railgunDx, player.railgunDy, stats.range(), world.unlockedAreas());
+            FpsHitRules.Ray beamRay = player.railgunPitch == null ? null
+                    : new FpsHitRules.Ray(player.x, player.y, 26, player.railgunDx, player.railgunDy, Math.tan(player.railgunPitch), range);
             for (Player target : friendlyRayTargets(player, player.x, player.y,
                     player.railgunDx, player.railgunDy, stats, range)) {
-                world.damagePlayer(target, stats.damage() * GameConfig.RAILGUN_TICK);
+                if (beamRay == null || FpsHitRules.ally(beamRay, target.x, target.y, target.down, stats.width()) != null)
+                    world.damagePlayer(target, stats.damage() * GameConfig.RAILGUN_TICK);
             }
-            interceptShots(player, "railgun", player.x, player.y, shot -> Double.isFinite(EnemyProjectileSystem.rayEntry(shot,
+            interceptShots(player, "railgun", player.x, player.y, shot -> (beamRay == null || FpsHitRules.projectile(beamRay, shot.x, shot.y, stats.width()) != null) && Double.isFinite(EnemyProjectileSystem.rayEntry(shot,
                     player.x, player.y, player.railgunDx, player.railgunDy, range, stats.width())), stats.damage() * GameConfig.RAILGUN_TICK);
             // Copy: damage can spawn world.enemies(), so newly spawned world.enemies() enter on the next tick.
             for (Enemy enemy : List.copyOf(world.enemies())) {
                 if (enemy.hp <= 0 || !isInsideAttack(enemy, player.x, player.y, player.railgunDx, player.railgunDy, stats, range)
                         || !GameMap.hasClearLine(player.x, player.y, enemy.x, enemy.y, world.unlockedAreas())) continue;
-                if (SpecialEnemyRules.hitsBag(enemy, player.x, player.y, player.railgunDx, player.railgunDy, range, stats.width())) {
+                FpsHitRules.Hit beamHit = beamRay == null ? null : fpsEnemy(beamRay, enemy, stats.width());
+                if (beamRay != null && beamHit == null) continue;
+                if ((beamRay == null || beamHit.height() <= 30) && SpecialEnemyRules.hitsBag(enemy, player.x, player.y, player.railgunDx, player.railgunDy, range, stats.width())) {
                     damageBag(enemy, stats.damage() * GameConfig.RAILGUN_TICK, player, "railgun", player.x, player.y);
                     continue;
                 }
                 int before = player.credits;
                 double dealt = damageEnemy(enemy, stats.damage() * GameConfig.RAILGUN_TICK, player);
-                events.hit(player.id, "railgun", player.x, player.y, enemy.x, enemy.y,
-                        dealt, enemy.hp <= 0, player.credits - before, false, enemy.id);
+                rayHit(player, player.x, player.y, beamRay == null ? enemy.x : player.x + player.railgunDx * beamHit.distance(),
+                        beamRay == null ? enemy.y : player.y + player.railgunDy * beamHit.distance(),
+                        dealt, enemy.hp <= 0, player.credits - before, false, enemy.id, beamRay);
             }
         }
         if (player.railgunRemaining < 1e-9) {
@@ -540,7 +547,8 @@ final class CombatSystem {
         for (int bounce = 0; bounce <= 2 && remaining > .01; bounce++) {
             GameMap.WallImpact wall = GameMap.rayWall(x, y, dx, dy, remaining, world.unlockedAreas());
             double length = Math.max(0, wall.distance() - .001);
-            if (fireSegment(player, weapon, x, y, dx, dy, length)) return;
+            if (fireSegment(player, weapon, x, y, dx, dy, length, shotHeight(player)
+                    + (player.aimPitch == null ? 0 : Math.tan(player.aimPitch) * (weapon.range() - remaining)))) return;
             remaining -= wall.distance();
             if (!wall.flipX() && !wall.flipY()) return;
             x += dx * length; y += dy * length;
@@ -559,21 +567,57 @@ final class CombatSystem {
 
     boolean fireSegment(Player player, WeaponStats weapon, double originX, double originY,
             double directionX, double directionY, double shotDistance) {
+        return fireSegment(player, weapon, originX, originY, directionX, directionY, shotDistance, shotHeight(player));
+    }
+
+    private double shotHeight(Player player) { return droneShot != null && droneShot.owner == player ? 23 : 26; }
+
+    private FpsHitRules.Ray fpsRay(Player player, double x, double y, double dx, double dy, double range, double height) {
+        return player.aimPitch == null || WeaponCatalog.find(shotWeapon(player)).mode() == WeaponCatalog.AttackMode.MELEE ? null
+                : new FpsHitRules.Ray(x, y, height, dx, dy, Math.tan(player.aimPitch), range);
+    }
+
+    private FpsHitRules.Hit fpsEnemy(FpsHitRules.Ray ray, Enemy enemy, double width) {
+        return FpsHitRules.enemy(ray, enemy.x, enemy.y, enemyRadius(enemy), enemy.facingX, enemy.facingY, width);
+    }
+
+    private void rayHit(Player player, double fromX, double fromY, double x, double y, double damage,
+            boolean defeated, int credits, boolean headshot, Integer enemyId, FpsHitRules.Ray ray) {
+        if (ray == null) events.hit(player.id, shotWeapon(player), fromX, fromY, x, y, damage, defeated, credits, headshot, enemyId);
+        else events.hitAtHeight(player.id, shotWeapon(player), fromX, fromY, x, y, damage, defeated, credits, headshot, enemyId,
+                ray.height(), ray.heightAt(Math.hypot(x-fromX, y-fromY)));
+    }
+
+    private boolean fireSegment(Player player, WeaponStats weapon, double originX, double originY,
+            double directionX, double directionY, double shotDistance, double originHeight) {
+        FpsHitRules.Ray fpsRay = fpsRay(player, originX, originY, directionX, directionY, shotDistance, originHeight);
+        java.util.Map<Enemy, FpsHitRules.Hit> fpsHits = new java.util.HashMap<>();
         double endX = originX + directionX * shotDistance;
         double endY = originY + directionY * shotDistance;
         List<Enemy> candidates = world.enemies().stream().filter(enemy -> enemy.hp > 0)
                 .filter(enemy -> isInsideAttack(enemy, originX, originY, directionX, directionY, weapon, shotDistance))
+                .filter(enemy -> {
+                    if (fpsRay == null) return true;
+                    FpsHitRules.Hit hit = fpsEnemy(fpsRay, enemy, weapon.width());
+                    if (hit == null) return false;
+                    fpsHits.put(enemy, hit);return true;
+                })
                 .filter(enemy -> GameMap.hasClearLine(originX, originY, enemy.x, enemy.y, world.unlockedAreas()))
                 .sorted(Comparator.comparingDouble(enemy ->
-                        (enemy.x - originX) * directionX + (enemy.y - originY) * directionY)).toList();
+                        fpsRay == null ? (enemy.x - originX) * directionX + (enemy.y - originY) * directionY : fpsHits.get(enemy).distance())).toList();
         boolean piercing = WeaponCatalog.find(shotWeapon(player)).piercing();
         List<Enemy> targets = piercing ? candidates : candidates.stream().limit(1).toList();
         List<Player> allies = WeaponCatalog.find(shotWeapon(player)).mode() == WeaponCatalog.AttackMode.MELEE
                 ? List.of() : friendlyRayTargets(player, originX, originY, directionX, directionY, weapon, shotDistance);
+        if (fpsRay != null) allies = allies.stream()
+                .filter(target -> FpsHitRules.ally(fpsRay, target.x, target.y, target.down, weapon.width()) != null)
+                .sorted(Comparator.comparingDouble(target -> FpsHitRules.ally(fpsRay, target.x, target.y, target.down, weapon.width()).distance())).toList();
         double firstEnemy = targets.isEmpty() ? Double.POSITIVE_INFINITY
+                : fpsRay != null ? fpsHits.get(targets.get(0)).distance()
                 : (targets.get(0).x - originX) * directionX + (targets.get(0).y - originY) * directionY;
         if (!piercing) allies = allies.stream().filter(target ->
-                (target.x - originX) * directionX + (target.y - originY) * directionY < firstEnemy).limit(1).toList();
+                (fpsRay == null ? (target.x - originX) * directionX + (target.y - originY) * directionY
+                        : FpsHitRules.ally(fpsRay, target.x, target.y, target.down, weapon.width()).distance()) < firstEnemy).limit(1).toList();
         if (!piercing && !allies.isEmpty()) {
             targets = List.of();
             Player first = allies.get(0);
@@ -581,6 +625,7 @@ final class CombatSystem {
             double perpendicular = Math.abs((first.x - originX) * directionY - (first.y - originY) * directionX);
             double radius = 12 + weapon.width();
             double entry = Math.max(0, projection - Math.sqrt(Math.max(0, radius * radius - perpendicular * perpendicular)));
+            if (fpsRay != null) entry = FpsHitRules.ally(fpsRay, first.x, first.y, first.down, weapon.width()).distance();
             endX = originX + directionX * entry; endY = originY + directionY * entry;
         }
         if (!piercing && !targets.isEmpty() && WeaponCatalog.find(shotWeapon(player)).mode() != WeaponCatalog.AttackMode.MELEE) {
@@ -589,6 +634,7 @@ final class CombatSystem {
             double perpendicular = Math.abs((first.x - originX) * directionY - (first.y - originY) * directionX);
             double radius = enemyRadius(first) + weapon.width();
             double entry = Math.max(0, projection - Math.sqrt(Math.max(0, radius * radius - perpendicular * perpendicular)));
+            if (fpsRay != null) entry = fpsHits.get(first).distance();
             endX = originX + directionX * entry; endY = originY + directionY * entry;
         }
         boolean intercepted = false;
@@ -601,14 +647,17 @@ final class CombatSystem {
             firstBody = Math.max(0, projection - Math.sqrt(Math.max(0, radius * radius - perpendicular * perpendicular)));
         }
         var missiles = world.enemyProjectiles().stream()
+                .filter(shot -> fpsRay == null || FpsHitRules.projectile(fpsRay, shot.x, shot.y, weapon.width()) != null)
                 .filter(shot -> Double.isFinite(EnemyProjectileSystem.rayEntry(shot, originX, originY,
                         directionX, directionY, shotDistance, weapon.width())))
                 .filter(shot -> GameMap.hasClearLine(originX, originY, shot.x, shot.y, world.unlockedAreas()))
-                .sorted(Comparator.comparingDouble(shot -> EnemyProjectileSystem.rayEntry(shot, originX, originY,
-                        directionX, directionY, shotDistance, weapon.width()))).toList();
+                .sorted(Comparator.comparingDouble(shot -> fpsRay == null ? EnemyProjectileSystem.rayEntry(shot, originX, originY,
+                        directionX, directionY, shotDistance, weapon.width())
+                        : FpsHitRules.projectile(fpsRay, shot.x, shot.y, weapon.width()).distance())).toList();
         for (var shot : missiles) {
-            double entry = EnemyProjectileSystem.rayEntry(shot, originX, originY,
-                    directionX, directionY, shotDistance, weapon.width());
+            double entry = fpsRay == null ? EnemyProjectileSystem.rayEntry(shot, originX, originY,
+                    directionX, directionY, shotDistance, weapon.width())
+                    : FpsHitRules.projectile(fpsRay, shot.x, shot.y, weapon.width()).distance();
             if (!piercing && entry >= firstBody) break;
             damageShot(player, shotWeapon(player), shot, WeaponDamageRules.atDistance(shotWeapon(player), weapon.damage(),
                     distance(originX, originY, shot.x, shot.y)));
@@ -621,29 +670,33 @@ final class CombatSystem {
         }
         // A trajectory event is separate from impact and reward events.
         if (!shotWeapon(player).equals("bat")) {
-            events.hit(player.id, shotWeapon(player), originX, originY, endX, endY, 0, false, 0, false, null);
+            rayHit(player, originX, originY, endX, endY, 0, false, 0, false, null, fpsRay);
         }
         for (Enemy hit : targets) {
+            double impactX = fpsRay == null ? hit.x : originX + directionX * fpsHits.get(hit).distance();
+            double impactY = fpsRay == null ? hit.y : originY + directionY * fpsHits.get(hit).distance();
             if (shotWeapon(player).equals("freezeGun")) {
                 hit.frozenRemaining = Math.max(hit.frozenRemaining, 3);
-                events.hit(player.id, "freezeGun", originX, originY, hit.x, hit.y, 0, false, 0, false, hit.id);
+                rayHit(player, originX, originY, impactX, impactY, 0, false, 0, false, hit.id, fpsRay);
                 continue;
             }
-            if (SpecialEnemyRules.hitsBag(hit, originX, originY, directionX, directionY, shotDistance, weapon.width())) {
+            if ((fpsRay == null || fpsHits.get(hit).height() <= 30)
+                    && SpecialEnemyRules.hitsBag(hit, originX, originY, directionX, directionY, shotDistance, weapon.width())) {
                 damageBag(hit, WeaponDamageRules.atDistance(shotWeapon(player), weapon.damage(),
                         distance(originX, originY, hit.x, hit.y)), player, shotWeapon(player), originX, originY);
                 continue;
             }
             int creditsBeforeHit = player.credits;
-            boolean headshot = isHeadshot(hit, player, originX, originY, directionX, directionY, weapon, shotDistance);
+            boolean headshot = fpsRay == null ? isHeadshot(hit, player, originX, originY, directionX, directionY, weapon, shotDistance)
+                    : !shotWeapon(player).equals("laserCannon") && fpsHits.get(hit).headshot();
             double damage = WeaponDamageRules.atDistance(shotWeapon(player), weapon.damage(),
                     distance(originX, originY, hit.x, hit.y)) * (headshot ? 2 : 1);
             if (WeaponCatalog.find(shotWeapon(player)).mode() != WeaponCatalog.AttackMode.MELEE) damage = hit.shieldedDamage(damage, originX, originY);
             double dealt = damageEnemy(hit, damage, player);
             if (headshot && !hit.type.equals("explosionBoss")) awardCredits(player, 3, shotWeapon(player));
             knockbackEnemy(originX, originY, hit, weapon.knockback());
-            events.hit(player.id, shotWeapon(player), shotX(player), shotY(player), hit.x, hit.y,
-                    dealt, hit.hp <= 0, player.credits - creditsBeforeHit, headshot, hit.id);
+            rayHit(player, originX, originY, impactX, impactY,
+                    dealt, hit.hp <= 0, player.credits - creditsBeforeHit, headshot, hit.id, fpsRay);
         }
         for (Player target : allies) world.damagePlayer(target, WeaponDamageRules.atDistance(shotWeapon(player),
                 weapon.damage(), distance(originX, originY, target.x, target.y)));

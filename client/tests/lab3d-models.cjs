@@ -100,3 +100,27 @@ const farLabel=renderer.project(100,40,38);frame.eye={x:100,y:100};renderer.rend
 const nearLabel=renderer.project(100,40,38);assert(nearLabel.pixelsPerUnit>farLabel.pixelsPerUnit,'Projected label scale increases when approaching');
 frame.view.zoom=true;renderer.render(frame);assert(renderer.project(100,40,38).pixelsPerUnit>nearLabel.pixelsPerUnit,'Label scale follows camera zoom');
 console.log('Lab ceilings passed: room/passage heights, full coverage, sealed transitions, occlusion, label distance and zoom scale');
+
+// Wall-mounted panels remain visible from the accessible side, with projected UI at that location.
+const wallTerminal={id:'wall-panel',x:100,y:20};frame.stations=[[wallTerminal,'UNLOCK','#79d8ff','terminal']];
+state.decoys=[{ownerId:'a',x:140,y:100,hp:45,facingX:1,facingY:0},{ownerId:'b',x:180,y:100,hp:45,facingX:0,facingY:-1}];
+frame.eye={x:100,y:140};frame.view={yaw:0,pitch:0};renderer.render(frame);
+const panel=find('station:wall-panel:terminal');assert.equal(panel.position.z,44);assert.equal(panel.position.x,100);
+const panelLabel=renderer.stationPosition(wallTerminal);assert.equal(panelLabel.y,44);assert(renderer.project(panelLabel.x,panelLabel.y,38).visible);
+for(const owner of ['a','b'])assert(find('decoy:'+owner).getObjectByName('Soldier'),'Each decoy has its own soldier, not terminal geometry');
+assert.equal(find('decoy:a').rotation.y,Math.PI/2);assert.equal(find('decoy:b').rotation.y,Math.PI);
+const stableMuzzle=viewScene.getObjectByName('Muzzle'),gunSignatures=new Set();
+for(const weapon of ['bat','pistol','shotgun','smg','rifle','sniper','ricochet','revolver','railgun','rocket','flamethrower','lmg','hook','laserCannon','poisonGas','repulsor','freezeGun','plasmaBlade']) {
+    player.weapon=weapon;renderer.render(frame);const gun=viewScene.getObjectByName('Rifle');assert.equal(gun.userData.weapon,weapon);
+    assert.equal(viewScene.getObjectByName('Muzzle'),stableMuzzle,'Weapon swaps keep the tracer muzzle node');
+    gunSignatures.add(JSON.stringify(gun.children.filter(c=>c.isMesh).map(c=>[c.geometry.type,c.geometry.parameters,c.position.toArray(),c.material.color.getHex()])));
+}
+assert.equal(gunSignatures.size,18,'Every weapon has a distinct minimal model');
+state.decoys=[];renderer.render(frame);assert(!scene.getObjectByName('decoy:a'));assert(!scene.getObjectByName('decoy:b'));
+console.log('FPS visual models passed: visible wall panel and UI anchor, independent soldier decoys, all 18 weapon shapes and stable muzzle on swaps');
+now+=400;player.weapon='pistol';state.enemies=[{id:77,type:'grunt',x:140,y:100,hp:100,facingX:0,facingY:1}];
+frame.effects=[{effect:'hit',weapon:'pistol',playerId:'me',fromX:100,fromY:140,x:128,y:112,hitHeight:27.3,damage:0,enemyId:null,started:now},{effect:'hit',weapon:'pistol',playerId:'me',fromX:100,fromY:140,x:128,y:112,hitHeight:27.3,damage:26,enemyId:77,started:now}];renderer.render(frame);
+const authoritativeTrace=scene.children.find(o=>o.name==='muzzle-tracer'),impactParticles=scene.children.find(o=>o.name==='enemy-hit-particles');
+assert(Math.abs(authoritativeTrace.geometry.attributes.position.getY(1)-27.3)<1e-5,'Tracer uses server impact height');
+assert.deepEqual(impactParticles.position.toArray(),[128,27.3,112],'Particles start at the server impact, rather than the enemy center');
+console.log('FPS authoritative impact passed: tracer endpoint and red particles use server XYZ impact');

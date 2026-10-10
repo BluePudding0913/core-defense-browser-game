@@ -4,7 +4,7 @@ function buildSoldier(THREE) {
 
   const COLORS = {
     Olive: 0x4c5030, OliveDark: 0x343722, OliveLight: 0x62673d, Skin: 0xd99a72,
-    Boot: 0x2b2a24, Gun: 0x26282a, GunLight: 0x3e4245, Eye: 0x1c1a16,
+    Wood: 0x967352, Cyan: 0x66dfff, Green: 0x86d85e, Red: 0xed655f, Boot: 0x2b2a24, Gun: 0x26282a, GunLight: 0x3e4245, Eye: 0x1c1a16,
   };
   const mats = {};
   const mat = (k) => mats[k] || (mats[k] = new THREE.MeshStandardMaterial({
@@ -83,19 +83,51 @@ function buildSoldier(THREE) {
     arms[side] = { up, lo };
   }
 
-  // rifle, built along +Z, origin = top of pistol grip
-  const rifle = node('Rifle', spine);
-  box(rifle, 0.065, 0.1, 0.4, 'Gun', 0, 0.0, 0.06); // receiver
-  box(rifle, 0.07, 0.08, 0.26, 'GunLight', 0, 0.0, 0.38); // handguard
-  cyl(rifle, 0.016, 0.016, 0.2, 6, 'Gun', 0, 0.01, 0.6, Math.PI / 2, 0, 0); // barrel
-  box(rifle, 0.035, 0.035, 0.06, 'Gun', 0, 0.01, 0.72); // muzzle device
-  box(rifle, 0.06, 0.1, 0.18, 'Gun', 0, -0.025, -0.22); // stock
-  box(rifle, 0.065, 0.12, 0.03, 'GunLight', 0, -0.03, -0.31); // butt pad
-  box(rifle, 0.05, 0.16, 0.075, 'Gun', 0, -0.12, 0.15, 0.22, 0, 0); // magazine
-  box(rifle, 0.045, 0.11, 0.05, 'Gun', 0, -0.08, -0.03, -0.3, 0, 0); // pistol grip
-  box(rifle, 0.04, 0.05, 0.12, 'GunLight', 0, 0.075, 0.06); // optic
-  box(rifle, 0.012, 0.035, 0.012, 'Gun', 0, 0.06, 0.45); // front sight
-  node('Muzzle', rifle, 0, 0.01, 0.76);
+  // Keep the animated grip and muzzle nodes stable when changing weapon geometry.
+  const rifle = node('Rifle', spine), muzzle = node('Muzzle', rifle);
+  let currentWeapon;
+  function setWeapon(weapon) {
+    if(currentWeapon===weapon)return;
+    currentWeapon=weapon;rifle.userData.weapon=weapon;
+    for(const child of [...rifle.children])if(child!==muzzle){child.traverse(o=>o.geometry?.dispose());rifle.remove(child);}
+    const part=(w,h,d,m='Gun',x=0,y=0,z=0)=>box(rifle,w,h,d,m,x,y,z);
+    const tube=(r,length,m='Gun',x=0,y=0,z=0)=>cyl(rifle,r,r,length,10,m,x,y,z,Math.PI/2);
+    let tip=.76;
+    if(weapon==='bat' || weapon==='plasmaBlade') {
+      tip=.9;part(.055,.055,.25,'Gun',0,0,.05);
+      if(weapon==='bat'){tube(.055,.65,'Wood',0,0,.54);part(.12,.025,.025,'GunLight',0,0,.18);}
+      else {part(.2,.035,.04,'GunLight',0,0,.18);part(.07,.025,.66,'Cyan',0,0,.55);}
+    } else if(weapon==='pistol' || weapon==='revolver') {
+      tip=weapon==='pistol'?.32:.44;
+      part(.075,.09,tip,'GunLight',0,0,tip/2);part(.06,.16,.08,'Gun',0,-.1,.02);
+      if(weapon==='revolver')tube(.07,.1,'GunLight',0,-.03,.13);else part(.07,.02,.03,'Gun',0,.06,.05);
+      tube(.025,.06,'Gun',0,0,tip-.015);
+    } else if(weapon==='rocket') {
+      tip=.82;tube(.085,.8,'GunLight',0,.03,.4);tube(.1,.055,'Olive',0,.03,.78);
+      part(.06,.18,.08,'Gun',0,-.12,.08);part(.04,.1,.08,'Gun',0,.14,.4);
+    } else {
+      const compact=['smg','hook','repulsor','freezeGun'].includes(weapon);
+      const heavy=['lmg','railgun','laserCannon','flamethrower','poisonGas'].includes(weapon);
+      tip=compact?.55:weapon==='sniper'?1.02:.78;
+      part(heavy?.13:.08,.12,compact?.3:.42,'GunLight',0,0,.12);
+      part(.06,.14,.07,'Gun',0,-.1,-.02);
+      if(!compact) {part(.07,.09,.22,'Gun',0,-.01,-.21);part(.1,.15,.035,'GunLight',0,-.02,-.33);}
+      const accent={railgun:'Cyan',laserCannon:'Red',freezeGun:'Cyan',poisonGas:'Green',repulsor:'Cyan'}[weapon] || 'GunLight';
+      part(heavy?.14:.075,.08,tip-.3,accent,0,0,(tip+.2)/2);
+      tube(heavy?.04:.022,.14,'Gun',0,.01,tip-.07);
+      part(weapon==='lmg'?.2:.055,weapon==='lmg'?.18:.16,.09,'Gun',0,-.13,.14);
+      if(weapon==='sniper' || weapon==='rifle'){tube(.035,weapon==='sniper'?.26:.13,'Gun',0,.12,.15);part(.04,.06,.04,'Gun',0,.065,.15);}
+      if(weapon==='shotgun')tube(.025,.4,'Wood',0,-.065,.46);
+      if(weapon==='railgun')for(const x of [-.09,.09])part(.035,.055,.58,'Gun',x,0,.48);
+      if(weapon==='flamethrower' || weapon==='poisonGas')tube(.09,.22,weapon==='poisonGas'?'Green':'Red',.13,-.08,.12);
+      if(weapon==='hook')for(const x of [-.09,.09])part(.035,.035,.18,'GunLight',x,0,.48);
+      if(weapon==='ricochet')part(.08,.035,.17,'Wood',0,.08,.17);
+      if(weapon==='freezeGun')part(.15,.055,.14,'Cyan',0,.09,.2);
+    }
+    muzzle.position.set(0,.01,tip+.025);
+    rifle.traverse(o=>{if(o.isMesh)o.castShadow=false;});
+  }
+  setWeapon('rifle');
   const GRIP_R = new V(0, -0.065, -0.02);
   const GRIP_L = new V(0, -0.055, 0.32);
 
@@ -229,7 +261,7 @@ function buildSoldier(THREE) {
     if (r.p) o.position.copy(r.p);
   });
 
-  return { root, clips, materials: mats };
+  return { root, clips, materials: mats, setWeapon };
 }
 
 window.buildSoldier = buildSoldier;
