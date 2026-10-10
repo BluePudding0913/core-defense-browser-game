@@ -13,8 +13,8 @@ final class JobRules {
     }
     static final double TANK_AURA_RADIUS = 160;
     static final double TANK_DAMAGE_FACTOR = .75;
-    static final double TANK_WALL_COOLDOWN = 20;
-    static final double TANK_WALL_DURATION = 20;
+    static final double TANK_WALL_COOLDOWN = 10;
+    static final double TANK_WALL_DURATION = 15;
     static final double TANK_WALL_HP = 10_000;
     static final double SPY_DURATION = 8;
     static final double SPY_COOLDOWN = 15;
