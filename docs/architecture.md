@@ -208,3 +208,6 @@ client/core-feedback.jsはコアのHP・シールド減少時に2.8秒の通知�
 JobRules.weaponLimitはAttackerの武器上限を4、他職業を3とし、近接専用枠は数えない。WeaponInventoryの取得・交換とSnapshotBuilderのプレイヤー別weaponLimit、WeaponUIの購入・ガチャ交換判定で共通に使う。転職先の上限を超える場合は、プレイヤーが指定した武器1つを破棄してから転職する。
 
 JobUI.confirmChangeが待機画面・JOB装置でYes/No確認を共用し、4武器からの転職では破棄する武器の選択を必須にする。JOB:職業:武器の検証はJobRules、破棄・強化削除・装備の補正と転職はGameSessionで同時に行う。不正な選択や転職不可の場所では何も消費しない。
+
+
+LMGは1発30ダメージ・間隔0.18秒でSMG（18・0.14秒）より秒間火力が高い。スナイパーは基礎280・弾数30を維持し、WeaponDamageRulesが距離0〜射程2400で1〜2倍の線形倍率を適用する。CombatSystemの敵・バッグ・迎撃・偽装中の味方への射撃に共用し、強化・銀弾・ヘッドショットと乗算する。
