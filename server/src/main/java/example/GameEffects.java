@@ -24,6 +24,11 @@ final class GameEffects implements CombatEvents {
                 + ",\"headshot\":" + headshot + ",\"enemyId\":" + enemyId + "}");
     }
 
+    public void intercepted(double x, double y) {
+        sink.broadcast("{\"type\":\"effect\",\"effect\":\"intercept\",\"x\":" + roundOne(x)
+                + ",\"y\":" + roundOne(y) + "}");
+    }
+
     public void sound(Player player, String effect, String item) {
         sink.broadcast("{\"type\":\"effect\",\"effect\":\"" + escapeJson(effect)
                 + "\",\"playerId\":\"" + escapeJson(player.id) + "\",\"weapon\":\"" + escapeJson(effect.equals("shot") && (DroneRules.controlling(player) || WeaponCatalog.find(item) != null) ? item : player.weapon)

@@ -14,6 +14,16 @@ final class EnemyProjectileSystem {
             x = enemy.x; y = enemy.y; angle = Math.atan2(target.y-y, target.x-x);
         }
     }
+    static final double SHOT_RADIUS = 8;
+    static double rayEntry(Shot shot, double x, double y, double dx, double dy, double range, double width) {
+        double projection = (shot.x - x) * dx + (shot.y - y) * dy;
+        double perpendicular = Math.abs((shot.x - x) * dy - (shot.y - y) * dx);
+        double radius = SHOT_RADIUS + width;
+        if (projection < 0 || perpendicular > radius) return Double.POSITIVE_INFINITY;
+        double entry = Math.max(0, projection - Math.sqrt(radius * radius - perpendicular * perpendicular));
+        return entry <= range ? entry : Double.POSITIVE_INFINITY;
+    }
+
     interface World {
         List<Player> players();
         List<TrapSlot> slots();
