@@ -610,7 +610,8 @@ final class CombatSystem {
             double entry = EnemyProjectileSystem.rayEntry(shot, originX, originY,
                     directionX, directionY, shotDistance, weapon.width());
             if (!piercing && entry >= firstBody) break;
-            damageShot(player, shotWeapon(player), shot, weapon.damage());
+            damageShot(player, shotWeapon(player), shot, WeaponDamageRules.atDistance(shotWeapon(player), weapon.damage(),
+                    distance(originX, originY, shot.x, shot.y)));
             intercepted = true;
             if (!piercing) {
                 targets = List.of(); allies = List.of();
@@ -629,12 +630,14 @@ final class CombatSystem {
                 continue;
             }
             if (SpecialEnemyRules.hitsBag(hit, originX, originY, directionX, directionY, shotDistance, weapon.width())) {
-                damageBag(hit, weapon.damage(), player, shotWeapon(player), originX, originY);
+                damageBag(hit, WeaponDamageRules.atDistance(shotWeapon(player), weapon.damage(),
+                        distance(originX, originY, hit.x, hit.y)), player, shotWeapon(player), originX, originY);
                 continue;
             }
             int creditsBeforeHit = player.credits;
             boolean headshot = isHeadshot(hit, player, originX, originY, directionX, directionY, weapon, shotDistance);
-            double damage = weapon.damage() * (headshot ? 2 : 1);
+            double damage = WeaponDamageRules.atDistance(shotWeapon(player), weapon.damage(),
+                    distance(originX, originY, hit.x, hit.y)) * (headshot ? 2 : 1);
             if (WeaponCatalog.find(shotWeapon(player)).mode() != WeaponCatalog.AttackMode.MELEE) damage = hit.shieldedDamage(damage, originX, originY);
             double dealt = damageEnemy(hit, damage, player);
             if (headshot && !hit.type.equals("explosionBoss")) awardCredits(player, 3, shotWeapon(player));
@@ -642,7 +645,8 @@ final class CombatSystem {
             events.hit(player.id, shotWeapon(player), shotX(player), shotY(player), hit.x, hit.y,
                     dealt, hit.hp <= 0, player.credits - creditsBeforeHit, headshot, hit.id);
         }
-        for (Player target : allies) world.damagePlayer(target, weapon.damage());
+        for (Player target : allies) world.damagePlayer(target, WeaponDamageRules.atDistance(shotWeapon(player),
+                weapon.damage(), distance(originX, originY, target.x, target.y)));
         return intercepted || !targets.isEmpty() || !allies.isEmpty();
     }
 

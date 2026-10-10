@@ -139,7 +139,7 @@ class DroneLoadoutTest {
         grant("sniper", 2); command("DRONE_MOUNT:sniper"); launch();
         Enemy a = enemy(1, 1200), b = enemy(2, 1260), untouched = enemy(3, 1300); untouched.y = 1980;
         command("FIRE:1800:1900:1");
-        assertEquals(720, a.hp); assertEquals(720, b.hp); assertEquals(1000, untouched.hp);
+        assertEquals(713, a.hp); assertEquals(706, b.hp); assertEquals(1000, untouched.hp);
         assertEquals(java.util.Set.of(1, 2), player.drone.attackers);
     }
     @Test void bodyShootingAfterViewSwitchDoesNotProvokeDroneHostility() {

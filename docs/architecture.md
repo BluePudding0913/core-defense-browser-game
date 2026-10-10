@@ -206,3 +206,5 @@ client/core-feedback.jsはコアのHP・シールド減少時に2.8秒の通知�
 ゲーム開始成功時にGameSessionがGameEventSink.gameStartedで人数・デバッグ状態を通知し、WasdServerが日時・ルームID付きのGAME STARTを標準出力へ記録する。開始拒否・開始中の再送・ラウンド更新では記録しない。
 
 JobRules.weaponLimitはAttackerの武器上限を4、他職業を3とし、近接専用枠は数えない。WeaponInventoryの取得・交換とSnapshotBuilderのプレイヤー別weaponLimit、WeaponUIの購入・ガチャ交換判定で共通に使う。職業変更時は所持武器を保持し、上限以上では新規取得を拒否するが、補充と1対1交換は許可する。
+
+LMGは1発30ダメージ・間隔0.18秒でSMG（18・0.14秒）より秒間火力が高い。スナイパーは基礎280・弾数30を維持し、WeaponDamageRulesが距離0〜射程2400で1〜2倍の線形倍率を適用する。CombatSystemの敵・バッグ・迎撃・偽装中の味方への射撃に共用し、強化・銀弾・ヘッドショットと乗算する。

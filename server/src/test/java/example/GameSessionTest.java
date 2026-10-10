@@ -280,14 +280,14 @@ class GameSessionTest {
         assertTrue(player.weapons.owns("sniper"));
         assertEquals(0, player.credits);
         assertEquals("sniper", player.weapon);
-        assertEquals(15, player.weapons.ammo("sniper"));
+        assertEquals(30, player.weapons.ammo("sniper"));
 
         ShopUnit ammoShop = GameMap.shopByItem("ammo");
         player.x = ammoShop.x();
         player.y = ammoShop.y();
         game.handleMessage(player, "BUY:ammo");
         assertEquals(GameSession.weaponAmmoCapacity("smg"), player.weapons.ammo("smg"));
-        assertEquals(15, player.weapons.ammo("sniper"));
+        assertEquals(30, player.weapons.ammo("sniper"));
     }
 
     @Test
