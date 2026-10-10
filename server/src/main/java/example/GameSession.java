@@ -40,6 +40,7 @@ interface GameEventSink {
 final class GameSession {
     private static final double BOT_REACTION_SECONDS = 1.5;
     final List<PoisonGasRules.Cloud> poisonClouds = new ArrayList<>();
+    final List<EnemyPoisonSystem.Cloud> enemyPoisonClouds = new ArrayList<>();
     int roundEnemyTotal;
     double elapsedSeconds;
     double victoryMoveRemaining;
@@ -136,7 +137,7 @@ final class GameSession {
     static final List<String> DEBUG_ENEMY_TYPES = List.of(
             "grunt", "runner", "brute", "shield", "hunter", "ghost", "armored",
             "siege", "champion", "tiny", "bomber", "artillery", "gilded", "blueAce",
-            "carrier", "blackout", "seeker", "coreHunter", "boss", "warlord", "titan", "warden", "explosionBoss");
+            "carrier", "blackout", "seeker", "coreHunter", "poisoner", "artilleryElite", "finalBoss", "boss", "warlord", "titan", "warden", "explosionBoss");
     static final int BACKUP_COST = 100_000;
     static final double BACKUP_RESTORE_DURATION = 6;
     static final double BACKUP_RESTORE_DELAY = 1.5;
@@ -387,7 +388,7 @@ final class GameSession {
     private void saveBackup(Player player) {
         if (!player.job.equals("hacker") || player.down || phase != GamePhase.PREPARING || backupUsed
                 || !canOperate(player, GameMap.BACKUP_TERMINAL)
-                || !enemies.isEmpty() || !artilleryShells.isEmpty() || !combat.rockets.isEmpty() || !enemyProjectiles.isEmpty()) return;
+                || !enemies.isEmpty() || !enemyPoisonClouds.isEmpty() || !artilleryShells.isEmpty() || !combat.rockets.isEmpty() || !enemyProjectiles.isEmpty()) return;
         if (!spend(player, BACKUP_COST)) { gameEffects.feedback(player, "お金が足りません"); return; }
         var savedPlayers = players.stream().map(Player::gameplayCopy).toList();
         backup = new PreparationBackup(new PreparationBackup.World(
@@ -454,6 +455,7 @@ final class GameSession {
         resourceNodes.clear(); resourceNodes.addAll(BackupCopies.resources(saved.resources()));
         factories.clear(); factories.addAll(BackupCopies.factories(saved.factories()));
         droppedResources.clear(); droppedResources.addAll(BackupCopies.drops(saved.drops()));
+        enemyPoisonClouds.clear();
         poisonClouds.clear(); poisonClouds.addAll(BackupCopies.clouds(saved.clouds()));
         decoys.clear(); decoys.addAll(BackupCopies.decoys(saved.decoys(), players));
         missiles.clear(); missiles.addAll(BackupCopies.missiles(saved.missiles(), players));
@@ -543,6 +545,7 @@ final class GameSession {
             return;
         }
 
+        EnemyPoisonSystem.update(enemyPoisonClouds, dt, enemyPoisonWorld);
         updateSpawning(dt);
         updateDefenses(dt);
         updateEnemies(dt);
@@ -569,7 +572,7 @@ final class GameSession {
             setNotice("全員がダウンしました");
             return;
         }
-        if (queuedEnemies == 0 && queuedBosses == 0 && enemies.isEmpty() && artilleryShells.isEmpty() && enemyProjectiles.isEmpty() && combat.rockets.isEmpty()) finishRound();
+        if (queuedEnemies == 0 && queuedBosses == 0 && enemies.isEmpty() && enemyPoisonClouds.isEmpty() && artilleryShells.isEmpty() && enemyProjectiles.isEmpty() && combat.rockets.isEmpty()) finishRound();
     }
 
     private void updateReconnectReservations(double dt) {
@@ -1064,7 +1067,7 @@ final class GameSession {
         // Reserve one simultaneous swarm within the regular population on selected late rounds.
         queuedTinyEnemies = round >= 40 && (round - 40) % 3 == 0
                 ? Math.min(queuedEnemies, (int) Math.round((48 + (round - 40) * 4) * 0.8)) : 0;
-        roundEvent = isExplosionBossRound() ? "boss_assault" : round % 4 == 3 ? "blackout"
+        roundEvent = round == 50 || isExplosionBossRound() ? "boss_assault" : round % 4 == 3 ? "blackout"
                 : round >= 5 && round % 4 == 1 ? "door_failure"
                 : round % 4 == 0 ? "boss_assault" : "none";
         failedSpawnId = roundEvent.equals("door_failure")
@@ -1352,7 +1355,7 @@ final class GameSession {
             // Each member uses the next entrance so a burst pressures multiple sides.
             SpawnPoint spawn = nextRoundSpawn();
             if (queuedBosses > 0 && queuedEnemies <= queuedBosses * 2) {
-                String bossType = isExplosionBossRound() && !explosionBossSpawned ? "explosionBoss"
+                String bossType = round == 50 ? "finalBoss" : isExplosionBossRound() && !explosionBossSpawned ? "explosionBoss"
                         : WardenRules.appearsInRound(round) && !wardenSpawned ? "warden"
                         : round >= 40 ? "titan" : round >= 24 ? "warlord" : "boss";
                 spawnEnemy(bossType, spawn);
@@ -1429,6 +1432,9 @@ final class GameSession {
         double damage;
         int reward;
         switch (type) {
+            case "finalBoss" -> { hp = 50000; speed = runnerSpeed; damage = 85; reward = 5000; }
+            case "poisoner" -> { hp = 100 + round * 8; speed = 65; damage = 10 + round * .3; reward = 60; }
+            case "artilleryElite" -> { hp = 180 + round * 12; speed = 50; damage = 18 + round * .8; reward = 110; }
             case "coreHunter" -> { hp = 100 + round * 8; speed = 110 + round * 2; damage = 18 + round; reward = 40; }
             case "blackout" -> { hp = 180 + round * 12; speed = 100; damage = 14 + round * .6; reward = 90; }
             case "seeker" -> { hp = 100 + round * 9; speed = 70; damage = 22 + round * .4; reward = 65; }
@@ -1538,7 +1544,7 @@ final class GameSession {
         if (GameMap.spawnArea(spawn) != null) spawn = new SpawnPoint(spawn.id(), spawn.name(),
                 spawn.x(), spawn.y(), spawn.lane(), spawn.enemyBias(), spawn.speedMultiplier(),
                 spawn.targetPriority(), List.of(new MapPoint(spawn.x(), spawn.y()), new MapPoint(coreX, coreY)));
-        enemies.add(new Enemy(nextEnemyId++, type, spawn, BossRules.spawnHp(type, hp * 2), BossRules.baseSpeed(type, speed, runnerSpeed) * 0.5, damage,
+        enemies.add(new Enemy(nextEnemyId++, type, spawn, EnemyTierRules.hp(type, hp * 2, round), BossRules.baseSpeed(type, speed, runnerSpeed) * 0.5, damage * EnemyTierRules.multiplier(round),
                 (int) Math.round(reward * 2.5 * GameConfig.goldMultiplier(round))));
     }
 
@@ -1562,7 +1568,7 @@ final class GameSession {
                         .orElse(null);
                 if (target != null) {
                     boolean hit = TurretRules.canHit(target.type);
-                    double turretDamage = TurretRules.damage(defense.type, round);
+                    double turretDamage = TurretRules.damage(defense.type, round) * TurretRules.damageMultiplier(target.type);
                     turretDamage = target.shieldedDamage(turretDamage, slot.x, slot.y);
                     double dealt = hit ? combat.damageEnemy(target, turretDamage, null) : 0;
                     double missAngle = Math.atan2(target.y - slot.y, target.x - slot.x) + Math.PI / 2;
@@ -1622,7 +1628,7 @@ final class GameSession {
             }
             if (enemy.hookPulled || frozen) continue;
             if (updateBossCharge(enemy, dt)) continue;
-            if ((enemy.type.equals("warlord") || enemy.type.equals("titan"))
+            if ((enemy.type.equals("warlord") || enemy.type.equals("titan") || enemy.type.equals("finalBoss"))
                     && BossAbilitySystem.update(enemy, dt, bossAbilityTarget(enemy), wardenWorld, artilleryShells,
                             enemies.stream().filter(e -> e.hp > 0 && e.summonerId == enemy.id).count()
                                     <= BossAbilitySystem.SUMMON_LIMIT - BossAbilitySystem.SUMMON_COUNT,
@@ -1652,9 +1658,10 @@ final class GameSession {
                     continue;
                 }
             }
+            if (enemy.type.equals("poisoner") && EnemyPoisonSystem.emit(enemy, dt, enemyPoisonClouds, enemyPoisonWorld)) continue;
             enemy.pathTimer -= dt;
             updateEnemyWander(enemy, dt);
-            if (enemy.type.equals("artillery") && updateArtillery(enemy, dt)) continue;
+            if ((enemy.type.equals("artillery") || enemy.type.equals("artilleryElite")) && updateArtillery(enemy, dt)) continue;
             double moveSpeed = enemy.speed * BossRules.movementMultiplier(enemy.type, enemy.hp, enemy.maxHp)
                     * (enemy.warden == null ? 1
                     : WardenRules.movementMultiplier(WardenRules.phase(enemy.hp, enemy.maxHp)));
@@ -1908,6 +1915,12 @@ final class GameSession {
             if (inBomberBlast(bomber, decoy.x, decoy.y, radius)) decoy.hp -= bomber.damage;
     }
 
+    private final EnemyPoisonSystem.World enemyPoisonWorld = new EnemyPoisonSystem.World() {
+        public List<Player> players() { return players; }
+        public Set<String> unlocked() { return unlockedAreas; }
+        public void damage(Player player, double amount) { damagePlayer(player, amount); }
+    };
+
     private boolean updateArtillery(Enemy enemy, double dt) {
         enemy.specialCooldown = Math.max(0, enemy.specialCooldown - dt);
         Decoy decoyTarget = DecoyRules.target(enemy, decoys, (x, y) -> canArtilleryAim(enemy, x, y));
@@ -1915,7 +1928,7 @@ final class GameSession {
             if (distance(enemy.x, enemy.y, decoyTarget.x, decoyTarget.y) < 110) return false;
             enemy.faceToward(decoyTarget.x, decoyTarget.y);
             if (enemy.specialCooldown <= 0) {
-                artilleryShells.add(new ArtilleryShell(enemy.x, enemy.y, decoyTarget.x, decoyTarget.y, enemy.damage * 3, enemy.id));
+                EnemySalvoRules.fire(enemy, decoyTarget.x, decoyTarget.y, artilleryShells);
                 enemy.specialCooldown = GameConfig.ARTILLERY_COOLDOWN;
             }
             return true;
@@ -1936,7 +1949,7 @@ final class GameSession {
                         enemy.attackCooldown = .9;
                     } else moveEnemyToward(enemy, drone.x, drone.y, enemy.speed * dt);
                 } else if (enemy.specialCooldown <= 0) {
-                    artilleryShells.add(new ArtilleryShell(enemy.x, enemy.y, drone.x, drone.y, enemy.damage * 3, enemy.id));
+                    EnemySalvoRules.fire(enemy, drone.x, drone.y, artilleryShells);
                     enemy.specialCooldown = GameConfig.ARTILLERY_COOLDOWN;
                 }
             } else moveEnemyToward(enemy, drone.x, drone.y, enemy.speed * dt);
@@ -1955,7 +1968,7 @@ final class GameSession {
         if (distance(enemy.x, enemy.y, x, y) < 110) return false;
         enemy.faceToward(x, y);
         if (enemy.specialCooldown <= 0) {
-            artilleryShells.add(new ArtilleryShell(enemy.x, enemy.y, x, y, enemy.damage * 3, enemy.id));
+            EnemySalvoRules.fire(enemy, x, y, artilleryShells);
             enemy.specialCooldown = GameConfig.ARTILLERY_COOLDOWN;
         }
         return true;
@@ -2030,7 +2043,7 @@ final class GameSession {
     private TrapSlot nearestDefense(Enemy enemy, double range) {
         return trapSlots.stream()
                 .filter(slot -> slot.defense != null && !slot.defense.type.equals("mine")
-                        && !(enemy.type.equals("artillery")
+                        && !((enemy.type.equals("artillery") || enemy.type.equals("artilleryElite"))
                             && BuildingRules.isTurret(slot.defense.type))
                         && distance(enemy.x, enemy.y, slot.x, slot.y) <= range)
                 .min(Comparator.comparingDouble(slot -> distance(enemy.x, enemy.y, slot.x, slot.y)))
@@ -2138,7 +2151,7 @@ final class GameSession {
                 updateDownedBot(bot);
                 continue;
             }
-            if (phase == GamePhase.WAVE && (dodgeBossTelegraph(bot) || dodgeArtillery(bot))) continue;
+            if (phase == GamePhase.WAVE && (dodgeEnemyPoison(bot) || dodgeBossTelegraph(bot) || dodgeArtillery(bot))) continue;
 
             Player downed = bestBotRescueTarget(bot);
             if (downed != null && shouldBotRescue(bot, downed)) {
@@ -2228,6 +2241,18 @@ final class GameSession {
         }
     }
 
+    private boolean dodgeEnemyPoison(Player bot) {
+        var threats=enemyPoisonClouds.stream().filter(c -> EnemyPoisonSystem.contains(c,bot.x,bot.y)
+                && GameMap.hasClearLine(c.x,c.y,bot.x,bot.y,unlockedAreas)).toList();
+        if (threats.isEmpty()) return false;
+        MapPoint destination = BotCombatRules.poisonEscape(bot.x, bot.y, threats,
+                (x, y) -> canOccupy(x, y, 12) && canEnemyTravel(bot.x, bot.y, x, y));
+        if (destination == null) return false;
+        double length = distance(bot.x, bot.y, destination.x(), destination.y());
+        steerBot(bot, (destination.x() - bot.x) / length, (destination.y() - bot.y) / length);
+        return true;
+    }
+
     private boolean dodgeBossTelegraph(Player bot) {
         List<Enemy> threats = enemies.stream().filter(enemy -> enemy.hp > 0 && (enemy.bossPulseRemaining > 0 || enemy.warden != null
                 && enemy.warden.action != WardenRules.Action.IDLE)
@@ -2252,7 +2277,7 @@ final class GameSession {
 
     private double bossTelegraphClearance(List<Enemy> threats, double x, double y) {
         return threats.stream().mapToDouble(enemy -> enemy.bossPulseRemaining > 0
-                ? distance(enemy.x,enemy.y,x,y) - BossAbilitySystem.TITAN_RADIUS - 24
+                ? distance(enemy.x,enemy.y,x,y) - BossAbilitySystem.pulseRadius(enemy.type) - 24
                 : WardenRules.clearance(enemy.warden.action, enemy.x, enemy.y,
                     enemy.warden.targetX, enemy.warden.targetY, x, y)).min().orElse(Double.POSITIVE_INFINITY);
     }
@@ -2291,10 +2316,10 @@ final class GameSession {
         double score = 1_050 - Math.min(1_050, distance(enemy.x, enemy.y, coreX, coreY));
         score += enemy.routeIndex * 85;
         score += switch (enemy.type) {
-            case "boss", "warlord", "titan", "warden" -> 460;
+            case "boss", "warlord", "titan", "warden", "finalBoss" -> 460;
             case "champion" -> 260;
             case "siege" -> 240;
-            case "artillery" -> 250;
+            case "artillery", "artilleryElite", "poisoner" -> 250;
             case "armored" -> 200;
             case "shield" -> 170;
             case "hunter", "ghost" -> 190;
@@ -3654,6 +3679,7 @@ final class GameSession {
         enemies.clear();
         artilleryShells.clear();
         missiles.clear();
+        enemyPoisonClouds.clear();
         poisonClouds.clear();
         decoys.clear();
         droppedResources.clear();

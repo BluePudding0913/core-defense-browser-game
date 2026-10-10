@@ -3,7 +3,8 @@ package example;
 /** Autonomous turret firing rules, independent of session state and transport. */
 final class TurretRules {
     static final double SHOT_HP_COST = 4;
-    static boolean canHit(String enemyType) { return !enemyType.equals("tiny"); }
+    static boolean canHit(String enemyType) { return !enemyType.equals("tiny") && !enemyType.equals("finalBoss"); }
+    static double damageMultiplier(String enemyType) { return BossRules.isBoss(enemyType) ? .5 : 1; }
     static double range(String type) {
         return type.equals("overclockSilver") ? 480 : type.equals("silverTurret") ? 380 : 300;
     }

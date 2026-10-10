@@ -436,7 +436,7 @@ final class Enemy {
         this.targetPriority = switch (type) {
             case "hunter", "ghost", "blueAce", "carrier", "blackout", "seeker" -> "players";
             case "siege" -> "defenses";
-            case "coreHunter", "warlord", "titan" -> "core";
+            case "coreHunter", "warlord", "titan", "finalBoss" -> "core";
             default -> spawn.targetPriority();
         };
         this.specialCooldown = isBoss() ? 4.5 : 0;
@@ -446,7 +446,7 @@ final class Enemy {
     }
 
     boolean isBoss() {
-        return type.equals("boss") || type.equals("warlord") || type.equals("titan") || type.equals("explosionBoss") || type.equals("warden");
+        return BossRules.isBoss(type);
     }
 
     void faceToward(double targetX, double targetY) {

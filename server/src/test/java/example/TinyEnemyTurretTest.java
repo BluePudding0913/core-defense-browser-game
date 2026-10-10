@@ -108,7 +108,7 @@ class TinyEnemyTurretTest {
         spawn.setAccessible(true);
         spawn.invoke(game, "tiny", GameMap.SPAWN_POINTS.get(0));
         Enemy enemy = game.enemies.get(game.enemies.size() - 1);
-        assertEquals(250, enemy.maxHp, 1e-9);
+        assertEquals(450, enemy.maxHp, 1e-9);
         assertEquals(enemy.maxHp, enemy.hp);
     }
 

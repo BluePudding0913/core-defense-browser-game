@@ -95,6 +95,13 @@ final class SnapshotBuilder {
                 .append(",\"remaining\":").append(roundOne(cloud.remaining))
                 .append(",\"radius\":").append(PoisonGasRules.RADIUS).append('}');
         }
+        for (int i = 0; i < game.enemyPoisonClouds.size(); i++) {
+            var cloud = game.enemyPoisonClouds.get(i);
+            if (!game.poisonClouds.isEmpty() || i > 0) json.append(',');
+            json.append("{\"x\":").append(roundOne(cloud.x)).append(",\"y\":").append(roundOne(cloud.y))
+                .append(",\"remaining\":").append(roundOne(cloud.remaining))
+                .append(",\"radius\":").append(EnemyPoisonSystem.RADIUS).append(",\"hostile\":true}");
+        }
         json.append(']');
         json.append(",\"missiles\":[");
         for (int i = 0; i < game.missiles.size(); i++) {
@@ -435,11 +442,11 @@ final class SnapshotBuilder {
                     .append(",\"actionDuration\":").append(BossAbilitySystem.SUMMON_WARNING)
                     .append(",\"pulseRadius\":").append(BossAbilitySystem.SUMMON_RADIUS);
             }
-            if (enemy.type.equals("titan")) {
+            if (enemy.type.equals("titan") || enemy.type.equals("finalBoss")) {
                 json.append(",\"bossAction\":\"").append(enemy.bossPulseRemaining > 0 ? "PULSE_WARNING" : "IDLE").append('"')
                     .append(",\"actionRemaining\":").append(roundOne(enemy.bossPulseRemaining))
-                    .append(",\"actionDuration\":").append(BossAbilitySystem.TITAN_WARNING)
-                    .append(",\"pulseRadius\":").append(BossAbilitySystem.TITAN_RADIUS);
+                    .append(",\"actionDuration\":").append(enemy.type.equals("finalBoss") ? FinalBossSystem.WARNING : BossAbilitySystem.TITAN_WARNING)
+                    .append(",\"pulseRadius\":").append(BossAbilitySystem.pulseRadius(enemy.type));
             }
             json.append(",\"powerCut\":").append(enemy.powerCut);
             json.append(",\"frozenRemaining\":").append(roundOne(enemy.frozenRemaining));

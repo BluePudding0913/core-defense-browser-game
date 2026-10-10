@@ -221,3 +221,5 @@ LMGは1発30ダメージ・間隔0.18秒でSMG（18・0.14秒）より秒間火�
 火炎の描画はFlameParticles.createBudgetでフレームごとに制限する。1バースト8粒・同じ射手12粒・画面全体48粒までとし、壁で隠れる粒も先に枠を消費するため到達判定の回数も48以内に保つ。drawHitEffectsが共有の枠を渡し、攻撃判定・威力・射程・射撃頻度は変更しない。
 
 TurretRulesはタレット4種の射程・威力・射撃間隔・TINYへの命中不可・1発4HP消費を管理する。GameSessionは従来どおり標的を選び、外れた弾も含め発射時だけHPを減らす。HP0で既存の破壊通知と設備除去を行い、敵なし・射程外・壁越し・冷却中は消費しない。TINYの基本HPを20+R×2から25+R×2.5（25%増）にし、既存の共通2倍を適用する。地雷やプレイヤーの攻撃は従来どおり命中する。
+
+EnemyTierRulesは全敵の生成HP・攻撃力へ10Rごとに加算20%の倍率を一度だけ適用する。BossRulesはボス分類、TurretRulesは既存ボスへの50%軽減とOVERLORDへの命中不可を担当する。EnemyWaveRulesがPOISONER（16R）・ARTILLERY ELITE（30R）と50RのOVERLORDを予定し、GameSessionが状態・出現キュー・ダメージ・終了条件を所有する。EnemySalvoRulesは通常/上位砲兵の固定照準1発/5発を作り、FinalBossSystemは予告1.2秒・半径260衝撃波と5連砲撃・HP段階の加速を管理する。CPUと描画は同じ予告半径を使う。EnemyPoisonSystemは半径55・4秒・0.5秒tick・同時24個上限の敵毒と標的を管理し、WorldからGameSessionの共通被ダメージへ渡す。味方のガスとは別リストとし、SnapshotBuilderだけがhostile付きで共通描画配列に変換する。巻き戻し/再開始で消去し、毒が残る間はラウンド終了しない。
