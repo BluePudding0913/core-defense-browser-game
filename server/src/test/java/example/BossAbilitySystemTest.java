@@ -78,4 +78,69 @@ class BossAbilitySystemTest {
         update(.05); assertTrue(game.artilleryShells.isEmpty());
         boss.hp = 0; player.x = 1120; update(20); assertTrue(game.artilleryShells.isEmpty());
     }
+
+    @Test void generatedBossesWalkFasterExceptExplosionBoss() throws Exception {
+        var spawn = GameSession.class.getDeclaredMethod("spawnEnemy", String.class, SpawnPoint.class);
+        spawn.setAccessible(true);
+        var point = new SpawnPoint("speed-test", "test", 1020, 1900, "west", "balanced", 1, "core", java.util.List.of());
+        String[] types = {"boss", "warden", "warlord", "titan", "explosionBoss", "grunt"};
+        double[] expected = {24, 33, 31.5, 27, 12, 59};
+        for (int n = 0; n < types.length; n++) {
+            game.enemies.clear(); spawn.invoke(game, types[n], point);
+            assertEquals(expected[n], game.enemies.get(0).speed, 1e-9, types[n]);
+        }
+    }
+    double movement(String type, double hp) throws Exception {
+        setup(); player.x = 1300;
+        Enemy e = boss(type); e.hp = hp; e.specialCooldown = 100;
+        update(.1);
+        return Math.hypot(e.x - 1020, e.y - 1900);
+    }
+    @Test void actualWalkingAcceleratesInBothHpPhases() throws Exception {
+        for (String type : new String[]{"titan", "warlord"}) {
+            double normal = movement(type, 6001);
+            assertTrue(normal > 0);
+            assertEquals(normal * 1.2, movement(type, 6000), 1e-6);
+            assertEquals(normal * 1.5, movement(type, 3000), 1e-6);
+        }
+    }
+    @Test void contactAttacksUseThePhaseRateAgainstAPlayer() throws Exception {
+        for (String type : new String[]{"titan", "warlord"}) {
+            for (double hp : new double[]{6001, 6000, 3000}) {
+                setup(); Enemy e = boss(type); player.x = e.x + 20;
+                e.hp = hp; e.specialCooldown = 100; e.attackCooldown = .9;
+                double interval = hp > 6000 ? .9 : hp > 3000 ? .6 : .45;
+                update(interval - .01); assertEquals(100, player.hp);
+                update(.02); assertEquals(100 - e.damage, player.hp, 1e-6);
+            }
+        }
+    }
+    @Test void phaseChangeAcceleratesAlreadyRunningSpecialCooldowns() throws Exception {
+        for (String type : new String[]{"titan", "warlord"}) {
+            setup(); Enemy e = boss(type); e.specialCooldown = 8;
+            update(2); assertEquals(6, e.specialCooldown);
+            e.hp = 6000; update(2); assertEquals(3, e.specialCooldown);
+            e.hp = 3000; update(1.49); assertTrue(e.specialCooldown > 0);
+            assertEquals(0, e.bossPulseRemaining); assertTrue(game.artilleryShells.isEmpty());
+            update(.02);
+            if (type.equals("titan")) {
+                assertEquals(1.5, e.bossPulseRemaining);
+                update(1.49); assertTrue(e.bossPulseRemaining > 0);
+                update(.02); assertEquals(0, e.bossPulseRemaining); assertEquals(8, e.specialCooldown);
+            } else {
+                assertEquals(3, game.artilleryShells.size());
+                assertTrue(game.artilleryShells.stream().allMatch(shell -> shell.remaining == 1.5));
+                assertEquals(8, e.specialCooldown);
+            }
+        }
+    }
+    @Test void freezingAndHooksStillPauseEnragedBosses() throws Exception {
+        for (String type : new String[]{"titan", "warlord"}) {
+            setup(); Enemy e = boss(type); e.hp = 3000; e.specialCooldown = 8;
+            e.frozenRemaining = 1; update(.5);
+            assertEquals(8, e.specialCooldown); assertEquals(1020, e.x); assertEquals(1900, e.y);
+            e.frozenRemaining = 0; e.hookPulled = true; update(.5);
+            assertEquals(8, e.specialCooldown); assertEquals(1020, e.x); assertEquals(1900, e.y);
+        }
+    }
 }
