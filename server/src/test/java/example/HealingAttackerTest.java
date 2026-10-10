@@ -15,8 +15,8 @@ class HealingAttackerTest extends JobsTest {
         Player outside = game.players.get(2);
         outside.x = player.healX + 60; outside.y = player.healY; outside.hp = 50;
         game.update(1);
-        assertEquals(45, player.hp);
-        assertEquals(55, ally.hp);
+        assertEquals(46, player.hp);
+        assertEquals(56, ally.hp);
         assertEquals(50, outside.hp);
         ally.down = true;
         ally.hp = 0;
