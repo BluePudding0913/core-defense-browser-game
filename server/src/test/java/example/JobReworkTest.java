@@ -16,8 +16,8 @@ class JobReworkTest {
   var workbench=GameMap.WORKBENCH_UNITS.get(0);player.x=workbench.x();player.y=workbench.y();player.wood=100;player.ore=100;
   var recipe=JobRules.recipe("builder",GameConfig.BUILD_RECIPES.get("turret"));game.handleMessage(player,"CRAFT:turret");
   assertEquals(1,player.turretItems);assertEquals(100-recipe.getOrDefault("wood",0),player.wood);assertEquals(100-recipe.getOrDefault("ore",0),player.ore);
-  var quarry=GameMap.shopByItem("woodFactory");assertEquals(22500,quarry.cost());player.x=quarry.x();player.y=quarry.y();
-  game.handleMessage(player,"BUY:woodFactory");assertEquals(88750,player.credits);assertEquals(1,player.buildItemCount("woodFactory"));
+  var quarry=GameMap.shopByItem("woodFactory");assertEquals(20000,quarry.cost());player.x=quarry.x();player.y=quarry.y();
+  game.handleMessage(player,"BUY:woodFactory");assertEquals(90000,player.credits);assertEquals(1,player.buildItemCount("woodFactory"));
   var bench=GameMap.shopByItem("overclockSilver");player.x=bench.x();player.y=bench.y();player.silverTurretItems=16;
   game.handleMessage(player,"BUY:overclockSilver");assertEquals(0,player.silverTurretItems);assertEquals(1,player.overclockSilverItems);
  }
