@@ -102,20 +102,20 @@ class TankDecoyTest {
             assertEquals(10000, segment.defense.hp);
             assertEquals(10000, segment.defense.maxHp);
             assertEquals(player.id, segment.ownerId);
-            assertEquals(20, segment.temporaryRemaining);
+            assertEquals(15, segment.temporaryRemaining);
         }
         var slots = new ObjectMapper().readTree(SnapshotBuilder.build(game)).get("slots");
         assertEquals(2, slots.size());
         assertEquals(10000, slots.get(0).get("defense").get("maxHp").asDouble());
-        assertEquals(JobRules.TANK_WALL_COOLDOWN, player.jobCooldown);
+        assertEquals(10, player.jobCooldown);
         call("removeDefense", new Class<?>[]{Player.class, String.class}, player, wall.id);
         assertEquals(2, game.trapSlots.size()); assertEquals(0, player.barricadeItems);
         game.handleMessage(player, "TANK_WALL"); assertEquals(2, game.trapSlots.size());
         player.jobCooldown = 0; game.handleMessage(player, "TANK_WALL");
         assertEquals(0, player.jobCooldown); assertEquals(2, game.trapSlots.size());
-        call("updateJobEquipment", new Class<?>[]{double.class}, 15.0);
+        call("updateJobEquipment", new Class<?>[]{double.class}, 14.9);
         assertEquals(2, game.trapSlots.size());
-        call("updateJobEquipment", new Class<?>[]{double.class}, 5.0);
+        call("updateJobEquipment", new Class<?>[]{double.class}, .1);
         assertTrue(game.trapSlots.isEmpty());
     }
 
@@ -188,8 +188,8 @@ class TankDecoyTest {
         game.trapSlots.get(0).defense.hp = 0;
         call("updateJobEquipment", new Class<?>[]{double.class}, 1.0);
         assertEquals(List.of(survivor), game.trapSlots);
-        assertEquals(19, survivor.temporaryRemaining);
-        call("updateJobEquipment", new Class<?>[]{double.class}, 19.0);
+        assertEquals(14, survivor.temporaryRemaining);
+        call("updateJobEquipment", new Class<?>[]{double.class}, 14.0);
         assertTrue(game.trapSlots.isEmpty());
         assertEquals(1200, new Defense("barricade").maxHp);
     }
