@@ -195,3 +195,5 @@ BossRulesはBOSS・WARDEN・WARLORD・TITAN・EXPLOSION BOSSの生成HPを従来
 WARLORDは3点砲撃と1秒予告付きの増援召喚を交互に使う。BossAbilitySystemが予告・切替・種類（RUNNER12体＋ARMORED6体）・円状の候補座標を管理し、GameSessionが敵更新の反復後に18体を一括追加する。候補が壁・未解放部屋・設備で塞がる場合はWARLORDの足元へ戻し、通常の敵生成・報酬・撃破処理を共有する。召喚元IDで同時生存数を36体までに制限し、上限時は砲撃を続ける。追加数をroundEnemyTotalへ加算し、全滅判定と残敵表示へ反映する。予告中は移動・ノックバックを止め、凍結・フックで予告の時計を止める。倒せば未発動の召喚は中止する。SnapshotBuilderがSUMMON_WARNINGと時間を配信し、warden-ui.jsが水色の円で表示する。
 
 蘇生対象はJobRules.reviveTargetで選ぶ。進行中の相手がダウン中・78px以内・視線が通る間は対象を固定し、味方や救助者の小さな移動で最寄りが入れ替わってもゲージを保持する。対象が範囲外・壁越し・蘇生済みになれば次の最寄りを選び直し、GameSessionが進行時間をリセットする。救助者のダウン・ドローン操作中は救助を停止する。
+
+SEEKERの誘導弾は半径8でプレイヤー・CPU・ドローンの直接攻撃を受けると消える。EnemyProjectileSystem.rayEntryが射線と弾の交差を判定し、CombatSystemが非貫通弾の最初の命中・貫通弾・散弾・跳弾・近接・火炎・レールガン・ロケットと味方の爆発へ適用する。壁越しの迎撃は拒否し、弾への迎撃で報酬や敵撃破数を増やさない。GameEffectsがinterceptイベントへ変換し、小さな火花を描く。

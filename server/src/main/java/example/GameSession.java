@@ -172,6 +172,7 @@ final class GameSession {
             public boolean canAttack() { return canMove(); }
             public Set<String> unlockedAreas() { return unlockedAreas; }
             public List<Enemy> enemies() { return enemies; }
+            public List<EnemyProjectileSystem.Shot> enemyProjectiles() { return enemyProjectiles; }
             public List<PoisonGasRules.Cloud> poisonClouds() { return poisonClouds; }
             public List<Player> players() { return players; }
             public void damagePlayer(Player player, double damage) { GameSession.this.damagePlayer(player, damage); }

@@ -16,6 +16,7 @@ final class CombatSystem {
         Set<String> unlockedAreas();
         List<Enemy> enemies();
         List<PoisonGasRules.Cloud> poisonClouds();
+        default List<EnemyProjectileSystem.Shot> enemyProjectiles() { return List.of(); }
         List<Player> players();
         void damagePlayer(Player player, double damage);
         boolean canOccupy(double x, double y, double radius);
@@ -146,7 +147,16 @@ final class CombatSystem {
     }
 
 
+    private void interceptShots(double x, double y, java.util.function.Predicate<EnemyProjectileSystem.Shot> hit) {
+        for (var shot : List.copyOf(world.enemyProjectiles())) {
+            if (hit.test(shot) && GameMap.hasClearLine(x, y, shot.x, shot.y, world.unlockedAreas())
+                    && world.enemyProjectiles().remove(shot)) events.intercepted(shot.x, shot.y);
+        }
+    }
+
     private void firePlasmaBlade(Player player, WeaponStats weapon, double dx, double dy) {
+        interceptShots(player.x, player.y, shot -> RepulsorRules.contains(player.x, player.y, dx, dy,
+                weapon.range(), shot.x, shot.y, EnemyProjectileSystem.SHOT_RADIUS));
         events.hit(player.id, "plasmaBlade", player.x, player.y,
                 player.x + dx * weapon.range(), player.y + dy * weapon.range(), 0, false, 0, false, null);
         for (Enemy enemy : List.copyOf(world.enemies())) {
@@ -267,6 +277,7 @@ final class CombatSystem {
 
     void droneExplosion(Player player, Drone drone) {
         events.alliedExplosion(drone.x, drone.y, DroneRules.SELF_DESTRUCT_RADIUS);
+        interceptShots(drone.x, drone.y, shot -> distance(drone.x, drone.y, shot.x, shot.y) <= DroneRules.SELF_DESTRUCT_RADIUS);
         droneShot = new DroneShot(player, "droneExplosion", drone.x, drone.y, drone);
         try {
             for (Enemy enemy : List.copyOf(world.enemies())) {
@@ -284,6 +295,7 @@ final class CombatSystem {
 
     void missileImpact(Player player, double x, double y) {
         events.alliedExplosion(x, y, MissileRules.radius());
+        interceptShots(x, y, shot -> distance(x, y, shot.x, shot.y) <= MissileRules.radius());
         for (Enemy enemy : List.copyOf(world.enemies())) {
             double separation = distance(x, y, enemy.x, enemy.y);
             if (enemy.hp <= 0 || separation > MissileRules.radius()
@@ -298,6 +310,7 @@ final class CombatSystem {
         double x = shotX(player), y = shotY(player);
         String weaponId = shotWeapon(player);
         double range = GameMap.distanceToWall(x, y, dx, dy, weapon.range(), world.unlockedAreas());
+        interceptShots(x, y, shot -> FlameRules.contains(shot.x, shot.y, EnemyProjectileSystem.SHOT_RADIUS, x, y, dx, dy, range));
         events.hit(player.id, weaponId, x, y, x + dx * range, y + dy * range, 0, false, 0, false, null);
         for (Enemy enemy : List.copyOf(world.enemies())) {
             if (SpecialEnemyRules.carriesHunters(enemy)) {
@@ -395,6 +408,8 @@ final class CombatSystem {
                     player.railgunDx, player.railgunDy, stats, range)) {
                 world.damagePlayer(target, stats.damage() * GameConfig.RAILGUN_TICK);
             }
+            interceptShots(player.x, player.y, shot -> Double.isFinite(EnemyProjectileSystem.rayEntry(shot,
+                    player.x, player.y, player.railgunDx, player.railgunDy, range, stats.width())));
             // Copy: damage can spawn world.enemies(), so newly spawned world.enemies() enter on the next tick.
             for (Enemy enemy : List.copyOf(world.enemies())) {
                 if (enemy.hp <= 0 || !isInsideAttack(enemy, player.x, player.y, player.railgunDx, player.railgunDy, stats, range)
@@ -440,6 +455,10 @@ final class CombatSystem {
             while (budget > 1e-9) {
                 double range=Math.min(12, budget);
                 double impactDistance = GameMap.distanceToWall(flight.x, flight.y, dx, dy, range, world.unlockedAreas());
+                for (var shot : world.enemyProjectiles()) {
+                    impactDistance = Math.min(impactDistance, EnemyProjectileSystem.rayEntry(shot,
+                            flight.x, flight.y, dx, dy, range, flight.weapon.width()));
+                }
                 // Stop at the first enemy body; unlike bullets, the rocket detonates instead of piercing.
                 for (Enemy enemy : world.enemies()) {
                     if (enemy.hp <= 0) continue;
@@ -471,6 +490,7 @@ final class CombatSystem {
     }
     private void rocketImpact(Player player, WeaponStats weapon, double x, double y) {
         events.alliedExplosion(x, y, GameConfig.ROCKET_BLAST_RADIUS);
+        interceptShots(x, y, shot -> distance(x, y, shot.x, shot.y) <= GameConfig.ROCKET_BLAST_RADIUS);
         for (Player target : world.players()) {
             double blastDistance = distance(x, y, target.x, target.y);
             if (JobRules.canHitDisguisedAlly(player, target) && blastDistance <= GameConfig.ROCKET_BLAST_RADIUS
@@ -557,6 +577,34 @@ final class CombatSystem {
             double entry = Math.max(0, projection - Math.sqrt(Math.max(0, radius * radius - perpendicular * perpendicular)));
             endX = originX + directionX * entry; endY = originY + directionY * entry;
         }
+        boolean intercepted = false;
+        double firstBody = Math.hypot(endX - originX, endY - originY);
+        if (!piercing && !targets.isEmpty() && WeaponCatalog.find(shotWeapon(player)).mode() == WeaponCatalog.AttackMode.MELEE) {
+            Enemy first = targets.get(0);
+            double projection = (first.x - originX) * directionX + (first.y - originY) * directionY;
+            double perpendicular = Math.abs((first.x - originX) * directionY - (first.y - originY) * directionX);
+            double radius = enemyRadius(first) + weapon.width();
+            firstBody = Math.max(0, projection - Math.sqrt(Math.max(0, radius * radius - perpendicular * perpendicular)));
+        }
+        var missiles = world.enemyProjectiles().stream()
+                .filter(shot -> Double.isFinite(EnemyProjectileSystem.rayEntry(shot, originX, originY,
+                        directionX, directionY, shotDistance, weapon.width())))
+                .filter(shot -> GameMap.hasClearLine(originX, originY, shot.x, shot.y, world.unlockedAreas()))
+                .sorted(Comparator.comparingDouble(shot -> EnemyProjectileSystem.rayEntry(shot, originX, originY,
+                        directionX, directionY, shotDistance, weapon.width()))).toList();
+        for (var shot : missiles) {
+            double entry = EnemyProjectileSystem.rayEntry(shot, originX, originY,
+                    directionX, directionY, shotDistance, weapon.width());
+            if (!piercing && entry >= firstBody) break;
+            if (world.enemyProjectiles().remove(shot)) {
+                events.intercepted(shot.x, shot.y); intercepted = true;
+            }
+            if (!piercing) {
+                targets = List.of(); allies = List.of();
+                endX = originX + directionX * entry; endY = originY + directionY * entry;
+                break;
+            }
+        }
         // A trajectory event is separate from impact and reward events.
         if (!shotWeapon(player).equals("bat")) {
             events.hit(player.id, shotWeapon(player), originX, originY, endX, endY, 0, false, 0, false, null);
@@ -582,7 +630,7 @@ final class CombatSystem {
                     dealt, hit.hp <= 0, player.credits - creditsBeforeHit, headshot, hit.id);
         }
         for (Player target : allies) world.damagePlayer(target, weapon.damage());
-        return !targets.isEmpty() || !allies.isEmpty();
+        return intercepted || !targets.isEmpty() || !allies.isEmpty();
     }
 
     private void damageBag(Enemy enemy, double amount, Player player, String weapon, double x, double y) {
