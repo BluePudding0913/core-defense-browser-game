@@ -117,7 +117,8 @@ final class SnapshotBuilder {
         for (var shot : game.enemyProjectiles) {
             if (!first) json.append(','); first=false;
             json.append("{\"id\":\"enemy-").append(shot.id).append("\",\"source\":\"enemy\",\"x\":").append(shot.x)
-                .append(",\"y\":").append(shot.y).append(",\"angle\":").append(shot.angle).append(",\"speed\":").append(EnemyProjectileSystem.SPEED).append('}');
+                .append(",\"y\":").append(shot.y).append(",\"angle\":").append(shot.angle).append(",\"speed\":").append(EnemyProjectileSystem.SPEED)
+                .append(",\"hp\":").append(shot.hp).append(",\"maxHp\":").append(EnemyProjectileSystem.SHOT_HP).append('}');
         }
         for (var shot : game.rockets) {
             if (!first) json.append(','); first=false;
