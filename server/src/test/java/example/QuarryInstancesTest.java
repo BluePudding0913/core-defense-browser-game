@@ -49,6 +49,7 @@ class QuarryInstancesTest {
         String[] areas = {"forest", "mine", "security-hall", "command-room"};
         for (int i = 0; i < items.length; i++) {
             ShopUnit shop = GameMap.shopByItem(items[i]);
+            assertEquals((i + 1) * 20000, shop.cost());
             assertTrue(GameMap.areaById(areas[i]).contains(shop.x(), shop.y()));
             assertTrue(shop.y() < 600);
             assertFalse(GameMap.canOccupy(shop.x(), shop.y(), 5, Set.of("entry-room")));
