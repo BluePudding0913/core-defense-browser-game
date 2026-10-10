@@ -13,7 +13,7 @@ const state={projectiles:[{id:"enemy-1",source:"enemy",x:100,y:100,angle:0},{id:
  {id:1,type:"blackout",powerCut:true,hp:100,x:200,y:100},{id:2,type:"blackout",powerCut:false,hp:100},
  {id:3,type:"blackout",powerCut:true,hp:0},{id:4,type:"grunt",hp:100}]};
 let missileControl=false;
-const context=vm.createContext({state,ctx,canvas:{width:800,height:600},smoothed:new Map(),camera:{x:400,y:300},scale:1,
+const context=vm.createContext({ labRenderer: null, worldYScale: () => 1,state,ctx,canvas:{width:800,height:600},smoothed:new Map(),camera:{x:400,y:300},scale:1,
  performance:{now:()=>now},smoothEntity:(_,p)=>p,enemyRadius:()=>21,getMe:()=>({missileControl}),clamp:(v,a,b)=>Math.max(a,Math.min(b,v))});
 for(const name of ["drawProjectiles","drawBlackoutEnemyGlow","drawRewindScreen"])vm.runInContext(extract(name),context);
 vm.runInContext("drawProjectiles()",context);assert.deepEqual(strokes,["#ff7050","#69dfff"]);assert.deepEqual(paths[0],[80,100]);
