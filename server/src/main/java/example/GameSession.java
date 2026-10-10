@@ -338,6 +338,7 @@ final class GameSession {
             }
             case "ROOM_READY" -> setRoomReady(player, parts);
             case "MOVE" -> handleMove(player, parts);
+            case "JUMP" -> jump(player);
             case "DASH" -> handleDash(player, parts);
             case "ATTACK" -> combat.attackAt(player, player.aimX, player.aimY);
             case "FIRE" -> handleFire(player, message.split(":", 5));
@@ -608,6 +609,25 @@ final class GameSession {
         if (parts.length < 2) return;
         String cleaned = parts[1].replaceAll("[^\\p{L}\\p{N} _-]", "").trim();
         if (!cleaned.isEmpty()) player.name = cleaned.substring(0, Math.min(16, cleaned.length()));
+    }
+
+    private double jumpSupport(Player player) {
+        return trapSlots.stream().anyMatch(slot -> slot.defense != null
+                && BuildingRules.blocksMovement(slot.defense.type)
+                && distance(player.x, player.y, slot.x, slot.y) < 23)
+                && player.jumpHeight >= JumpRules.OBSTACLE_HEIGHT - .01 ? JumpRules.OBSTACLE_HEIGHT : 0;
+    }
+
+    private void jump(Player player) {
+        if (!canMove() || player.down || player.movingCore || player.missileControl || DroneRules.controlling(player)) return;
+        if (JumpRules.grounded(player.jumpHeight, player.jumpVelocity, jumpSupport(player)))
+            player.jumpVelocity = JumpRules.SPEED;
+    }
+
+    private boolean canPlayerOccupy(Player player, double x, double y) {
+        if (!GameMap.canOccupy(x, y, 5, unlockedAreas)
+                || player.jumpHeight + JumpRules.BODY_HEIGHT > GameMap.ceilingHeight(x, y) + .01) return false;
+        return player.jumpHeight >= JumpRules.OBSTACLE_HEIGHT - .01 || canOccupy(x, y, 5);
     }
 
     private void handleMove(Player player, String[] parts) {
@@ -949,6 +969,7 @@ final class GameSession {
             return;
         }
         player.x = destination.x(); player.y = destination.y();
+        player.jumpHeight = 0; player.jumpVelocity = 0;
         player.scoutDashRemaining = 0;
         player.teleportCooldown = 1.5;
         cancelAction(player);
@@ -1186,6 +1207,12 @@ final class GameSession {
     private void updatePlayers(double dt) {
         for (Player player : players) {
             if (phase == GamePhase.WON && (!player.human || player.down)) continue;
+            if (player.down || player.movingCore) { player.jumpHeight = 0; player.jumpVelocity = 0; }
+            else {
+                JumpRules.Motion motion = JumpRules.advance(player.jumpHeight, player.jumpVelocity, dt,
+                        jumpSupport(player), GameMap.ceilingHeight(player.x, player.y));
+                player.jumpHeight = motion.height(); player.jumpVelocity = motion.velocity();
+            }
             if (player.missileControl) continue;
             if (DroneRules.controlling(player)) {
                 Drone drone = player.drone;
@@ -1204,7 +1231,7 @@ final class GameSession {
                 } else {
                     double travel = JobRules.SCOUT_DASH_SPEED * Math.min(dt, player.scoutDashRemaining);
                     MapPoint next = JobRules.advanceScoutDash(player.x, player.y,
-                            player.scoutDashDx, player.scoutDashDy, travel, (x, y) -> canOccupy(x, y, 5));
+                            player.scoutDashDx, player.scoutDashDy, travel, (x, y) -> canPlayerOccupy(player, x, y));
                     boolean blocked = distance(player.x, player.y, next.x(), next.y()) + .001 < travel;
                     player.x = next.x(); player.y = next.y();
                     player.scoutDashRemaining = blocked ? 0 : Math.max(0, player.scoutDashRemaining - dt);
@@ -1232,8 +1259,8 @@ final class GameSession {
             else if (player.railgunCharge > 0 || player.secondaryRailgunCharge > 0) speed = 155 * .6;
             double nextX = clamp(player.x + player.moveX * speed * dt, 7, WORLD_W - 7);
             double nextY = clamp(player.y + player.moveY * speed * dt, 7, WORLD_H - 7);
-            if (canOccupy(nextX, player.y, 5)) player.x = nextX;
-            if (canOccupy(player.x, nextY, 5)) player.y = nextY;
+            if (canPlayerOccupy(player, nextX, player.y)) player.x = nextX;
+            if (canPlayerOccupy(player, player.x, nextY)) player.y = nextY;
             if (player.movingCore) {
                 coreX = player.x;
                 coreY = player.y;
@@ -3721,6 +3748,7 @@ final class GameSession {
             player.dashExhausted = false;
             player.missileControl = false; player.breakerControl = null; player.missileCooldown = 0;
             player.stamina = JobRules.staminaMax(player.job);
+            player.jumpHeight = 0; player.jumpVelocity = 0;
             player.spyCheckedEnemies.clear(); player.spyHostileEnemies.clear();
             player.spyRemaining = 0;
             player.drone = null;

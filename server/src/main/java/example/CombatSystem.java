@@ -420,10 +420,10 @@ final class CombatSystem {
             player.railgunTick -= GameConfig.RAILGUN_TICK;
             double range = GameMap.distanceToWall(player.x, player.y, player.railgunDx, player.railgunDy, stats.range(), world.unlockedAreas());
             FpsHitRules.Ray beamRay = player.railgunPitch == null ? null
-                    : new FpsHitRules.Ray(player.x, player.y, 26, player.railgunDx, player.railgunDy, Math.tan(player.railgunPitch), range);
+                    : new FpsHitRules.Ray(player.x, player.y, 26 + player.jumpHeight, player.railgunDx, player.railgunDy, Math.tan(player.railgunPitch), range);
             for (Player target : friendlyRayTargets(player, player.x, player.y,
                     player.railgunDx, player.railgunDy, stats, range)) {
-                if (beamRay == null || FpsHitRules.ally(beamRay, target.x, target.y, target.down, stats.width()) != null)
+                if (beamRay == null || FpsHitRules.ally(beamRay, target.x, target.y, target.down, stats.width(), target.jumpHeight) != null)
                     world.damagePlayer(target, stats.damage() * GameConfig.RAILGUN_TICK);
             }
             interceptShots(player, "railgun", player.x, player.y, shot -> (beamRay == null || FpsHitRules.projectile(beamRay, shot.x, shot.y, stats.width()) != null) && Double.isFinite(EnemyProjectileSystem.rayEntry(shot,
@@ -570,7 +570,7 @@ final class CombatSystem {
         return fireSegment(player, weapon, originX, originY, directionX, directionY, shotDistance, shotHeight(player));
     }
 
-    private double shotHeight(Player player) { return droneShot != null && droneShot.owner == player ? 23 : 26; }
+    private double shotHeight(Player player) { return droneShot != null && droneShot.owner == player ? 23 : 26 + player.jumpHeight; }
 
     private FpsHitRules.Ray fpsRay(Player player, double x, double y, double dx, double dy, double range, double height) {
         return player.aimPitch == null || WeaponCatalog.find(shotWeapon(player)).mode() == WeaponCatalog.AttackMode.MELEE ? null
@@ -610,14 +610,14 @@ final class CombatSystem {
         List<Player> allies = WeaponCatalog.find(shotWeapon(player)).mode() == WeaponCatalog.AttackMode.MELEE
                 ? List.of() : friendlyRayTargets(player, originX, originY, directionX, directionY, weapon, shotDistance);
         if (fpsRay != null) allies = allies.stream()
-                .filter(target -> FpsHitRules.ally(fpsRay, target.x, target.y, target.down, weapon.width()) != null)
-                .sorted(Comparator.comparingDouble(target -> FpsHitRules.ally(fpsRay, target.x, target.y, target.down, weapon.width()).distance())).toList();
+                .filter(target -> FpsHitRules.ally(fpsRay, target.x, target.y, target.down, weapon.width(), target.jumpHeight) != null)
+                .sorted(Comparator.comparingDouble(target -> FpsHitRules.ally(fpsRay, target.x, target.y, target.down, weapon.width(), target.jumpHeight).distance())).toList();
         double firstEnemy = targets.isEmpty() ? Double.POSITIVE_INFINITY
                 : fpsRay != null ? fpsHits.get(targets.get(0)).distance()
                 : (targets.get(0).x - originX) * directionX + (targets.get(0).y - originY) * directionY;
         if (!piercing) allies = allies.stream().filter(target ->
                 (fpsRay == null ? (target.x - originX) * directionX + (target.y - originY) * directionY
-                        : FpsHitRules.ally(fpsRay, target.x, target.y, target.down, weapon.width()).distance()) < firstEnemy).limit(1).toList();
+                        : FpsHitRules.ally(fpsRay, target.x, target.y, target.down, weapon.width(), target.jumpHeight).distance()) < firstEnemy).limit(1).toList();
         if (!piercing && !allies.isEmpty()) {
             targets = List.of();
             Player first = allies.get(0);
@@ -625,7 +625,7 @@ final class CombatSystem {
             double perpendicular = Math.abs((first.x - originX) * directionY - (first.y - originY) * directionX);
             double radius = 12 + weapon.width();
             double entry = Math.max(0, projection - Math.sqrt(Math.max(0, radius * radius - perpendicular * perpendicular)));
-            if (fpsRay != null) entry = FpsHitRules.ally(fpsRay, first.x, first.y, first.down, weapon.width()).distance();
+            if (fpsRay != null) entry = FpsHitRules.ally(fpsRay, first.x, first.y, first.down, weapon.width(), first.jumpHeight).distance();
             endX = originX + directionX * entry; endY = originY + directionY * entry;
         }
         if (!piercing && !targets.isEmpty() && WeaponCatalog.find(shotWeapon(player)).mode() != WeaponCatalog.AttackMode.MELEE) {

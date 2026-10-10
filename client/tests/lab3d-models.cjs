@@ -30,12 +30,11 @@ const muzzle=head.children.find(o=>o.type==='Object3D');assert(muzzle.position.z
 const wire=find('defense:wire:wire');assert(wire.children.some(o=>o.geometry?.type==='TubeGeometry'),'Wire has a barbed coil');
 assert(!wire.children.some(o=>o.geometry?.type==='CylinderGeometry'),'Wire does not reuse mine disk');
 assert(find('defense:mine:mine').children.some(o=>o.geometry?.type==='CylinderGeometry'));
-for (const type of ['barricade','copperBarricade','silverBarricade']) assert(find('defense:'+type+':'+type).children.length>=7,'Barricades use posts and rails');
+for (const type of ['barricade','copperBarricade','silverBarricade']) { const block=find('defense:'+type+':'+type).children[0];assert.deepEqual(block.scale.toArray(),[36,24,36],'Barricades are low solid blocks'); }
 find('station:breaker:breaker'); find('station:unlock:terminal');find('resource:ore:ore');find('drop:1:medkit');
 assert(!scene.getObjectByName('resource:empty:wood'));
 const terrain=scene.children.find(o=>o.children.some(c=>c.isInstancedMesh));
-const accents=terrain.children.at(-1);const m=new THREE.Matrix4(),pos=new THREE.Vector3(),q=new THREE.Quaternion(),scale=new THREE.Vector3();
-for(let i=0;i<accents.count;i++){accents.getMatrixAt(i,m);m.decompose(pos,q,scale);assert(pos.y<1,'No decorative line on wall top');}
+assert(!terrain.getObjectByName('lab-floor-strips'),'No blue decoration on floor');const m=new THREE.Matrix4(),pos=new THREE.Vector3(),q=new THREE.Quaternion(),scale=new THREE.Vector3();
 frame.effects=[{effect:'hit',weapon:'turret',fromX:100,fromY:160,x:200,y:160,damage:10,enemyId:1,started:now},
  {effect:'hit',weapon:'pistol',playerId:'me',fromX:100,fromY:100,x:250,y:100,damage:0,started:now}];
 renderer.render(frame);
@@ -124,3 +123,16 @@ const authoritativeTrace=scene.children.find(o=>o.name==='muzzle-tracer'),impact
 assert(Math.abs(authoritativeTrace.geometry.attributes.position.getY(1)-27.3)<1e-5,'Tracer uses server impact height');
 assert.deepEqual(impactParticles.position.toArray(),[128,27.3,112],'Particles start at the server impact, rather than the enemy center');
 console.log('FPS authoritative impact passed: tracer endpoint and red particles use server XYZ impact');
+
+// Motion and shape regressions use the rendered scene, including scope magnification.
+frame.eye=player;frame.motion={moving:false};frame.effects=[];player.healRemaining=3;player.healHalfSize=60;player.healX=100;player.healY=100;now+=500;renderer.render(frame);
+const heal=find('heal:me');assert.equal(heal.geometry.type,'PlaneGeometry');assert.equal(heal.scale.x*2,120);assert.equal(heal.scale.y*2,120);
+player.weapon='sniper';frame.view={yaw:0,pitch:0,zoom:true};frame.scoped=true;renderer.render(frame);assert.equal(camera.fov,20);
+frame.scoped=false;frame.view.zoom=false;player.jumpHeight=24;renderer.render(frame);assert.equal(camera.position.y,50);player.jumpHeight=0;
+frame.effects=[{effect:'hit',weapon:'bat',playerId:'me',fromX:100,fromY:100,x:100,y:60,damage:0,started:now}];renderer.render(frame);
+assert(!scene.children.some(o=>o.name.startsWith('special:')),'Bat never creates a blue beam');assert(viewScene.getObjectByName('Soldier').rotation.z<0,'Bat swings the viewmodel');
+frame.effects=[{effect:'hit',weapon:'sniper',playerId:'me',fromX:100,fromY:100,x:100,y:60,damage:0,started:now+30}];now+=30;renderer.render(frame);assert(viewCamera.rotation.x<0,'Shot produces slight viewmodel recoil');
+const thick=scene.children.find(o=>o.name==='muzzle-tracer');assert(thick.children[0].isMesh);assert.equal(thick.children[0].scale.x,.35,'Visible thick red tracer');
+frame.effects=[];frame.motion.moving=true;player.y-=4;now+=50;renderer.render(frame);assert(Math.abs(camera.rotation.z)>0,'Walking gently sways camera');
+frame.motion.moving=false;now+=2000;for(let i=0;i<60;i++){now+=50;renderer.render(frame);}assert(Math.abs(camera.rotation.z)<1e-8,'Sway settles smoothly after stopping');
+console.log('FPS motion models passed: square heal area, scope, jump height, bat swing, recoil, thicker tracer and settling head bob');

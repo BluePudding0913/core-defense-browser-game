@@ -55,7 +55,7 @@ window.Lab3D = (() => {
             scene.remove(terrain);
             terrain.traverse(o => { if (o.isInstancedMesh) o.dispose(); });
             terrain = new T.Group(); scene.add(terrain);
-            const floors = [], walls = [], ceilings = [], bulkheads = [], lights = [], strips = [];
+            const floors = [], walls = [], ceilings = [], bulkheads = [], lights = [];
             const size = map.tileSize;
             const roomHeight = 26 * 5, corridorHeight = 64;
             // Use the full floor plan so unlocking a sector does not change ceiling height.
@@ -84,7 +84,6 @@ window.Lab3D = (() => {
                             bulkheads.push([x+dx*size/2, (height+roomHeight)/2, z+dz*size/2,
                                 dx ? 2 : size, roomHeight-height, dz ? 2 : size]);
                     }
-                    if ((r + c) % 6 === 0) strips.push([c * size + size / 2, .2, r * size + size - 4, size * .6, .5, 2]);
                 } else if ([[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy]) => reachable.has((r+dy)+':'+(c+dx)))) {
                     walls.push([c * size + size / 2, roomHeight / 2, r * size + size / 2, size, roomHeight, size]);
 
@@ -107,7 +106,6 @@ window.Lab3D = (() => {
             instances(ceilings, '#aebfc8', 'lab-ceilings');
             instances(bulkheads, '#d8e2e6', 'lab-bulkheads');
             instances(lights, '#d5f3ff', 'lab-ceiling-lights', true);
-            instances(strips, '#64b9c8', 'lab-floor-strips');
         }
         // Like the reference demo, render first-person arms separately to avoid wall clipping.
         const viewScene = new T.Scene();
@@ -135,7 +133,7 @@ window.Lab3D = (() => {
             raycaster.setFromCamera(new T.Vector2(0,0), camera);
             const origin=raycaster.ray.origin, direction=raycaster.ray.direction;
             let distance=2400, result=null;
-            // Pick the visible 3D body under the reticle, while the server retains 2D combat rules.
+            // Pick the visible 3D body under the reticle; the server verifies the actual hit.
             // Trajectories and warning meshes must never become aiming targets.
             const hits=raycaster.intersectObjects([...objects.values()].filter(o=>o.root.visible && o.root.isGroup).map(o=>o.root),true);
             const wallHits=raycaster.intersectObject(terrain,true);
@@ -205,13 +203,7 @@ window.Lab3D = (() => {
                         const barb=box(root, .9, 9, .9, '#d3dde1', x, 14, 5); barb.rotation.z=angle;
                     }
                 } else if (kind.includes('Barricade') || kind === 'barricade') {
-                    const railColor = kind === 'barricade' ? '#92745a' : color;
-                    for (const x of [-13,13]) {
-                        box(root, 5, 28, 7, railColor, x);
-                        box(root, 9, 4, 24, '#425663', x);
-                    }
-                    for (const y of [11,22]) box(root, 36, 6, 5, railColor, 0, y);
-                    const brace=box(root, 29, 3, 5, '#516873', 0, 16, -4); brace.rotation.z=.55;
+                    box(root, 36, 24, 36, kind === 'barricade' ? '#92745a' : color);
                 } else if (kind === 'block') {
                     box(root, 36, 24, 36, color);
                 } else if (kind === 'terminal' && mounted) {
@@ -293,7 +285,9 @@ window.Lab3D = (() => {
                 const geometry=new T.BufferGeometry().setFromPoints([new T.Vector3(),new T.Vector3()]);
                 const mat=new T.LineBasicMaterial({color:'#ff5964',transparent:true});
                 const root=new T.Line(geometry,mat);root.frustumCulled=false; root.name='muzzle-tracer';
-                return {root,dispose(){geometry.dispose();mat.dispose();}};
+                const tubeMat=new T.MeshBasicMaterial({color:'#ff5964',transparent:true,depthWrite:false});
+                const tube=new T.Mesh(cylinderGeometry,tubeMat);root.add(tube);
+                return {root,tube,dispose(){geometry.dispose();mat.dispose();tubeMat.dispose();}};
             });
             // A fired trajectory belongs to the world; turning must not drag its origin.
             if (!item.initialized) {
@@ -307,7 +301,7 @@ window.Lab3D = (() => {
                         const drone=objects.get('drone:'+owner.id);if(drone) {muzzle=drone.muzzle;}
                     } else muzzle=objects.get('player:'+effect.playerId)?.muzzle;
                 }
-                const localShot=effect.playerId===latestFrame.localId && effect.weapon!=='turret' && viewVisible;
+                const localShot=effect.playerId===latestFrame.localId && effect.weapon!=='turret' && (viewVisible || latestFrame.scoped);
                 const start=localShot ? fpsMuzzleWorld() : muzzle ? muzzle.getWorldPosition(new T.Vector3()) : new T.Vector3(effect.fromX,22,effect.fromY);
                 const target=state.enemies.find(e=>e.id===effect.enemyId);
                 let height=target ? Math.max(6,radius(target)*.8) : start.y;
@@ -319,9 +313,14 @@ window.Lab3D = (() => {
                 const end=new T.Vector3(effect.x,height,effect.y);
                 const positions=item.root.geometry.attributes.position;
                 positions.setXYZ(0,start.x,start.y,start.z); positions.setXYZ(1,end.x,end.y,end.z);positions.needsUpdate=true;
+                const delta=end.clone().sub(start);
+                item.tube.position.copy(start).add(end).multiplyScalar(.5);
+                item.tube.scale.set(.35,delta.length(),.35);
+                item.tube.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),delta.normalize());
                 item.initialized=true;
             }
             item.root.material.opacity=Math.max(0,1-(now-effect.started)/198);
+            item.tube.material.opacity=item.root.material.opacity;
         }
         function project(x,y,height=0) {
             const p=new T.Vector3(x,height,y).project(camera);
@@ -337,6 +336,16 @@ window.Lab3D = (() => {
             const item=object(key,()=>{const mat=new T.MeshBasicMaterial({color,transparent:true,opacity,side:T.DoubleSide,depthWrite:false});const root=new T.Mesh(ringGeometry,mat);root.rotation.x=-Math.PI/2;return {root,dispose(){mat.dispose();}};});
             item.root.position.set(x,.7,y);item.root.scale.setScalar(r);item.root.material.color.set(color);item.root.material.opacity=opacity;
         }
+        const squareGeometry=new T.PlaneGeometry(2,2);
+        function healSquare(key,x,y,halfSize) {
+            const item=object(key,()=>{
+                const mat=new T.MeshBasicMaterial({color:'#84e6b5',transparent:true,opacity:.18,side:T.DoubleSide,depthWrite:false});
+                const root=new T.Mesh(squareGeometry,mat);root.name=key;root.rotation.x=-Math.PI/2;
+                const border=new T.LineLoop(new T.BufferGeometry().setFromPoints([new T.Vector3(-1,-1,0),new T.Vector3(1,-1,0),new T.Vector3(1,1,0),new T.Vector3(-1,1,0)]),new T.LineBasicMaterial({color:'#84e6b5',transparent:true,opacity:.65}));root.add(border);
+                return {root,dispose(){mat.dispose();border.geometry.dispose();border.material.dispose();}};
+            });
+            item.root.position.set(x,.7,y);item.root.scale.set(halfSize,halfSize,1);
+        }
         function beam(key,a,b,color,width=1) {
             const item=object(key,()=>{const root=new T.Mesh(cylinderGeometry,material(color,true));return {root};});
             const delta=b.clone().sub(a);item.root.position.copy(a).add(b).multiplyScalar(.5);item.root.scale.set(width,delta.length(),width);item.root.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),delta.normalize());
@@ -351,7 +360,7 @@ window.Lab3D = (() => {
             for(const player of state.players) {
                 const p=player.id===frame.localId && frame.predicted ? frame.predicted : smooth('player',player);
                 for(const [side,remaining,dx,dy,range,pitch] of [['main',player.railgunRemaining,player.railgunDx,player.railgunDy,player.railgunRange,player.railgunPitch],['sub',player.secondaryRailgunRemaining,player.secondaryRailgunDx,player.secondaryRailgunDy,player.secondaryRailgunRange,player.secondaryRailgunPitch]]) if(remaining>0) {
-                    const height=Number.isFinite(pitch)?26:22;
+                    const height=(Number.isFinite(pitch)?26:22)+(p.jumpHeight || player.jumpHeight || 0);
                     const start=player.id===frame.localId && viewVisible ? fpsMuzzleWorld() : new T.Vector3(p.x,height,p.y);
                     beam('rail:'+player.id+side,start,new T.Vector3(p.x+dx*range,height+Math.tan(pitch || 0)*range,p.y+dy*range),'#ff7390',2);
                 }
@@ -360,7 +369,7 @@ window.Lab3D = (() => {
             const placement=frame.placement;if(placement) ring('placement',placement.x,placement.y,19,placement.valid?'#79d8ff':'#ff5964',.9);
             for(const owner of state.players) {
                 for(const [i,pad] of (owner.teleportPads || []).entries()) ring('teleport:'+owner.id+':'+i,pad.x,pad.y,18,'#ab9cff');
-                if(owner.healRemaining>0)ring('heal:'+owner.id,owner.healX,owner.healY,owner.healHalfSize,'#84e6b5',.4);
+                if(owner.healRemaining>0)healSquare('heal:'+owner.id,owner.healX,owner.healY,owner.healHalfSize || 60);
                 if(owner.hookTargetId>=0){const target=state.enemies.find(e=>e.id===owner.hookTargetId && e.hp>0);if(target)beam('hook:'+owner.id,new T.Vector3(owner.x,22,owner.y),new T.Vector3(target.x,20,target.y),'#b4e9ff',.7);}
             }
             for(const decoy of state.decoys || []) if(decoy.hp>0) {
@@ -376,7 +385,7 @@ window.Lab3D = (() => {
             for(const effect of frame.effects || []) {
                 const age=now-effect.started;
                 if(effect.effect==='hit' && age>=0 && age<360 && ['rocket','mine','droneExplosion','repulsor','freezeGun','poisonGas'].includes(effect.weapon)) ring('blast:'+effectIds.get(effect)+':'+effect.started,effect.x,effect.y,Math.max(4,(effect.radius || 35)*age/360),effect.weapon==='freezeGun'?'#95dded':'#ffae62',1-age/360);
-                if(effect.effect==='hit' && age>=0 && age<220 && effect.damage===0 && ['laserCannon','freezeGun','plasmaBlade','bat'].includes(effect.weapon)) {
+                if(effect.effect==='hit' && age>=0 && age<220 && effect.damage===0 && ['laserCannon','freezeGun','plasmaBlade'].includes(effect.weapon)) {
                     const start=effect.playerId===frame.localId && viewVisible ? fpsMuzzleWorld() : new T.Vector3(effect.fromX,22,effect.fromY);
                     beam('special:'+effect.playerId+':'+effect.weapon+':'+effect.started,start,new T.Vector3(effect.x,Number.isFinite(effect.hitHeight)?effect.hitHeight:22,effect.y),effect.weapon==='freezeGun'?'#b8efff':'#50d7ff',effect.weapon==='laserCannon'?3:1.5);
                 }
@@ -420,7 +429,8 @@ window.Lab3D = (() => {
                 objects.delete(key);
             }
         }
-        let lastFrame = performance.now();
+        let lastFrame = performance.now(), walkPhase=0, walkBlend=0, recoil=0, batSwing=0, lastKickAt=-Infinity, lastWalkPoint=null;
+        const kickedEffects=new WeakSet();
         function render(frame) {
             const { map, reachable, center, scale, state, localId, predicted, smooth, radius, stations, aim, effects = [] } = frame;
             const now = performance.now(), dt = Math.min(.1, (now - lastFrame) / 1000); lastFrame = now;
@@ -429,14 +439,32 @@ window.Lab3D = (() => {
             latestFrame=frame;stationAnchors.clear();
             const me=state?.players.find(p=>p.id===localId), view=frame.view || {yaw:0,pitch:0};
             const eye=frame.eye || predicted || me || center;
-            camera.aspect=overlay.width/overlay.height; camera.fov=view.zoom ? 48 : 72; camera.updateProjectionMatrix();
-            camera.position.set(eye.x, me?.down ? 6 : me?.drone?.controlled ? 23 : 26, eye.y);
-            camera.rotation.set(view.pitch,-view.yaw,me?.down ? .2 : 0,'YXZ');
+            camera.aspect=overlay.width/overlay.height; camera.fov=frame.scoped ? (me?.weapon==='sniper' ? 20 : me?.weapon==='rifle' ? 32 : 26) : view.zoom ? 48 : 72; camera.updateProjectionMatrix();
+            const walking=frame.motion?.moving && !me?.down && !me?.drone?.controlled && !(eye.jumpHeight>0);
+            const walkPoint=predicted || eye;
+            if(walking && lastWalkPoint) walkPhase+=Math.min(20,Math.hypot(walkPoint.x-lastWalkPoint.x,walkPoint.y-lastWalkPoint.y))*.065;
+            lastWalkPoint={x:walkPoint.x,y:walkPoint.y};
+            walkBlend+=((walking?1:0)-walkBlend)*(1-Math.exp(-12*dt));
+            recoil*=Math.exp(-18*dt);batSwing*=Math.exp(-9*dt);
+            if(frame.motion) for(const effect of effects) if(effect.playerId===localId && effect.effect==='hit' && effect.damage===0 && now-effect.started<120 && !kickedEffects.has(effect)) {
+                kickedEffects.add(effect);
+                if(effect.weapon==='bat')batSwing=1;
+                else if(now-lastKickAt>25){recoil=Math.min(1,recoil+.65);lastKickAt=now;}
+            }
+            const bob=walkBlend*(frame.scoped ? .12 : 1)*(frame.motion?.dashing?1.4:1);
+            camera.position.set(eye.x, me?.down ? 6 : me?.drone?.controlled ? 23 : 26+(eye.jumpHeight || 0)+(eye.renderOffsetHeight || 0)+Math.sin(walkPhase*2)*.32*bob, eye.y);
+            view.recoilPitch=recoil*(frame.scoped ? .006 : .003);
+            camera.rotation.set(Math.max(-1.2,Math.min(1.2,view.pitch+view.recoilPitch)),-view.yaw,me?.down ? .2 : Math.sin(walkPhase)*.0025*bob,'YXZ');
             camera.updateMatrixWorld(true);
             viewCamera.aspect=camera.aspect;viewCamera.updateProjectionMatrix();
             viewCamera.position.set(view.zoom ? -.1 : .03,view.zoom ? 1.58 : 1.65,view.zoom ? .16 : -.32);
+            viewCamera.position.x+=Math.sin(walkPhase)*.008*bob;
+            viewCamera.position.y+=Math.sin(walkPhase*2)*.01*bob;
+            viewCamera.position.z-=recoil*.035;
+            viewCamera.rotation.x=-recoil*.035;
             viewModel.setWeapon(me?.weapon || 'pistol');viewMixer.update(dt);
-            viewVisible=!!me && !me.down && !me.movingCore && !me.selectedBuild && !me.drone?.controlled && !me.missileControl;
+            viewModel.root.rotation.z=-batSwing*.45;
+            viewVisible=!!me && !frame.scoped && !me.down && !me.movingCore && !me.selectedBuild && !me.drone?.controlled && !me.missileControl;
             viewModel.root.visible=viewVisible;
             sun.position.set(center.x - 300, 700, center.y - 250); sun.target.position.set(center.x, 0, center.y);
             rebuild(map, reachable); seen = new Set();
@@ -470,7 +498,7 @@ window.Lab3D = (() => {
                     if (clip !== item.clip) { item.actions[item.clip].fadeOut(.15); item.actions[clip].reset().fadeIn(.15).play(); item.clip = clip; }
                     item.model.setWeapon(player.weapon || 'rifle');item.mixer.update(dt); item.previous = { ...point };
                     item.materials.Olive.color.set(player.down ? '#a86b70' : player.spyRemaining > 0 ? '#8b8e91' : player.id === localId ? '#63879a' : '#67786a');
-                    item.root.position.set(point.x, player.down ? 4 : 0, point.y);
+                    item.root.position.set(point.x, player.down ? 4 : (point.jumpHeight || player.jumpHeight || 0), point.y);
                     const shot=effects.filter(e=>e.playerId===player.id && e.effect==='hit' && now-e.started<360 && e.fromX!=null).at(-1);
                     const target=player.id===localId && !player.drone?.controlled ? aim : null;
                     const dx=target ? target.x-point.x : shot ? shot.x-shot.fromX : player.facingX || 0;
