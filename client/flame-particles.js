@@ -1,15 +1,25 @@
 "use strict";
 const FlameParticles = Object.freeze({
-    draw(ctx, effect, now, halfAngle, canReach = () => true) {
+    createBudget() {
+        return { remaining: 48, emitters: new Map() };
+    },
+    draw(ctx, effect, now, halfAngle, canReach = () => true, budget = FlameParticles.createBudget()) {
         const age = now - effect.started;
         if (age < 0 || age >= 360) return;
         const range = Math.hypot(effect.x - effect.fromX, effect.y - effect.fromY);
         if (!(range > 0)) return;
+        const emitter = effect.playerId || "";
+        const available = budget.emitters.get(emitter) ?? 12;
+        const count = Math.min(8, available, budget.remaining);
+        if (count <= 0) return;
+        // Reserve work before checking walls so hidden flames cannot exceed the budget either.
+        budget.remaining -= count;
+        budget.emitters.set(emitter, available - count);
         const aim = Math.atan2(effect.y - effect.fromY, effect.x - effect.fromX);
         const progress = age / 360;
         ctx.save();
-        for (let i = 0; i < 16; i++) {
-            const spread = (i / 15 * 2 - 1) * halfAngle;
+        for (let i = 0; i < count; i++) {
+            const spread = (count === 1 ? 0 : i / (count - 1) * 2 - 1) * halfAngle;
             const speed = .7 + ((i * 7) % 11) / 36;
             const travel = range * Math.min(1, (.08 + progress * .92) * speed);
             const x = effect.fromX + Math.cos(aim + spread) * travel;
