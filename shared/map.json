@@ -346,7 +346,7 @@
     {"id":"shop-rocket","item":"rocket","label":"ROCKET LAUNCHER","x":220,"y":740,"cost":40000,"detail":"着弾地点の周囲に爆風・中心ほど高威力"},
     {"id":"shop-railgun","item":"railgun","label":"RAILGUN","x":380,"y":740,"cost":60000,"detail":"3秒照射・敵と盾を貫通する重兵器"},
     {"id":"shop-lmg","item":"lmg","label":"LMG","x":1220,"y":580,"cost":2000,"detail":"十分な弾薬を補充できます"},
-    {"id":"last-enchant","item":"enchant","label":"ULTIMATE","x":300,"y":1260,"cost":40000,"detail":"武器火力 +25% / 最大3段階"},
+    {"id":"last-enchant","item":"enchant","label":"ULTIMATE","x":300,"y":1260,"cost":20000,"detail":"武器火力 +25% / 最大3段階"},
     {"id":"last-ammo","item":"ammo","label":"AMMO","x":420,"y":1260,"cost":250,"detail":"Refill all owned weapons to MAX"},
     {"id":"last-overclock","item":"overclockSilver","label":"ADVANCED WORKBENCH","x":540,"y":1260,"cost":32,"detail":"銀タレット32個を圧縮"},
     {"id":"last-armor","item":"armor","label":"ARMOR","x":300,"y":1380,"cost":15000,"detail":"BOTTOMS / TOPS"},
