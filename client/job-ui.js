@@ -35,6 +35,38 @@ window.JobUI = (() => {
         return `<div class="teammate-intel"><span>${escape(job)}</span><span>${escape(location)}</span></div>`;
     }
 
-    return Object.freeze({ catalog, render, renderAllyIntel });
+    let pendingDialog;
+    function confirmChange(player, job, weapons, limit, confirm) {
+        if (!catalog[job] || player.job === job) return;
+        pendingDialog?.close();
+        pendingDialog?.remove();
+        const dialog = document.createElement("dialog");
+        dialog.className = "job-confirm";
+        const owned = Object.entries(weapons).filter(([id, definition]) =>
+            !definition.meleeSlot && id !== "bat" && WeaponUI.owns(player, definition));
+        const discard = owned.length > limit && job !== "attacker";
+        dialog.innerHTML = `<form method="dialog"><p>${escape(catalog[job].name)} に転職しますか？</p>
+            ${discard ? `<label>捨てる武器<select name="discard" required><option value="">選択</option>${owned.map(([id]) =>
+                `<option value="${escape(id)}">${escape(WeaponUI.name(id, weapons, player))}</option>`).join("")}</select></label>` : ""}
+            <div class="job-confirm-actions"><button type="submit" value="yes" ${discard ? "disabled" : ""}>Yes</button>
+            <button type="button" data-cancel>No</button></div></form>`;
+        const yes = dialog.querySelector('[value="yes"]');
+        const select = dialog.querySelector("select");
+        if (select) select.onchange = () => { yes.disabled = !select.value; };
+        dialog.querySelector("[data-cancel]").onclick = () => dialog.close();
+        dialog.querySelector("form").onsubmit = event => {
+            event.preventDefault();
+            if (discard && !select?.value) return;
+            confirm(select?.value || null);
+            dialog.close();
+        };
+        dialog.addEventListener("close", () => {
+            dialog.remove(); if (pendingDialog === dialog) pendingDialog = null;
+        });
+        document.body.append(dialog); pendingDialog = dialog;
+        dialog.showModal(); dialog.querySelector("[data-cancel]").focus();
+    }
+
+    return Object.freeze({ catalog, render, renderAllyIntel, confirmChange });
 })();
 window.coreJobs = window.JobUI.catalog;

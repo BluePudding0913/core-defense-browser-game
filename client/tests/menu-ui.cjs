@@ -30,7 +30,7 @@ const context = { document: { querySelector: selector => selector === '#settings
     setTimeout: (callback, delay) => { const id = ++toastTimerId; toastTimers.set(id, {callback, delay}); return id; },
     clearTimeout: id => toastTimers.delete(id),
     FormData: class { constructor(form) { this.data = form.data; } get(key) { return this.data[key]; } },
-    window: { coreGame: { match: (...args) => calls.push(args), send: command => calls.push(command), leave: () => calls.push('leave') } } };
+    window: { coreGame: { match: (...args) => calls.push(args), send: command => calls.push(command), changeJob: job => calls.push("JOB:" + job), leave: () => calls.push('leave') } } };
 vm.runInNewContext(fs.readFileSync('client/pointer-settings.js', 'utf8'), context);
 vm.runInNewContext(fs.readFileSync('client/key-settings.js', 'utf8'), context);
 vm.runInNewContext(fs.readFileSync('client/job-ui.js', 'utf8'), context);

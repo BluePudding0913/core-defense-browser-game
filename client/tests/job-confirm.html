@@ -1,0 +1,13 @@
+<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="../job-ui.css"><script src="../weapon-ui.js"></script><script src="../job-ui.js"></script><body><p id="result"></p><script>
+const definitions = {bat:{name:'BAT',capacity:0,owned:'ownsBat',meleeSlot:true},pistol:{name:'PISTOL',capacity:0,owned:'ownsPistol'},smg:{name:'SMG',capacity:240,owned:'ownsSmg'},rifle:{name:'RIFLE',capacity:30,owned:'ownsRifle'},sniper:{name:'SNIPER',capacity:30,owned:'ownsSniper'}};
+const player={job:'attacker',ownsBat:true,ownsPistol:true,ownsSmg:true,ownsRifle:true,ownsSniper:true};
+let calls=[]; const open=()=>JobUI.confirmChange(player,'healer',definitions,3,choice=>calls.push(choice));
+const check=(v,msg)=>{if(!v)throw Error(msg)};
+(async()=>{
+open();let d=document.querySelector('dialog');check(d.open,'modal opens');check(d.querySelector('[value=yes]').disabled,'choice required');check(d.querySelectorAll('option').length===5,'only ranged weapons');d.querySelector('[data-cancel]').click();await new Promise(r=>setTimeout(r,0));check(calls.length===0,'No cancels');
+open();d=document.querySelector('dialog');let select=d.querySelector('select');select.value='rifle';select.dispatchEvent(new Event('change'));check(!d.querySelector('[value=yes]').disabled,'choice enables Yes');d.querySelector('[value=yes]').click();await new Promise(r=>setTimeout(r,0));check(calls[0]==='rifle','Yes submits chosen discard');
+player.ownsSniper=false;open();d=document.querySelector('dialog');check(!d.querySelector('select'),'three weapons need no discard');d.querySelector('[value=yes]').click();await new Promise(r=>setTimeout(r,0));check(calls[1]===null,'ordinary confirmation');
+player.ownsSniper=true;open();d=document.querySelector('dialog');d.dispatchEvent(new Event('cancel',{cancelable:true}));d.close();await new Promise(r=>setTimeout(r,0));check(calls.length===2,'Escape cancels');
+open();document.querySelector('#result').textContent='passed';window.testResult='passed';
+})().catch(e=>{window.testResult=e.message;throw e});
+</script>

@@ -26,7 +26,7 @@ document.addEventListener("click", event => {
 });
 jobSelect.addEventListener("click", event => {
     const job = event.target.closest("[data-job]")?.dataset.job;
-    if (job) send(`JOB:${job}`);
+    if (job) requestJobChange(job);
 });
 const roomCode = document.querySelector("#room-code");
 const roomOwner = document.querySelector("#room-owner");
@@ -1524,6 +1524,13 @@ function closeActionMenu() {
     actionMenu.classList.remove("single-action");
 }
 
+function requestJobChange(job) {
+    const me = getMe();
+    if (!me || me.down || me.job === job) return;
+    window.JobUI.confirmChange(me, job, WEAPON_FIELDS, state.rules.weaponLimit, discard =>
+        send("JOB:" + job + (discard ? ":" + discard : "")));
+}
+
 function openJobStation() {
     if (!canUseNearby(JOB_STATION, 70, true)) return;
     activeMenuAccess = { target: JOB_STATION, range: 70, refresh: refreshJobStation };
@@ -1542,7 +1549,7 @@ function refreshJobStation() {
     actionOptions.dataset.selectedJob = me?.job;
     actionOptions.querySelector(".job-list").scrollTop = position;
     actionOptions.querySelectorAll("[data-job]").forEach(button => {
-        button.onclick = () => send("JOB:" + button.dataset.job);
+        button.onclick = () => requestJobChange(button.dataset.job);
         if (button.dataset.job === focused) button.focus({ preventScroll: true });
     });
 }
@@ -3463,6 +3470,7 @@ window.coreGame = {
         socket.send("MATCH:" + JSON.stringify({ action, password, name }));
     },
     send,
+    changeJob: requestJobChange,
     leave: leaveRoom
 };
 initialize();
