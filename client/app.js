@@ -393,7 +393,7 @@ function connect() {
             if (message.effect === "drone-self-destruct") receiveDroneSelfDestruct(message);
             playSoundEffect(message);
         }
-        if (message.type === "effect" && ["hit", "core-pulse", "pickup", "player-hit", "player-down", "explosion", "acid-impact"].includes(message.effect)) {
+        if (message.type === "effect" && ["hit", "pickup", "player-hit", "player-down", "explosion", "acid-impact"].includes(message.effect)) {
             if (typeof CombatFeedback !== "undefined") CombatFeedback.add(message, performance.now(), myPlayerId, DEBUG_MODE);
             hitEffects.push({ ...message, started: performance.now() });
             if (hitEffects.length > 100) hitEffects.shift();
@@ -3320,7 +3320,7 @@ function drawReviveEffect(x, y, progress) {
 function drawHitEffects() {
     const now = performance.now();
     hitEffects = hitEffects.filter(effect => now - effect.started
-        < (effect.effect === "player-hit" ? 600 : effect.effect === "player-down" ? 1200 : effect.effect === "core-pulse" || effect.effect === "pickup"
+        < (effect.effect === "player-hit" ? 600 : effect.effect === "player-down" ? 1200 : effect.effect === "pickup"
             || (effect.credits > 0 || effect.headshot) && effect.playerId === myPlayerId
             ? 900 : 360));
     for (const effect of hitEffects) {
@@ -3349,20 +3349,6 @@ function drawHitEffects() {
             ctx.strokeStyle = allied ? "#69dfff" : "#ff805c"; ctx.lineWidth = 4;
             ctx.beginPath(); ctx.arc(effect.x, effect.y, effect.radius * (.25 + .75 * progress), 0, Math.PI * 2);
             ctx.fill(); ctx.stroke(); ctx.restore(); continue;
-        }
-        if (effect.effect === "core-pulse") {
-            const progress = (now - effect.started) / 900;
-            ctx.save();
-            ctx.globalAlpha = 1 - progress;
-            ctx.strokeStyle = "#ff805c";
-            ctx.shadowColor = "#ff805c";
-            ctx.shadowBlur = 22;
-            ctx.lineWidth = 12 * (1 - progress) + 2;
-            ctx.beginPath();
-            ctx.arc(effect.x, effect.y, 65 + progress * 210, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.restore();
-            continue;
         }
         if (effect.effect === "pickup") {
             const progress = (now - effect.started) / 900;

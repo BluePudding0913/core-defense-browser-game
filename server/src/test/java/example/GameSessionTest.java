@@ -1257,7 +1257,7 @@ class GameSessionTest {
     }
 
     @Test
-    void bossPulseDamagesTheCoreAndPlayersInItsDefenseZone() {
+    void approachingBossDoesNotDamagePlayersOrEmitAnAttackFromTheCore() {
         startWave();
         game.enemies.clear();
         game.queuedEnemies = 0;
@@ -1275,9 +1275,10 @@ class GameSessionTest {
 
         game.update(0.05);
 
-        assertTrue(game.coreHp < game.coreMaxHp);
-        assertTrue(player.hp < 100);
-        assertTrue(events.broadcasts.stream().anyMatch(message -> message.contains("core-pulse")));
+        assertEquals(game.coreMaxHp, game.coreHp);
+        assertEquals(100, player.hp);
+        assertFalse(events.broadcasts.stream().anyMatch(message -> message.contains("core-pulse")));
+        assertFalse(events.broadcasts.stream().anyMatch(message -> message.contains("player-hit")));
     }
 
     private void beginSpecificRound(int targetRound) {
