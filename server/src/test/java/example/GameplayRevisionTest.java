@@ -747,7 +747,11 @@ class GameplayRevisionTest {
         assertEquals(4,rays,"every pellet has a visible straight trajectory");
     }
 
-    @Test void sniperAndRevolverPierceAlignedEnemiesButRespectRangeAndWalls() {
+    @Test void sniperAndRevolverPierceAlignedEnemiesButRespectRangeAndWalls() throws Exception {
+        // Keep this geometry/piercing test independent of the separately tested sniper spread.
+        var randomField = GameSession.class.getDeclaredField("random");
+        randomField.setAccessible(true);
+        randomField.set(game, new java.util.Random() { @Override public double nextDouble() { return 0; } });
         for(String weapon:List.of("sniper","revolver")) {
             game.enemies.clear(); player.x=1020; player.y=1900; player.cooldown=0; player.firing=false;
             player.weapon=weapon; player.weapons.setAmmo("sniper", 10); player.weapons.setAmmo("revolver", 10);

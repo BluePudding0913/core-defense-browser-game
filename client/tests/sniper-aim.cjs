@@ -1,0 +1,25 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),T=require('../vendor/three.min.js');
+const c={window:{}};vm.runInNewContext(fs.readFileSync('client/sniper-aim.js','utf8'),c);const api=c.window.SniperAim;
+const p={id:'test',sniper:{fixed:true,elapsed:.7,cycle:0,precision:false,nextPrecision:true,recovery:0}};api.sync([p],1000);
+assert(Math.abs(api.sample(p,1000).radius-59.74)<1e-8,'Only the preceding expansion grows by 3%');
+p.sniper.elapsed=2.1;p.sniper.precision=true;p.sniper.nextPrecision=false;
+assert(Math.abs(api.sample(p,1000).radius-3.5)<1e-8,'Deep breath reaches the narrow disk');
+p.sniper.precision=false;assert(Math.abs(api.sample(p,1000).radius-16)<1e-8);
+p.sniper.elapsed=2.75;p.sniper.nextPrecision=true;assert(api.sample(p,1100).elapsed>2.8,'Display crosses the known next cycle');
+assert.equal(api.sample(p,10000).elapsed,2.95,'Extrapolation is bounded when updates stop');
+p.sniper.elapsed=2.1;p.sniper.precision=true;api.shot(p.id,1000);assert(api.sample(p,1000).radius>50,'Confirmed shot opens the ring immediately');assert(api.sample(p,1900).radius<20,'Recovery settles');
+let drawnRadius;const ctx={save(){},restore(){},beginPath(){},arc(x,y,r){drawnRadius=r;},stroke(){}};
+const sample={slope:58*Math.tan(Math.PI/18)/425};api.draw(ctx,0,0,850,20,sample);assert(Math.abs(drawnRadius-58)<1e-8);
+api.draw(ctx,0,0,1700,20,sample);assert(Math.abs(drawnRadius-116)<1e-8,'Circle scales with screen height');
+api.draw(ctx,0,0,850,72,sample);assert(drawnRadius<58,'Unscoped disk uses the same angular cone');
+for(const file of ['soldier-model.js','sniper-stance.js'])vm.runInNewContext(fs.readFileSync('client/'+file,'utf8'),c);
+const model=c.window.buildSoldier(T);model.setWeapon('sniper');c.window.applySniperStance(T,model);model.root.updateMatrixWorld(true);
+const bounds=new T.Box3().setFromObject(model.root);assert(bounds.min.y>-.025);assert(bounds.max.y<.7,'Prone model stays low');
+for(const [side,sign]of [['L',1],['R',-1]]){const leg=model.root.getObjectByName('LowerLeg_'+side);assert(leg.localToWorld(new T.Vector3(0,-.38,.04)).x*sign>.2,'Feet spread gently outward');}
+model.root.scale.setScalar(16);model.root.rotation.y=.7;c.window.applySniperStance(T,model,.2);model.root.updateMatrixWorld(true);
+const rifle=model.root.getObjectByName('Rifle'),q=rifle.getWorldQuaternion(new T.Quaternion()),direction=new T.Vector3(0,0,1).applyQuaternion(q);
+assert(Math.abs(Math.asin(direction.y)-.2)<1e-8,'Prone rifle follows look pitch independently of model scale and facing');
+const source=fs.readFileSync('client/app.js','utf8'),start=source.indexOf('function send(message)'),end=source.indexOf('\nfunction ',start+1),sent=[];
+const fire=vm.createContext({window:{SniperAim:api},getMe:()=>p,performance:{now:()=>1000},socket:{readyState:1,send:s=>sent.push(s)},WebSocket:{OPEN:1},DEBUG_MODE:false,fpsInput:{view:{pitch:.1}},nextInputSequence:1,pendingInputs:[]});
+vm.runInContext(source.slice(start,end),fire);vm.runInContext("send('FIRE:100:200:1')",fire);assert(sent[0].endsWith(':0.100000:2.100000'),'Fire sends bounded phase time, not a success boolean');
+console.log('Sniper client passed: subtle cue, random-cycle interpolation, angular projection, shot recovery, prone anatomy and timestamp protocol');

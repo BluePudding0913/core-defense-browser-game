@@ -48,6 +48,8 @@ let reticles=0,menuOpen=false;const player={id:'me',x:100,y:100,weapon:'sniper'}
 const noOp=()=>{},canvasCtx=new Proxy({},{get:(o,k)=>o[k]??noOp,set:(o,k,v)=>(o[k]=v,true)});
 const hiddenMenu={classList:{contains:()=>true}};
 const context=vm.createContext({window:{coreReticleSettings:{draw:(ctx,x,y)=>{assert.equal(x,400);assert.equal(y,300);reticles++;}},coreMenu:{settingsOpen:()=>menuOpen}},getMe:()=>player,droneCameraView:()=>null,predictedLocal:player,camera:{},fpsInput:{view:{zoom:false},setActive:noOp,setLookFrozen:noOp,locked:()=>true},state:{phase:'wave',players:[player],enemies:[],core:{x:100,y:100},slots:[]},exitDialog:{open:false},actionMenu:hiddenMenu,inventoryMenu:hiddenMenu,howToMenu:hiddenMenu,firingPointer:null,secondaryHeld:false,keys:new Set(),joystick:null,sendMovement:noOp,placementSelection:()=>null,labRenderer:{render:noOp,project:()=>({visible:false})},TILE_MAP:{},reachableFloorTiles:()=>new Set(),scale:1,myPlayerId:'me',smoothEntity:noOp,enemyRadius:()=>10,labStations:()=>[],hitEffects:[],worldFromScreen:()=>({x:0,y:0}),localMove:{x:0,y:0},ctx:canvasCtx,canvas:{width:800,height:600},innerWidth:800,innerHeight:600,performance:{now:()=>100},smoothed:new Map(),findNearestInteraction:()=>null,drawDamageEdges:noOp,drawJoystick:noOp,drawRewindScreen:noOp});
+vm.runInContext(fs.readFileSync("client/key-settings.js","utf8"),context);
+vm.runInContext(fs.readFileSync("client/sniper-aim.js","utf8"),context);
 vm.runInContext(app.slice(start,end),context);
 context.drawFirstPerson();assert.equal(reticles,1);
 context.state.phase='lost';context.drawFirstPerson();assert.equal(reticles,1,'Failure hides the aiming mark');

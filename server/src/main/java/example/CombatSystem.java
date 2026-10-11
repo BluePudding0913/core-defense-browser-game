@@ -69,6 +69,7 @@ final class CombatSystem {
             }
             return;
         }
+        if (player.sniper.fixed && !SniperRules.eligible(player)) player.sniper.stop();
         WeaponStats weapon = JobRules.weaponStats(player.job, player.weapon);
         MapPoint aim = assistedAim(player, player.weapon, player.x, player.y, aimX, aimY);
         aimX = aim.x(); aimY = aim.y();
@@ -241,7 +242,7 @@ final class CombatSystem {
     void updateHooks(double dt) { HookSystem.update(dt, world.canAttack(), world); }
 
     void attackSecondary(Player player, double aimX, double aimY) {
-        if (!player.job.equals("attacker") || player.weapon.equals(player.secondaryWeapon) || !player.weapons.owns(player.secondaryWeapon)) return;
+        if (player.sniper.fixed || !player.job.equals("attacker") || player.weapon.equals(player.secondaryWeapon) || !player.weapons.owns(player.secondaryWeapon)) return;
         withSecondaryHand(player, () -> attackAt(player, aimX, aimY));
     }
 
@@ -423,7 +424,7 @@ final class CombatSystem {
                     : new FpsHitRules.Ray(player.x, player.y, 26 + player.jumpHeight, player.railgunDx, player.railgunDy, Math.tan(player.railgunPitch), range);
             for (Player target : friendlyRayTargets(player, player.x, player.y,
                     player.railgunDx, player.railgunDy, stats, range)) {
-                if (beamRay == null || FpsHitRules.ally(beamRay, target.x, target.y, target.down, stats.width(), target.jumpHeight) != null)
+                if (beamRay == null || fpsAlly(beamRay,target,stats.width()) != null)
                     world.damagePlayer(target, stats.damage() * GameConfig.RAILGUN_TICK);
             }
             interceptShots(player, "railgun", player.x, player.y, shot -> (beamRay == null || FpsHitRules.projectile(beamRay, shot.x, shot.y, stats.width()) != null) && Double.isFinite(EnemyProjectileSystem.rayEntry(shot,
@@ -560,9 +561,28 @@ final class CombatSystem {
     }
 
     void fireRay(Player player, WeaponStats weapon, double directionX, double directionY) {
+        Double previousPitch=player.aimPitch;
+        boolean sniper=shotWeapon(player).equals("sniper");
+        if (sniper) {
+            boolean fixed=droneShot==null && player.sniper.fixed;
+            double time=fixed && player.sniper.inputTime!=null && player.sniper.validTime(player.sniper.inputTime)
+                    ? player.sniper.inputTime : player.sniper.elapsed;
+            double radius=SniperRules.radius(player.sniper,time);
+            var shot=SniperRules.scatter(directionX,directionY,previousPitch==null?0:previousPitch,radius,random);
+            directionX=shot.dx(); directionY=shot.dy();
+            if(previousPitch!=null)player.aimPitch=shot.pitch();
+            weapon=new WeaponStats(fixed?Math.hypot(WORLD_W,WORLD_H):weapon.range(),weapon.damage(),weapon.cooldown(),weapon.knockback(),0);
+        }
+        try {
         double shotDistance = GameMap.distanceToWall(shotX(player), shotY(player),
                 directionX, directionY, weapon.range(), world.unlockedAreas());
-        fireSegment(player, weapon, shotX(player), shotY(player), directionX, directionY, shotDistance);
+        if(sniper && player.aimPitch!=null) {
+            double slope=Math.tan(player.aimPitch),height=shotHeight(player);
+            if(slope<0)shotDistance=Math.min(shotDistance,height/-slope);
+            else if(slope>0)shotDistance=Math.min(shotDistance,(GameMap.ceilingHeight(shotX(player),shotY(player))-height)/slope);
+        }
+        fireSegment(player, weapon, shotX(player), shotY(player), directionX, directionY, Math.max(0,shotDistance));
+        } finally { player.aimPitch=previousPitch; if(sniper)player.sniper.recovery=SniperRules.RECOVERY; }
     }
 
     boolean fireSegment(Player player, WeaponStats weapon, double originX, double originY,
@@ -570,11 +590,16 @@ final class CombatSystem {
         return fireSegment(player, weapon, originX, originY, directionX, directionY, shotDistance, shotHeight(player));
     }
 
-    private double shotHeight(Player player) { return droneShot != null && droneShot.owner == player ? 23 : 26 + player.jumpHeight; }
+    private double shotHeight(Player player) { return droneShot != null && droneShot.owner == player ? 23 : (player.sniper.fixed ? SniperRules.EYE_HEIGHT : 26) + player.jumpHeight; }
 
     private FpsHitRules.Ray fpsRay(Player player, double x, double y, double dx, double dy, double range, double height) {
         return player.aimPitch == null || WeaponCatalog.find(shotWeapon(player)).mode() == WeaponCatalog.AttackMode.MELEE ? null
                 : new FpsHitRules.Ray(x, y, height, dx, dy, Math.tan(player.aimPitch), range);
+    }
+
+    private FpsHitRules.Hit fpsAlly(FpsHitRules.Ray ray,Player target,double width) {
+        return target.sniper.fixed ? FpsHitRules.proneAlly(ray,target.x,target.y,width,target.jumpHeight,target.sniper.facingX,target.sniper.facingY)
+                : FpsHitRules.ally(ray,target.x,target.y,target.down,width,target.jumpHeight);
     }
 
     private FpsHitRules.Hit fpsEnemy(FpsHitRules.Ray ray, Enemy enemy, double width) {
@@ -610,14 +635,14 @@ final class CombatSystem {
         List<Player> allies = WeaponCatalog.find(shotWeapon(player)).mode() == WeaponCatalog.AttackMode.MELEE
                 ? List.of() : friendlyRayTargets(player, originX, originY, directionX, directionY, weapon, shotDistance);
         if (fpsRay != null) allies = allies.stream()
-                .filter(target -> FpsHitRules.ally(fpsRay, target.x, target.y, target.down, weapon.width(), target.jumpHeight) != null)
-                .sorted(Comparator.comparingDouble(target -> FpsHitRules.ally(fpsRay, target.x, target.y, target.down, weapon.width(), target.jumpHeight).distance())).toList();
+                .filter(target -> fpsAlly(fpsRay,target,weapon.width()) != null)
+                .sorted(Comparator.comparingDouble(target -> fpsAlly(fpsRay,target,weapon.width()).distance())).toList();
         double firstEnemy = targets.isEmpty() ? Double.POSITIVE_INFINITY
                 : fpsRay != null ? fpsHits.get(targets.get(0)).distance()
                 : (targets.get(0).x - originX) * directionX + (targets.get(0).y - originY) * directionY;
         if (!piercing) allies = allies.stream().filter(target ->
                 (fpsRay == null ? (target.x - originX) * directionX + (target.y - originY) * directionY
-                        : FpsHitRules.ally(fpsRay, target.x, target.y, target.down, weapon.width(), target.jumpHeight).distance()) < firstEnemy).limit(1).toList();
+                        : fpsAlly(fpsRay,target,weapon.width()).distance()) < firstEnemy).limit(1).toList();
         if (!piercing && !allies.isEmpty()) {
             targets = List.of();
             Player first = allies.get(0);
@@ -625,7 +650,7 @@ final class CombatSystem {
             double perpendicular = Math.abs((first.x - originX) * directionY - (first.y - originY) * directionX);
             double radius = 12 + weapon.width();
             double entry = Math.max(0, projection - Math.sqrt(Math.max(0, radius * radius - perpendicular * perpendicular)));
-            if (fpsRay != null) entry = FpsHitRules.ally(fpsRay, first.x, first.y, first.down, weapon.width(), first.jumpHeight).distance();
+            if (fpsRay != null) entry = fpsAlly(fpsRay,first,weapon.width()).distance();
             endX = originX + directionX * entry; endY = originY + directionY * entry;
         }
         if (!piercing && !targets.isEmpty() && WeaponCatalog.find(shotWeapon(player)).mode() != WeaponCatalog.AttackMode.MELEE) {

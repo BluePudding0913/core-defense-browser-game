@@ -117,7 +117,11 @@ class RicochetAndAimTest {
         assertEquals(1, effects.stream().filter(m -> m.contains("\"effect\":\"hit\"") && m.contains("\"damage\":0.0")).count());
     }
 
-    @Test void tinyEnemySurvivesNearMissesAndTakesDamageWhenAimedAt() {
+    @Test void tinyEnemySurvivesNearMissesAndTakesDamageWhenAimedAt() throws Exception {
+        // Keep this geometry/piercing test independent of the separately tested sniper spread.
+        var randomField = GameSession.class.getDeclaredField("random");
+        randomField.setAccessible(true);
+        randomField.set(game, new java.util.Random() { @Override public double nextDouble() { return 0; } });
         for (String weapon : List.of("pistol", "sniper", "ricochet")) {
             game.enemies.clear(); player.cooldown = 0; player.firing = false;
             player.weapon = weapon; player.weapons.setAmmo("sniper", 10); player.weapons.setAmmo("ricochet", 10);

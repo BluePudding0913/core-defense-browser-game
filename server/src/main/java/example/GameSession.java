@@ -244,6 +244,7 @@ final class GameSession {
         if (!player.human) return;
         String displayName = player.name;
         player.human = false;
+        player.sniper.stop();
         player.aimPitch = player.secondaryAimPitch = null;
         releaseDroneControl(player);
         player.missileControl = false;
@@ -300,6 +301,7 @@ final class GameSession {
             case "COMPUTER" -> {
                 if (player.missileControl) { player.missileControl = false; player.breakerControl = null; }
                 else if (player.job.equals("hacker") && canOperate(player, GameMap.MISSILE_COMPUTER)) {
+                    player.sniper.stop();
                     player.missileControl = true;
                     player.breakerControl = null;
                     player.moveX = player.moveY = 0;
@@ -340,9 +342,11 @@ final class GameSession {
             case "ROOM_READY" -> setRoomReady(player, parts);
             case "MOVE" -> handleMove(player, parts);
             case "JUMP" -> jump(player);
+            case "SNIPER" -> { if (parts.length > 1) sniperStance(player, parts[1].equals("1")); }
+            case "SNIPER_LOOK" -> sniperLook(player, parts);
             case "DASH" -> handleDash(player, parts);
             case "ATTACK" -> combat.attackAt(player, player.aimX, player.aimY);
-            case "FIRE" -> handleFire(player, message.split(":", 5));
+            case "FIRE" -> handleFire(player, message.split(":", 6));
             case "SECONDARY_FIRE" -> handleSecondaryFire(player, message.split(":", 5));
             case "INTERACT" -> { if (parts.length >= 2) interact(player, parts[1]); }
             case "WEAPON" -> { if (parts.length >= 2) switchWeapon(player, parts[1]); }
@@ -492,6 +496,8 @@ final class GameSession {
         }
         if (canUseFacilities()) teamBuffRemaining = Math.max(0, teamBuffRemaining - dt);
         for (Player player : players) {
+            if (!canMove() || !SniperRules.eligible(player)) player.sniper.stop();
+            player.sniper.advance(dt, random::nextDouble);
             if (!canMove()) recallDrone(player);
             if (player.drone != null) player.drone.cooldown = Math.max(0, player.drone.cooldown - dt);
             player.missileCooldown = Math.max(0, player.missileCooldown - dt);
@@ -621,7 +627,26 @@ final class GameSession {
                 && player.jumpHeight >= JumpRules.OBSTACLE_HEIGHT - .01 ? JumpRules.OBSTACLE_HEIGHT : 0;
     }
 
+    private void sniperStance(Player player, boolean active) {
+        if (!active) { player.sniper.stop(); return; }
+        if (!canMove() || !SniperRules.eligible(player) || player.sniper.fixed
+                || Math.hypot(player.moveX, player.moveY)>.12
+                || !JumpRules.grounded(player.jumpHeight, player.jumpVelocity, jumpSupport(player))) return;
+        player.sniper.start(random::nextDouble);
+        player.sniper.facingX=player.facingX; player.sniper.facingY=player.facingY;
+        player.firing=player.secondaryFiring=player.dashHeld=player.dashing=false;
+    }
+
+    private void sniperLook(Player player, String[] parts) {
+        if (!player.sniper.fixed || parts.length<4) return;
+        double dx=Double.parseDouble(parts[1]),dy=Double.parseDouble(parts[2]),pitch=Double.parseDouble(parts[3]);
+        double length=Math.hypot(dx,dy);
+        if (!Double.isFinite(length) || length<.001 || !FpsHitRules.validPitch(pitch)) return;
+        player.sniper.facingX=dx/length; player.sniper.facingY=dy/length; player.sniper.pitch=pitch;
+    }
+
     private void jump(Player player) {
+        player.sniper.stop();
         if (!canMove() || player.down || player.movingCore || player.missileControl || DroneRules.controlling(player)) return;
         if (JumpRules.grounded(player.jumpHeight, player.jumpVelocity, jumpSupport(player)))
             player.jumpVelocity = JumpRules.SPEED;
@@ -645,6 +670,7 @@ final class GameSession {
             player.moveX /= length;
             player.moveY /= length;
         }
+        if (length > 0.12) player.sniper.stop();
         if (length > 0.12 && !DroneRules.controlling(player)) {
             updateFacing(player, player.moveX, player.moveY);
         }
@@ -677,6 +703,7 @@ final class GameSession {
         }
         player.firing = player.dashing = player.dashHeld = player.missileControl = false;
         player.breakerControl = null;
+        player.sniper.stop();
         player.stopRailgun(); cancelAction(player);
         double previousMaxHp = JobRules.maxHp(player.job);
         player.secondaryFiring = false; player.stopSecondaryRailgun();
@@ -895,6 +922,7 @@ final class GameSession {
 
     private void releaseDroneControl(Player player) {
         if (player.drone == null) return;
+        player.sniper.stop();
         player.drone.controlled = false;
         player.moveX = player.moveY = 0;
         player.firing = player.dashHeld = player.dashing = false;
@@ -1032,6 +1060,11 @@ final class GameSession {
         }
         Double pitch = parts.length >= 5 ? Double.valueOf(parts[4]) : null;
         if (pitch != null && !FpsHitRules.validPitch(pitch)) return;
+        if (active && parts.length>=6 && player.weapon.equals("sniper") && player.sniper.fixed) {
+            double time=Double.parseDouble(parts[5]);
+            if (!player.sniper.validTime(time)) return;
+            player.sniper.inputTime=time;
+        } else player.sniper.inputTime=null;
         player.aimPitch = pitch;
         boolean beginsPress = active && !player.firing;
         player.aimX = clamp(x, pitch == null ? 0 : -WORLD_W * 2, pitch == null ? WORLD_W : WORLD_W * 3);
@@ -1210,6 +1243,7 @@ final class GameSession {
     private void updatePlayers(double dt) {
         for (Player player : players) {
             if (phase == GamePhase.WON && (!player.human || player.down)) continue;
+            if (player.sniper.fixed && SniperRules.eligible(player)) { player.dashing=false; continue; }
             if (player.down || player.movingCore) { player.jumpHeight = 0; player.jumpVelocity = 0; }
             else {
                 JumpRules.Motion motion = JumpRules.advance(player.jumpHeight, player.jumpVelocity, dt,
@@ -3670,6 +3704,7 @@ final class GameSession {
         if (player.movingCore) damageCore(damage);
         damage *= UpgradeRules.armorMultiplier(player.armorBottoms, player.armorTops);
         if (teamBuffAt(player.x, player.y)) damage *= UpgradeRules.TEAM_DEFENSE;
+        player.sniper.stop();
         player.medbayDamageDelay = GameConfig.MEDBAY_DAMAGE_DELAY;
         player.hp = Math.max(0, player.hp - damage);
         if (player.hp <= 0) {
@@ -3770,6 +3805,7 @@ final class GameSession {
             player.missileControl = false; player.breakerControl = null; player.missileCooldown = 0;
             player.stamina = JobRules.staminaMax(player.job);
             player.jumpHeight = 0; player.jumpVelocity = 0;
+            player.sniper = new SniperRules.State();
             player.spyCheckedEnemies.clear(); player.spyHostileEnemies.clear();
             player.spyRemaining = 0;
             player.drone = null;

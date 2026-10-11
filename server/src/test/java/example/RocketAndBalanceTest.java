@@ -98,7 +98,11 @@ class RocketAndBalanceTest {
         assertTrue(game.unlockCost("security-hall") >= game.unlockCost("mine") * 2);
         assertTrue(game.unlockCost("heavy-arms-area") >= game.unlockCost("sniper-room") * 4);
     }
-    @Test void sniperPiercesBeyondItsOldRangeAndRevolverStillHitsHarder() {
+    @Test void sniperPiercesBeyondItsOldRangeAndRevolverStillHitsHarder() throws Exception {
+        // Isolate range and piercing from the independently tested random sniper cone.
+        var randomField = GameSession.class.getDeclaredField("random");
+        randomField.setAccessible(true);
+        randomField.set(game, new java.util.Random() { @Override public double nextDouble() { return 0; } });
         player.x = 1020; player.y = 1140;
         player.weapons.setOwned("sniper", true); player.weapons.setAmmo("sniper", 2);
         Enemy near = enemy(1, 1020, 1820), far = enemy(2, 1020, 1940);

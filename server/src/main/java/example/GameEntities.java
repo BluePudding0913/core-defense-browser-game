@@ -26,6 +26,7 @@ final class Player {
     boolean dashExhausted;
     double stamina;
     double jumpHeight, jumpVelocity;
+    SniperRules.State sniper = new SniperRules.State();
     String job = JobRules.DEFAULT;
     double spyRemaining;
     final java.util.Set<Integer> spyCheckedEnemies = new java.util.HashSet<>();
@@ -51,6 +52,7 @@ final class Player {
     void equipWeapon(String next) {
         if (weapon.equals(next)) return;
         stopRailgun();
+        sniper.stop();
         weaponCooldowns.put(weapon, cooldown);
         weaponCooldownMaxima.put(weapon, cooldownMax);
         weapon = next;
@@ -190,6 +192,7 @@ final class Player {
         dashExhausted = source.dashExhausted;
         stamina = source.stamina;
         jumpHeight = source.jumpHeight; jumpVelocity = source.jumpVelocity;
+        sniper = source.sniper.copy();
         job = source.job;
         spyRemaining = source.spyRemaining;
         spyCheckedEnemies.clear(); spyCheckedEnemies.addAll(source.spyCheckedEnemies);

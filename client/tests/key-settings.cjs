@@ -44,3 +44,18 @@ assert.equal(persisted.window.coreKeySettings.setMedkit('x'),false);
 assert.equal(persisted.window.coreKeySettings.setJobEffect('x'),false);
 vm.runInNewContext(source,persisted);
 assert.equal(persisted.window.coreKeySettings.getDroneSelfDestruct(),'x', 'self-destruct binding survives restart');
+
+assert.equal(load(null).api.getSniperStance(),'c');
+assert.equal(settings.api.setSniperStance('w'),false);
+assert.equal(settings.api.setSniperStance(settings.api.getMedkit()),false);
+assert(settings.api.setSniperStance('v'));
+assert.equal(settings.api.setJobEffect('v'),false);
+assert.equal(settings.api.setDroneSelfDestruct('v'),false);
+assert.equal(settings.api.setMedkit('v'),false);
+savedKeys.set('core-defense-job-key','c');savedKeys.set('core-defense-sniper-stance-key','c');
+vm.runInNewContext(source,persisted);
+assert.equal(persisted.window.coreKeySettings.getJobEffect(),'c');
+assert.equal(persisted.window.coreKeySettings.getSniperStance(),'z','Old bindings take priority over prone default');
+assert(persisted.window.coreKeySettings.setSniperStance('b'));
+vm.runInNewContext(source,persisted);
+assert.equal(persisted.window.coreKeySettings.getSniperStance(),'b');

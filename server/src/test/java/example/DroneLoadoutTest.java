@@ -135,7 +135,11 @@ class DroneLoadoutTest {
         game.update(.14); assertEquals(0, player.weapons.ammo("smg"));
         double health = hit.hp; game.update(.14); assertEquals(health, hit.hp); assertFalse(player.firing);
     }
-    @Test void piercingMountedWeaponHitsBothTargetsAndMarksOnlyTheirHostility() {
+    @Test void piercingMountedWeaponHitsBothTargetsAndMarksOnlyTheirHostility() throws Exception {
+        // Isolate range and piercing from the independently tested random sniper cone.
+        var randomField = GameSession.class.getDeclaredField("random");
+        randomField.setAccessible(true);
+        randomField.set(game, new java.util.Random() { @Override public double nextDouble() { return 0; } });
         grant("sniper", 2); command("DRONE_MOUNT:sniper"); launch();
         Enemy a = enemy(1, 1200), b = enemy(2, 1260), untouched = enemy(3, 1300); untouched.y = 1980;
         command("FIRE:1800:1900:1");

@@ -10,7 +10,7 @@ THREE.WebGLRenderer = class {
     render(s,c) { if(c.near===.01){viewScene=s;viewCamera=c;viewScene.updateMatrixWorld(true);viewCamera.updateMatrixWorld(true);return;}scene=s;camera=c;scene.updateMatrixWorld(true);camera.updateMatrixWorld(true); }
 };
 const context=vm.createContext({window:{THREE},document:{body:{classList:{add(){}}}},performance:{now:()=>now},console});
-for (const file of ['soldier-model.js','zombie-model.js','lab3d.js']) vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
+for (const file of ['soldier-model.js','sniper-stance.js','zombie-model.js','lab3d.js']) vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
 const renderer=context.window.Lab3D.create({width:900,height:500,before(){}});
 const player={id:'me',x:100,y:100,facingX:0,facingY:-1};
 const state={core:{x:60,y:60},players:[player],enemies:[{id:1,type:'shield',x:180,y:100,hp:100,facingX:1,facingY:0}],slots:[
@@ -275,3 +275,18 @@ player.drone=null;frame.nightVision=true;renderer.render(frame);assert.equal(sce
 frame.nightVision=false;state.blackoutActive=false;renderer.render(frame);assert.equal(scene.fog,null);assert(!nearbyLight.visible);
 assert.equal(scene.children.find(c=>c.isHemisphereLight).intensity,.75,'Lighting restores after power returns');
 console.log('Lab visibility passed: flush panels, four-way breakers, nearby blackout vision, moving light and drone/restoration lifecycle');
+
+// A sniper posture lowers both the camera and the remote body, and restores standing afterwards.
+frame.motion={moving:false};frame.effects=[];frame.scoped=true;frame.view={yaw:0,pitch:0};player.weapon='sniper';
+player.sniper={fixed:true,pitch:0,facingX:0,facingY:1};
+const observer={...player,id:'prone-other',x:player.x+30,y:player.y-50};state.players.push(observer);now+=16;renderer.render(frame);
+assert.equal(camera.position.y,6.2,'Prone camera matches the authoritative firing height');
+const remote=scene.children.find(o=>o!==soldier && o.getObjectByName('Hips') && o.visible);
+assert(remote,'Other players see the prone soldier');
+assert(Math.abs(remote.getObjectByName('Hips').position.y-.18)<1e-8);
+observer.sniper={fixed:false};player.sniper={fixed:false};frame.scoped=false;now+=100;renderer.render(frame);
+assert(Math.abs(camera.position.y-26)<1e-6);assert(remote.getObjectByName('Hips').position.y>.8,'Leaving the stance restores standing animation');
+frame.motion={moving:false};frame.effects=[{effect:'hit',weapon:'sniper',playerId:'me',fromX:player.x,fromY:player.y,x:player.x+100,y:player.y,hitHeight:26,damage:0,started:now}];renderer.render(frame);
+assert(frame.view.recoilPitch>.04,'Sniper recoil is visibly stronger than the normal weapon kick');
+frame.effects=[];for(let i=0;i<120;i++){now+=1000/60;renderer.render(frame);}assert(frame.view.recoilPitch<1e-6,'Sniper recoil returns smoothly');
+console.log('Sniper integration passed: prone camera/body, standing restore and strong recoil recovery');

@@ -71,7 +71,10 @@ class FpsCombatTest {
         var snapshot=new ObjectMapper().readTree(SnapshotBuilder.build(game));var decoy=snapshot.path("decoys").get(0);
         assertNotNull(decoy);assertEquals(player.id,decoy.path("ownerId").asText());assertEquals(1,decoy.path("facingX").asDouble());assertEquals(0,decoy.path("facingY").asDouble());
     }
-    @Test void aHeightMissStillSpendsOneRoundAndPiercingChecksEachBodySeparately() {
+    @Test void aHeightMissStillSpendsOneRoundAndPiercingChecksEachBodySeparately() throws Exception {
+        // Isolate height/piercing from the separately verified random sniper cone.
+        var randomField=GameSession.class.getDeclaredField("random");randomField.setAccessible(true);
+        randomField.set(game,new java.util.Random(){@Override public double nextDouble(){return 0;}});
         player.weapons.grant("smg");player.equipWeapon("smg");var near=enemy(9700,"grunt",100);int ammo=player.weapons.ammo("smg");shoot(.5);
         assertEquals(500,near.hp);assertEquals(ammo-1,player.weapons.ammo("smg"));assertEquals(.14,player.cooldown,.001);
         game.enemies.clear();player.firing=false;player.weapons.grant("sniper");player.equipWeapon("sniper");player.cooldown=0;
