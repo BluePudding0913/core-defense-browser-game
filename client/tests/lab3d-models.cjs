@@ -136,3 +136,14 @@ const thick=scene.children.find(o=>o.name==='muzzle-tracer');assert(thick.childr
 frame.effects=[];frame.motion.moving=true;player.y-=4;now+=50;renderer.render(frame);assert(Math.abs(camera.rotation.z)>0,'Walking gently sways camera');
 frame.motion.moving=false;now+=2000;for(let i=0;i<60;i++){now+=50;renderer.render(frame);}assert(Math.abs(camera.rotation.z)<1e-8,'Sway settles smoothly after stopping');
 console.log('FPS motion models passed: square heal area, scope, jump height, bat swing, recoil, thicker tracer and settling head bob');
+
+// Effect origin is captured at arrival, even if movement precedes the next render.
+now+=500;frame.motion={moving:false};frame.view={yaw:0,pitch:0};frame.eye=player;frame.effects=[];renderer.render(frame);
+const fixedEffect={effect:'hit',weapon:'freezeGun',playerId:'me',fromX:player.x,fromY:player.y,x:player.x,y:player.y-100,hitHeight:26,damage:0,started:now};
+renderer.captureEffect(fixedEffect);player.x+=40;frame.effects=[fixedEffect];renderer.render(frame);
+const frozenBeam=scene.getObjectByName('fired-special-beam');assert(frozenBeam);const fixedPosition=frozenBeam.position.toArray(),fixedRotation=frozenBeam.quaternion.toArray();
+player.x+=30;frame.view.yaw=.5;now+=30;renderer.render(frame);assert.deepEqual(frozenBeam.position.toArray(),fixedPosition);assert.deepEqual(frozenBeam.quaternion.toArray(),fixedRotation);
+now+=300;frame.effects=Array.from({length:20},(_,i)=>({effect:'hit',weapon:'flamethrower',playerId:i<10?'me':'other'+i,fromX:100,fromY:100,x:100,y:0,damage:0,started:now}));renderer.render(frame);
+const flames=scene.children.filter(o=>o.name==='flame-particles');assert(flames.length>0);assert(flames.every(o=>o.isPoints),'Flame emits particles, never cylinders or lines');assert(flames.reduce((n,o)=>n+o.geometry.drawRange.count,0)<=48);
+assert(!scene.getObjectByName('fired-special-beam'));assert(find('heal:me').material.opacity>=.4);
+console.log('FPS requested fixes passed: captured special shot origins, movement/turn stability, bounded flame particles and stronger heal area');
