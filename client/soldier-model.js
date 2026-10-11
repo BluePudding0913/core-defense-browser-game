@@ -4,7 +4,7 @@ function buildSoldier(THREE) {
 
   const COLORS = {
     Olive: 0x4c5030, OliveDark: 0x343722, OliveLight: 0x62673d, Skin: 0xd99a72,
-    Wood: 0x967352, Cyan: 0x66dfff, Green: 0x86d85e, Red: 0xed655f, Boot: 0x2b2a24, Gun: 0x26282a, GunLight: 0x3e4245, Eye: 0x1c1a16,
+    Purple: 0x974be0, PurpleLight: 0xd5b2fa, Wood: 0x967352, Cyan: 0x66dfff, Green: 0x86d85e, Red: 0xed655f, Boot: 0x2b2a24, Gun: 0x26282a, GunLight: 0x3e4245, Eye: 0x1c1a16,
   };
   const mats = {};
   const mat = (k) => mats[k] || (mats[k] = new THREE.MeshStandardMaterial({
@@ -102,6 +102,20 @@ function buildSoldier(THREE) {
       part(.075,.09,tip,'GunLight',0,0,tip/2);part(.06,.16,.08,'Gun',0,-.1,.02);
       if(weapon==='revolver')tube(.07,.1,'GunLight',0,-.03,.13);else part(.07,.02,.03,'Gun',0,.06,.05);
       tube(.025,.06,'Gun',0,0,tip-.015);
+    } else if(weapon==='poisonGas') {
+      tip=.12;
+      cyl(rifle,.10,.10,.28,12,'Purple',0,-.01,.12).name='BottleBody';
+      cyl(rifle,.045,.10,.08,12,'Purple',0,.17,.12);
+      cyl(rifle,.045,.045,.10,12,'PurpleLight',0,.25,.12);
+      cyl(rifle,.055,.055,.05,12,'Gun',0,.325,.12).name='BottleCap';
+      part(.11,.08,.015,'PurpleLight',0,-.01,.018);
+    } else if(weapon==='repulsor') {
+      tip=.32;
+      part(.16,.075,.34,'GunLight',0,0,.12).name='RemoteBody';
+      part(.11,.012,.10,'Cyan',0,.044,.21).name='RemoteScreen';
+      cyl(rifle,.03,.03,.015,10,'Red',0,.05,.07);
+      for(const x of [-.04,.04])part(.03,.012,.03,'Gun',x,.045,-.005);
+      cyl(rifle,.012,.012,.18,8,'Gun',.055,.12,.27).name='RemoteAntenna';
     } else if(weapon==='rocket') {
       tip=.82;tube(.085,.8,'GunLight',0,.03,.4);tube(.1,.055,'Olive',0,.03,.78);
       part(.06,.18,.08,'Gun',0,-.12,.08);part(.04,.1,.08,'Gun',0,.14,.4);

@@ -398,7 +398,7 @@ function connect() {
             if (message.effect === "drone-self-destruct") receiveDroneSelfDestruct(message);
             playSoundEffect(message);
         }
-        if (message.type === "effect" && ["hit", "intercept", "pickup", "player-hit", "player-down", "explosion", "acid-impact"].includes(message.effect)) {
+        if (message.type === "effect" && ["hit", "intercept", "pickup", "player-hit", "player-down", "explosion", "acid-impact", "missile-impact"].includes(message.effect)) {
             if (typeof CombatFeedback !== "undefined") CombatFeedback.add(message, performance.now(), myPlayerId, DEBUG_MODE);
             const effect = { ...message, started: performance.now() };
             labRenderer?.captureEffect?.(effect);
@@ -2538,6 +2538,7 @@ function drawFirstPerson() {
     const playing=!!me && ['preparing','wave'].includes(state?.phase);
     const menusOpen=exitDialog.open || !actionMenu.classList.contains('hidden') || !inventoryMenu.classList.contains('hidden') || !howToMenu.classList.contains('hidden') || window.coreMenu?.settingsOpen?.() || window.JobUI?.isConfirming?.() || me?.missileControl;
     fpsInput.setActive(playing && !menusOpen,playing && !!menusOpen);
+    fpsInput.setLookFrozen(!!me && (me.railgunRemaining>0 || me.secondaryRailgunRemaining>0));
     if(menusOpen || !playing) {
         if(firingPointer)stopFiring(firingPointer.clientX,firingPointer.clientY);
         if(secondaryHeld)stopSecondaryFiring();
@@ -2587,6 +2588,7 @@ function drawFirstPerson() {
         const shade=ctx.createRadialGradient(canvas.width/2,canvas.height/2,0,canvas.width/2,canvas.height/2,canvas.width*.65);
         shade.addColorStop(0,'rgba(0,5,10,.62)');shade.addColorStop(1,'rgba(0,5,10,.9)');ctx.fillStyle=shade;ctx.fillRect(0,0,canvas.width,canvas.height);
     }
+    if(playing && !menusOpen && typeof CombatFeedback!=='undefined') {ctx.save();ctx.scale(dpr,dpr);CombatFeedback.drawHitMarker(ctx,now,innerWidth/2,innerHeight/2);ctx.restore();}
     drawDamageEdges();drawJoystick();drawRewindScreen();
 }
 

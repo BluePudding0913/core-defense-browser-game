@@ -365,7 +365,7 @@ window.Lab3D = (() => {
             item.root.position.set(x,.7,y);item.root.scale.set(halfSize,halfSize,1);
         }
         function beam(key,a,b,color,width=1) {
-            const item=object(key,()=>{const root=new T.Mesh(cylinderGeometry,material(color,true));return {root};});
+            const item=object(key,()=>{const root=new T.Mesh(cylinderGeometry,material(color,true));root.name=key;return {root};});
             const delta=b.clone().sub(a);item.root.position.copy(a).add(b).multiplyScalar(.5);item.root.scale.set(width,delta.length(),width);item.root.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),delta.normalize());
         }
         function firedBeam(effect,color,width) {
@@ -396,11 +396,51 @@ window.Lab3D = (() => {
             }
             positions.needsUpdate=true;item.root.material.opacity=Math.max(0,1-age/180);
         }
+        let missileRadius=120;
+        function repulsorWave(effect,age) {
+            if(!effectIds.has(effect))effectIds.set(effect,++nextEffectId);
+            const item=object('pressure:'+effectIds.get(effect),()=>{
+                const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(new Float32Array(18*25*3),3));
+                const mat=new T.PointsMaterial({color:'#9adff5',size:3,sizeAttenuation:false,transparent:true,depthWrite:false});
+                const root=new T.Points(geometry,mat);root.name='repulsor-longitudinal-wave';root.frustumCulled=false;
+                const length=Math.hypot(effect.x-effect.fromX,effect.y-effect.fromY),dx=(effect.x-effect.fromX)/Math.max(1,length),dz=(effect.y-effect.fromY)/Math.max(1,length);
+                return {root,start:shotOrigin(effect),length,dx,dz,dispose(){geometry.dispose();mat.dispose();}};
+            });
+            const positions=item.root.geometry.attributes.position,front=item.length*Math.min(1,age/320);
+            let count=0;
+            for(let layer=0;layer<18;layer++) {
+                const rest=layer*item.length/17;if(rest>front)break;
+                // Every particle oscillates ALONG propagation; transverse coordinates stay fixed.
+                const distance=Math.max(0,rest+5*Math.sin(rest*.18-age*.035));
+                for(let row=-2;row<=2;row++)for(let col=-2;col<=2;col++) {
+                    positions.setXYZ(count++,item.start.x+item.dx*distance-item.dz*col*5,item.start.y+row*5,item.start.z+item.dz*distance+item.dx*col*5);
+                }
+            }
+            positions.needsUpdate=true;item.root.geometry.setDrawRange(0,count);item.root.material.opacity=.85*(1-age/520);
+        }
+        function missileFlash(effect,age) {
+            if(!effectIds.has(effect))effectIds.set(effect,++nextEffectId);
+            const item=object('missile-impact:'+effectIds.get(effect),()=>{
+                const mat=new T.MeshBasicMaterial({color:'#e5f7ff',transparent:true,opacity:.8,depthWrite:false});
+                const root=new T.Mesh(sphereGeometry,mat);root.name='missile-impact-flash';return {root,dispose(){mat.dispose();}};
+            });
+            const progress=age/650,r=Math.max(8,missileRadius*(.2+progress*.7));
+            item.root.position.set(effect.x,8+r*.25,effect.y);item.root.scale.set(r,r*.55,r);item.root.material.opacity=.8*(1-progress);
+            ring('missile-shock:'+effectIds.get(effect),effect.x,effect.y,Math.max(5,missileRadius*progress*1.5),'#a7e4ff',1-progress);
+            if(age<160)beam('missile-flash-column:'+effectIds.get(effect),new T.Vector3(effect.x,1,effect.y),new T.Vector3(effect.x,100,effect.y),'#e5f7ff',5*(1-age/160));
+        }
         function renderCombat(frame,now) {
             const {state,smooth}=frame;
             for(const shot of state.projectiles || []) {const p=smooth('projectile',shot),dx=Math.cos(shot.angle),dy=Math.sin(shot.angle);beam('projectile:'+shot.id,new T.Vector3(p.x-dx*20,16,p.y-dy*20),new T.Vector3(p.x,16,p.y),shot.source==='enemy'?'#ff7050':'#69dfff',1.5);}
             for(const shell of state.artilleryShells || []) {ring('shell:'+shell.id,shell.x,shell.y,shell.radius,'#7edc7a');const remaining=shell.remaining-Math.max(0,(now-(state.artilleryReceivedAt || now))/1000);const progress=Math.max(0,Math.min(1,1-remaining/shell.duration));const x=shell.sourceX+(shell.x-shell.sourceX)*progress,y=shell.sourceY+(shell.y-shell.sourceY)*progress;beam('shell-body:'+shell.id,new T.Vector3(x,5+Math.sin(progress*Math.PI)*65,y),new T.Vector3(x,12+Math.sin(progress*Math.PI)*65,y),'#7edc7a',3);}
-            for(const [i,strike] of (state.missiles || []).entries()) ring('missile:'+i,strike.x,strike.y,strike.radius || 120,'#79bfff');
+            for(const [i,strike] of (state.missiles || []).entries()) {
+                missileRadius=strike.radius || 120;
+                const pulse=.65+.35*Math.sin(now*.018);
+                ring('missile:'+i,strike.x,strike.y,missileRadius,'#79bfff',pulse);
+                ring('missile-inner:'+i,strike.x,strike.y,missileRadius*.55,'#d9f4ff',pulse);
+                beam('missile-beacon:'+i,new T.Vector3(strike.x,2,strike.y),new T.Vector3(strike.x,100,strike.y),'#a7e4ff',2);
+                for(const [dx,dz] of [[1,0],[0,1]])beam('missile-cross:'+i+dx,new T.Vector3(strike.x-dx*18,1.2,strike.y-dz*18),new T.Vector3(strike.x+dx*18,1.2,strike.y+dz*18),'#e5f7ff',1.5);
+            }
             for(const [i,area] of (state.healingAreas || []).entries()) ring('healing:'+i,area.x,area.y,area.radius || 100,'#84e6b5',.3);
             for(const [i,gas] of (state.poisonClouds || state.poisonGas || []).entries()) ring('gas:'+i,gas.x,gas.y,gas.radius || 80,gas.hostile?'#a6ce46':'#b46eeb',gas.hostile?.8:.5);
             for(const player of state.players) {
@@ -434,7 +474,9 @@ window.Lab3D = (() => {
             let flameRemaining=48;const flameEmitters=new Map();
             for(const effect of frame.effects || []) {
                 const age=now-effect.started;
-                if(effect.effect==='hit' && age>=0 && age<360 && ['rocket','mine','droneExplosion','repulsor','freezeGun','poisonGas'].includes(effect.weapon)) ring('blast:'+effectIds.get(effect)+':'+effect.started,effect.x,effect.y,Math.max(4,(effect.radius || 35)*age/360),effect.weapon==='freezeGun'?'#95dded':'#ffae62',1-age/360);
+                if(effect.effect==='missile-impact' && age>=0 && age<650)missileFlash(effect,age);
+                if(effect.effect==='hit' && effect.weapon==='repulsor' && effect.damage===0 && age>=0 && age<520)repulsorWave(effect,age);
+                if(effect.effect==='hit' && age>=0 && age<360 && ['rocket','mine','droneExplosion','freezeGun','poisonGas'].includes(effect.weapon)) ring('blast:'+effectIds.get(effect)+':'+effect.started,effect.x,effect.y,Math.max(4,(effect.radius || 35)*age/360),effect.weapon==='freezeGun'?'#95dded':'#ffae62',1-age/360);
                 if(effect.effect==='hit' && age>=0 && age<220 && effect.damage===0 && ['laserCannon','freezeGun','plasmaBlade'].includes(effect.weapon)) {
                     firedBeam(effect,effect.weapon==='freezeGun'?'#b8efff':'#50d7ff',effect.weapon==='laserCannon'?3:1.5);
                 }
@@ -503,9 +545,10 @@ window.Lab3D = (() => {
                 if(effect.weapon==='bat')batSwing=1;
                 else if(now-lastKickAt>25){recoil=Math.min(1,recoil+.65);lastKickAt=now;}
             }
-            const bob=walkBlend*(frame.scoped ? .12 : 1)*(frame.motion?.dashing?1.4:1);
+            const firingRail=me?.railgunRemaining>0 || me?.secondaryRailgunRemaining>0;
+            const bob=(firingRail ? 0 : 1)*walkBlend*(frame.scoped ? .12 : 1)*(frame.motion?.dashing?1.4:1);
             camera.position.set(eye.x, me?.down ? 6 : me?.drone?.controlled ? 23 : 26+(eye.jumpHeight || 0)+(eye.renderOffsetHeight || 0)+Math.sin(walkPhase*2)*.32*bob, eye.y);
-            view.recoilPitch=recoil*(frame.scoped ? .006 : .003);
+            view.recoilPitch=firingRail ? 0 : recoil*(frame.scoped ? .006 : .003);
             camera.rotation.set(Math.max(-1.2,Math.min(1.2,view.pitch+view.recoilPitch)),-view.yaw,me?.down ? .2 : Math.sin(walkPhase)*.0025*bob,'YXZ');
             camera.updateMatrixWorld(true);
             viewCamera.aspect=camera.aspect;viewCamera.updateProjectionMatrix();

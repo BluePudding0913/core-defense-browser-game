@@ -13,12 +13,12 @@ feedback.reset();
 feedback.add(hit(4), 0, 'me'); feedback.add(hit(7,2,120,100,true), 250, 'me');
 labels = feedback.layout(300);
 assert.equal(labels.length, 2); assert.equal(labels[0].text, '+4G'); assert(!labels[0].headshot);
-assert.equal(labels[1].text, '+7G'); assert(labels[1].headshot);
-assert(Math.abs(labels[0].y-labels[1].y) >= 30, 'HS labels remain readable beside nearby rewards');
+assert.equal(labels[1].text, '+7G'); assert(!labels[1].headshot,'No HS text labels');
+assert(Math.abs(labels[0].y-labels[1].y) >= 16, 'Rewards remain readable without HS text');
 feedback.add({...hit(100),playerId:'ally'}, 300, 'me');
 assert.equal(feedback.layout(300).length, 2, 'only own gold is displayed');
 feedback.add(hit(3,2,120,100), 800, 'me');
-assert(feedback.layout(850).find(popup=>popup.created===250).headshot,'body hits do not alter the earlier HS label');
+assert(!feedback.layout(850).find(popup=>popup.created===250).headshot,'No HS labels remain');
 assert(!feedback.layout(950).find(popup=>popup.enemyId===2).headshot,'old HS expires independently');
 feedback.reset();
 feedback.add(hit(4), 0, 'me'); feedback.layout(0);
@@ -28,8 +28,7 @@ assert.equal(feedback.layout(1700).length, 0, 'each label expires after its own 
 feedback.add(hit(0,4,100,100,true), 1700, 'me');
 const texts = [];
 feedback.draw({save(){},restore(){},strokeText(){},fillText(text,x,y){texts.push({text,x,y,color:this.fillStyle,font:this.font});}}, 1700);
-assert.equal(texts.length, 1); assert.equal(texts[0].text, 'HS');
-assert.equal(texts[0].color, '#ff5964'); assert(texts[0].font.includes('9px'));
+assert.equal(texts.length,0,'HS text is removed');
 feedback.reset(); assert.equal(feedback.layout(1800).length, 0);
 for (let now = 0; now <= 3000; now += 400) {
     feedback.add(hit(2), now, 'me');
@@ -99,7 +98,7 @@ vm.runInNewContext(source.slice(start,end), {message:{type:'ammo-refilled'},
     window:{coreAudio:{play:(...args)=>sounds.push(args)}},activeMenuAccess:{refresh(){}},
     inventoryMenu:{classList:{add(){}}},closeActionMenu(){assert.fail('refill retains the shop');}});
 assert.deepEqual(sounds, [['refill',0]]);
-console.log('Combat feedback passed: individual hit rewards, separate label placement, independent expiry, red HS and refill sound');
+console.log('Combat feedback passed: individual hit rewards, separate label placement, independent expiry, no HS text and refill sound');
 
 // Raised 3D anchors use screen-space spacing; damage labels stay upright and follow their target.
 feedback.reset();
@@ -113,3 +112,11 @@ assert.equal(projected[0].x,targetX);assert(projected[0].y<targetY);
 assert.equal(projected[0].damageText,'80 DMG');
 feedback.reset();
 console.log('3D combat labels passed: raised projection and moving target anchors');
+
+const confirmed=(headshot=false)=>({...hit(0),damage:10,headshot});
+feedback.reset();feedback.add(confirmed(),100,'me');assert.equal(feedback.hitMarker(100).headshot,false);assert.equal(feedback.hitMarker(260),null,'Marker expires at 160 ms');
+feedback.add(confirmed(true),300,'me');assert.equal(feedback.hitMarker(350).headshot,true);feedback.add(confirmed(),400,'me');assert.equal(feedback.hitMarker(450).headshot,true);assert.equal(feedback.hitMarker(470).headshot,false,'Body hits do not extend headshot color');
+const colors=[];const markerCtx={save(){},restore(){},beginPath(){},moveTo(){},lineTo(){},stroke(){colors.push(this.strokeStyle);}};feedback.drawHitMarker(markerCtx,470,100,100);feedback.add(confirmed(true),500,'me');feedback.drawHitMarker(markerCtx,500,100,100);assert.deepEqual(colors,['#f1f8fb','#ff5964']);
+feedback.reset();for(const bad of [{...confirmed(),playerId:'other'},{...confirmed(),enemyId:null},{...confirmed(),damage:0},{...confirmed(),damage:NaN}])feedback.add(bad,600,'me');assert.equal(feedback.hitMarker(600),null,'No markers for allies, misses or zero damage');
+feedback.add(confirmed(),700,'me');feedback.reset();assert.equal(feedback.hitMarker(700),null,'Reset clears marker');
+console.log('Confirmed hit markers passed: local enemy damage, white/red color, expiry, headshot priority and no HS text');

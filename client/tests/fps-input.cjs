@@ -19,3 +19,8 @@ listeners.pointermove({pointerType:'touch',pointerId:5,clientX:760,clientY:320})
 globalListeners.pointerup({pointerId:5});const stopped=input.view.yaw;listeners.pointermove({pointerType:'touch',pointerId:5,clientX:800,clientY:320});assert.equal(input.view.yaw,stopped);
 input.release();listeners.mousemove({movementX:100,movementY:100});assert.equal(input.view.yaw,stopped);
 assert.equal(lockRequests,0);console.log('FPS input passed: immediate mouse look without capture mode, menu pause/resume, entry warp, scope, touch and focus release');
+
+input.setActive(true);listeners.mousemove({movementX:0,movementY:0});input.setLookFrozen(true);const frozen={...input.view};
+listeners.mousemove({movementX:100,movementY:100});listeners.mousemove({movementX:100,movementY:100});assert.deepEqual({...input.view},frozen,'Railgun freezes mouse yaw and pitch');
+listeners.pointerdown({pointerType:'touch',pointerId:9,clientX:750,clientY:300});listeners.pointermove({pointerType:'touch',pointerId:9,clientX:790,clientY:350});assert.deepEqual({...input.view},frozen,'Railgun also freezes touch look');
+input.setLookFrozen(false);listeners.mousemove({movementX:1000,movementY:1000});assert.deepEqual({...input.view},frozen,'Ignore cursor warp on release');listeners.mousemove({movementX:10,movementY:0});assert(input.view.yaw>frozen.yaw,'Look resumes after firing');
