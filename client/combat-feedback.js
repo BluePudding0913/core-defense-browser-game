@@ -63,7 +63,8 @@ const CombatFeedback = (() => {
     function drawHeadShot(ctx,now,x,y) {
         const age=now-headshotAt;if(age<0 || age>=400)return;
         ctx.save();ctx.globalAlpha=Math.min(1,(400-age)/180);ctx.fillStyle='#e8f4f8';
-        ctx.font='600 11px ui-monospace, monospace';ctx.textAlign='right';ctx.fillText('HeadShot',x-12,y-18);ctx.restore();
+        const rise=18*(1-Math.pow(1-age/400,2));
+        ctx.font='700 15px ui-monospace, monospace';ctx.textAlign='right';ctx.fillText('HeadShot',x-12,y-18-rise);ctx.restore();
     }
     return {add, layout, draw, drawHeadShot, reset() {popups = [];headshotAt=-Infinity;} };
 })();

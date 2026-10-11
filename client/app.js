@@ -2650,9 +2650,9 @@ function drawFirstPerson() {
     }
     if(playing && !menusOpen && !me.down && !me.selectedBuild && !me.drone?.controlled) {
         const spread=window.AimControl?.displaySample(me,now,WEAPON_FIELDS) || (me.weapon==='sniper'?window.SniperAim.sample(me,now):{slope:WEAPON_FIELDS[me.weapon]?.spreadSlope || 0});
-        if(spread.slope>0 && (DEBUG_MODE || window.AimControl?.visible(me,fpsInput.view,WEAPON_FIELDS))) {
+        if(spread.slope>0 && window.AimControl?.visible(me,fpsInput.view,WEAPON_FIELDS)) {
             const fov=scoped?(me.weapon==='sniper'?(fpsInput.view.scopeLevel===2?10:20):me.weapon==='rifle'?32:26):fpsInput.view.zoom?48:72;
-            ctx.save();ctx.scale(dpr,dpr);window.SniperAim.draw(ctx,innerWidth/2,innerHeight/2,innerHeight,fov,spread,DEBUG_MODE?'#438fff':undefined,DEBUG_MODE?null:undefined);ctx.restore();
+            ctx.save();ctx.scale(dpr,dpr);window.SniperAim.draw(ctx,innerWidth/2,innerHeight/2,innerHeight,fov,spread);ctx.restore();
         }
     }
     if(playing && !menusOpen && !me.down && !me.selectedBuild && !me.drone?.controlled){ctx.save();ctx.scale(dpr,dpr);window.coreReticleSettings.draw(ctx,innerWidth/2,innerHeight/2);if(typeof CombatFeedback!=='undefined')CombatFeedback.drawHeadShot(ctx,now,innerWidth/2,innerHeight/2);ctx.restore();}

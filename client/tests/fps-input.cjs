@@ -11,7 +11,7 @@ const canvas={classList:{add:c=>classes.add(c),remove:c=>classes.delete(c)},addE
 const context=vm.createContext({document,window:{addEventListener(t,f){globalListeners[t]=f;}},innerWidth:1000});
 vm.runInContext(fs.readFileSync('client/fps-input.js','utf8'),context);let escaped=0;const input=context.window.FPSInput.create(canvas,{onEscape:()=>escaped++});
 const move=(x,y=0)=>listeners.mousemove({movementX:x,movementY:y,clientX:999,clientY:499});
-input.setActive(true);move(1000);assert.equal(input.view.yaw,0,'Uncaptured cursor never changes view');
+input.setActive(true);assert(input.locked(),'Entering a game captures look without an extra click');input.release();move(1000);assert.equal(input.view.yaw,0,'Uncaptured cursor never changes view');
 assert(input.capture());assert(input.locked());assert(!input.capture(),'Captured click can fire');
 move(1000,-1000);assert.equal(input.view.yaw,0,'Ignore capture coordinate jump');
 move(Math.PI/2/.0024);assert(Math.abs(input.view.yaw-Math.PI/2)<1e-8);
@@ -55,3 +55,10 @@ input.cycleScope();input.release();assert.equal(input.view.scopeLevel,0);
 input.setActive(true);input.capture();move(0);input.view.scoped=false;
 context.window.coreMouseSettings={get:()=>2};let startYaw=input.view.yaw;move(10);assert(Math.abs(input.view.yaw-startYaw-.048)<1e-8);
 input.view.scoped=true;input.view.scopeLevel=2;startYaw=input.view.yaw;move(10);assert(Math.abs(input.view.yaw-startYaw-.0084)<1e-8);
+
+// A new match gets one automatic attempt; denied requests never retry every frame.
+input.setActive(false);reject=true;const entryRequests=lockRequests;
+input.setActive(true);assert.equal(lockRequests,entryRequests+1);assert(!input.locked());
+for(let i=0;i<20;i++)input.setActive(true);assert.equal(lockRequests,entryRequests+1);
+input.setActive(false,true);input.setActive(true);assert.equal(lockRequests,entryRequests+1,'Uncaptured UI close does not steal focus');
+reject=false;input.setActive(false);input.setActive(true);assert(input.locked(),'Next match automatically captures again');

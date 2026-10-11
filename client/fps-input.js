@@ -3,7 +3,7 @@ window.FPSInput = {
     create(canvas, {onEscape} = {}) {
         const view={yaw:0,pitch:0,zoom:false,scopeLevel:0};
         let active=false,touch=null,skipMouseMove=true,lookFrozen=false;
-        let pendingLock=false,lockWanted=false,resumeAfterUI=false,hadLock=false;
+        let pendingLock=false,lockWanted=false,resumeAfterUI=false,hadLock=false,entryCapture=true;
         const locked=()=>document.pointerLockElement===canvas;
         function release(){
             resumeAfterUI=false;lockWanted=false;view.zoom=false;view.scopeLevel=0;touch=null;skipMouseMove=true;
@@ -47,13 +47,14 @@ window.FPSInput = {
             cycleScope(){view.scopeLevel=(view.scopeLevel+1)%3;view.zoom=view.scopeLevel>0;},
             setLookFrozen(on){if(lookFrozen===on)return;lookFrozen=on;skipMouseMove=true;},
             setActive(on,pausingForUI=false){
-                if(active===on){if(!on && !pausingForUI)resumeAfterUI=false;return;}
+                if(active===on){if(!on && !pausingForUI){resumeAfterUI=false;entryCapture=true;}return;}
                 if(!on){
                     const resume=pausingForUI && (locked() || lockWanted);
+                    if(!pausingForUI)entryCapture=true;
                     active=false;canvas.classList.remove('fps-looking');release();resumeAfterUI=resume;
                 } else {
                     active=true;canvas.classList.add('fps-looking');skipMouseMove=true;
-                    const resume=resumeAfterUI;resumeAfterUI=false;if(resume)capture();
+                    const resume=resumeAfterUI || entryCapture;resumeAfterUI=false;entryCapture=false;if(resume)capture();
                 }
             },
             movement(x,y){const sin=Math.sin(view.yaw),cos=Math.cos(view.yaw);return{x:x*cos-y*sin,y:x*sin+y*cos};},
