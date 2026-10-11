@@ -7,7 +7,7 @@ THREE.WebGLRenderer = class {
     constructor() { this.domElement={width:0,height:0,addEventListener(){}};this.shadowMap={}; }
     setSize(w,h) { this.domElement.width=w;this.domElement.height=h; }
     clearDepth() {}
-    render(s,c) { if(!s.children.some(o=>o.isDirectionalLight)){viewScene=s;viewCamera=c;viewScene.updateMatrixWorld(true);viewCamera.updateMatrixWorld(true);return;}scene=s;camera=c;scene.updateMatrixWorld(true);camera.updateMatrixWorld(true); }
+    render(s,c) { if(c.near===.01){viewScene=s;viewCamera=c;viewScene.updateMatrixWorld(true);viewCamera.updateMatrixWorld(true);return;}scene=s;camera=c;scene.updateMatrixWorld(true);camera.updateMatrixWorld(true); }
 };
 const context=vm.createContext({window:{THREE},document:{body:{classList:{add(){}}}},performance:{now:()=>now},console});
 for (const file of ['soldier-model.js','lab3d.js']) vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
@@ -168,3 +168,30 @@ state.missiles=[];now+=100;frame.effects=[{effect:'missile-impact',x:100,y:60,st
 now+=700;renderer.render(frame);assert(!scene.getObjectByName('missile-impact-flash'),'Impact fades and is disposed');
 player.railgunRemaining=1;frame.view.pitch=.2;frame.view.yaw=.3;frame.motion={moving:true};renderer.render(frame);assert.equal(camera.rotation.x,.2);assert.equal(camera.rotation.z,0,'Railgun camera has no bob or recoil drift');player.railgunRemaining=0;
 console.log('Weapon FX passed: purple bottle, remote, longitudinal compression, no repulsor impact, missile beacon/flash/expiry and stable railgun view');
+
+const precisionModel=context.window.buildSoldier(THREE),precisionMuzzle=precisionModel.root.getObjectByName('Muzzle');
+precisionModel.setWeapon('sniper');
+const precision=precisionModel.root.getObjectByName('PrecisionSniper');
+assert(precision && precision.children.length<=7,'Detailed rifle is batched to at most seven material draws');
+const bounds=new THREE.Box3().setFromObject(precision);
+assert(bounds.max.z>1.24 && bounds.min.z<-.50,'Long barrel and adjustable stock have full-size silhouettes');
+assert(precisionMuzzle.position.z>bounds.max.z,'Shared tracer muzzle stays ahead of the open crown');
+let detailTriangles=0;
+for(const surface of precision.children){
+ const a=surface.geometry.attributes;
+ assert.equal(a.position.count,a.normal.count);assert.equal(a.position.count,a.uv.count);
+ assert([...a.position.array,...a.normal.array].every(Number.isFinite),'Batched geometry has finite positions and normals');
+ detailTriangles+=surface.geometry.index.count/3;
+}
+assert(detailTriangles<25000,'Precision detail stays within the game triangle budget');
+assert.notEqual(precisionModel.materials.SniperGlass.roughness,precisionModel.materials.SniperRubber.roughness);
+assert(precisionModel.materials.SniperSteel.normalMap && precisionModel.materials.SniperSteel.envMap);
+const sniperMaterials=precisionModel.materials;
+let disposed=0;precision.children.forEach(o=>o.geometry.addEventListener('dispose',()=>disposed++));
+precisionModel.setWeapon('pistol');assert.equal(disposed,7,'All batched weapon surfaces are released on swap');
+assert.equal(precisionModel.root.getObjectByName('Muzzle'),precisionMuzzle);
+precisionModel.setWeapon('sniper');assert.equal(precisionModel.materials,sniperMaterials,'Material maps are reused when re-equipping');
+let textureDisposals=0;
+for(const t of [sniperMaterials.SniperSteel.normalMap,sniperMaterials.SniperSteel.roughnessMap,sniperMaterials.SniperSteel.envMap])t.addEventListener('dispose',()=>textureDisposals++);
+Object.values(sniperMaterials).forEach(m=>m.dispose());assert.equal(textureDisposals,3,'Weapon-specific textures are released with their actor');
+console.log('Precision sniper passed: silhouette, batched geometry budget, distinct PBR surfaces, muzzle stability and geometry/texture lifetime');

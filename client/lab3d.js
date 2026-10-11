@@ -110,6 +110,9 @@ window.Lab3D = (() => {
         // Like the reference demo, render first-person arms separately to avoid wall clipping.
         const viewScene = new T.Scene();
         viewScene.add(new T.HemisphereLight(0xe4f5ff, 0x455262, 1.8));
+        const sniperKey=new T.DirectionalLight(0xe3efff,1.7);sniperKey.position.set(-1,3,-2);
+        const sniperFill=new T.DirectionalLight(0xffdfbc,.7);sniperFill.position.set(2,1,2);
+        viewScene.add(sniperKey,sniperFill);
         const viewCamera = new T.PerspectiveCamera(58, 1, .01, 10);
         viewCamera.rotation.y = Math.PI;
         const viewModel = window.buildSoldier(T);
@@ -557,6 +560,7 @@ window.Lab3D = (() => {
             viewCamera.position.y+=Math.sin(walkPhase*2)*.01*bob;
             viewCamera.position.z-=recoil*.035;
             viewCamera.rotation.x=-recoil*.035;
+            sniperKey.visible=sniperFill.visible=me?.weapon==='sniper';
             viewModel.setWeapon(me?.weapon || 'pistol');viewMixer.update(dt);
             viewModel.root.rotation.z=-batSwing*.45;
             viewVisible=!!me && !frame.scoped && !me.down && !me.movingCore && !me.selectedBuild && !me.drone?.controlled && !me.missileControl;
