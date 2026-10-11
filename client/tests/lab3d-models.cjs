@@ -223,3 +223,23 @@ const mk2Trace=scene.children.find(o=>o.name==='muzzle-tracer');
 const mk2OriginNdc=new THREE.Vector3().fromBufferAttribute(mk2Trace.geometry.attributes.position,0).project(camera);
 assert(Math.hypot(mk2OriginNdc.x-mk2MuzzleNdc.x,mk2OriginNdc.y-mk2MuzzleNdc.y)<1e-4,'Mk II tracer starts at the extended visible muzzle');
 console.log('Mk II integration passed: extended hand-model muzzle aligns with the world shot');
+
+// A fast sprint cannot speed the vertical bob beyond a natural stride.
+frame.effects=[];frame.scoped=false;frame.view={yaw:0,pitch:0};frame.motion={moving:false};
+player.weapon='pistol';for(let i=0;i<90;i++){now+=1000/60;renderer.render(frame);}
+const standardViewDepth=viewCamera.position.z;player.weapon='sniper';renderer.render(frame);
+assert(viewCamera.position.z<standardViewDepth,'Long sniper sits farther from the eye to expose more receiver');
+assert.equal(viewCamera.fov,62);player.weapon='pistol';renderer.render(frame);assert.equal(viewCamera.fov,58,'Other weapons retain their perspective');
+frame.motion={moving:true,dashing:true};
+let lastBobSign=0,crossings=0;
+for(let i=0;i<180;i++){
+    player.y-=400/60;now+=1000/60;renderer.render(frame);
+    const sign=Math.sign(camera.position.y-26);
+    if(sign && lastBobSign && sign!==lastBobSign)crossings++;
+    if(sign)lastBobSign=sign;
+}
+assert(crossings>=8 && crossings<=12,'Sprint bob stays below two vertical cycles per second, rather than following dash speed');
+frame.motion.moving=false;
+for(let i=0;i<90;i++){now+=1000/60;renderer.render(frame);}
+assert(Math.abs(camera.position.y-26)<1e-7,'Sprint bob settles after stopping');
+console.log('FPS comfort passed: natural sprint cadence, smooth settling and visible sniper receiver');
