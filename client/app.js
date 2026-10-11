@@ -1947,8 +1947,7 @@ function requestTankWall(point) {
 canvas.addEventListener("mousedown", event => {
     if (!state || !getMe()) return;
     if (event.button === 0 && fpsInput?.capture()) { event.preventDefault(); return; }
-    if (event.button === 2 && fpsInput && getMe()?.weapon==='sniper' && getMe()?.job!=='attacker' && !getMe()?.drone?.controlled) { event.preventDefault();fpsInput.cycleScope();return; }
-    if (event.button === 1 && fpsInput) { event.preventDefault(); if(getMe()?.weapon==='sniper')fpsInput.cycleScope();else fpsInput.view.zoom=true; return; }
+    if (event.button === 1 && fpsInput) { event.preventDefault(); fpsInput.view.zoom=true; return; }
     if(event.button===2 && fpsInput && getMe()?.job!=='attacker' && !event.altKey && window.AimControl?.supported(getMe()?.weapon,WEAPON_FIELDS)) {event.preventDefault();fpsInput.view.zoom=true;return;}
     if (event.button === 2 && fpsInput && getMe()?.job!=="attacker" && !event.altKey && (!["tank","scout","spy"].includes(getMe()?.job) || ["sniper","rifle","railgun"].includes(getMe()?.weapon))) { event.preventDefault();fpsInput.view.zoom=true;return; }
     if (event.button === 0) {
@@ -2018,7 +2017,7 @@ function stopSecondaryFiring() {
     window.coreAudio?.stopRailgun?.(myPlayerId + ":right");
 }
 window.addEventListener("mouseup", event => {
-    if (fpsInput && [1,2].includes(event.button) && getMe()?.weapon!=='sniper') fpsInput.view.zoom=!!(event.buttons & 4) || !!(event.buttons & 2) && getMe()?.job!=='attacker';
+    if (fpsInput && [1,2].includes(event.button)) fpsInput.view.zoom=!!(event.buttons & 4) || !!(event.buttons & 2) && getMe()?.job!=='attacker';
     if (event.button === 0 && firingPointer?.id === "mouse") stopFiring(event.clientX, event.clientY);
     if (event.button === 2) stopSecondaryFiring();
 });
@@ -2631,7 +2630,7 @@ function drawFirstPerson() {
             const anchor=labRenderer.stationPosition(target);const prompt=labRenderer.project(anchor.x,anchor.y,40);
             drawKeyPrompt('R',prompt.visible ? prompt.x/dpr : x,prompt.visible ? prompt.y/dpr : y+50);
         }
-        if(scoped && me?.weapon==='sniper')ctx.fillText(fpsInput.view.scopeLevel===2?'8×':'4×',x,innerHeight-130);
+        if(scoped && me?.weapon==='sniper')ctx.fillText('5×',x,innerHeight-130);
         if(placement)ctx.fillText(placement.valid?'R PLACE':'BLOCKED',x,y+70);
         if(me?.weapon==='sniper' && !me.down && !me.selectedBuild && !me.drone?.controlled)
             ctx.fillText(window.coreKeySettings.getSniperStance().toUpperCase()+(me.sniper?.fixed?'  STAND':'  HOLD PRONE'),x,innerHeight-105);
@@ -2651,7 +2650,7 @@ function drawFirstPerson() {
     if(playing && !menusOpen && !me.down && !me.selectedBuild && !me.drone?.controlled) {
         const spread=window.AimControl?.displaySample(me,now,WEAPON_FIELDS) || (me.weapon==='sniper'?window.SniperAim.sample(me,now):{slope:WEAPON_FIELDS[me.weapon]?.spreadSlope || 0});
         if(spread.slope>0 && window.AimControl?.visible(me,fpsInput.view,WEAPON_FIELDS)) {
-            const fov=scoped?(me.weapon==='sniper'?(fpsInput.view.scopeLevel===2?10:20):me.weapon==='rifle'?32:26):fpsInput.view.zoom?48:72;
+            const fov=scoped?window.AimControl.scopeFov(me.weapon):fpsInput.view.zoom?48:72;
             ctx.save();ctx.scale(dpr,dpr);window.SniperAim.draw(ctx,innerWidth/2,innerHeight/2,innerHeight,fov,spread);ctx.restore();
         }
     }

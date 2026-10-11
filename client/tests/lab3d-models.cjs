@@ -128,7 +128,7 @@ console.log('FPS authoritative impact passed: tracer uses server XYZ impact with
 // Motion and shape regressions use the rendered scene, including scope magnification.
 frame.eye=player;frame.motion={moving:false};frame.effects=[];player.healRemaining=3;player.healHalfSize=60;player.healX=100;player.healY=100;now+=500;renderer.render(frame);
 const heal=find('heal:me');assert.equal(heal.geometry.type,'PlaneGeometry');assert.equal(heal.scale.x*2,120);assert.equal(heal.scale.y*2,120);
-player.weapon='sniper';frame.view={yaw:0,pitch:0,zoom:true};frame.scoped=true;renderer.render(frame);assert.equal(camera.fov,20);
+player.weapon='sniper';frame.view={yaw:0,pitch:0,zoom:true};frame.scoped=true;renderer.render(frame);assert.equal(camera.fov,16);
 frame.scoped=false;frame.view.zoom=false;player.jumpHeight=24;renderer.render(frame);assert.equal(camera.position.y,50);player.jumpHeight=0;
 const gunPoseBeforeBat=viewScene.getObjectByName('Rifle').quaternion.clone();
 player.weapon='bat';frame.effects=[];renderer.render(frame);const batRest=viewScene.getObjectByName('Rifle').quaternion.clone();
@@ -296,7 +296,7 @@ frame.motion={moving:false};frame.effects=[{effect:'hit',weapon:'sniper',playerI
 assert(frame.view.pitch>.04,'Sniper recoil actually changes the player aim');const kickedPitch=frame.view.pitch,kickedYaw=frame.view.yaw;
 assert(Math.abs(frame.view.recoilPitch)<1e-8,'Persistent sniper kick is not counted twice');
 frame.effects=[];for(let i=0;i<120;i++){now+=1000/60;renderer.render(frame);}assert.equal(frame.view.pitch,kickedPitch,'Aim stays displaced after the gun animation settles');assert.equal(frame.view.yaw,kickedYaw,'No repeated recoil for the same shot');
-frame.scoped=true;frame.view.scopeLevel=1;renderer.render(frame);assert.equal(camera.fov,20);frame.view.scopeLevel=2;renderer.render(frame);assert.equal(camera.fov,10);
+frame.scoped=true;frame.view.zoom=true;renderer.render(frame);assert.equal(camera.fov,16);frame.scoped=false;frame.view.zoom=false;renderer.render(frame);assert.equal(camera.fov,72);
 console.log('Sniper integration passed: prone camera/body, standing restore and strong recoil recovery');
 
 // The mixer caches constant tracks. Repeated procedural overrides must not survive a swap.

@@ -566,7 +566,7 @@ window.Lab3D = (() => {
             latestFrame=frame;stationAnchors.clear();
             const me=state?.players.find(p=>p.id===localId), view=frame.view || {yaw:0,pitch:0};
             const eye=frame.eye || predicted || me || center;
-            camera.aspect=overlay.width/overlay.height; camera.fov=frame.scoped ? (me?.weapon==='sniper' ? (view.scopeLevel===2?10:20) : me?.weapon==='rifle' ? 32 : 26) : view.zoom ? 48 : 72; camera.updateProjectionMatrix();
+            camera.aspect=overlay.width/overlay.height; camera.fov=frame.scoped ? window.AimControl.scopeFov(me?.weapon) : view.zoom ? 48 : 72; camera.updateProjectionMatrix();
             const walking=frame.motion?.moving && !me?.sniper?.fixed && !me?.down && !me?.drone?.controlled && !(eye.jumpHeight>0);
             const walkPoint=predicted || eye;
             // Keep a relaxed stride, even during dashes or position corrections.

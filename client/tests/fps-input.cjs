@@ -46,15 +46,12 @@ console.log('FPS input passed: unbounded relative look, capture/retry, UI restor
 input.setActive(true);deferred=false;input.capture();document.hasFocus=()=>false;
 const beforeBlur=escaped;document.exitPointerLock();assert.equal(escaped,beforeBlur,'Focus loss is not treated as Escape');
 
-input.cycleScope();assert.equal(input.view.scopeLevel,1);assert(input.view.zoom);
-input.cycleScope();assert.equal(input.view.scopeLevel,2);assert(input.view.zoom);
-input.cycleScope();assert.equal(input.view.scopeLevel,0);assert(!input.view.zoom);
-input.cycleScope();input.release();assert.equal(input.view.scopeLevel,0);
+input.view.zoom=true;input.release();assert(!input.view.zoom);assert.equal(input.cycleScope,undefined,'No toggle scope remains');
 
 // Mouse settings multiply relative deltas, with scope scaling retained and touch unchanged.
 input.setActive(true);input.capture();move(0);input.view.scoped=false;
 context.window.coreMouseSettings={get:()=>2};let startYaw=input.view.yaw;move(10);assert(Math.abs(input.view.yaw-startYaw-.048)<1e-8);
-input.view.scoped=true;input.view.scopeLevel=2;startYaw=input.view.yaw;move(10);assert(Math.abs(input.view.yaw-startYaw-.0084)<1e-8);
+input.view.scoped=true;startYaw=input.view.yaw;move(10);assert(Math.abs(input.view.yaw-startYaw-.0168)<1e-8);
 
 // A new match gets one automatic attempt; denied requests never retry every frame.
 input.setActive(false);reject=true;const entryRequests=lockRequests;
