@@ -23,8 +23,7 @@ window.SniperAim = (() => {
         if(s.fixed) {
             const cycle=Math.floor(elapsed/PERIOD),wave=Math.sin(elapsed%PERIOD/PERIOD*Math.PI*2);
             const special=cycle<(s.cycle || 0)?s.previousPrecision:cycle>(s.cycle || 0)?s.nextPrecision:s.precision;
-            const warning=cycle<(s.cycle || 0)?s.precision:cycle===(s.cycle || 0) && s.nextPrecision;
-            radius=(38+21*wave-wave*wave-(special && wave<0?12.5*wave*wave:0)+(warning && wave>0?11.6*wave*wave:0))*stability(elapsed);
+            radius=(38+21*wave-wave*wave-(special && wave<0?12.5*wave*wave:0)+(special && wave>0?11.6*wave*wave:0))*stability(elapsed);
             radius+=70*Math.max(0,1-elapsed/.7)**2;
         }
         radius+=48*(recovery/RECOVERY)**2;

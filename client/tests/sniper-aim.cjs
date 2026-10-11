@@ -3,7 +3,7 @@ const c={window:{}};vm.runInNewContext(fs.readFileSync('client/sniper-aim.js','u
 let serial=0;
 function at(elapsed,precision=false,nextPrecision=false){return {id:'sample-'+serial++,sniperReceivedAt:1000,sniper:{fixed:true,elapsed,cycle:Math.floor(elapsed/2.8),precision,nextPrecision,recovery:0}};}
 const p=at(2.1,true);
-assert(Math.abs(api.sample(at(.7,false,true),1000).radius-69.6*api.stability(.7))<1e-8,'Only preceding expansion grows by 20%');
+assert(Math.abs(api.sample(at(.7,true,false),1000).radius-69.6*api.stability(.7))<1e-8,'Expansion immediately before special contraction grows by 20%');
 assert(Math.abs(api.sample(p,1000).radius-3.5*api.stability(2.1))<1e-8);
 assert(Math.abs(api.sample(at(2.1),1000).radius-16*api.stability(2.1))<1e-8);
 assert.equal(api.stability(90),.675);assert(Math.abs(api.stability(180)-.35)<1e-8);
@@ -42,3 +42,13 @@ view.zoom=false;assert(Math.abs(api.updateScope(view,'sniper',300)-.5)<1e-8);
 view.zoom=true;assert.equal(api.updateScope(view,'sniper',410),1,'Reversal starts from current position');
 assert.equal(api.updateScope(view,'sniper',420,false),0,'Menus reset scope motion');
 assert.equal(api.updateScope(view,'pistol',430),0,'Switching weapons clears the animation');
+
+assert(Math.abs(api.sample(at(.7,false,true),1000).radius-58*api.stability(.7))<1e-8,'No warning one cycle early');
+const future=at(2.7,false,true);assert(Math.abs(api.sample(future,1800).radius-69.6*api.stability(3.5))<1e-8,'Known next cycle predicts its own warning');
+const past=at(.7,false,true);past.sniper.cycle=1;past.sniper.previousPrecision=true;
+assert(Math.abs(api.sample(past,1000).radius-69.6*api.stability(.7))<1e-8,'Previous-cycle samples use that cycle special state');
+const rolls=[.9,.1,.9,.9],timeline=c.window.createBreathingPreview(()=>rolls.shift() ?? .9);
+assert.equal(timeline.sample(700).warning,false);assert(Math.abs(timeline.sample(700).radius-58)<1e-8);
+assert.equal(timeline.sample(3500).warning,true);assert(Math.abs(timeline.sample(3500).radius-69.6)<1e-8);
+assert(Math.abs(timeline.sample(4900).radius-3.5)<1e-8,'Warning is followed directly by special minimum 1.4s later');
+assert.equal(timeline.sample(6300).warning,false);assert(Math.abs(timeline.sample(6300).radius-58)<1e-8);
