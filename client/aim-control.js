@@ -1,11 +1,11 @@
 "use strict";
 window.AimControl = (() => {
-    const PERIOD=2.8,PIXEL_SLOPE=Math.tan(Math.PI/18)/425,clocks=new Map();
+    const PERIOD=2.8,PIXEL_SLOPE=Math.tan(Math.PI/18)/425,clocks=new Map(),visuals=new Map();
     const weapons=['pistol','smg','rifle','revolver','lmg','shotgun','ricochet','freezeGun','sniper'];
     const supported=(weapon,definitions)=>definitions?.[weapon]?.aimControl ?? weapons.includes(weapon);
     const phase=(clock,now)=>{const age=Math.max(0,(now-clock.at)/1000);return clock.elapsed+age+clock.offset*Math.exp(-age/.2);};
     function sync(players,now) {
-        const ids=new Set(players.map(p=>p.id));for(const id of clocks.keys())if(!ids.has(id))clocks.delete(id);
+        const ids=new Set(players.map(p=>p.id));for(const id of clocks.keys())if(!ids.has(id)){clocks.delete(id);visuals.delete(id);}
         for(const p of players)if(p.aimControl) {
             const s=p.aimControl,old=clocks.get(p.id),continuous=old&&s.elapsed>=old.elapsed-.2;
             const offset=continuous?Math.max(-.05,Math.min(.05,phase(old,now)-s.elapsed)):0;
@@ -25,8 +25,17 @@ window.AimControl = (() => {
         }
         return {elapsed,slope:slope*penalty,penalty};
     }
+    // Display filtering never changes the time/radius used in FIRE or server validation.
+    function displaySample(player,now,definitions={},weapon=player?.weapon) {
+        const raw=sample(player,now,definitions,weapon);
+        if(!raw.penalty)return raw;
+        const previous=visuals.get(player.id),reset=!previous || now<previous.at || now-previous.at>500 || raw.elapsed<previous.elapsed-.2;
+        const penalty=reset?raw.penalty:previous.penalty+(raw.penalty-previous.penalty)*(1-Math.exp(-(now-previous.at)/75));
+        visuals.set(player.id,{penalty,at:now,elapsed:raw.elapsed});
+        return {...raw,slope:raw.slope/raw.penalty*penalty,penalty};
+    }
     function visible(player,view,definitions) {return supported(player?.weapon,definitions) && (!!view.zoom || player?.weapon==='sniper' && !!player.sniper?.fixed);}
     const recoil={pistol:.009,smg:.003,rifle:.015,revolver:.023,lmg:.004,shotgun:.018,ricochet:.012,freezeGun:.009,sniper:.045};
     const recoilPitch=weapon=>recoil[weapon] || 0;
-    return {supported,sync,sample,visible,recoilPitch};
+    return {supported,sync,sample,displaySample,visible,recoilPitch};
 })();

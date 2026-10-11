@@ -1,10 +1,7 @@
 /* Each local hit keeps its own reward label, independently from hit animations. */
 const CombatFeedback = (() => {
-    let popups = [], marker = null;
+    let popups = [];
     function add(effect, now, playerId, debugMode = false) {
-        if(effect.effect==='hit' && effect.playerId===playerId && effect.enemyId!=null && Number.isFinite(effect.damage) && effect.damage>0) {
-            marker={at:now,headshotAt:effect.headshot ? now : marker?.headshotAt ?? -Infinity};
-        }
         const damage = debugMode && Number.isFinite(effect.damage) && effect.damage > 0 ? effect.damage : 0;
         if (effect.effect !== "hit" || effect.playerId !== playerId
                 || !(effect.credits > 0 || damage > 0)) return;
@@ -62,18 +59,6 @@ const CombatFeedback = (() => {
             ctx.restore();
         }
     }
-    function hitMarker(now) {
-        if(!marker || now<marker.at)return null;
-        const headshotAge=now-marker.headshotAt;
-        const headshot=headshotAge>=0 && headshotAge<360;
-        const age=headshot ? headshotAge : now-marker.at;
-        const lifetime=headshot ? 360 : 240, hold=headshot ? 140 : 80;
-        if(age>=lifetime)return null;
-        return {headshot,age,alpha:Math.min(1,(lifetime-age)/(lifetime-hold))};
-    }
-    function drawHitMarker(ctx,now,x,y,reticle=typeof window!=="undefined"?window.coreReticleSettings:null) {
-        const hit=hitMarker(now);if(hit)reticle?.drawHit(ctx,x,y,hit);
-    }
-    return {add, layout, draw, hitMarker, drawHitMarker, reset() {popups = [];marker=null;} };
+    return {add, layout, draw, reset() {popups = [];} };
 })();
 if (typeof module !== "undefined") module.exports = CombatFeedback;

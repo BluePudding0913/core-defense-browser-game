@@ -40,7 +40,7 @@
 #menu-ui .ui-settings-group input[type="range"] { flex: 1; width: 0; padding: 0; border: 0; accent-color: #fff; }
 #menu-ui .ui-settings-group output { min-width: 4ch; text-align: right; }
 #menu-ui input[name="medkit-key"], #menu-ui input[name="job-effect-key"], #menu-ui input[name="drone-self-destruct-key"] { width: 5rem; flex: 0 0 5rem; margin-left: auto; text-align: center; cursor: pointer; }
-#menu-ui .ui-reticle-previews { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+#menu-ui .ui-reticle-previews { display: grid; grid-template-columns: 1fr; gap: 4px; }
 #menu-ui .ui-reticle-preview { padding-top: 8px; display: grid; place-items: center; background: #181818; border-radius: .3rem; }
 #menu-ui .ui-reticle-preview span { width: 80px; height: 80px; background: var(--reticle-preview) center / contain no-repeat; }
 @media (max-height: 520px) { #menu-ui h1 { margin-bottom: 24px; } }
@@ -51,7 +51,3 @@
 .ui-settings-toast { position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 20; width: max-content; max-width: calc(100vw - 32px); padding: .75rem 1rem; border: 1px solid #555; border-radius: .5rem; background: #242424; color: #fff; box-shadow: 0 4px 16px #0008; font-size: .85rem; text-align: center; pointer-events: none; }
 .ui-settings-toast[hidden] { display: none; }
 .ui-defense-result small { display: block; margin-top: .35rem; font: .85rem ui-monospace, monospace; opacity: .7; }
-
-#menu-ui .ui-reticle-preview small { color: #aaa; font-size: .7rem; }
-#menu-ui .ui-reticle-preview .is-hit { background-image: var(--reticle-preview-hit); }
-#menu-ui .ui-reticle-preview .is-headshot { background-image: var(--reticle-preview-headshot); }

@@ -2652,13 +2652,12 @@ function drawFirstPerson() {
     }
     if(playing && !menusOpen && (!scoped || me?.weapon==='sniper') && !window.AimControl?.visible(me,fpsInput.view,WEAPON_FIELDS) && !me?.sniper?.fixed){ctx.save();ctx.scale(dpr,dpr);window.coreReticleSettings.draw(ctx,innerWidth/2,innerHeight/2);ctx.restore();}
     if(playing && !menusOpen && !me.down && !me.selectedBuild && !me.drone?.controlled) {
-        const spread=window.AimControl?.sample(me,now,WEAPON_FIELDS) || (me.weapon==='sniper'?window.SniperAim.sample(me,now):{slope:WEAPON_FIELDS[me.weapon]?.spreadSlope || 0});
+        const spread=window.AimControl?.displaySample(me,now,WEAPON_FIELDS) || (me.weapon==='sniper'?window.SniperAim.sample(me,now):{slope:WEAPON_FIELDS[me.weapon]?.spreadSlope || 0});
         if(spread.slope>0 && (DEBUG_MODE || window.AimControl?.visible(me,fpsInput.view,WEAPON_FIELDS))) {
             const fov=scoped?(me.weapon==='sniper'?(fpsInput.view.scopeLevel===2?10:20):me.weapon==='rifle'?32:26):fpsInput.view.zoom?48:72;
             ctx.save();ctx.scale(dpr,dpr);window.SniperAim.draw(ctx,innerWidth/2,innerHeight/2,innerHeight,fov,spread,DEBUG_MODE?'#438fff':'#e1e8e5');ctx.restore();
         }
     }
-    if(playing && !menusOpen && typeof CombatFeedback!=='undefined') {ctx.save();ctx.scale(dpr,dpr);CombatFeedback.drawHitMarker(ctx,now,innerWidth/2,innerHeight/2);ctx.restore();}
     if(playing && !menusOpen) {ctx.save();ctx.scale(dpr,dpr);window.MiniMap?.draw(ctx,{map:TILE_MAP,reachable:reachableFloorTiles(),player:predictedLocal || me,yaw:fpsInput.view.yaw,state,spawns:SPAWN_POINTS,breakers:BREAKER_TERMINALS,width:innerWidth,height:innerHeight});ctx.restore();}
     drawDamageEdges();drawJoystick();drawRewindScreen();
 }
@@ -3813,8 +3812,7 @@ function labStations() {
     const reachable = reachableFloorTiles(), size = TILE_MAP.tileSize;
     for(const p of SPAWN_POINTS) {
         if(p.id.startsWith('area-') && !state.areas[p.id.slice(5).split(':')[0]])continue;
-        const active=state.phase==='wave' && (state.activeSpawns || []).includes(p.id);
-        stations.push([p,active?'INCOMING':'ENTRY',active?'#ff5964':'#e2aa69','spawn']);
+        stations.push([p,'','#222b30','spawn']);
     }
     for (const area of AREAS) {
         const c = Math.floor(area.terminalX / size), r = Math.floor(area.terminalY / size);

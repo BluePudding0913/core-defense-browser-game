@@ -28,19 +28,9 @@ initial.api.update({size:-1});assert.equal(initial.api.get().size,4);
 initial.api.update({size:NaN,shape:'bad'});assert.equal(initial.api.get().size,20);assert.equal(initial.api.get().shape,'plus');
 const blocked=load(null,true);blocked.api.update({color:'#123456'});assert.equal(blocked.api.get().color,'#123456');
 
-// All three selections have distinct hit and HS shapes, from the same drawing API used by previews.
-const signatures=new Set();
-for(const shape of ['dot','cross','plus']) {
- initial.api.update({shape,size:20});strokes.length=0;dots.length=0;
- initial.api.drawHit(ctx,400,300,{headshot:false,age:80,alpha:1});
- const normal=JSON.stringify({strokes:[...strokes],dots:[...dots]});assert.equal(ctx.strokeStyle,'#f1f8fb');
- signatures.add(normal);strokes.length=0;dots.length=0;
- initial.api.drawHit(ctx,400,300,{headshot:true,age:80,alpha:1});
- assert.equal(ctx.strokeStyle,'#ffc45c');assert.notEqual(JSON.stringify({strokes,dots}),normal,'HS differs in shape as well as color');
- assert(initial.styles.has('--reticle-preview-hit'));assert(initial.styles.has('--reticle-preview-headshot'));
-}
-assert.equal(signatures.size,3,'Each reticle has its own hit shape');
-assert(!source.includes('ctx.fill('),'No reticle or confirmation fills the aiming center');
+// Settings retain only the normal preview and drawing API.
+assert.equal(initial.api.drawHit,undefined);assert(!initial.styles.has('--reticle-preview-hit'));assert(!initial.styles.has('--reticle-preview-headshot'));
+assert(!fs.readFileSync('client/menu-ui.js','utf8').includes('is-headshot'));assert(!source.includes('ctx.fill('),'Circle remains hollow');
 
 // Exercise the real FPS overlay through active play, failure and menus.
 const app=fs.readFileSync('client/app.js','utf8');const start=app.indexOf('function drawFirstPerson()'),end=app.indexOf('\nfunction drawDamageEdges()',start);

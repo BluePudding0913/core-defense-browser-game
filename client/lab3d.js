@@ -52,9 +52,25 @@ window.Lab3D = (() => {
         }
         let terrain = new T.Group(); scene.add(terrain);
         let lastMap, lastReachable;
+        const impactMarks=[],processedImpacts=new WeakSet(),impactDummy=new T.Object3D(),impactNormal=new T.Vector3(),planeNormal=new T.Vector3(0,0,1);
+        const impactGeometry=new T.CircleGeometry(1.1,8),impactMaterial=new T.MeshBasicMaterial({color:'#252a2c',transparent:true,opacity:.75,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
+        const impactMesh=new T.InstancedMesh(impactGeometry,impactMaterial,32);impactMesh.name='wall-impact-marks';impactMesh.count=0;impactMesh.frustumCulled=false;scene.add(impactMesh);
+        function renderWallImpacts(effects,now) {
+            for(const e of effects)if(now>=e.started && now-e.started<250 && !processedImpacts.has(e)) {
+                processedImpacts.add(e);const point=window.WallImpacts?.surface(e,lastMap,lastReachable);
+                if(point){impactMarks.push({...point,at:e.started});if(impactMarks.length>32)impactMarks.shift();}
+            }
+            for(let i=impactMarks.length-1;i>=0;i--)if(now-impactMarks[i].at>=2000)impactMarks.splice(i,1);
+            impactMesh.count=impactMarks.length;
+            for(let i=0;i<impactMarks.length;i++) {
+                const p=impactMarks[i],scale=Math.min(1,(2000-(now-p.at))/300);
+                impactDummy.position.set(p.x,p.y,p.z);impactDummy.quaternion.setFromUnitVectors(planeNormal,impactNormal.set(p.nx,p.ny,p.nz));impactDummy.scale.setScalar(scale);impactDummy.updateMatrix();impactMesh.setMatrixAt(i,impactDummy.matrix);
+            }
+            impactMesh.instanceMatrix.needsUpdate=true;
+        }
         function rebuild(map, reachable) {
             if (lastMap === map && lastReachable === reachable) return;
-            lastMap = map; lastReachable = reachable;
+            lastMap = map; lastReachable = reachable;impactMarks.length=0;impactMesh.count=0;
             scene.remove(terrain);
             terrain.traverse(o => { if (o.isInstancedMesh) o.dispose(); });
             terrain = new T.Group(); scene.add(terrain);
@@ -174,9 +190,9 @@ window.Lab3D = (() => {
         const stationPosition = point => stationAnchors.get(point.x+':'+point.y) || point;
         function station(key, point, color, kind = 'terminal') {
             let anchor=point,facing=0,mounted=false;
-            if((kind==='terminal' || kind==='breaker') && lastMap && lastReachable) {
+            if((kind==='terminal' || kind==='breaker' || kind==='spawn') && lastMap && lastReachable) {
                 const size=lastMap.tileSize,r=Math.floor(point.y/size),c=Math.floor(point.x/size);
-                const directions=[[0,1],[1,0],[0,-1],[-1,0]],depth=kind==='breaker'?4.5:3;
+                const directions=[[0,1],[1,0],[0,-1],[-1,0]],depth=kind==='spawn'?.35:kind==='breaker'?4.5:3;
                 if(!lastReachable.has(r+':'+c)) {
                     const edge=directions.find(([dx,dz])=>lastReachable.has((r+dz)+':'+(c+dx)));
                     if(edge) {
@@ -184,7 +200,7 @@ window.Lab3D = (() => {
                         anchor={x:(c+.5)*size+dx*(size/2+depth),y:(r+.5)*size+dz*(size/2+depth)};
                         facing=Math.atan2(dx,dz);mounted=true;
                     }
-                } else if(kind==='breaker') {
+                } else if(kind==='breaker' || kind==='spawn') {
                     const walls=directions.filter(([dx,dz])=>!lastReachable.has((r+dz)+':'+(c+dx)));
                     const distance=([dx,dz])=>dx?dx*((c+.5)*size+dx*size/2-point.x):dz*((r+.5)*size+dz*size/2-point.y);
                     walls.sort((a,b)=>distance(a)-distance(b));
@@ -236,10 +252,10 @@ window.Lab3D = (() => {
                     for(const x of [-11,11])box(root, 2, 28, 2, '#65d6ee', x, 20, 4, true);
                     box(root, 16, 3, 3, '#172832', 0, 10, 5);
                 } else if (kind === 'spawn') {
-                    box(root, 34, 2, 34, '#292d32',0,1);
-                    for(const x of [-15,15])box(root,3,38,3,color,x,19,15,true);
-                    box(root,33,3,3,color,0,38,15,true);
-                    for(const z of [-10,0,10])box(root,25,1,2,color,0,2.5,z,true);
+                    // A dark recess sits flush against the adjacent wall, without signs or lights.
+                    box(root,30,44,.5,'#0c1216',0,22);
+                    for(const x of [-15.5,15.5])box(root,1,45,.8,'#4e5a60',x,22.5,.3);
+                    box(root,32,1,.8,'#4e5a60',0,44.5,.3);
                 } else if (kind === 'breaker') {
                     box(root, 20, 29, 9, '#7b909b');
                     box(root, 15, 24, 2, '#d2dce1', 0, 16, 5);
@@ -529,32 +545,6 @@ window.Lab3D = (() => {
                 }
             }
         }
-        function hitParticles(effect,frame,now) {
-            if (!effectIds.has(effect)) effectIds.set(effect,++nextEffectId);
-            const item=object('hit-particles:'+effectIds.get(effect),()=>{
-                const geometry=new T.BufferGeometry();
-                geometry.setAttribute('position',new T.Float32BufferAttribute(new Float32Array(15),3));
-                const mat=new T.PointsMaterial({color:'#f04b59',size:2,transparent:true,depthWrite:false});
-                const root=new T.Points(geometry,mat);root.name='enemy-hit-particles';
-                const target=frame.state.enemies.find(e=>e.id===effect.enemyId);
-                const point=target ? frame.smooth('enemy',target) : effect;
-                const radius=target ? frame.radius(target) : 18;
-                const dx=(effect.fromX ?? point.x)-point.x,dz=(effect.fromY ?? point.y)-point.y;
-                const distance=Math.hypot(dx,dz),nx=distance>.001 ? dx/distance : 0,nz=distance>.001 ? dz/distance : -1;
-                // Start on the struck side, so the small burst is visible in front of the body.
-                if(Number.isFinite(effect.hitHeight))root.position.set(effect.x,effect.hitHeight,effect.y);
-                else root.position.set(point.x+nx*radius*.85,Math.max(3,radius*.95),point.y+nz*radius*.85);
-                const velocities=Array.from({length:5},(_,i)=>{
-                    const angle=i*Math.PI*2/5+effectIds.get(effect)*.7;
-                    return new T.Vector3(nx*12+Math.cos(angle)*16,15+(i%3)*7,nz*12+Math.sin(angle)*16);
-                });
-                return {root,velocities,dispose(){geometry.dispose();mat.dispose();}};
-            });
-            const t=(now-effect.started)/1000,positions=item.root.geometry.attributes.position;
-            item.velocities.forEach((v,i)=>positions.setXYZ(i,v.x*t,v.y*t-45*t*t,v.z*t));
-            positions.needsUpdate=true;item.root.material.opacity=1-t/.28;
-        }
-
         function collect() {
             for (const [key,item] of objects) if (!seen.has(key)) {
                 scene.remove(item.root);
@@ -695,9 +685,7 @@ window.Lab3D = (() => {
             }
             if (state) {
                 renderCombat(frame,now);
-                const impacts=effects.filter(e=>e.effect==='hit' && e.enemyId!=null && e.damage>0
-                    && Number.isFinite(e.x) && Number.isFinite(e.y) && now-e.started>=0 && now-e.started<280);
-                for(const effect of impacts.slice(-12)) hitParticles(effect,frame,now);
+                renderWallImpacts(effects,now);
             }
             // Transient objects are collected after resources and tracers have marked themselves live.
             collect();

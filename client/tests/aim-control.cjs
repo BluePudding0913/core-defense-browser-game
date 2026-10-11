@@ -9,3 +9,15 @@ assert(api.visible(player,{zoom:true},definitions));assert(!api.visible(player,{
 player.aimControl={elapsed:0,movement:0,turn:0};assert(Math.abs(api.sample(player,1000,definitions).slope-c.window.SniperAim.sample(player,1000).slope)<1e-12,'Prone retains the special sniper curve');player.weapon='rocket';assert(!api.visible(player,{zoom:true},definitions));assert.equal(api.sample(player,1000,definitions).slope,.08);
 player.weapon='rifle';api.sync([player],2000);const a=api.sample(player,2100,definitions);player.aimControl.elapsed=.09;api.sync([player],2100);assert(Math.abs(api.sample(player,2100,definitions).slope-a.slope)<1e-12,'Snapshot correction is continuous');assert(api.sample(player,2200,definitions).elapsed>api.sample(player,2199,definitions).elapsed,'Clock never stalls');
 console.log('Aim control passed: breathing, server penalties, movement continuity, ADS/prone/hip visibility, deferred weapons and smooth clock');
+
+// The displayed penalty is continuous at snapshots; authoritative sampling remains immediate.
+const smooth={id:'smooth',weapon:'rifle',aimControl:{elapsed:0,movement:0,speedRatio:0,turn:0,airborne:false}};
+api.sync([smooth],0);assert.equal(api.displaySample(smooth,0,definitions).penalty,1);
+smooth.aimControl={elapsed:.05,movement:1,speedRatio:1,turn:1,airborne:false};api.sync([smooth],50);
+const raised=api.displaySample(smooth,50,definitions).penalty;assert(raised>1&&raised<3.25);assert.equal(api.sample(smooth,50,definitions).penalty,3.25,'Display filter never weakens server-derived shot sampling');
+const same=api.displaySample(smooth,50,definitions);assert.equal(same.penalty,raised,'Same frame stays continuous');
+const beforeDrop=api.displaySample(smooth,100,definitions).penalty;assert(beforeDrop>raised);
+smooth.aimControl={elapsed:.1,movement:0,speedRatio:0,turn:0,airborne:false};api.sync([smooth],100);
+assert.equal(api.displaySample(smooth,100,definitions).penalty,beforeDrop,'A new snapshot at the same frame cannot jump the displayed radius');
+assert(api.displaySample(smooth,400,definitions).penalty<1.05,'Stop recovery converges within a short bounded lag');
+console.log('Smooth visual aim passed: continuous movement/turn snapshots, bounded recovery and unchanged firing time/radius');

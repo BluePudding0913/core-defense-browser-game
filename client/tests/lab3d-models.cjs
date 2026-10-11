@@ -10,7 +10,7 @@ THREE.WebGLRenderer = class {
     render(s,c) { if(c.near===.01){viewScene=s;viewCamera=c;viewScene.updateMatrixWorld(true);viewCamera.updateMatrixWorld(true);return;}scene=s;camera=c;scene.updateMatrixWorld(true);camera.updateMatrixWorld(true); }
 };
 const context=vm.createContext({window:{THREE},document:{body:{classList:{add(){}}}},performance:{now:()=>now},console});
-for (const file of ['aim-control.js','soldier-model.js','sniper-stance.js','zombie-model.js','lab3d.js']) vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
+for (const file of ['aim-control.js','soldier-model.js','sniper-stance.js','zombie-model.js','wall-impacts.js','lab3d.js']) vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
 const renderer=context.window.Lab3D.create({width:900,height:500,before(){}});
 const player={id:'me',x:100,y:100,facingX:0,facingY:-1};
 const state={core:{x:60,y:60},players:[player],enemies:[{id:1,type:'shield',x:180,y:100,hp:100,facingX:1,facingY:0}],slots:[
@@ -122,8 +122,8 @@ now+=400;player.weapon='pistol';state.enemies=[{id:77,type:'grunt',x:140,y:100,h
 frame.effects=[{effect:'hit',weapon:'pistol',playerId:'me',fromX:100,fromY:140,x:128,y:112,hitHeight:27.3,damage:0,enemyId:null,started:now},{effect:'hit',weapon:'pistol',playerId:'me',fromX:100,fromY:140,x:128,y:112,hitHeight:27.3,damage:26,enemyId:77,started:now}];renderer.render(frame);
 const authoritativeTrace=scene.children.find(o=>o.name==='muzzle-tracer'),impactParticles=scene.children.find(o=>o.name==='enemy-hit-particles');
 assert(Math.abs(authoritativeTrace.geometry.attributes.position.getY(1)-27.3)<1e-5,'Tracer uses server impact height');
-assert.deepEqual(impactParticles.position.toArray(),[128,27.3,112],'Particles start at the server impact, rather than the enemy center');
-console.log('FPS authoritative impact passed: tracer endpoint and red particles use server XYZ impact');
+assert.equal(impactParticles,undefined,'Enemy hits no longer create red particles');
+console.log('FPS authoritative impact passed: tracer uses server XYZ impact without red particles');
 
 // Motion and shape regressions use the rendered scene, including scope magnification.
 frame.eye=player;frame.motion={moving:false};frame.effects=[];player.healRemaining=3;player.healHalfSize=60;player.healX=100;player.healY=100;now+=500;renderer.render(frame);
@@ -330,3 +330,22 @@ for(const weapon of ['pistol','smg','rifle','revolver','lmg','shotgun','ricochet
  frame.effects=[];now+=2000;renderer.render(frame);assert.equal(frame.view.pitch,pitch,'Gun settling cannot restore aim');assert.equal(frame.view.recoilPitch,0,'No additional temporary aim displacement');
 }
 console.log('Common recoil passed: nine guns, shotgun discharge deduplication and persistent aim displacement');
+
+// Spawn markers are unlit wall recesses on each of the four cardinal wall faces.
+frame.effects=[];frame.map={tileSize:40,rows:Array(5).fill('.....')};
+for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+ frame.reachable=new Set(['2:2','2:3','2:1','1:2','3:2']);frame.reachable.delete((2+dz)+':'+(2+dx));
+ frame.stations=[[{id:'entry-'+dx+'-'+dz,x:100,y:100},'','#222b30','spawn']];now+=20;renderer.render(frame);
+ const portal=scene.getObjectByName('station:entry-'+dx+'-'+dz+':spawn');assert(portal.userData.wallMounted);
+ assert(Math.abs(portal.position.x-(100+dx*19.65))<1e-8);assert(Math.abs(portal.position.z-(100+dz*19.65))<1e-8);
+ assert(Math.abs(Math.sin(portal.rotation.y)+dx)<1e-8);assert(Math.abs(Math.cos(portal.rotation.y)+dz)<1e-8);
+ assert.equal(portal.children.length,4);assert(portal.children.every(m=>m.material.emissiveIntensity===0),'No glowing gate or floor decoration');
+}
+frame.stations=[];frame.reachable=new Set(['2:2']);now+=20;renderer.render(frame);
+const marks=scene.getObjectByName('wall-impact-marks'),shot={effect:'hit',weapon:'pistol',playerId:'me',damage:0,enemyId:null,fromX:100,fromY:100,fromHeight:26,x:116,y:100,hitHeight:26,started:now};
+frame.effects=[shot];renderer.render(frame);assert.equal(marks.count,1);const hitMatrix=new THREE.Matrix4();marks.getMatrixAt(0,hitMatrix);const wallPoint=new THREE.Vector3().setFromMatrixPosition(hitMatrix);assert(Math.abs(wallPoint.x-119.95)<.00001);assert.equal(wallPoint.y,26);
+renderer.render(frame);assert.equal(marks.count,1,'Same shot cannot create repeated marks');
+frame.view.yaw+=1;renderer.render(frame);marks.getMatrixAt(0,hitMatrix);assert(new THREE.Vector3().setFromMatrixPosition(hitMatrix).distanceTo(wallPoint)<1e-8,'Marks stay on the wall as camera turns');
+frame.effects=Array.from({length:50},()=>({...shot}));renderer.render(frame);assert.equal(marks.count,32,'Instanced mark budget is capped');
+frame.effects=[];now+=2000;renderer.render(frame);assert.equal(marks.count,0,'Marks expire independently of event retention');
+console.log('Simple spawn and wall impact integration passed: four faces, no glow, stable world placement, deduplication, 32-mark cap and expiry');

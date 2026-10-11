@@ -113,26 +113,8 @@ assert.equal(projected[0].damageText,'80 DMG');
 feedback.reset();
 console.log('3D combat labels passed: raised projection and moving target anchors');
 
-const confirmed=(headshot=false)=>({...hit(0),damage:10,headshot});
-feedback.reset();feedback.add(confirmed(),100,'me');
-assert.equal(feedback.hitMarker(100).headshot,false);assert.equal(feedback.hitMarker(150).alpha,1,'Hit holds before fading');
-assert(feedback.hitMarker(300).alpha>0);assert.equal(feedback.hitMarker(340),null,'Normal marker lasts 240 ms');
-feedback.add(confirmed(true),400,'me');assert.equal(feedback.hitMarker(550).headshot,true);
-feedback.add(confirmed(),650,'me');assert.equal(feedback.hitMarker(750).headshot,true);
-assert.equal(feedback.hitMarker(760).headshot,false,'Body hits do not extend the 360 ms headshot window');
-assert.equal(feedback.hitMarker(890),null,'Body confirmation expires independently');
-const colors=[],segments=[];
-const reticleContext={window:{},document:{documentElement:{style:{setProperty(){}}}},localStorage:{getItem(){return null;},setItem(){}}};
-require('node:vm').runInNewContext(fs.readFileSync('client/reticle-settings.js','utf8'),reticleContext);
-const hitReticle=reticleContext.window.coreReticleSettings;
-
-const markerCtx={save(){},restore(){},beginPath(){},moveTo(x,y){segments.push(['move',x,y]);},lineTo(x,y){segments.push(['line',x,y]);},stroke(){colors.push(this.strokeStyle);}};
-feedback.add(confirmed(),1000,'me');feedback.drawHitMarker(markerCtx,1000,100,100,hitReticle);
-assert.equal(segments.filter(p=>p[0]==='line').length,4,'Normal hit uses four short strokes with an open center');
-segments.length=0;feedback.add(confirmed(true),1300,'me');feedback.drawHitMarker(markerCtx,1300,100,100,hitReticle);
-assert.equal(segments.filter(p=>p[0]==='line').length,12,'HS has additional small caps, distinguishable without relying on color');
-assert.deepEqual(colors,['#f1f8fb','#ffc45c']);
-assert.equal(markerCtx.shadowBlur,3,'Soft shadow preserves contrast without a heavy outline');
-feedback.reset();for(const bad of [{...confirmed(),playerId:'other'},{...confirmed(),enemyId:null},{...confirmed(),damage:0},{...confirmed(),damage:NaN}])feedback.add(bad,600,'me');assert.equal(feedback.hitMarker(600),null,'No markers for allies, misses or zero damage');
-feedback.add(confirmed(),700,'me');feedback.reset();assert.equal(feedback.hitMarker(700),null,'Reset clears marker');
-console.log('Confirmed hit markers passed: local enemy damage, white/gold color, expiry, headshot priority and no HS text');
+// Hit confirmation is conveyed by enemy tint, never a reticle overlay.
+assert.equal(feedback.hitMarker,undefined);assert.equal(feedback.drawHitMarker,undefined);
+feedback.add({...hit(3),damage:10,headshot:true},100,'me');assert.equal(feedback.layout(100)[0].text,'+3G');
+assert(!fs.readFileSync('client/app.js','utf8').includes('CombatFeedback.drawHitMarker'));
+console.log('Hit marker removal passed: reward labels remain, no hit/HS reticle state or overlay');
