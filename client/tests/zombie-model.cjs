@@ -8,6 +8,13 @@ const radius=18,zombie=context.window.buildLabZombie(THREE,{box,sphereGeometry,m
 zombie.root.updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(zombie.root),headBounds=new THREE.Box3().setFromObject(zombie.head);
 assert(bounds.min.y>=-.01);assert(bounds.max.y<=radius*1.61,'Zombie retains original GRUNT height');
 assert(headBounds.max.y>radius*1.5);assert(headBounds.min.y>=radius*1.1,'Head occupies the existing HS height band');
+const chestBounds=new THREE.Box3().setFromObject(zombie.body);
+assert(headBounds.min.y-chestBounds.max.y<=radius*.04,'Head meets the collar without an elongated neck');
+const height=bounds.max.y-bounds.min.y,headHeight=headBounds.max.y-headBounds.min.y;
+assert(height/headHeight>=6 && height/headHeight<=7,'Adult humanoid has six to seven heads of height');
+const legBounds=new THREE.Box3().setFromObject(zombie.legs[0]);
+assert(legBounds.max.y-legBounds.min.y>=height*.43,'Legs occupy a natural share of the body');
+assert(bounds.max.x-bounds.min.x<headHeight*3,'Shoulders and arms are not oversized relative to the head');
 let triangles=0,meshes=0;zombie.root.traverse(o=>{if(o.isMesh){meshes++;triangles+=(o.geometry.index?.count??o.geometry.attributes.position.count)/3;}});
 assert(triangles<1200);assert(meshes<36,'Many grunts retain a small model budget');
 zombie.update({x:0,y:0},1000,false);zombie.update({x:2,y:0},1050,false);assert(Math.abs(zombie.legs[0].rotation.x)>0,'Moving zombie shambles');
