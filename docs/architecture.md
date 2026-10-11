@@ -336,3 +336,5 @@ FPSInput.createのonEscapeは、利用者がマウス固定を解除した時だ
 JobRulesの通常移動はWALK_SPEED=125、走行は通常205／Scout235とし、SnapshotBuilderがwalkSpeedとdashSpeedを配信する。GameSessionとクライアント予測は同じ値を使い、レールガンのチャージ中60%／発射中30%の制限も通常速度を基準にする。ダウン・コア運搬・ドローン操縦・Scoutの専用短距離ダッシュは従来のルールを保つ。JobsTestとmovement-speed.cjsは人間／CPU・通常／走行・レールガン・予測の一致を検証する。
 
 GRUNTだけはzombie-model.jsのbuildLabZombieで、くすんだ作業着・ID・青白い肌・頭／腕／脚を持つ研究所の感染作業員として描く。他の敵とサーバーの性能・頭部判定帯は変更しない。頭部は既存の高さ1.15r〜1.6r付近へ収め、共有Geometry／Materialを使う。実移動距離で小さい足運びを進め、停止時は滑らかに戻し、凍結時は肌と作業着を青くする。zombie-model.cjsは高さ・形状負荷・歩行／停止・凍結復旧、lab3d-models.cjsはFPSの向き・射線との連携を確認する。
+
+GRUNTの等身は全高を保った約6〜7頭身とし、頭の横幅を抑え、股下を全高の43%以上にする。胸・腰と太腿・すねを分け、肘で前腕を曲げる。zombie-model.cjsで頭身・脚の比率・肩幅も検証する。

@@ -9,36 +9,41 @@ window.buildLabZombie = (T, {box, sphereGeometry, material}, radius) => {
         if(color===skin)skinParts.push(mesh);
         return mesh;
     };
-    const body=part(root,.82,.57,.40,coat,0,.83);body.name="ZombieCoat";
-    part(root,.64,.18,.38,pants,0,.48);
+    // Roughly 6.5 heads tall: hips at mid-height and long, articulated limbs.
+    const body=part(root,.48,.31,.25,coat,0,1.16);body.name="ZombieCoat";
+    part(root,.38,.22,.23,coat,0,.90);
+    part(root,.35,.14,.23,pants,0,.735);
     for(const side of [-1,1]) {
-        part(root,.27,.20,.43,coat,side*.25,.57,.03); // Separate uneven coat tails.
-        part(root,.13,.35,.035,"#aab6ad",side*.13,.90,.22);
+        part(root,.18,.18,.25,coat,side*.10,.77,.015);
+        part(root,.065,.25,.018,"#aab6ad",side*.075,1.13,.135);
     }
-    part(root,.14,.09,.025,"#c5c9b8",-.23,.98,.23); // Lab ID.
-    part(root,.15,.18,.03,"#624e49",.21,.72,.23);   // Muted stain.
-    part(root,.045,.35,.028,"#34443e",0,.83,.225);
-    part(root,.21,.14,.22,skin,0,1.16);
-    const head=new T.Group();head.position.set(0,1.355*radius,.04*radius);head.rotation.z=-.08;root.add(head);
-    const skull=new T.Mesh(sphereGeometry,material(skin));skull.scale.set(.29*radius,.23*radius,.25*radius);skull.castShadow=true;head.add(skull);skinParts.push(skull);skull.name="ZombieHead";
-    part(head,.37,.16,.32,skin,0,-.13,.06);
+    part(root,.075,.055,.018,"#c5c9b8",-.15,1.18,.14);
+    part(root,.09,.12,.018,"#624e49",.12,.90,.13);
+    part(root,.022,.31,.018,"#34443e",0,1.01,.14);
+    part(root,.13,.07,.14,skin,0,1.30,.045);
+    const head=new T.Group();head.position.set(0,1.43*radius,.085*radius);head.rotation.z=-.08;root.add(head);
+    const skull=new T.Mesh(sphereGeometry,material(skin));skull.scale.set(.108*radius,.12*radius,.105*radius);skull.castShadow=true;head.add(skull);skinParts.push(skull);skull.name="ZombieHead";
+    part(head,.145,.075,.145,skin,0,-.085,.018);
     for(const side of [-1,1]) {
-        part(head,.12,.075,.04,"#39483e",side*.13,.01,.235);
-        part(head,.055,.034,.025,"#ba9e75",side*.13,.005,.263);
-        part(head,.14,.065,.022,"#75846d",side*.16,-.075,.23);
+        part(head,.052,.032,.022,"#39483e",side*.048,.006,.095);
+        part(head,.022,.014,.014,"#ba9e75",side*.048,.003,.111);
+        part(head,.055,.030,.015,"#75846d",side*.061,-.043,.092);
     }
-    part(head,.06,.10,.07,skin,0,-.045,.27);
-    part(head,.22,.045,.025,"#374139",0,-.16,.235);
+    part(head,.026,.047,.037,skin,0,-.025,.113);
+    part(head,.080,.018,.018,"#374139",0,-.085,.100);
     const legs=[],arms=[];
     for(const side of [-1,1]) {
-        const leg=new T.Group();leg.position.set(side*.22*radius,.49*radius,0);root.add(leg);legs.push(leg);
-        part(leg,.23,.40,.25,pants,0,-.22);
-        part(leg,.25,.10,.36,boots,0,-.44,.06);
-        const arm=new T.Group();arm.position.set(side*.43*radius,1.02*radius,0);root.add(arm);arms.push(arm);
-        arm.rotation.x=-.65;arm.rotation.z=-side*.12;
-        part(arm,.21,.32,.24,coat,side*.035,-.12);
-        part(arm,.15,.25,.17,skin,side*.035,-.36,.04);
-        part(arm,.19,.11,.12,skin,side*.035,-.52,.10);
+        const leg=new T.Group();leg.name=side<0?"ZombieLeftLeg":"ZombieRightLeg";
+        leg.position.set(side*.105*radius,.72*radius,0);root.add(leg);legs.push(leg);
+        part(leg,.155,.33,.18,pants,0,-.165);
+        part(leg,.125,.31,.14,pants,0,-.475,.01);
+        part(leg,.16,.10,.25,boots,0,-.67,.055);
+        const arm=new T.Group();arm.position.set(side*.285*radius,1.26*radius,0);root.add(arm);arms.push(arm);
+        arm.rotation.x=-.32;arm.rotation.z=-side*.06;
+        part(arm,.15,.26,.17,coat,0,-.10);
+        const forearm=new T.Group();forearm.position.set(0,-.23*radius,0);forearm.rotation.x=-.28;arm.add(forearm);
+        part(forearm,.105,.24,.12,skin,0,-.12);
+        part(forearm,.12,.10,.09,skin,0,-.285,.018);
     }
     let lastPoint=null,lastAt=null,phase=0,blend=0;
     function update(point,now,frozen) {
@@ -48,11 +53,10 @@ window.buildLabZombie = (T, {box, sphereGeometry, material}, radius) => {
         if(walking)phase+=Math.min(distance*.15,dt*5);
         blend+=((walking?1:0)-blend)*(1-Math.exp(-10*dt));
         legs.forEach((leg,i)=>leg.rotation.x=Math.sin(phase+i*Math.PI)*.32*blend);
-        arms.forEach((arm,i)=>arm.rotation.x=-.65+Math.sin(phase+i*Math.PI)*.12*blend);
+        arms.forEach((arm,i)=>arm.rotation.x=-.32+Math.sin(phase+i*Math.PI)*.12*blend);
         head.rotation.z=-.08+Math.sin(phase)*.025*blend;
         for(const mesh of skinParts)mesh.material=material(frozen?"#95dded":skin);
         lastPoint={x:point.x,y:point.y};lastAt=now;
     }
     return {root,body,head,legs,arms,update};
 };
-
