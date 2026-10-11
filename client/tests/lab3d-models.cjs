@@ -7,7 +7,7 @@ THREE.WebGLRenderer = class {
     constructor() { this.domElement={width:0,height:0,addEventListener(){}};this.shadowMap={}; }
     setSize(w,h) { this.domElement.width=w;this.domElement.height=h; }
     clearDepth() {}
-    render(s,c) { if(!s.children.some(o=>o.isDirectionalLight)){viewScene=s;viewCamera=c;viewScene.updateMatrixWorld(true);viewCamera.updateMatrixWorld(true);return;}scene=s;camera=c;scene.updateMatrixWorld(true);camera.updateMatrixWorld(true); }
+    render(s,c) { if(c.near===.01){viewScene=s;viewCamera=c;viewScene.updateMatrixWorld(true);viewCamera.updateMatrixWorld(true);return;}scene=s;camera=c;scene.updateMatrixWorld(true);camera.updateMatrixWorld(true); }
 };
 const context=vm.createContext({window:{THREE},document:{body:{classList:{add(){}}}},performance:{now:()=>now},console});
 for (const file of ['soldier-model.js','lab3d.js']) vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
@@ -168,3 +168,78 @@ state.missiles=[];now+=100;frame.effects=[{effect:'missile-impact',x:100,y:60,st
 now+=700;renderer.render(frame);assert(!scene.getObjectByName('missile-impact-flash'),'Impact fades and is disposed');
 player.railgunRemaining=1;frame.view.pitch=.2;frame.view.yaw=.3;frame.motion={moving:true};renderer.render(frame);assert.equal(camera.rotation.x,.2);assert.equal(camera.rotation.z,0,'Railgun camera has no bob or recoil drift');player.railgunRemaining=0;
 console.log('Weapon FX passed: purple bottle, remote, longitudinal compression, no repulsor impact, missile beacon/flash/expiry and stable railgun view');
+
+const precisionModel=context.window.buildSoldier(THREE),precisionMuzzle=precisionModel.root.getObjectByName('Muzzle');
+precisionModel.setWeapon('sniper');
+const precision=precisionModel.root.getObjectByName('PrecisionSniper');
+assert(precision && precision.children.length<=7,'Detailed rifle is batched to at most seven material draws');
+const bounds=new THREE.Box3().setFromObject(precision);
+assert(bounds.max.z>1.24 && bounds.min.z<-.50,'Long barrel and adjustable stock have full-size silhouettes');
+assert(precisionMuzzle.position.z>bounds.max.z,'Shared tracer muzzle stays ahead of the open crown');
+const bodyView=precision.clone();bodyView.updateMatrixWorld(true);
+const throughBody=(y,z)=>new THREE.Raycaster(new THREE.Vector3(-.2,y,z),new THREE.Vector3(1,0,0)).intersectObject(bodyView,true);
+assert.equal(throughBody(-.028,.385).length,0,'Handguard slots are real openings through both side walls');
+assert(throughBody(-.055,.385).length>0,'Handguard keeps structural material around the opening');
+assert.equal(throughBody(-.055,-.30).length,0,'Stock frame has an open center rather than a painted recess');
+assert(throughBody(-.096,-.30).length>0,'Stock lower frame remains solid');
+const outerHit=(y,z)=>throughBody(y,z)[0];
+assert(outerHit(-.035,.17).distance-outerHit(-.010,.17).distance>.01,'Chassis pocket has a bottom physically recessed more than 10mm');
+const topAt=x=>new THREE.Raycaster(new THREE.Vector3(x,.2,-.30),new THREE.Vector3(0,-1,0)).intersectObject(bodyView,true)[0].point.y;
+assert(topAt(0)-topAt(.040)>.005,'Cheek rest has a curved cross-section rather than a flat extrusion');
+const paintSurface=bodyView.getObjectByName('SniperSandSurface');
+assert.equal(paintSurface.geometry.attributes.color.count,paintSurface.geometry.attributes.position.count,'Cavity shading survives material batching');
+assert.equal(throughBody(-.028,.78).length,0,'Mk II fore-end keeps its forward vent open');
+const crownRay=new THREE.Raycaster(new THREE.Vector3(0,.01,1.8),new THREE.Vector3(0,0,-1)).intersectObject(bodyView,true);
+assert(!crownRay.some(h=>h.point.z>1.11),'Extended muzzle assembly has an open bore');
+const shroudRay=throughBody(.01,1.30);assert(shroudRay.length>0 && shroudRay[0].face.normal.x<0,'Muzzle hull has an outward-facing surface');
+const barrelHit=new THREE.Raycaster(new THREE.Vector3(0,.15,1.0),new THREE.Vector3(0,-1,0)).intersectObject(bodyView,true)[0];
+assert(barrelHit.face.normal.y>0,'Fluted barrel normals point outwards');
+let detailTriangles=0;
+for(const surface of precision.children){
+ const a=surface.geometry.attributes;
+ assert.equal(a.position.count,a.normal.count);assert.equal(a.position.count,a.uv.count);
+ assert([...a.position.array,...a.normal.array].every(Number.isFinite),'Batched geometry has finite positions and normals');
+ detailTriangles+=surface.geometry.index.count/3;
+}
+assert(detailTriangles<25000,'Precision detail stays within the game triangle budget');
+assert.notEqual(precisionModel.materials.SniperGlass.roughness,precisionModel.materials.SniperRubber.roughness);
+assert(precisionModel.materials.SniperSteel.normalMap && precisionModel.materials.SniperSteel.envMap);
+const sniperMaterials=precisionModel.materials;
+let disposed=0;precision.children.forEach(o=>o.geometry.addEventListener('dispose',()=>disposed++));
+precisionModel.setWeapon('pistol');assert.equal(disposed,7,'All batched weapon surfaces are released on swap');
+assert.equal(precisionModel.root.getObjectByName('Muzzle'),precisionMuzzle);
+precisionModel.setWeapon('sniper');assert.equal(precisionModel.materials,sniperMaterials,'Material maps are reused when re-equipping');
+let textureDisposals=0;
+for(const t of [sniperMaterials.SniperSteel.normalMap,sniperMaterials.SniperSteel.roughnessMap,sniperMaterials.SniperSteel.envMap,sniperMaterials.SniperSand.roughnessMap])t.addEventListener('dispose',()=>textureDisposals++);
+Object.values(sniperMaterials).forEach(m=>m.dispose());assert.equal(textureDisposals,4,'Weapon-specific textures are released with their actor');
+console.log('Precision sniper passed: silhouette, batched geometry budget, distinct PBR surfaces, muzzle stability and geometry/texture lifetime');
+
+// Extended Mk II muzzle still lines up between the hand camera and world tracer.
+now+=1000;player.weapon='sniper';frame.scoped=false;frame.view={yaw:.3,pitch:.12};frame.motion=undefined;frame.effects=[];renderer.render(frame);
+const mk2MuzzleNdc=viewScene.getObjectByName('Muzzle').getWorldPosition(new THREE.Vector3()).project(viewCamera);
+frame.effects=[{effect:'hit',weapon:'sniper',playerId:'me',fromX:player.x,fromY:player.y,x:player.x+70,y:player.y-200,hitHeight:35,damage:0,started:now}];
+renderer.render(frame);
+const mk2Trace=scene.children.find(o=>o.name==='muzzle-tracer');
+const mk2OriginNdc=new THREE.Vector3().fromBufferAttribute(mk2Trace.geometry.attributes.position,0).project(camera);
+assert(Math.hypot(mk2OriginNdc.x-mk2MuzzleNdc.x,mk2OriginNdc.y-mk2MuzzleNdc.y)<1e-4,'Mk II tracer starts at the extended visible muzzle');
+console.log('Mk II integration passed: extended hand-model muzzle aligns with the world shot');
+
+// A fast sprint cannot speed the vertical bob beyond a natural stride.
+frame.effects=[];frame.scoped=false;frame.view={yaw:0,pitch:0};frame.motion={moving:false};
+player.weapon='pistol';for(let i=0;i<90;i++){now+=1000/60;renderer.render(frame);}
+const standardViewDepth=viewCamera.position.z;player.weapon='sniper';renderer.render(frame);
+assert(viewCamera.position.z<standardViewDepth,'Long sniper sits farther from the eye to expose more receiver');
+assert.equal(viewCamera.fov,62);player.weapon='pistol';renderer.render(frame);assert.equal(viewCamera.fov,58,'Other weapons retain their perspective');
+frame.motion={moving:true,dashing:true};
+let lastBobSign=0,crossings=0;
+for(let i=0;i<180;i++){
+    player.y-=400/60;now+=1000/60;renderer.render(frame);
+    const sign=Math.sign(camera.position.y-26);
+    if(sign && lastBobSign && sign!==lastBobSign)crossings++;
+    if(sign)lastBobSign=sign;
+}
+assert(crossings>=8 && crossings<=12,'Sprint bob stays below two vertical cycles per second, rather than following dash speed');
+frame.motion.moving=false;
+for(let i=0;i<90;i++){now+=1000/60;renderer.render(frame);}
+assert(Math.abs(camera.position.y-26)<1e-7,'Sprint bob settles after stopping');
+console.log('FPS comfort passed: natural sprint cadence, smooth settling and visible sniper receiver');

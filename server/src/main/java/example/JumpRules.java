@@ -2,7 +2,7 @@ package example;
 
 /** Vertical movement in world units. Geometry and state ownership stay with callers. */
 final class JumpRules {
-    static final double SPEED = 140, GRAVITY = 320, OBSTACLE_HEIGHT = 24, BODY_HEIGHT = 32;
+    static final double SPEED = 196, GRAVITY = 627.2, OBSTACLE_HEIGHT = 24, BODY_HEIGHT = 32;
     record Motion(double height, double velocity) { }
     static Motion advance(double height, double velocity, double dt, double support, double ceiling) {
         double next = height + velocity * dt - GRAVITY * dt * dt / 2;

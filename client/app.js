@@ -2569,7 +2569,7 @@ function drawFirstPerson() {
     const interaction=findNearestInteraction();
     ctx.save();const dpr=canvas.width/innerWidth;ctx.scale(dpr,dpr);ctx.textAlign='center';ctx.font='bold 14px system-ui';ctx.fillStyle='#f1f8fb';ctx.shadowColor='#07121b';ctx.shadowBlur=4;
     if(playing && !menusOpen){
-        const x=innerWidth/2,y=innerHeight/2;if(!scoped){ctx.strokeStyle='#e8f4f8';ctx.lineWidth=1.5;ctx.beginPath();for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]){ctx.moveTo(x+dx*4,y+dy*4);ctx.lineTo(x+dx*10,y+dy*10);}ctx.stroke();}
+        const x=innerWidth/2,y=innerHeight/2;if(!scoped)window.coreReticleSettings.draw(ctx,x,y);
         const target=placement ? (placement.valid ? placement : null) : interaction?.target;
         if(target) {
             const anchor=labRenderer.stationPosition(target);const prompt=labRenderer.project(anchor.x,anchor.y,40);

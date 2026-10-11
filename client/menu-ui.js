@@ -45,8 +45,8 @@ function mountMenu() {
         let content = "";
         if (view === "guest" || view === "settings") content = `${view === "guest" ? "<h2>プレイヤー設定</h2>" : ""}<form data-form="name" novalidate><input name="name" maxlength="16" placeholder="ゲストプレイヤー名" aria-label="ゲストプレイヤー名" autocomplete="nickname" value="${escape(name)}"><button>決定</button></form>`;
         if (view === "settings") {
-            const pointer = window.corePointerSettings.get();
-            content = content.replace("<button>決定</button></form>", `<fieldset class="ui-pointer-settings"><legend>音量</legend><label>SE<input type="range" name="volume" aria-label="SE音量" min="0" max="100" step="1" value="${Math.round(window.coreAudio.getVolume() * 100)}"><output id="volume-value">${Math.round(window.coreAudio.getVolume() * 100)}%</output></label></fieldset><fieldset class="ui-pointer-settings"><legend>ポインター</legend><label>形<select name="pointer-shape">${[["dot", "●"], ["cross", "×"], ["plus", "+"]].map(([value, label]) => `<option value="${value}" ${pointer.shape === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><label>色<input type="color" name="pointer-color" value="${pointer.color}"></label><label>大きさ<input type="range" name="pointer-size" min="4" max="32" step="1" value="${pointer.size}"><output id="pointer-size-value">${pointer.size}px</output></label><div class="ui-pointer-preview" aria-label="ポインターのプレビュー"><span></span></div></fieldset><fieldset class="ui-pointer-settings"><legend>キー割り当て</legend><label>回復キット<input name="medkit-key" aria-label="回復キットのキー" readonly value="${escape(window.coreKeySettings.getMedkit().toUpperCase())}"></label><label>ジョブ効果<input name="job-effect-key" aria-label="ジョブ効果のキー" readonly value="${escape(window.coreKeySettings.getJobEffect().toUpperCase())}"></label><label>ドローン自爆<input name="drone-self-destruct-key" aria-label="ドローン自爆のキー" readonly value="${escape(window.coreKeySettings.getDroneSelfDestruct().toUpperCase())}"></label></fieldset><button type="submit" class="ui-back">決定</button></form>`);
+            const reticle = window.coreReticleSettings.get();
+            content = content.replace("<button>決定</button></form>", `<fieldset class="ui-settings-group"><legend>音量</legend><label>SE<input type="range" name="volume" aria-label="SE音量" min="0" max="100" step="1" value="${Math.round(window.coreAudio.getVolume() * 100)}"><output id="volume-value">${Math.round(window.coreAudio.getVolume() * 100)}%</output></label></fieldset><fieldset class="ui-settings-group"><legend>レティクル</legend><label>形<select name="reticle-shape">${[["dot", "●"], ["cross", "×"], ["plus", "+"]].map(([value, label]) => `<option value="${value}" ${reticle.shape === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><label>色<input type="color" name="reticle-color" value="${reticle.color}"></label><label>大きさ<input type="range" name="reticle-size" min="4" max="32" step="1" value="${reticle.size}"><output id="reticle-size-value">${reticle.size}px</output></label><div class="ui-reticle-preview" aria-label="レティクルのプレビュー"><span></span></div></fieldset><fieldset class="ui-settings-group"><legend>キー割り当て</legend><label>回復キット<input name="medkit-key" aria-label="回復キットのキー" readonly value="${escape(window.coreKeySettings.getMedkit().toUpperCase())}"></label><label>ジョブ効果<input name="job-effect-key" aria-label="ジョブ効果のキー" readonly value="${escape(window.coreKeySettings.getJobEffect().toUpperCase())}"></label><label>ドローン自爆<input name="drone-self-destruct-key" aria-label="ドローン自爆のキー" readonly value="${escape(window.coreKeySettings.getDroneSelfDestruct().toUpperCase())}"></label></fieldset><button type="submit" class="ui-back">決定</button></form>`);
         }
         if (view === "settings" && inGameSettings) content = content.replace(/<input name="name"[^>]*>/, "").replace('data-form="name"', 'data-form="game-settings"');
         if (view === "home") content = `<h1>CORE DEFENSE</h1><nav aria-label="メインメニュー">${window.coreReconnect?.saved() ? button("resume", "前のゲームに戻る") : ""}${button("quick", "クイックマッチ")}${button("phrase", "合言葉")}${back("settings").replace("戻る", "設定")}</nav><p class="ui-match-result" role="status"></p>`;
@@ -199,15 +199,15 @@ function mountMenu() {
             window.coreAudio.setVolume(Number(event.target.value) / 100);
             root.querySelector("#volume-value").textContent = `${Math.round(window.coreAudio.getVolume() * 100)}%`;
         }
-        if (view === "settings" && event.target.name === "pointer-shape") {
-            window.corePointerSettings.update({ shape: event.target.value });
+        if (view === "settings" && event.target.name === "reticle-shape") {
+            window.coreReticleSettings.update({ shape: event.target.value });
         }
-        if (view === "settings" && event.target.name === "pointer-color") {
-            window.corePointerSettings.update({ color: event.target.value });
+        if (view === "settings" && event.target.name === "reticle-color") {
+            window.coreReticleSettings.update({ color: event.target.value });
         }
-        if (view === "settings" && event.target.name === "pointer-size") {
-            window.corePointerSettings.update({ size: Number(event.target.value) });
-            root.querySelector("#pointer-size-value").textContent = `${window.corePointerSettings.get().size}px`;
+        if (view === "settings" && event.target.name === "reticle-size") {
+            window.coreReticleSettings.update({ size: Number(event.target.value) });
+            root.querySelector("#reticle-size-value").textContent = `${window.coreReticleSettings.get().size}px`;
         }
         if (["create", "search"].includes(view) && !busy) { matchResult = ""; updateMatchResult(); }
         updateMatchButtons();

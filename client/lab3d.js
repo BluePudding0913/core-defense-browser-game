@@ -110,6 +110,9 @@ window.Lab3D = (() => {
         // Like the reference demo, render first-person arms separately to avoid wall clipping.
         const viewScene = new T.Scene();
         viewScene.add(new T.HemisphereLight(0xe4f5ff, 0x455262, 1.8));
+        const sniperKey=new T.DirectionalLight(0xe3efff,1.7);sniperKey.position.set(-1,3,-2);
+        const sniperFill=new T.DirectionalLight(0xffdfbc,.7);sniperFill.position.set(2,1,2);
+        viewScene.add(sniperKey,sniperFill);
         const viewCamera = new T.PerspectiveCamera(58, 1, .01, 10);
         viewCamera.rotation.y = Math.PI;
         const viewModel = window.buildSoldier(T);
@@ -536,7 +539,9 @@ window.Lab3D = (() => {
             camera.aspect=overlay.width/overlay.height; camera.fov=frame.scoped ? (me?.weapon==='sniper' ? 20 : me?.weapon==='rifle' ? 32 : 26) : view.zoom ? 48 : 72; camera.updateProjectionMatrix();
             const walking=frame.motion?.moving && !me?.down && !me?.drone?.controlled && !(eye.jumpHeight>0);
             const walkPoint=predicted || eye;
-            if(walking && lastWalkPoint) walkPhase+=Math.min(20,Math.hypot(walkPoint.x-lastWalkPoint.x,walkPoint.y-lastWalkPoint.y))*.065;
+            // Keep a relaxed stride, even during dashes or position corrections.
+            if(walking && lastWalkPoint) walkPhase+=Math.min(
+                Math.hypot(walkPoint.x-lastWalkPoint.x,walkPoint.y-lastWalkPoint.y)*.032,dt*6);
             lastWalkPoint={x:walkPoint.x,y:walkPoint.y};
             walkBlend+=((walking?1:0)-walkBlend)*(1-Math.exp(-12*dt));
             recoil*=Math.exp(-18*dt);batSwing*=Math.exp(-9*dt);
@@ -546,17 +551,19 @@ window.Lab3D = (() => {
                 else if(now-lastKickAt>25){recoil=Math.min(1,recoil+.65);lastKickAt=now;}
             }
             const firingRail=me?.railgunRemaining>0 || me?.secondaryRailgunRemaining>0;
-            const bob=(firingRail ? 0 : 1)*walkBlend*(frame.scoped ? .12 : 1)*(frame.motion?.dashing?1.4:1);
+            const bob=(firingRail ? 0 : 1)*walkBlend*(frame.scoped ? .12 : 1)*(frame.motion?.dashing?1.15:1);
             camera.position.set(eye.x, me?.down ? 6 : me?.drone?.controlled ? 23 : 26+(eye.jumpHeight || 0)+(eye.renderOffsetHeight || 0)+Math.sin(walkPhase*2)*.32*bob, eye.y);
             view.recoilPitch=firingRail ? 0 : recoil*(frame.scoped ? .006 : .003);
             camera.rotation.set(Math.max(-1.2,Math.min(1.2,view.pitch+view.recoilPitch)),-view.yaw,me?.down ? .2 : Math.sin(walkPhase)*.0025*bob,'YXZ');
             camera.updateMatrixWorld(true);
-            viewCamera.aspect=camera.aspect;viewCamera.updateProjectionMatrix();
-            viewCamera.position.set(view.zoom ? -.1 : .03,view.zoom ? 1.58 : 1.65,view.zoom ? .16 : -.32);
+            const holdingSniper=me?.weapon==='sniper';
+            viewCamera.aspect=camera.aspect;viewCamera.fov=holdingSniper && !view.zoom ? 62 : 58;viewCamera.updateProjectionMatrix();
+            viewCamera.position.set(view.zoom ? -.1 : .03,view.zoom ? 1.58 : 1.65,view.zoom ? .16 : holdingSniper ? -.45 : -.37);
             viewCamera.position.x+=Math.sin(walkPhase)*.008*bob;
             viewCamera.position.y+=Math.sin(walkPhase*2)*.01*bob;
             viewCamera.position.z-=recoil*.035;
             viewCamera.rotation.x=-recoil*.035;
+            sniperKey.visible=sniperFill.visible=me?.weapon==='sniper';
             viewModel.setWeapon(me?.weapon || 'pistol');viewMixer.update(dt);
             viewModel.root.rotation.z=-batSwing*.45;
             viewVisible=!!me && !frame.scoped && !me.down && !me.movingCore && !me.selectedBuild && !me.drone?.controlled && !me.missileControl;
