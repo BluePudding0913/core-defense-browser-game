@@ -14,6 +14,7 @@ class LateRoundPressureTest {
             public void broadcast(String message) { }
             public void send(Player player, String message) { }
         });
+        game.players.forEach(player -> player.human = true);
     }
 
     void beginRound(int round) throws Exception {
@@ -35,7 +36,7 @@ class LateRoundPressureTest {
         for (var entry : populations.entrySet()) {
             beginRound(entry.getKey());
             assertEquals(entry.getValue().intValue(), game.queuedEnemies, "R" + entry.getKey());
-            int bosses = entry.getKey() == 40 || entry.getKey() == 45 ? 1 : 0;
+            int bosses = entry.getKey() == 40 || entry.getKey() == 45 || entry.getKey() == 50 ? 1 : 0;
             assertEquals(bosses, game.queuedBosses);
             var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
             assertEquals(entry.getValue() + bosses, snapshot.path("queued").asInt());
@@ -94,7 +95,7 @@ class LateRoundPressureTest {
             assertEquals(0, game.queuedBosses);
             assertEquals(regulars + bosses, game.enemies.size());
             assertEquals(bosses, game.enemies.stream().filter(Enemy::isBoss).count());
-            assertTrue(game.enemies.stream().filter(Enemy::isBoss).allMatch(e -> e.type.equals("titan")));
+            assertTrue(game.enemies.stream().filter(Enemy::isBoss).allMatch(e -> e.type.equals(round == 50 ? "finalBoss" : "titan")));
             spawnTick(10);
             assertEquals(regulars + bosses, game.enemies.size(), "Empty queue must stop spawning");
         }

@@ -9,7 +9,7 @@ record PreparationBackup(World world, List<Player> players, List<TrapSlot> slots
  Set<String> unlocked, Set<String> tripped, List<String> spawns, List<String> lanes,
  Random random, String ownerId) {
     record World(
-        int roundEnemyTotal, int round, int queuedEnemies, int queuedTinyEnemies,
+        int roundEnemyTotal, int round, int roundHumanCount, int queuedEnemies, int queuedTinyEnemies,
         int queuedBlueEnemies, int queuedBosses, int coreDefenseLevel, int coreRegenLevel,
         int blackoutBreakerTotal, int nextPrepBonusSeconds, int nextEnemyId, int nextDefenseId,
         int nextDroppedResourceId, int nextFactoryId, int nextSpawnIndex, double elapsedSeconds,

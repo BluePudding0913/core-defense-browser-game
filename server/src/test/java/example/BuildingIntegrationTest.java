@@ -8,6 +8,27 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class BuildingIntegrationTest {
+    @Test void fpsPlacementUsesLookDirectionWhileStrafingAndConsumesOneItem() {
+        player.x = 1020; player.y = 1900; player.facingX = 0; player.facingY = -1;
+        player.blockItems = 2;
+        game.handleMessage(player, "EQUIP_BUILD:block");
+        game.handleMessage(player, "MOVE:0:-1");
+        game.handleMessage(player, "PLACE_FRONT:1:0");
+        assertEquals(1, player.blockItems);
+        var slot = game.trapSlots.get(game.trapSlots.size() - 1);
+        assertEquals(1060, slot.x); assertEquals(1900, slot.y);
+        game.handleMessage(player, "PLACE_FRONT:1:0");
+        assertEquals(1, player.blockItems, "blocked repeat must not consume inventory");
+    }
+
+    @Test void fpsPlacementRejectsInvalidLookDirection() {
+        player.blockItems = 2;
+        game.handleMessage(player, "EQUIP_BUILD:block");
+        for (String direction : List.of("NaN:0", "Infinity:0", "0:0"))
+            game.handleMessage(player, "PLACE_FRONT:" + direction);
+        assertEquals(2, player.blockItems);
+    }
+
     @Test void metalBarricadesCraftConsumeRepairRecoverAndPreserveDurability() throws Exception {
         for (String type : List.of("copperBarricade", "silverBarricade")) {
             var bench = GameMap.WORKBENCH_UNITS.get(0);

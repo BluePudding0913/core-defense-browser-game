@@ -24,7 +24,7 @@ class PreparationBackupTest {
   assertTrue(SnapshotBuilder.build(game).contains("\"backupRound\":9"));
  }
  @Test void restoresDeepWorldAndInventoryStateWhileKeepingLiveRoomConnections() throws Exception {
-  game.round=15;game.elapsedSeconds=550;game.coreHp=123;game.coreMaxHp=2500;game.coreShield=65;game.teamBuffRemaining=99;
+  game.round=15;game.roundHumanCount=2;game.elapsedSeconds=550;game.coreHp=123;game.coreMaxHp=2500;game.coreShield=65;game.teamBuffRemaining=99;
   hacker.x=1020;hacker.y=1900;hacker.weapons.grant("plasmaBlade");hacker.weapons.grant("freezeGun");hacker.weapons.setAmmo("freezeGun",7);
   hacker.weapons.addSilverAmmo(200);hacker.enchantments.put("freezeGun",2);hacker.armorTops=true;hacker.wood=17;
   hacker.recoverDefense(new Defense("silverTurret"));hacker.recoveredDefenses.get("silverTurret").peek().hp=12;
@@ -44,11 +44,11 @@ class PreparationBackupTest {
   factory.elapsed=0;game.droppedResources.clear();game.decoys.clear();game.missiles.clear();game.poisonClouds.clear();game.unlockedAreas.clear();game.trippedBreakers.clear();
   hacker.name="Renamed";hacker.sessionId="live-session";hacker.lastProcessedInput=99;hacker.human=false;hacker.reconnectGrace=12;hacker.roomReady=true;
   game.setRoomOwner(game.players.get(1));String liveOwner=game.roomOwnerId;
-  game.phase=GamePhase.LOST;game.round=30;game.coreHp=0;game.coreShield=0;game.elapsedSeconds=900;hacker.down=true;
+  game.phase=GamePhase.LOST;game.round=30;game.roundHumanCount=4;game.coreHp=0;game.coreShield=0;game.elapsedSeconds=900;hacker.down=true;
   restore();assertEquals(GamePhase.PREPARING,game.phase);assertTrue(game.backupUsed);assertNull(game.backup);assertEquals(1,game.rewindVersion);
   assertSame(hacker,game.players.get(0));assertEquals("Renamed",hacker.name);assertEquals("live-session",hacker.sessionId);assertEquals(99,hacker.lastProcessedInput);
   assertFalse(hacker.human);assertEquals(6,hacker.reconnectGrace);assertTrue(hacker.roomReady);assertEquals(liveOwner,game.roomOwnerId);
-  assertEquals(15,game.round);assertEquals(550,game.elapsedSeconds);assertEquals(120,game.prepTime);assertEquals(123,game.coreHp);assertEquals(2500,game.coreMaxHp);
+  assertEquals(15,game.round);assertEquals(2,game.roundHumanCount);assertEquals(550,game.elapsedSeconds);assertEquals(120,game.prepTime);assertEquals(123,game.coreHp);assertEquals(2500,game.coreMaxHp);
   assertEquals(65,game.coreShield);assertEquals(99,game.teamBuffRemaining);assertEquals(200000,hacker.credits);assertEquals(17,hacker.wood);assertFalse(hacker.down);
   assertTrue(hacker.armorTops);assertTrue(hacker.weapons.owns("plasmaBlade"));assertFalse(hacker.weapons.owns("bat"));assertEquals(7,hacker.weapons.ammo("freezeGun"));
   assertEquals(200,hacker.weapons.silverAmmo());assertEquals(2,hacker.enchantments.get("freezeGun"));assertEquals(13,hacker.drone.hp);assertTrue(hacker.drone.attackers.contains(32));

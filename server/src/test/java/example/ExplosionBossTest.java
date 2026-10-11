@@ -226,7 +226,7 @@ class ExplosionBossTest {
             game.enemies.clear(); game.round = round - 1;
             invoke("beginRound", new Class<?>[]{});
             boolean explosionRound = round == 25 || round == 35 || round == 45;
-            int expectedBosses = explosionRound ? 1 : round % 4 == 0 ? 1 : 0;
+            int expectedBosses = round == 50 || explosionRound || round % 4 == 0 ? 1 : 0;
             assertEquals(expectedBosses, game.queuedBosses, "R" + round);
             game.queuedEnemies = 0; game.queuedTinyEnemies = 0;
             while (game.queuedBosses > 0) invoke("updateSpawning", new Class<?>[]{double.class}, 10.);

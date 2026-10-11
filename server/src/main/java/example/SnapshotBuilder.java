@@ -78,7 +78,8 @@ final class SnapshotBuilder {
         for (int i = 0; i < game.decoys.size(); i++) {
             if (i > 0) json.append(',');
             Decoy decoy = game.decoys.get(i);
-            json.append("{\"x\":").append(roundOne(decoy.x)).append(",\"y\":").append(roundOne(decoy.y))
+            json.append("{\"ownerId\":\"").append(escapeJson(decoy.ownerId)).append("\",\"facingX\":").append(decoy.dx)
+                    .append(",\"facingY\":").append(decoy.dy).append(",\"x\":").append(roundOne(decoy.x)).append(",\"y\":").append(roundOne(decoy.y))
                     .append(",\"hp\":").append(roundOne(decoy.hp)).append(",\"maxHp\":").append(DecoyRules.HP)
                     .append(",\"remaining\":").append(roundOne(decoy.remaining)).append('}');
         }
@@ -94,6 +95,13 @@ final class SnapshotBuilder {
             json.append("{\"x\":").append(roundOne(cloud.x)).append(",\"y\":").append(roundOne(cloud.y))
                 .append(",\"remaining\":").append(roundOne(cloud.remaining))
                 .append(",\"radius\":").append(PoisonGasRules.RADIUS).append('}');
+        }
+        for (int i = 0; i < game.enemyPoisonClouds.size(); i++) {
+            var cloud = game.enemyPoisonClouds.get(i);
+            if (!game.poisonClouds.isEmpty() || i > 0) json.append(',');
+            json.append("{\"x\":").append(roundOne(cloud.x)).append(",\"y\":").append(roundOne(cloud.y))
+                .append(",\"remaining\":").append(roundOne(cloud.remaining))
+                .append(",\"radius\":").append(EnemyPoisonSystem.RADIUS).append(",\"hostile\":true}");
         }
         json.append(']');
         json.append(",\"missiles\":[");
@@ -273,6 +281,7 @@ final class SnapshotBuilder {
                     .append(",\"railgunRemaining\":").append(roundOne(player.railgunRemaining))
                     .append(",\"railgunDx\":").append(player.railgunDx)
                     .append(",\"railgunDy\":").append(player.railgunDy)
+                    .append(",\"railgunPitch\":").append(player.railgunPitch)
                     .append(",\"railgunRange\":").append(player.railgunRemaining > 0
                         ? GameMap.distanceToWall(player.x, player.y, player.railgunDx, player.railgunDy,
                             GameSession.weaponStats("railgun").range(), game.unlockedAreas) : 0);
@@ -284,10 +293,13 @@ final class SnapshotBuilder {
                     .append(",\"secondaryRailgunRemaining\":").append(roundOne(player.secondaryRailgunRemaining))
                     .append(",\"secondaryRailgunDx\":").append(player.secondaryRailgunDx)
                     .append(",\"secondaryRailgunDy\":").append(player.secondaryRailgunDy)
+                    .append(",\"secondaryRailgunPitch\":").append(player.secondaryRailgunPitch)
                     .append(",\"secondaryRailgunRange\":").append(player.secondaryRailgunRemaining > 0
                         ? GameMap.distanceToWall(player.x, player.y, player.secondaryRailgunDx, player.secondaryRailgunDy,
                             GameSession.weaponStats("railgun").range(), game.unlockedAreas) : 0);
-            json.append(",\"stamina\":").append(roundOne(player.stamina))
+            json.append(",\"jumpHeight\":").append(player.jumpHeight)
+                    .append(",\"jumpVelocity\":").append(player.jumpVelocity)
+                    .append(",\"stamina\":").append(roundOne(player.stamina))
                     .append(",\"dashing\":").append(player.dashing);
             json.append(",\"buildingCostMultiplier\":").append(player.job.equals("builder") ? .5 : 1);
             json.append(",\"job\":\"").append(player.job).append('"')
@@ -435,11 +447,11 @@ final class SnapshotBuilder {
                     .append(",\"actionDuration\":").append(BossAbilitySystem.SUMMON_WARNING)
                     .append(",\"pulseRadius\":").append(BossAbilitySystem.SUMMON_RADIUS);
             }
-            if (enemy.type.equals("titan")) {
+            if (enemy.type.equals("titan") || enemy.type.equals("finalBoss")) {
                 json.append(",\"bossAction\":\"").append(enemy.bossPulseRemaining > 0 ? "PULSE_WARNING" : "IDLE").append('"')
                     .append(",\"actionRemaining\":").append(roundOne(enemy.bossPulseRemaining))
-                    .append(",\"actionDuration\":").append(BossAbilitySystem.TITAN_WARNING)
-                    .append(",\"pulseRadius\":").append(BossAbilitySystem.TITAN_RADIUS);
+                    .append(",\"actionDuration\":").append(enemy.type.equals("finalBoss") ? FinalBossSystem.WARNING : BossAbilitySystem.TITAN_WARNING)
+                    .append(",\"pulseRadius\":").append(BossAbilitySystem.pulseRadius(enemy.type));
             }
             json.append(",\"powerCut\":").append(enemy.powerCut);
             json.append(",\"frozenRemaining\":").append(roundOne(enemy.frozenRemaining));
@@ -453,10 +465,8 @@ final class SnapshotBuilder {
             if (enemy.type.equals("boss")) json.append(",\"chargeWarning\":").append(roundOne(enemy.chargeWarning))
                     .append(",\"chargeRemaining\":").append(roundOne(enemy.chargeRemaining))
                     .append(",\"chargeDx\":").append(enemy.chargeDx).append(",\"chargeDy\":").append(enemy.chargeDy);
-            if (enemy.type.equals("shield")) {
-                json.append(",\"facingX\":").append(enemy.facingX)
-                        .append(",\"facingY\":").append(enemy.facingY);
-            }
+            json.append(",\"facingX\":").append(enemy.facingX)
+                    .append(",\"facingY\":").append(enemy.facingY);
             json.append('}');
         }
         json.append(']');

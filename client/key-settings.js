@@ -28,6 +28,7 @@ window.coreKeySettings = (() => {
             if (/^Digit[1-9]$/.test(event.code || "")) return event.code.slice(5);
             if (/^Arrow(Up|Down|Left|Right)$/.test(event.code || "")) return event.code.toLowerCase();
             if (event.code === "ShiftLeft" || event.code === "ShiftRight") return "shift";
+            if (event.code === "Space") return " ";
             if (event.code === "Escape") return "escape";
             return event.key.toLowerCase();
         },

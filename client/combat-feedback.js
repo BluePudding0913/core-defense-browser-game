@@ -11,7 +11,7 @@ const CombatFeedback = (() => {
             headshotAt:now, created:now, updated:now});
         if (popups.length > 30) popups.shift();
     }
-    function layout(now) {
+    function layout(now, project) {
         popups = popups.filter(popup => now - popup.updated < 900);
         let placed = [];
         for (const popup of popups) {
@@ -23,8 +23,9 @@ const CombatFeedback = (() => {
             const width = Math.max(lineWidth, headshot ? 18 : 0);
             const height = headshot && (text || damageText) ? 28 : 14;
             const age = now - popup.updated;
-            const baseY = popup.y - 26 - Math.min(1, (now - popup.created) / 900) * 12;
-            const overlaps = (other, y) => Math.abs(other.x - popup.x) < (other.width + width) / 2 + 8
+            const anchor = project ? project(popup) : popup;
+            const baseY = anchor.y - 26 - Math.min(1, (now - popup.created) / 900) * 12;
+            const overlaps = (other, y) => Math.abs(other.x - anchor.x) < (other.width + width) / 2 + 8
                 && Math.abs(other.y - y) < (other.height + height) / 2 + 2;
             if (popup.labelOffset == null) {
                 const offset = [0, -20, -40].find(offset => !placed.some(other => overlaps(other, baseY + offset)));
@@ -39,13 +40,13 @@ const CombatFeedback = (() => {
                 }
             }
             const y = baseY + popup.labelOffset;
-            placed.push({...popup, source:popup, headshot, x:popup.x, y, width, height, text, damageText, lineWidth, alpha:Math.min(1, (900 - age) / 250)});
+            placed.push({...popup, source:popup, headshot, x:anchor.x, y, width, height, text, damageText, lineWidth, alpha:Math.min(1, (900 - age) / 250)});
         }
         popups = popups.filter(popup => !popup.retired);
         return placed.map(({source, ...label}) => label);
     }
-    function draw(ctx, now) {
-        for (const popup of layout(now)) {
+    function draw(ctx, now, project) {
+        for (const popup of layout(now, project)) {
             ctx.save(); ctx.globalAlpha = popup.alpha;
             ctx.textAlign = "center";
             if (popup.damageText) {

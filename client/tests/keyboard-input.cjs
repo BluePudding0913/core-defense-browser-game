@@ -100,3 +100,8 @@ context.exitDialog.close=value=>{assert.equal(value,'cancel');context.exitDialog
 key('keydown',{code:'KeyE'});assert.equal(commands.at(-1),'CANCEL_EXIT');
 const beforeTyping=commands.length;
 key('keydown',{code:'KeyE',target:new HTMLInputElement()});assert.equal(commands.length,beforeTyping);
+
+context.getMe=()=>({down:false});context.actionMenu={classList:{contains:()=>true}};context.inventoryMenu={classList:{contains:()=>true}};
+key('keydown',{code:'Space',key:'Process',repeat:false});assert.equal(commands.at(-1),'JUMP');
+const beforeJumpRepeat=commands.length;key('keydown',{code:'Space',key:' ',repeat:true});assert.equal(commands.length,beforeJumpRepeat,'Holding Space does not restart jump');
+context.actionMenu.classList.contains=()=>false;key('keydown',{code:'Space',key:' ',repeat:false});assert.equal(commands.length,beforeJumpRepeat,'Menus block jumps');

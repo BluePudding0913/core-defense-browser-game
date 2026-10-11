@@ -40,7 +40,9 @@ interface GameEventSink {
 final class GameSession {
     private static final double BOT_REACTION_SECONDS = 1.5;
     final List<PoisonGasRules.Cloud> poisonClouds = new ArrayList<>();
+    final List<EnemyPoisonSystem.Cloud> enemyPoisonClouds = new ArrayList<>();
     int roundEnemyTotal;
+    int roundHumanCount = PLAYER_COUNT;
     double elapsedSeconds;
     double victoryMoveRemaining;
     double teamBuffRemaining;
@@ -136,7 +138,7 @@ final class GameSession {
     static final List<String> DEBUG_ENEMY_TYPES = List.of(
             "grunt", "runner", "brute", "shield", "hunter", "ghost", "armored",
             "siege", "champion", "tiny", "bomber", "artillery", "gilded", "blueAce",
-            "carrier", "blackout", "seeker", "coreHunter", "boss", "warlord", "titan", "warden", "explosionBoss");
+            "carrier", "blackout", "seeker", "coreHunter", "poisoner", "artilleryElite", "finalBoss", "boss", "warlord", "titan", "warden", "explosionBoss");
     static final int BACKUP_COST = 100_000;
     static final double BACKUP_RESTORE_DURATION = 6;
     static final double BACKUP_RESTORE_DELAY = 1.5;
@@ -242,6 +244,7 @@ final class GameSession {
         if (!player.human) return;
         String displayName = player.name;
         player.human = false;
+        player.aimPitch = player.secondaryAimPitch = null;
         releaseDroneControl(player);
         player.missileControl = false;
         player.breakerControl = null;
@@ -336,10 +339,11 @@ final class GameSession {
             }
             case "ROOM_READY" -> setRoomReady(player, parts);
             case "MOVE" -> handleMove(player, parts);
+            case "JUMP" -> jump(player);
             case "DASH" -> handleDash(player, parts);
             case "ATTACK" -> combat.attackAt(player, player.aimX, player.aimY);
-            case "FIRE" -> handleFire(player, parts);
-            case "SECONDARY_FIRE" -> handleSecondaryFire(player, parts);
+            case "FIRE" -> handleFire(player, message.split(":", 5));
+            case "SECONDARY_FIRE" -> handleSecondaryFire(player, message.split(":", 5));
             case "INTERACT" -> { if (parts.length >= 2) interact(player, parts[1]); }
             case "WEAPON" -> { if (parts.length >= 2) switchWeapon(player, parts[1]); }
             case "SECONDARY_WEAPON" -> { if (parts.length >= 2) switchSecondaryWeapon(player, parts[1]); }
@@ -362,7 +366,16 @@ final class GameSession {
             case "EQUIP_CORE" -> equipCore(player);
             case "CARRY_NEAREST" -> carryNearest(player, parts.length > 1 ? parts[1] : null);
             case "USE" -> { if(parts.length > 1) useItem(player,parts[1]); }
-            case "PLACE_FRONT" -> placeInFacingTile(player);
+            case "PLACE_FRONT" -> {
+                // FPS supplies a horizontal look direction; old clients and CPU keep their facing.
+                if (parts.length >= 3) {
+                    double x = Double.parseDouble(parts[1]), y = Double.parseDouble(parts[2]);
+                    double length = Math.hypot(x, y);
+                    if (!Double.isFinite(length) || length < .001) break;
+                    updateFacing(player, x / length, y / length);
+                }
+                placeInFacingTile(player);
+            }
             case "READY" -> { if (phase == GamePhase.PREPARING && !player.down
                     && player.id.equals(roomOwnerId)) prepTime = 0; }
             default -> { }
@@ -387,11 +400,11 @@ final class GameSession {
     private void saveBackup(Player player) {
         if (!player.job.equals("hacker") || player.down || phase != GamePhase.PREPARING || backupUsed
                 || !canOperate(player, GameMap.BACKUP_TERMINAL)
-                || !enemies.isEmpty() || !artilleryShells.isEmpty() || !combat.rockets.isEmpty() || !enemyProjectiles.isEmpty()) return;
+                || !enemies.isEmpty() || !enemyPoisonClouds.isEmpty() || !artilleryShells.isEmpty() || !combat.rockets.isEmpty() || !enemyProjectiles.isEmpty()) return;
         if (!spend(player, BACKUP_COST)) { gameEffects.feedback(player, "お金が足りません"); return; }
         var savedPlayers = players.stream().map(Player::gameplayCopy).toList();
         backup = new PreparationBackup(new PreparationBackup.World(
-                roundEnemyTotal, round, queuedEnemies, queuedTinyEnemies, queuedBlueEnemies,
+                roundEnemyTotal, round, roundHumanCount, queuedEnemies, queuedTinyEnemies, queuedBlueEnemies,
                 queuedBosses, coreDefenseLevel, coreRegenLevel, blackoutBreakerTotal, nextPrepBonusSeconds,
                 nextEnemyId, nextDefenseId, nextDroppedResourceId, nextFactoryId, nextSpawnIndex,
                 elapsedSeconds, victoryMoveRemaining, teamBuffRemaining, prepTime, coreHp,
@@ -413,6 +426,7 @@ final class GameSession {
         var world = saved.world();
         roundEnemyTotal = world.roundEnemyTotal();
         round = world.round();
+        roundHumanCount = world.roundHumanCount();
         queuedEnemies = world.queuedEnemies();
         queuedTinyEnemies = world.queuedTinyEnemies();
         queuedBlueEnemies = world.queuedBlueEnemies();
@@ -454,6 +468,7 @@ final class GameSession {
         resourceNodes.clear(); resourceNodes.addAll(BackupCopies.resources(saved.resources()));
         factories.clear(); factories.addAll(BackupCopies.factories(saved.factories()));
         droppedResources.clear(); droppedResources.addAll(BackupCopies.drops(saved.drops()));
+        enemyPoisonClouds.clear();
         poisonClouds.clear(); poisonClouds.addAll(BackupCopies.clouds(saved.clouds()));
         decoys.clear(); decoys.addAll(BackupCopies.decoys(saved.decoys(), players));
         missiles.clear(); missiles.addAll(BackupCopies.missiles(saved.missiles(), players));
@@ -543,6 +558,7 @@ final class GameSession {
             return;
         }
 
+        EnemyPoisonSystem.update(enemyPoisonClouds, dt, enemyPoisonWorld);
         updateSpawning(dt);
         updateDefenses(dt);
         updateEnemies(dt);
@@ -569,7 +585,7 @@ final class GameSession {
             setNotice("全員がダウンしました");
             return;
         }
-        if (queuedEnemies == 0 && queuedBosses == 0 && enemies.isEmpty() && artilleryShells.isEmpty() && enemyProjectiles.isEmpty() && combat.rockets.isEmpty()) finishRound();
+        if (queuedEnemies == 0 && queuedBosses == 0 && enemies.isEmpty() && enemyPoisonClouds.isEmpty() && artilleryShells.isEmpty() && enemyProjectiles.isEmpty() && combat.rockets.isEmpty()) finishRound();
     }
 
     private void updateReconnectReservations(double dt) {
@@ -596,6 +612,25 @@ final class GameSession {
         if (parts.length < 2) return;
         String cleaned = parts[1].replaceAll("[^\\p{L}\\p{N} _-]", "").trim();
         if (!cleaned.isEmpty()) player.name = cleaned.substring(0, Math.min(16, cleaned.length()));
+    }
+
+    private double jumpSupport(Player player) {
+        return trapSlots.stream().anyMatch(slot -> slot.defense != null
+                && BuildingRules.blocksMovement(slot.defense.type)
+                && distance(player.x, player.y, slot.x, slot.y) < 23)
+                && player.jumpHeight >= JumpRules.OBSTACLE_HEIGHT - .01 ? JumpRules.OBSTACLE_HEIGHT : 0;
+    }
+
+    private void jump(Player player) {
+        if (!canMove() || player.down || player.movingCore || player.missileControl || DroneRules.controlling(player)) return;
+        if (JumpRules.grounded(player.jumpHeight, player.jumpVelocity, jumpSupport(player)))
+            player.jumpVelocity = JumpRules.SPEED;
+    }
+
+    private boolean canPlayerOccupy(Player player, double x, double y) {
+        if (!GameMap.canOccupy(x, y, 5, unlockedAreas)
+                || player.jumpHeight + JumpRules.BODY_HEIGHT > GameMap.ceilingHeight(x, y) + .01) return false;
+        return player.jumpHeight >= JumpRules.OBSTACLE_HEIGHT - .01 || canOccupy(x, y, 5);
     }
 
     private void handleMove(Player player, String[] parts) {
@@ -937,6 +972,7 @@ final class GameSession {
             return;
         }
         player.x = destination.x(); player.y = destination.y();
+        player.jumpHeight = 0; player.jumpVelocity = 0;
         player.scoutDashRemaining = 0;
         player.teleportCooldown = 1.5;
         cancelAction(player);
@@ -974,7 +1010,11 @@ final class GameSession {
         if (!canMove() || !player.job.equals("attacker") || player.down || player.movingCore || player.selectedBuild != null) return;
         double x = Double.parseDouble(parts[1]), y = Double.parseDouble(parts[2]);
         if (!Double.isFinite(x) || !Double.isFinite(y)) return;
-        player.secondaryAimX = clamp(x, 0, WORLD_W); player.secondaryAimY = clamp(y, 0, WORLD_H);
+        Double pitch = parts.length >= 5 ? Double.valueOf(parts[4]) : null;
+        if (pitch != null && !FpsHitRules.validPitch(pitch)) return;
+        player.secondaryAimPitch = pitch;
+        player.secondaryAimX = clamp(x, pitch == null ? 0 : -WORLD_W * 2, pitch == null ? WORLD_W : WORLD_W * 3);
+        player.secondaryAimY = clamp(y, pitch == null ? 0 : -WORLD_H * 2, pitch == null ? WORLD_H : WORLD_H * 3);
         boolean begins = !player.secondaryFiring;
         player.secondaryFiring = true;
         if (begins) combat.attackSecondary(player, player.secondaryAimX, player.secondaryAimY);
@@ -990,9 +1030,12 @@ final class GameSession {
             player.firing = player.secondaryFiring = false;
             return;
         }
+        Double pitch = parts.length >= 5 ? Double.valueOf(parts[4]) : null;
+        if (pitch != null && !FpsHitRules.validPitch(pitch)) return;
+        player.aimPitch = pitch;
         boolean beginsPress = active && !player.firing;
-        player.aimX = clamp(x, 0, WORLD_W);
-        player.aimY = clamp(y, 0, WORLD_H);
+        player.aimX = clamp(x, pitch == null ? 0 : -WORLD_W * 2, pitch == null ? WORLD_W : WORLD_W * 3);
+        player.aimY = clamp(y, pitch == null ? 0 : -WORLD_H * 2, pitch == null ? WORLD_H : WORLD_H * 3);
         player.firing = active;
         if (!active) player.hookPressHandled = false;
         if (!active) player.stopRailgun();
@@ -1053,9 +1096,13 @@ final class GameSession {
 
     private void beginRound() {
         round++;
+        // Freeze difficulty before creating any budgets or enemies for this round.
+        roundHumanCount = RoundDifficultyRules.humanCount((int) players.stream()
+                .filter(player -> RoundDifficultyRules.countsAsHuman(player.human, player.sessionId != null,
+                        RECONNECT_GRACE_SECONDS - player.reconnectGrace)).count());
         selectRoundSpawns(round);
         phase = GamePhase.WAVE;
-        queuedEnemies = EnemyWaveRules.regularCount(round);
+        queuedEnemies = RoundDifficultyRules.population(EnemyWaveRules.regularCount(round), roundHumanCount);
         queuedBosses = EnemyWaveRules.bossCount(round);
         queuedBlueEnemies = round >= 40 ? random.nextInt(3) : 0;
         roundEnemyTotal = queuedEnemies + queuedBosses;
@@ -1063,8 +1110,9 @@ final class GameSession {
         wardenSpawned = false;
         // Reserve one simultaneous swarm within the regular population on selected late rounds.
         queuedTinyEnemies = round >= 40 && (round - 40) % 3 == 0
-                ? Math.min(queuedEnemies, (int) Math.round((48 + (round - 40) * 4) * 0.8)) : 0;
-        roundEvent = isExplosionBossRound() ? "boss_assault" : round % 4 == 3 ? "blackout"
+                ? Math.min(queuedEnemies, RoundDifficultyRules.population(
+                        (int) Math.round((48 + (round - 40) * 4) * 0.8), roundHumanCount)) : 0;
+        roundEvent = round == 50 || isExplosionBossRound() ? "boss_assault" : round % 4 == 3 ? "blackout"
                 : round >= 5 && round % 4 == 1 ? "door_failure"
                 : round % 4 == 0 ? "boss_assault" : "none";
         failedSpawnId = roundEvent.equals("door_failure")
@@ -1162,6 +1210,12 @@ final class GameSession {
     private void updatePlayers(double dt) {
         for (Player player : players) {
             if (phase == GamePhase.WON && (!player.human || player.down)) continue;
+            if (player.down || player.movingCore) { player.jumpHeight = 0; player.jumpVelocity = 0; }
+            else {
+                JumpRules.Motion motion = JumpRules.advance(player.jumpHeight, player.jumpVelocity, dt,
+                        jumpSupport(player), GameMap.ceilingHeight(player.x, player.y));
+                player.jumpHeight = motion.height(); player.jumpVelocity = motion.velocity();
+            }
             if (player.missileControl) continue;
             if (DroneRules.controlling(player)) {
                 Drone drone = player.drone;
@@ -1180,7 +1234,7 @@ final class GameSession {
                 } else {
                     double travel = JobRules.SCOUT_DASH_SPEED * Math.min(dt, player.scoutDashRemaining);
                     MapPoint next = JobRules.advanceScoutDash(player.x, player.y,
-                            player.scoutDashDx, player.scoutDashDy, travel, (x, y) -> canOccupy(x, y, 5));
+                            player.scoutDashDx, player.scoutDashDy, travel, (x, y) -> canPlayerOccupy(player, x, y));
                     boolean blocked = distance(player.x, player.y, next.x(), next.y()) + .001 < travel;
                     player.x = next.x(); player.y = next.y();
                     player.scoutDashRemaining = blocked ? 0 : Math.max(0, player.scoutDashRemaining - dt);
@@ -1208,8 +1262,8 @@ final class GameSession {
             else if (player.railgunCharge > 0 || player.secondaryRailgunCharge > 0) speed = 155 * .6;
             double nextX = clamp(player.x + player.moveX * speed * dt, 7, WORLD_W - 7);
             double nextY = clamp(player.y + player.moveY * speed * dt, 7, WORLD_H - 7);
-            if (canOccupy(nextX, player.y, 5)) player.x = nextX;
-            if (canOccupy(player.x, nextY, 5)) player.y = nextY;
+            if (canPlayerOccupy(player, nextX, player.y)) player.x = nextX;
+            if (canPlayerOccupy(player, player.x, nextY)) player.y = nextY;
             if (player.movingCore) {
                 coreX = player.x;
                 coreY = player.y;
@@ -1352,7 +1406,7 @@ final class GameSession {
             // Each member uses the next entrance so a burst pressures multiple sides.
             SpawnPoint spawn = nextRoundSpawn();
             if (queuedBosses > 0 && queuedEnemies <= queuedBosses * 2) {
-                String bossType = isExplosionBossRound() && !explosionBossSpawned ? "explosionBoss"
+                String bossType = round == 50 ? "finalBoss" : isExplosionBossRound() && !explosionBossSpawned ? "explosionBoss"
                         : WardenRules.appearsInRound(round) && !wardenSpawned ? "warden"
                         : round >= 40 ? "titan" : round >= 24 ? "warlord" : "boss";
                 spawnEnemy(bossType, spawn);
@@ -1429,6 +1483,9 @@ final class GameSession {
         double damage;
         int reward;
         switch (type) {
+            case "finalBoss" -> { hp = 50000; speed = runnerSpeed; damage = 85; reward = 5000; }
+            case "poisoner" -> { hp = 100 + round * 8; speed = 65; damage = 10 + round * .3; reward = 60; }
+            case "artilleryElite" -> { hp = 180 + round * 12; speed = 50; damage = 18 + round * .8; reward = 110; }
             case "coreHunter" -> { hp = 100 + round * 8; speed = 110 + round * 2; damage = 18 + round; reward = 40; }
             case "blackout" -> { hp = 180 + round * 12; speed = 100; damage = 14 + round * .6; reward = 90; }
             case "seeker" -> { hp = 100 + round * 9; speed = 70; damage = 22 + round * .4; reward = 65; }
@@ -1468,7 +1525,7 @@ final class GameSession {
                 reward = 35;
             }
             case "tiny" -> {
-                hp = 20 + round * 2;
+                hp = 25 + round * 2.5;
                 speed = 110 + round * 2;
                 damage = 8 + round;
                 reward = 35;
@@ -1538,7 +1595,9 @@ final class GameSession {
         if (GameMap.spawnArea(spawn) != null) spawn = new SpawnPoint(spawn.id(), spawn.name(),
                 spawn.x(), spawn.y(), spawn.lane(), spawn.enemyBias(), spawn.speedMultiplier(),
                 spawn.targetPriority(), List.of(new MapPoint(spawn.x(), spawn.y()), new MapPoint(coreX, coreY)));
-        enemies.add(new Enemy(nextEnemyId++, type, spawn, BossRules.spawnHp(type, hp * 2), BossRules.baseSpeed(type, speed, runnerSpeed) * 0.5, damage,
+        double spawnHp = RoundDifficultyRules.enemyHp(type, EnemyTierRules.hp(type, hp * 2, round), roundHumanCount);
+        enemies.add(new Enemy(nextEnemyId++, type, spawn, spawnHp,
+                BossRules.baseSpeed(type, speed, runnerSpeed) * 0.5, damage * EnemyTierRules.multiplier(round),
                 (int) Math.round(reward * 2.5 * GameConfig.goldMultiplier(round))));
     }
 
@@ -1546,7 +1605,7 @@ final class GameSession {
         for (Enemy enemy : enemies) enemy.slow = 1;
         for (TrapSlot slot : trapSlots) {
             Defense defense = slot.defense;
-            if (defense == null) continue;
+            if (defense == null || defense.hp <= 0) continue;
             defense.cooldown = Math.max(0, defense.cooldown - dt);
             if (defense.type.equals("wire")) {
                 for (Enemy enemy : enemies) {
@@ -1556,19 +1615,13 @@ final class GameSession {
                 }
             } else if (BuildingRules.isTurret(defense.type) && defense.cooldown <= 0) {
                 Enemy target = enemies.stream()
-                        .filter(enemy -> enemy.hp > 0 && distance(slot.x, slot.y, enemy.x, enemy.y) <= (defense.type.equals("overclockSilver") ? 480 : defense.type.equals("silverTurret") ? 380 : 300))
+                        .filter(enemy -> enemy.hp > 0 && distance(slot.x, slot.y, enemy.x, enemy.y) <= TurretRules.range(defense.type))
                         .filter(enemy -> GameMap.hasClearLine(slot.x, slot.y, enemy.x, enemy.y, unlockedAreas))
                         .min(Comparator.comparingDouble(enemy -> distance(enemy.x, enemy.y, coreX, coreY)))
                         .orElse(null);
                 if (target != null) {
-                    double tinyHitChance = switch (defense.type) {
-                        case "overclockSilver" -> .8;
-                        case "silverTurret" -> .4;
-                        case "copperTurret" -> .3;
-                        default -> .2;
-                    };
-                    boolean hit = !target.type.equals("tiny") || random.nextDouble() < tinyHitChance;
-                    double turretDamage = (17+round*.5)*(defense.type.equals("overclockSilver") ? 14 : defense.type.equals("silverTurret") ? 3.5 : defense.type.equals("copperTurret") ? 2 : 1);
+                    boolean hit = TurretRules.canHit(target.type);
+                    double turretDamage = TurretRules.damage(defense.type, round) * TurretRules.damageMultiplier(target.type);
                     turretDamage = target.shieldedDamage(turretDamage, slot.x, slot.y);
                     double dealt = hit ? combat.damageEnemy(target, turretDamage, null) : 0;
                     double missAngle = Math.atan2(target.y - slot.y, target.x - slot.x) + Math.PI / 2;
@@ -1576,7 +1629,8 @@ final class GameSession {
                             target.x + (hit ? 0 : Math.cos(missAngle) * 16),
                             target.y + (hit ? 0 : Math.sin(missAngle) * 16),
                             dealt, target.hp <= 0, 0, false, hit ? target.id : null);
-                    defense.cooldown = defense.type.equals("overclockSilver") ? .15 : defense.type.equals("silverTurret") ? .45 : .7;
+                    defense.cooldown = TurretRules.cooldown(defense.type);
+                    defense.hp = Math.max(0, defense.hp - TurretRules.SHOT_HP_COST);
                 }
             } else if (defense.type.equals("mine")) {
                 Enemy trigger = enemies.stream()
@@ -1627,7 +1681,7 @@ final class GameSession {
             }
             if (enemy.hookPulled || frozen) continue;
             if (updateBossCharge(enemy, dt)) continue;
-            if ((enemy.type.equals("warlord") || enemy.type.equals("titan"))
+            if ((enemy.type.equals("warlord") || enemy.type.equals("titan") || enemy.type.equals("finalBoss"))
                     && BossAbilitySystem.update(enemy, dt, bossAbilityTarget(enemy), wardenWorld, artilleryShells,
                             enemies.stream().filter(e -> e.hp > 0 && e.summonerId == enemy.id).count()
                                     <= BossAbilitySystem.SUMMON_LIMIT - BossAbilitySystem.SUMMON_COUNT,
@@ -1657,9 +1711,10 @@ final class GameSession {
                     continue;
                 }
             }
+            if (enemy.type.equals("poisoner") && EnemyPoisonSystem.emit(enemy, dt, enemyPoisonClouds, enemyPoisonWorld)) continue;
             enemy.pathTimer -= dt;
             updateEnemyWander(enemy, dt);
-            if (enemy.type.equals("artillery") && updateArtillery(enemy, dt)) continue;
+            if ((enemy.type.equals("artillery") || enemy.type.equals("artilleryElite")) && updateArtillery(enemy, dt)) continue;
             double moveSpeed = enemy.speed * BossRules.movementMultiplier(enemy.type, enemy.hp, enemy.maxHp)
                     * (enemy.warden == null ? 1
                     : WardenRules.movementMultiplier(WardenRules.phase(enemy.hp, enemy.maxHp)));
@@ -1913,6 +1968,12 @@ final class GameSession {
             if (inBomberBlast(bomber, decoy.x, decoy.y, radius)) decoy.hp -= bomber.damage;
     }
 
+    private final EnemyPoisonSystem.World enemyPoisonWorld = new EnemyPoisonSystem.World() {
+        public List<Player> players() { return players; }
+        public Set<String> unlocked() { return unlockedAreas; }
+        public void damage(Player player, double amount) { damagePlayer(player, amount); }
+    };
+
     private boolean updateArtillery(Enemy enemy, double dt) {
         enemy.specialCooldown = Math.max(0, enemy.specialCooldown - dt);
         Decoy decoyTarget = DecoyRules.target(enemy, decoys, (x, y) -> canArtilleryAim(enemy, x, y));
@@ -1920,7 +1981,7 @@ final class GameSession {
             if (distance(enemy.x, enemy.y, decoyTarget.x, decoyTarget.y) < 110) return false;
             enemy.faceToward(decoyTarget.x, decoyTarget.y);
             if (enemy.specialCooldown <= 0) {
-                artilleryShells.add(new ArtilleryShell(enemy.x, enemy.y, decoyTarget.x, decoyTarget.y, enemy.damage * 3, enemy.id));
+                EnemySalvoRules.fire(enemy, decoyTarget.x, decoyTarget.y, artilleryShells);
                 enemy.specialCooldown = GameConfig.ARTILLERY_COOLDOWN;
             }
             return true;
@@ -1941,7 +2002,7 @@ final class GameSession {
                         enemy.attackCooldown = .9;
                     } else moveEnemyToward(enemy, drone.x, drone.y, enemy.speed * dt);
                 } else if (enemy.specialCooldown <= 0) {
-                    artilleryShells.add(new ArtilleryShell(enemy.x, enemy.y, drone.x, drone.y, enemy.damage * 3, enemy.id));
+                    EnemySalvoRules.fire(enemy, drone.x, drone.y, artilleryShells);
                     enemy.specialCooldown = GameConfig.ARTILLERY_COOLDOWN;
                 }
             } else moveEnemyToward(enemy, drone.x, drone.y, enemy.speed * dt);
@@ -1960,7 +2021,7 @@ final class GameSession {
         if (distance(enemy.x, enemy.y, x, y) < 110) return false;
         enemy.faceToward(x, y);
         if (enemy.specialCooldown <= 0) {
-            artilleryShells.add(new ArtilleryShell(enemy.x, enemy.y, x, y, enemy.damage * 3, enemy.id));
+            EnemySalvoRules.fire(enemy, x, y, artilleryShells);
             enemy.specialCooldown = GameConfig.ARTILLERY_COOLDOWN;
         }
         return true;
@@ -2035,7 +2096,7 @@ final class GameSession {
     private TrapSlot nearestDefense(Enemy enemy, double range) {
         return trapSlots.stream()
                 .filter(slot -> slot.defense != null && !slot.defense.type.equals("mine")
-                        && !(enemy.type.equals("artillery")
+                        && !((enemy.type.equals("artillery") || enemy.type.equals("artilleryElite"))
                             && BuildingRules.isTurret(slot.defense.type))
                         && distance(enemy.x, enemy.y, slot.x, slot.y) <= range)
                 .min(Comparator.comparingDouble(slot -> distance(enemy.x, enemy.y, slot.x, slot.y)))
@@ -2143,7 +2204,7 @@ final class GameSession {
                 updateDownedBot(bot);
                 continue;
             }
-            if (phase == GamePhase.WAVE && (dodgeBossTelegraph(bot) || dodgeArtillery(bot))) continue;
+            if (phase == GamePhase.WAVE && (dodgeEnemyPoison(bot) || dodgeBossTelegraph(bot) || dodgeArtillery(bot))) continue;
 
             Player downed = bestBotRescueTarget(bot);
             if (downed != null && shouldBotRescue(bot, downed)) {
@@ -2233,6 +2294,18 @@ final class GameSession {
         }
     }
 
+    private boolean dodgeEnemyPoison(Player bot) {
+        var threats=enemyPoisonClouds.stream().filter(c -> EnemyPoisonSystem.contains(c,bot.x,bot.y)
+                && GameMap.hasClearLine(c.x,c.y,bot.x,bot.y,unlockedAreas)).toList();
+        if (threats.isEmpty()) return false;
+        MapPoint destination = BotCombatRules.poisonEscape(bot.x, bot.y, threats,
+                (x, y) -> canOccupy(x, y, 12) && canEnemyTravel(bot.x, bot.y, x, y));
+        if (destination == null) return false;
+        double length = distance(bot.x, bot.y, destination.x(), destination.y());
+        steerBot(bot, (destination.x() - bot.x) / length, (destination.y() - bot.y) / length);
+        return true;
+    }
+
     private boolean dodgeBossTelegraph(Player bot) {
         List<Enemy> threats = enemies.stream().filter(enemy -> enemy.hp > 0 && (enemy.bossPulseRemaining > 0 || enemy.warden != null
                 && enemy.warden.action != WardenRules.Action.IDLE)
@@ -2257,7 +2330,7 @@ final class GameSession {
 
     private double bossTelegraphClearance(List<Enemy> threats, double x, double y) {
         return threats.stream().mapToDouble(enemy -> enemy.bossPulseRemaining > 0
-                ? distance(enemy.x,enemy.y,x,y) - BossAbilitySystem.TITAN_RADIUS - 24
+                ? distance(enemy.x,enemy.y,x,y) - BossAbilitySystem.pulseRadius(enemy.type) - 24
                 : WardenRules.clearance(enemy.warden.action, enemy.x, enemy.y,
                     enemy.warden.targetX, enemy.warden.targetY, x, y)).min().orElse(Double.POSITIVE_INFINITY);
     }
@@ -2296,10 +2369,10 @@ final class GameSession {
         double score = 1_050 - Math.min(1_050, distance(enemy.x, enemy.y, coreX, coreY));
         score += enemy.routeIndex * 85;
         score += switch (enemy.type) {
-            case "boss", "warlord", "titan", "warden" -> 460;
+            case "boss", "warlord", "titan", "warden", "finalBoss" -> 460;
             case "champion" -> 260;
             case "siege" -> 240;
-            case "artillery" -> 250;
+            case "artillery", "artilleryElite", "poisoner" -> 250;
             case "armored" -> 200;
             case "shield" -> 170;
             case "hunter", "ghost" -> 190;
@@ -3636,6 +3709,7 @@ final class GameSession {
         explosionBossSpawned = false;
         wardenSpawned = false;
         roundEnemyTotal = 0;
+        roundHumanCount = PLAYER_COUNT;
         debugMode = false;
         phase = GamePhase.LOBBY;
         round = 0;
@@ -3659,6 +3733,7 @@ final class GameSession {
         enemies.clear();
         artilleryShells.clear();
         missiles.clear();
+        enemyPoisonClouds.clear();
         poisonClouds.clear();
         decoys.clear();
         droppedResources.clear();
@@ -3694,6 +3769,7 @@ final class GameSession {
             player.dashExhausted = false;
             player.missileControl = false; player.breakerControl = null; player.missileCooldown = 0;
             player.stamina = JobRules.staminaMax(player.job);
+            player.jumpHeight = 0; player.jumpVelocity = 0;
             player.spyCheckedEnemies.clear(); player.spyHostileEnemies.clear();
             player.spyRemaining = 0;
             player.drone = null;
@@ -3714,6 +3790,7 @@ final class GameSession {
             player.firing = player.secondaryFiring = false;
             player.aimX = player.x + 100;
             player.aimY = player.y;
+            player.aimPitch = player.secondaryAimPitch = null;
             player.stopRailgun();
             HookSystem.clear(player);
             player.hookPressHandled = false;

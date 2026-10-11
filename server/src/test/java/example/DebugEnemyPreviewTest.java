@@ -30,7 +30,7 @@ class DebugEnemyPreviewTest {
     @Test void summonEveryEnemyAtTheRoomCenterAndKeepNormalQueues() throws Exception {
         var snapshot = new ObjectMapper().readTree(SnapshotBuilder.build(game));
         assertTrue(snapshot.path("debugMode").asBoolean());
-        assertEquals(23, snapshot.path("debugEnemyTypes").size());
+        assertEquals(26, snapshot.path("debugEnemyTypes").size());
         game.queuedEnemies = 7; game.queuedBosses = 2;
         for (String type : GameSession.DEBUG_ENEMY_TYPES) {
             game.handleMessage(host, "DEBUG:SUMMON:" + type);
@@ -38,12 +38,12 @@ class DebugEnemyPreviewTest {
             assertEquals(type, enemy.type); assertEquals(240, enemy.x); assertEquals(280, enemy.y);
             assertTrue(enemy.hp > 0); assertEquals(enemy.hp, enemy.maxHp);
         }
-        assertEquals(23, game.enemies.size()); assertEquals(23, game.roundEnemyTotal);
+        assertEquals(26, game.enemies.size()); assertEquals(26, game.roundEnemyTotal);
         assertEquals(7, game.queuedEnemies); assertEquals(2, game.queuedBosses);
         game.handleMessage(host, "DEBUG:SUMMON:unknown"); game.handleMessage(host, "DEBUG:SUMMON");
-        assertEquals(23, game.enemies.size());
+        assertEquals(26, game.enemies.size());
         game.backupUsed = true; game.phase = GamePhase.WAVE;
-        game.handleMessage(host, "DEBUG:SUMMON:grunt"); assertEquals(24, game.enemies.size());
+        game.handleMessage(host, "DEBUG:SUMMON:grunt"); assertEquals(27, game.enemies.size());
     }
     @Test void goldAddsExactlyOneHundredThousandEachTime() {
         game.handleMessage(host, "DEBUG:GOLD"); assertEquals(600_000, host.credits);
@@ -73,7 +73,7 @@ class DebugEnemyPreviewTest {
     @Test void debugRoundsUseExactlyTheNormalPopulationsEventsAndTiming() throws Exception {
         for (int round : new int[]{4, 5, 6, 16, 32, 48}) {
             game.debugMode = true; begin(round);
-            assertEquals(EnemyWaveRules.regularCount(round), game.queuedEnemies);
+            assertEquals(RoundDifficultyRules.population(EnemyWaveRules.regularCount(round), 1), game.queuedEnemies);
             assertEquals(EnemyWaveRules.bossCount(round), game.queuedBosses);
             String event = game.roundEvent;
             spawn(1); assertTrue(game.enemies.isEmpty(), "Keep the normal eight-second delay");
