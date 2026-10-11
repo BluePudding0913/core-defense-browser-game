@@ -2549,7 +2549,7 @@ function drawFirstPerson() {
     if(eye){camera.x=eye.x;camera.y=eye.y;}
     const selection=me && placementSelection(me), point=selection ? frontPlacementTile(me) : null;
     const placement=point ? {...point,valid:canBuildAt(point,selection.forCore)} : null;
-    labRenderer.render({map:TILE_MAP,reachable:reachableFloorTiles(),center:camera,eye,scale,state,localId:myPlayerId,predicted:predictedLocal,smooth:smoothEntity,radius:enemyRadius,stations:labStations(),effects:hitEffects,aim:worldFromScreen(0,0),view:fpsInput.view,placement,scoped,motion:{moving:Math.hypot(localMove.x,localMove.y)>.12,dashing:predictedLocal?.dashing}});
+    labRenderer.render({map:TILE_MAP,reachable:reachableFloorTiles(),center:camera,eye,scale,state,localId:myPlayerId,predicted:predictedLocal,smooth:smoothEntity,radius:enemyRadius,stations:labStations(),effects:hitEffects,aim:worldFromScreen(0,0),view:fpsInput.view,placement,scoped,nightVision:!!droneCameraView(),motion:{moving:Math.hypot(localMove.x,localMove.y)>.12,dashing:predictedLocal?.dashing}});
     if(firingPointer)updateFiringAim(firingPointer.clientX,firingPointer.clientY);
     if(secondaryHeld){const p=worldFromScreen(0,0);const now=performance.now();if(now-(drawFirstPerson.secondaryAt || 0)>70){send(`SECONDARY_FIRE:${p.x.toFixed(1)}:${p.y.toFixed(1)}:1`);drawFirstPerson.secondaryAt=now;}}
     ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -2569,7 +2569,7 @@ function drawFirstPerson() {
     const interaction=findNearestInteraction();
     ctx.save();const dpr=canvas.width/innerWidth;ctx.scale(dpr,dpr);ctx.textAlign='center';ctx.font='bold 14px system-ui';ctx.fillStyle='#f1f8fb';ctx.shadowColor='#07121b';ctx.shadowBlur=4;
     if(playing && !menusOpen){
-        const x=innerWidth/2,y=innerHeight/2;if(!scoped)window.coreReticleSettings.draw(ctx,x,y);
+        const x=innerWidth/2,y=innerHeight/2;
         const target=placement ? (placement.valid ? placement : null) : interaction?.target;
         if(target) {
             const anchor=labRenderer.stationPosition(target);const prompt=labRenderer.project(anchor.x,anchor.y,40);
@@ -2587,10 +2587,11 @@ function drawFirstPerson() {
         for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]){ctx.moveTo(x+dx*12,y+dy*12);ctx.lineTo(x+dx*r,y+dy*r);}ctx.stroke();
         ctx.fillStyle='#ff5b63';ctx.fillRect(x-1,y-1,2,2);ctx.restore();
     }
-    if(state.blackoutActive && !me?.drone?.controlled){
+    if(state.blackoutActive && !droneCameraView()){
         const shade=ctx.createRadialGradient(canvas.width/2,canvas.height/2,0,canvas.width/2,canvas.height/2,canvas.width*.65);
-        shade.addColorStop(0,'rgba(0,5,10,.62)');shade.addColorStop(1,'rgba(0,5,10,.9)');ctx.fillStyle=shade;ctx.fillRect(0,0,canvas.width,canvas.height);
+        shade.addColorStop(0,'rgba(0,5,10,0)');shade.addColorStop(1,'rgba(0,5,10,.45)');ctx.fillStyle=shade;ctx.fillRect(0,0,canvas.width,canvas.height);
     }
+    if(playing && !menusOpen && !scoped){ctx.save();ctx.scale(dpr,dpr);window.coreReticleSettings.draw(ctx,innerWidth/2,innerHeight/2);ctx.restore();}
     if(playing && !menusOpen && typeof CombatFeedback!=='undefined') {ctx.save();ctx.scale(dpr,dpr);CombatFeedback.drawHitMarker(ctx,now,innerWidth/2,innerHeight/2);ctx.restore();}
     drawDamageEdges();drawJoystick();drawRewindScreen();
 }

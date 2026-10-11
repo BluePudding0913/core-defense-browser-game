@@ -104,8 +104,8 @@ console.log('Lab ceilings passed: room/passage heights, full coverage, sealed tr
 const wallTerminal={id:'wall-panel',x:100,y:20};frame.stations=[[wallTerminal,'UNLOCK','#79d8ff','terminal']];
 state.decoys=[{ownerId:'a',x:140,y:100,hp:45,facingX:1,facingY:0},{ownerId:'b',x:180,y:100,hp:45,facingX:0,facingY:-1}];
 frame.eye={x:100,y:140};frame.view={yaw:0,pitch:0};renderer.render(frame);
-const panel=find('station:wall-panel:terminal');assert.equal(panel.position.z,44);assert.equal(panel.position.x,100);
-const panelLabel=renderer.stationPosition(wallTerminal);assert.equal(panelLabel.y,44);assert(renderer.project(panelLabel.x,panelLabel.y,38).visible);
+const panel=find('station:wall-panel:terminal');assert.equal(panel.position.z,43);assert.equal(panel.position.x,100);
+const panelLabel=renderer.stationPosition(wallTerminal);assert.equal(panelLabel.y,43);assert(renderer.project(panelLabel.x,panelLabel.y,38).visible);
 for(const owner of ['a','b'])assert(find('decoy:'+owner).getObjectByName('Soldier'),'Each decoy has its own soldier, not terminal geometry');
 assert.equal(find('decoy:a').rotation.y,Math.PI/2);assert.equal(find('decoy:b').rotation.y,Math.PI);
 const stableMuzzle=viewScene.getObjectByName('Muzzle'),gunSignatures=new Set();
@@ -243,3 +243,35 @@ frame.motion.moving=false;
 for(let i=0;i<90;i++){now+=1000/60;renderer.render(frame);}
 assert(Math.abs(camera.position.y-26)<1e-7,'Sprint bob settles after stopping');
 console.log('FPS comfort passed: natural sprint cadence, smooth settling and visible sniper receiver');
+
+// Four cardinal mounts: backs touch the wall and the screen faces accessible floor.
+frame.motion={moving:false};frame.effects=[];frame.view={yaw:0,pitch:0};frame.scoped=false;
+frame.map={tileSize:40,rows:Array(7).fill('.......')};frame.stations=[];
+for(const [dx,dz] of [[0,1],[1,0],[0,-1],[-1,0]]) {
+ for(const kind of ['terminal','breaker']) {
+  const point={id:'mount-'+kind+'-'+dx+'-'+dz,x:100,y:100};
+  frame.reachable=new Set([(2+dz)+':'+(2+dx)]);frame.stations=[[point,'', '#79d8ff',kind]];now+=16;renderer.render(frame);
+  const model=scene.getObjectByName('station:'+point.id+':'+kind),depth=kind==='breaker'?4.5:3;
+  assert(model.userData.wallMounted);
+  assert(Math.abs(Math.sin(model.rotation.y)-dx)<1e-8);assert(Math.abs(Math.cos(model.rotation.y)-dz)<1e-8);
+  const back=new THREE.Vector3(0,0,-depth).applyMatrix4(model.matrixWorld);
+  assert(Math.abs(back.x-(100+dx*20))<1e-8);assert(Math.abs(back.z-(100+dz*20))<1e-8,'Panel back is flush with wall');
+ }
+ const point={id:'inside-'+dx+'-'+dz,x:100,y:100};frame.reachable=new Set();
+ for(let r=0;r<7;r++)for(let c=0;c<7;c++)if(r!==2+dz||c!==2+dx)frame.reachable.add(r+':'+c);
+ frame.stations=[[point,'','#89cbd8','breaker']];renderer.render(frame);
+ const model=scene.getObjectByName('station:'+point.id+':breaker');
+ assert(Math.abs(Math.sin(model.rotation.y)+dx)<1e-8);assert(Math.abs(Math.cos(model.rotation.y)+dz)<1e-8,'Floor-side breaker faces away from wall');
+}
+frame.stations=[];frame.reachable=new Set();for(let r=0;r<7;r++)for(let c=0;c<7;c++)frame.reachable.add(r+':'+c);
+player.x=140;player.y=220;frame.eye=player;frame.predicted=player;state.blackoutActive=true;player.drone=null;renderer.render(frame);
+assert(scene.fog && scene.fog.near===48 && scene.fog.far===160,'Blackout has a bounded nearby view');
+const nearbyLight=scene.getObjectByName('blackout-nearby-light');assert(nearbyLight.visible);assert.deepEqual(nearbyLight.position.toArray(),camera.position.toArray());
+assert.equal(renderer.project(140,40,26).visible,false,'Distant labels do not float in darkness');
+assert.equal(renderer.project(140,180,26).visible,true,'Nearby points remain visible');
+player.x+=15;renderer.render(frame);assert.equal(nearbyLight.position.x,player.x,'Near illumination follows the player');
+player.drone={controlled:true};renderer.render(frame);assert.equal(scene.fog,null,'Drone retains night vision');assert(!nearbyLight.visible);
+player.drone=null;frame.nightVision=true;renderer.render(frame);assert.equal(scene.fog,null,'Drone aftermath retains night vision');
+frame.nightVision=false;state.blackoutActive=false;renderer.render(frame);assert.equal(scene.fog,null);assert(!nearbyLight.visible);
+assert.equal(scene.children.find(c=>c.isHemisphereLight).intensity,.75,'Lighting restores after power returns');
+console.log('Lab visibility passed: flush panels, four-way breakers, nearby blackout vision, moving light and drone/restoration lifecycle');
