@@ -335,66 +335,111 @@ function buildPrecisionSniper(T, parent, materials) {
   };
   const box=(name,w,h,d,m,x=0,y=0,z=0)=>mesh(name,new T.BoxGeometry(w,h,d),m,x,y,z);
   const tube=(name,r,length,m,x=0,y=0,z=0,r2=r)=>{
-    const o=mesh(name,new T.CylinderGeometry(r2,r,length,32,1),m,x,y,z);o.rotation.x=Math.PI/2;return o;
+    const o=mesh(name,new T.CylinderGeometry(r2,r,length,r<.02?16:32,1),m,x,y,z);o.rotation.x=Math.PI/2;return o;
   };
   const ring=(name,r,thickness,m,x,y,z)=>{
     const o=mesh(name,new T.TorusGeometry(r,thickness,8,32),m,x,y,z);return o;
   };
   // Side-profile extrusion gives the stock, chassis and grip continuous beveled edges.
-  const profile=(name,points,width,m)=>{
+  const profile=(name,points,width,m,holes=[])=>{
     const shape=new T.Shape();points.forEach(([z,y],i)=>i?shape.lineTo(z,y):shape.moveTo(z,y));shape.closePath();
-    const geo=new T.ExtrudeGeometry(shape,{depth:width,bevelEnabled:true,bevelSegments:2,steps:1,bevelSize:.004,bevelThickness:.004});
+    for(const outline of holes){const hole=new T.Path();outline.forEach(([z,y],i)=>i?hole.lineTo(z,y):hole.moveTo(z,y));hole.closePath();shape.holes.push(hole);}
+    const geo=new T.ExtrudeGeometry(shape,{depth:width,bevelEnabled:true,bevelSegments:width<.02?1:2,steps:1,bevelSize:.004,bevelThickness:.004});
     geo.rotateY(-Math.PI/2);geo.translate(width/2,0,0);
     return mesh(name,geo,m);
   };
-  profile('Chassis',[[-.13,.028],[.34,.028],[.39,-.028],[.31,-.082],[.01,-.084],[-.07,-.045],[-.13,-.045]],.084,'Sand');
+  // Stepped bedding block and separate action avoid one flat slab across the receiver.
+  profile('Chassis',[[-.13,.024],[.04,.024],[.07,.008],[.29,.008],[.34,-.018],[.29,-.072],[.075,-.074],[.045,-.092],[-.035,-.089],[-.075,-.052],[-.13,-.040]],.080,'Sand');
+  profile('LowerBedding',[[-.115,-.040],[.035,-.043],[.075,-.067],[.29,-.064],[.29,-.080],[.06,-.092],[-.07,-.074]],.065,'Black');
   tube('Receiver',.047,.35,'Steel',0,.034,.095);
-  box('EjectionPort',.006,.029,.105,'Black',-.048,.048,.13);
-  box('BoltInsidePort',.007,.012,.082,'Edge',-.052,.045,.13);
+  for(const side of [-1,1]){
+    const shoulder=profile('ActionShoulder',[[-.115,.029],[-.07,.065],[.235,.065],[.274,.035],[.265,.013],[-.105,.013]],.009,'Black');
+    shoulder.position.x=side*.046;
+    const scallop=profile('ReceiverScallop',[[-.07,.035],[-.052,.051],[.21,.051],[.232,.034],[.216,.025],[-.052,.025]],.002,'Steel');
+    scallop.position.x=side*.052;
+    const inset=profile('ChassisSideInset',[[-.076,-.025],[-.037,-.015],[.033,-.026],[.054,-.045],[.031,-.061],[-.055,-.051]],.002,'Black');
+    inset.position.x=side*.043;
+    const release=profile('MagazineRelease',[[.060,-.060],[.083,-.064],[.075,-.101],[.057,-.099]],.010,'Steel');
+    release.position.x=side*.041;
+    box('ReleaseRib',.003,.003,.014,'Edge',side*.048,-.086,.067);
+    const pocket=profile('MagazineWellPocket',[[.096,-.019],[.241,-.019],[.263,-.036],[.244,-.052],[.091,-.052],[.079,-.039]],.002,'Black');
+    pocket.position.x=side*.043;
+    const pocketFloor=profile('PocketFloor',[[.100,-.027],[.236,-.027],[.247,-.036],[.235,-.044],[.101,-.044],[.092,-.037]],.002,'Sand');
+    pocketFloor.position.x=side*.045;
+    box('ChassisMachinedLip',.003,.005,.19,'Edge',side*.043,-.068,.18);
+  }
+  box('EjectionPort',.008,.026,.105,'Black',-.055,.045,.13);
+  box('BoltInsidePort',.009,.010,.082,'Edge',-.059,.040,.13);
   tube('BoltShroud',.035,.055,'Black',0,.037,-.105);
   tube('BarrelCollar',.047,.065,'Black',0,.024,.31);
+  for(const z of [.288,.307,.326])ring('BarrelCollarStep',.047,.002,'Steel',0,.024,z);
   tube('FreeFloatingBarrel',.022,.78,'Steel',0,.01,.725,.026);
-  // Longitudinal flutes leave the cylindrical barrel silhouette intact.
   for(let i=0;i<8;i++){
     const a=i*Math.PI/4;
     const flute=box('BarrelFlute',.007,.003,.36,'Black',Math.sin(a)*.023,.01+Math.cos(a)*.023,.90);
     flute.rotation.z=-a;
   }
-  profile('Handguard',[[.30,.025],[.73,.025],[.75,-.015],[.70,-.065],[.34,-.065],[.30,-.043]],.088,'Sand');
-  for(const side of [-1,1]){
-    for(let i=0;i<6;i++){
-      // Inset slot plus a thin inner edge suggests a machined, recessed vent.
-      box('VentRim',.003,.022,.041,'Steel',side*.047,-.023,.37+i*.059);
-      box('VentRecess',.004,.013,.032,'Black',side*.049,-.023,.37+i*.059);
-    }
-    box('ForeEndEdge',.006,.006,.35,'Edge',side*.046,-.050,.52);
+  // Actual apertures in thin side walls reveal the barrel and the opposite side.
+  const ventHoles=[];
+  for(let i=0;i<5;i++){
+    const z=.365+i*.068;
+    ventHoles.push([[z,-.021],[z+.005,-.016],[z+.042,-.016],[z+.047,-.021],[z+.047,-.036],[z+.042,-.041],[z+.005,-.041],[z,-.036]]);
   }
+  for(const side of [-1,1]){
+    const panel=profile('PerforatedHandguard',[[.30,.012],[.70,.012],[.756,-.007],[.738,-.047],[.705,-.060],[.335,-.060],[.30,-.041]],.007,'Sand',ventHoles);
+    panel.position.x=side*.050;
+    const edge=profile('AngledHandguardShoulder',[[.305,.011],[.70,.011],[.746,-.004],[.727,-.012],[.322,-.009]],.012,'Sand');
+    edge.position.x=side*.043;edge.rotation.z=side*.24;
+    box('HandguardLowerEdge',.006,.008,.35,'Black',side*.048,-.057,.52);
+    for(const z of [.326,.715]){
+      const pin=mesh('HandguardFastener',new T.CylinderGeometry(.007,.007,.003,6),'Steel',side*.057,-.025,z);pin.rotation.z=Math.PI/2;
+    }
+  }
+  profile('HandguardFloor',[[.32,-.057],[.70,-.057],[.729,-.05],[.718,-.067],[.34,-.069]],.067,'Black');
+  box('UnderBarrelRail',.038,.009,.16,'Steel',0,-.074,.638);
+  for(let i=0;i<7;i++)box('UnderRailTooth',.046,.005,.012,'Black',0,-.081,.58+i*.019);
   box('ReceiverRail',.072,.014,.39,'Black',0,.091,.11);
   for(let i=0;i<19;i++)box('RailTooth',.080,.009,.012,'Steel',0,.101,-.065+i*.020);
-  // Adjustable skeleton stock, cheek rest and a grooved rubber recoil pad.
-  tube('StockSpine',.019,.27,'Black',0,-.012,-.26);
-  profile('SkeletonStock',[[-.14,-.012],[-.45,.002],[-.49,-.025],[-.49,-.14],[-.43,-.14],[-.40,-.074],[-.22,-.061]],.065,'Sand');
-  box('CheekRest',.086,.037,.22,'Sand',0,.043,-.33);
-  box('CheekRestTop',.080,.010,.20,'Rubber',0,.065,-.33);
+  // A genuine open stock frame, hinge and sliding pad replace the filled wedge.
+  tube('StockHinge',.028,.086,'Steel',0,-.022,-.141).rotation.set(0,0,Math.PI/2);
+  tube('HingePin',.009,.094,'Black',0,-.022,-.141).rotation.set(0,0,Math.PI/2);
+  profile('SkeletonStock',[[-.16,-.013],[-.44,-.008],[-.484,-.026],[-.487,-.133],[-.451,-.144],[-.40,-.105],[-.22,-.095],[-.16,-.044]],.062,'Sand',[
+    [[-.228,-.028],[-.423,-.026],[-.445,-.042],[-.423,-.095],[-.396,-.085],[-.243,-.077]]
+  ]);
+  profile('StockHeel',[[-.459,.012],[-.492,.003],[-.50,-.137],[-.477,-.149],[-.458,-.117]],.069,'Black');
+  tube('StockAdjustmentRail',.009,.20,'Steel',0,-.022,-.329);
+  profile('CheekRest',[[-.218,.032],[-.24,.051],[-.423,.051],[-.448,.031],[-.438,.018],[-.231,.018]],.076,'Sand');
+  profile('CheekRestTop',[[-.235,.051],[-.25,.061],[-.413,.061],[-.435,.050]],.077,'Rubber');
   for(const z of [-.39,-.26])tube('CheekRiser',.008,.049,'Edge',0,.017,z).rotation.x=0;
-  profile('ButtPad',[[-.50,.025],[-.525,.022],[-.535,-.145],[-.502,-.15]],.090,'Rubber');
-  for(let i=0;i<9;i++)box('ButtPadGroove',.087,.004,.004,'Black',0,.01-i*.017,-.532);
-  profile('PistolGrip',[[-.065,-.060],[.005,-.064],[-.013,-.206],[-.085,-.193],[-.107,-.17]],.057,'Rubber');
-  for(const side of [-1,1])for(let i=0;i<8;i++){
-    const rib=box('GripTexture',.003,.006,.049,'Black',side*.032,-.100-i*.011,-.047-i*.002);
-    rib.rotation.x=-.12;
+  for(const [z,y] of [[-.392,-.098],[-.267,-.032]]){
+    const dial=tube('StockAdjustmentDial',.016,.018,'Black',-.045,y,z);dial.rotation.set(0,0,Math.PI/2);
+    const cap=tube('StockDialCap',.010,.003,'Steel',-.056,y,z);cap.rotation.set(0,0,Math.PI/2);
   }
+  profile('ButtPad',[[-.50,.025],[-.521,.015],[-.535,-.123],[-.527,-.148],[-.502,-.15]],.084,'Rubber');
+  for(let i=0;i<9;i++)box('ButtPadGroove',.080,.004,.004,'Black',0,.003-i*.016,-.532);
+  // A curved palm swell, tapered heel and recessed side grips.
+  profile('PistolGrip',[[-.061,-.061],[-.013,-.069],[.001,-.092],[-.007,-.124],[-.018,-.162],[-.014,-.194],[-.034,-.209],[-.075,-.198],[-.091,-.181],[-.090,-.153],[-.081,-.119],[-.083,-.090]],.053,'Rubber');
+  for(const side of [-1,1]){
+    const grip=profile('GripSidePanel',[[-.056,-.095],[-.024,-.103],[-.034,-.160],[-.030,-.184],[-.062,-.181],[-.073,-.165]],.003,'Black');
+    grip.position.x=side*.030;
+    for(let i=0;i<7;i++){
+      const rib=box('GripTexture',.002,.003,.029,'Steel',side*.033,-.116-i*.009,-.046-i*.001);
+      rib.rotation.x=-.16;
+    }
+  }
+
   // A hollow trigger guard and curved trigger, rather than a solid block.
   const guardPoints=[[-.04,-.073],[.075,-.073],[.082,-.12],[.065,-.14],[-.01,-.14],[-.04,-.073]].map(([z,y])=>new T.Vector3(0,y,z));
   mesh('TriggerGuard',new T.TubeGeometry(new T.CatmullRomCurve3(guardPoints),24,.007,8,false),'Black');
   const triggerPoints=[[.025,-.073],[.018,-.10],[.027,-.12]].map(([z,y])=>new T.Vector3(0,y,z));
   mesh('Trigger',new T.TubeGeometry(new T.CatmullRomCurve3(triggerPoints),12,.004,8,false),'Edge');
   profile('Magazine',[[.105,-.08],[.22,-.08],[.21,-.19],[.11,-.187]],.062,'Black');
-  box('MagazineBase',.073,.014,.115,'Rubber',0,-.191,.16);
+  profile('MagazineBase',[[.10,-.184],[.217,-.184],[.224,-.197],[.103,-.199]],.070,'Rubber');
   for(const side of [-1,1])for(let i=0;i<3;i++)box('MagazineStamp',.003,.063,.005,'Steel',side*.034,-.14,.127+i*.028);
+  materials.SniperSand.normalScale.set(.008,.008);
   // Bolt handle sits on the right-hand side and has a turned, knurled knob.
   const bolt=tube('BoltHandle',.010,.079,'Edge',-.076,.020,-.065);bolt.rotation.set(0,0,-1.12);
-  mesh('BoltKnob',new T.SphereGeometry(.022,20,12),'Black',-.113,.001,-.065).scale.set(1,1.15,1);
+  mesh('BoltKnob',new T.SphereGeometry(.022,16,10),'Black',-.113,.001,-.065).scale.set(1,1.15,1);
   for(let i=0;i<5;i++)ring('BoltKnurl',.018,.0015,'Edge',-.113,-.012+i*.006,-.065).rotation.x=Math.PI/2;
   // Scope mounts leave a visible air gap above the receiver rail.
   for(const z of [-.012,.24]){

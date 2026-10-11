@@ -176,6 +176,12 @@ assert(precision && precision.children.length<=7,'Detailed rifle is batched to a
 const bounds=new THREE.Box3().setFromObject(precision);
 assert(bounds.max.z>1.24 && bounds.min.z<-.50,'Long barrel and adjustable stock have full-size silhouettes');
 assert(precisionMuzzle.position.z>bounds.max.z,'Shared tracer muzzle stays ahead of the open crown');
+const bodyView=precision.clone();bodyView.updateMatrixWorld(true);
+const throughBody=(y,z)=>new THREE.Raycaster(new THREE.Vector3(-.2,y,z),new THREE.Vector3(1,0,0)).intersectObject(bodyView,true);
+assert.equal(throughBody(-.028,.385).length,0,'Handguard slots are real openings through both side walls');
+assert(throughBody(-.055,.385).length>0,'Handguard keeps structural material around the opening');
+assert.equal(throughBody(-.055,-.30).length,0,'Stock frame has an open center rather than a painted recess');
+assert(throughBody(-.096,-.30).length>0,'Stock lower frame remains solid');
 let detailTriangles=0;
 for(const surface of precision.children){
  const a=surface.geometry.attributes;
