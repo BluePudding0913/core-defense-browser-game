@@ -177,7 +177,7 @@ function buildSoldier(THREE) {
     out.Rifle = { p: rp, q: rq };
     out.Head = { q: qe(u.headPitch || 0, u.headYaw || 0, 0) };
     const gR = GRIP_R.clone().applyQuaternion(rq).add(rp);
-    const gL = GRIP_L.clone().applyQuaternion(rq).add(rp);
+    const gL = (currentWeapon==='bat' ? new V(0,-.055,.09) : GRIP_L).clone().applyQuaternion(rq).add(rp);
     const [rU, rL] = solveArm(shoulderPos.R, gR, u.poleR, UPPER_ARM, LOWER_ARM);
     const [lU, lL] = solveArm(shoulderPos.L, gL, u.poleL, UPPER_ARM, LOWER_ARM);
     out.UpperArm_R = { q: rU }; out.LowerArm_R = { q: rL };
@@ -277,7 +277,22 @@ function buildSoldier(THREE) {
     if (r.p) o.position.copy(r.p);
   });
 
-  return { root, clips, materials: mats, setWeapon };
+  function poseBat(age=Infinity) {
+    // Both hands follow the handle; a short wind-up, strike and recovery replace whole-body rolling.
+    const frames=[[0,0],[.07,-.25],[.18,1],[.48,0]];
+    let amount=0;
+    for(let i=1;i<frames.length;i++)if(age>=frames[i-1][0] && age<frames[i][0]) {
+      const t=(age-frames[i-1][0])/(frames[i][0]-frames[i-1][0]);
+      amount=frames[i-1][1]+(frames[i][1]-frames[i-1][1])*(t*t*(3-2*t));break;
+    }
+    const u=aimed();u.riflePos.set(-.23+.3*amount,.64-.16*amount,.27+.08*amount);
+    u.riflePitch=-.95+1.05*amount;u.rifleYaw=-.35+1.5*amount;u.rifleRoll=-.12-.22*amount;
+    const pose={};upperBody(pose,-.25,u);
+    for(const [name,value] of Object.entries(pose)) {
+      const part=root.getObjectByName(name);if(value.p)part.position.copy(value.p);if(value.q)part.quaternion.copy(value.q);
+    }
+  }
+  return { root, clips, materials: mats, setWeapon, poseBat };
 }
 
 window.buildSoldier = buildSoldier;

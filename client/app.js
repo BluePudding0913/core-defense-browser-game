@@ -351,7 +351,7 @@ function connect() {
         if (message.type === "ammo-refilled") {
             window.coreAudio?.play("refill", 0);
             if (!activeMenuAccess?.refresh) closeActionMenu();
-            inventoryMenu.classList.add("hidden");
+            closeInventory();
         }
         if (message.type === "error" && !welcomed && connectionTarget.mode !== "directory" && window.coreMenu) {
             window.coreReconnect?.forget(clientSessionId, connectionTarget.roomId);
@@ -975,7 +975,7 @@ actionMenu.addEventListener("pointerdown", event => {
 });
 inventoryMenu.addEventListener("pointerdown", event => {
     if (!event.target.closest(".inventory-popover, [data-inventory-item]")) closeInventoryPopover();
-    if (event.target === inventoryMenu) inventoryMenu.classList.add("hidden");
+    if (event.target === inventoryMenu) closeInventory();
 });
 inventoryMenu.addEventListener("scroll", closeInventoryPopover, true);
 howToStart.addEventListener("click", openHowTo);
@@ -1308,17 +1308,30 @@ inventoryItems.addEventListener("pointerup", event => finishInventoryDrag(event,
 inventoryItems.addEventListener("pointercancel", event => finishInventoryDrag(event, false));
 inventoryItems.addEventListener("lostpointercapture", event => finishInventoryDrag(event, false));
 
+function resumeGameLook() {
+    if(typeof fpsInput === "undefined" || !fpsInput || !["preparing","wave"].includes(state?.phase)
+        || exitDialog.open || !actionMenu.classList.contains("hidden") || !inventoryMenu.classList.contains("hidden")
+        || !howToMenu.classList.contains("hidden") || window.coreMenu?.settingsOpen?.() || window.JobUI?.isConfirming?.() || getMe()?.missileControl)return;
+    fpsInput.setActive(true);
+    fpsInput.capture();
+}
+function closeInventory() {
+    inventoryMenu.classList.add("hidden");
+    closeInventoryPopover();
+    resumeGameLook();
+}
 function toggleInventory() {
     closeInventoryPopover();
     endInteractionHold(true);
     if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
     if (secondaryHeld) stopSecondaryFiring();
     if (!inventoryMenu.classList.contains("hidden")) {
-        inventoryMenu.classList.add("hidden");
+        closeInventory();
         return;
     }
-    closeActionMenu();
+    closeActionMenu(false);
     inventoryMenu.classList.remove("hidden");
+    fpsInput?.setActive(false,true);
 }
 
 function setDash(active) {
@@ -1504,6 +1517,7 @@ function openActionMenu(title, options, layout = "default") {
         }
     });
     actionMenu.classList.remove("hidden");
+    fpsInput?.setActive(false,true);
 }
 
 function openNearbyActionMenu(title, options, target, range, layout = "default", refresh = null) {
@@ -1546,10 +1560,11 @@ function hasInteractionPath(me, target) {
     return true;
 }
 
-function closeActionMenu() {
+function closeActionMenu(restore=true) {
     activeMenuAccess = null;
     actionMenu.classList.add("hidden");
     actionMenu.classList.remove("single-action");
+    if(restore)resumeGameLook();
 }
 
 function requestJobChange(job) {
@@ -2631,6 +2646,7 @@ function drawFirstPerson() {
         }
     }
     if(playing && !menusOpen && typeof CombatFeedback!=='undefined') {ctx.save();ctx.scale(dpr,dpr);CombatFeedback.drawHitMarker(ctx,now,innerWidth/2,innerHeight/2);ctx.restore();}
+    if(playing && !menusOpen) {ctx.save();ctx.scale(dpr,dpr);window.MiniMap?.draw(ctx,{map:TILE_MAP,reachable:reachableFloorTiles(),player:predictedLocal || me,yaw:fpsInput.view.yaw,state,spawns:SPAWN_POINTS,breakers:BREAKER_TERMINALS,width:innerWidth,height:innerHeight});ctx.restore();}
     drawDamageEdges();drawJoystick();drawRewindScreen();
 }
 
@@ -3780,8 +3796,13 @@ function labStations() {
         if (!p.requiredArea || state.areas[p.requiredArea]) stations.push([p, '', '#89cbd8']);
     const tripped = new Set(state.trippedBreakers || []);
     for (const p of BREAKER_TERMINALS) if (!p.requiredArea || state.areas[p.requiredArea])
-        stations.push([p, '', state.blackoutActive && tripped.has(p.id) ? '#ff5964' : '#89cbd8', 'breaker']);
+        stations.push([p, state.blackoutActive && tripped.has(p.id) ? 'RESET' : 'POWER', state.blackoutActive && tripped.has(p.id) ? '#ff5964' : '#89cbd8', 'breaker']);
     const reachable = reachableFloorTiles(), size = TILE_MAP.tileSize;
+    for(const p of SPAWN_POINTS) {
+        if(p.id.startsWith('area-') && !state.areas[p.id.slice(5).split(':')[0]])continue;
+        const active=state.phase==='wave' && (state.activeSpawns || []).includes(p.id);
+        stations.push([p,active?'INCOMING':'ENTRY',active?'#ff5964':'#e2aa69','spawn']);
+    }
     for (const area of AREAS) {
         const c = Math.floor(area.terminalX / size), r = Math.floor(area.terminalY / size);
         if (!state.areas[area.id] && [[0,0],[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy]) => reachable.has((r+dy)+':'+(c+dx))))

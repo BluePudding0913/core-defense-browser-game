@@ -96,7 +96,7 @@ const end = source.indexOf('\n        if (message.type === "error"',start);
 const sounds = [];
 vm.runInNewContext(source.slice(start,end), {message:{type:'ammo-refilled'},
     window:{coreAudio:{play:(...args)=>sounds.push(args)}},activeMenuAccess:{refresh(){}},
-    inventoryMenu:{classList:{add(){}}},closeActionMenu(){assert.fail('refill retains the shop');}});
+    closeInventory(){},inventoryMenu:{classList:{add(){}}},closeActionMenu(){assert.fail('refill retains the shop');}});
 assert.deepEqual(sounds, [['refill',0]]);
 console.log('Combat feedback passed: individual hit rewards, separate label placement, independent expiry, no HS text and refill sound');
 

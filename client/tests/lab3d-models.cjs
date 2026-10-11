@@ -129,8 +129,10 @@ frame.eye=player;frame.motion={moving:false};frame.effects=[];player.healRemaini
 const heal=find('heal:me');assert.equal(heal.geometry.type,'PlaneGeometry');assert.equal(heal.scale.x*2,120);assert.equal(heal.scale.y*2,120);
 player.weapon='sniper';frame.view={yaw:0,pitch:0,zoom:true};frame.scoped=true;renderer.render(frame);assert.equal(camera.fov,20);
 frame.scoped=false;frame.view.zoom=false;player.jumpHeight=24;renderer.render(frame);assert.equal(camera.position.y,50);player.jumpHeight=0;
+player.weapon='bat';frame.effects=[];renderer.render(frame);const batRest=viewScene.getObjectByName('Rifle').quaternion.clone();
 frame.effects=[{effect:'hit',weapon:'bat',playerId:'me',fromX:100,fromY:100,x:100,y:60,damage:0,started:now}];renderer.render(frame);
-assert(!scene.children.some(o=>o.name.startsWith('special:')),'Bat never creates a blue beam');assert(viewScene.getObjectByName('Soldier').rotation.z<0,'Bat swings the viewmodel');
+assert(!scene.children.some(o=>o.name.startsWith('special:')),'Bat never creates a blue beam');now+=180;renderer.render(frame);assert(viewScene.getObjectByName('Rifle').quaternion.angleTo(batRest)>.5,'Bat sweeps through the view');assert.equal(viewScene.getObjectByName('Soldier').rotation.z,0,'Swing never rolls the entire player');
+now+=500;frame.effects=[];renderer.render(frame);assert(viewScene.getObjectByName('Rifle').quaternion.angleTo(batRest)<1e-6,'Bat returns smoothly to ready');player.weapon='sniper';
 frame.effects=[{effect:'hit',weapon:'sniper',playerId:'me',fromX:100,fromY:100,x:100,y:60,damage:0,started:now+30}];now+=30;renderer.render(frame);assert(viewCamera.rotation.x<0,'Shot produces slight viewmodel recoil');
 const thick=scene.children.find(o=>o.name==='muzzle-tracer');assert(thick.children[0].isMesh);assert.equal(thick.children[0].scale.x,.35,'Visible thick red tracer');
 frame.effects=[];frame.motion.moving=true;player.y-=4;now+=50;renderer.render(frame);assert(Math.abs(camera.rotation.z)>0,'Walking gently sways camera');

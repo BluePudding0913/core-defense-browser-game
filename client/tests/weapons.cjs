@@ -136,7 +136,7 @@ Object.assign(context, {
     document: { querySelector: () => ({}), createElement: () => ({
         dataset: {}, click() { this.onclick?.(); },
     }) },
-    updateWorkbenchMaterials() {}, escapeHtml: value => value,
+    fpsInput:null, updateWorkbenchMaterials() {}, escapeHtml: value => value,
     canUseNearby: () => true, send: command => sent.push(command),
     closeActionMenu() { closed++; classes.add('hidden'); },
 });

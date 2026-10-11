@@ -235,11 +235,18 @@ window.Lab3D = (() => {
                     box(root, 18, 18, 2, color, 0, 23, 4, true);
                     for(const x of [-11,11])box(root, 2, 28, 2, '#65d6ee', x, 20, 4, true);
                     box(root, 16, 3, 3, '#172832', 0, 10, 5);
+                } else if (kind === 'spawn') {
+                    box(root, 34, 2, 34, '#292d32',0,1);
+                    for(const x of [-15,15])box(root,3,38,3,color,x,19,15,true);
+                    box(root,33,3,3,color,0,38,15,true);
+                    for(const z of [-10,0,10])box(root,25,1,2,color,0,2.5,z,true);
                 } else if (kind === 'breaker') {
                     box(root, 20, 29, 9, '#7b909b');
                     box(root, 15, 24, 2, '#d2dce1', 0, 16, 5);
                     box(root, 4, 10, 3, '#34454f', 0, 16, 7);
-                    box(root, 6, 3, 3, color, 0, 24, 7, true);
+                    box(root, 12, 4, 3, color, 0, 24, 7, true);
+                    for(const x of [-11,11])box(root,2,29,3,color,x,15,5,true);
+                    const lever=box(root,6,3,5,'#34454f',0,16,9);lever.rotation.x=color==='#ff5964'?.6:-.6;
                 } else {
                     box(root, 32, 5, 30, '#354855');
                     box(root, 28, 21, 24, '#426577', 0, 15);
@@ -553,7 +560,7 @@ window.Lab3D = (() => {
                 objects.delete(key);
             }
         }
-        let lastFrame = performance.now(), walkPhase=0, walkBlend=0, recoil=0, sniperRecoil=0, batSwing=0, lastKickAt=-Infinity, lastWalkPoint=null;
+        let lastFrame = performance.now(), walkPhase=0, walkBlend=0, recoil=0, sniperRecoil=0, batSwingAt=-Infinity, lastKickAt=-Infinity, lastWalkPoint=null;
         const kickedEffects=new WeakSet();
         function render(frame) {
             const { map, reachable, center, scale, state, localId, predicted, smooth, radius, stations, aim, effects = [] } = frame;
@@ -571,11 +578,11 @@ window.Lab3D = (() => {
                 Math.hypot(walkPoint.x-lastWalkPoint.x,walkPoint.y-lastWalkPoint.y)*.032,dt*6);
             lastWalkPoint={x:walkPoint.x,y:walkPoint.y};
             walkBlend+=((walking?1:0)-walkBlend)*(1-Math.exp(-12*dt));
-            recoil*=Math.exp(-18*dt);sniperRecoil*=Math.exp(-7*dt);batSwing*=Math.exp(-9*dt);
+            recoil*=Math.exp(-18*dt);sniperRecoil*=Math.exp(-7*dt);
             if(frame.motion) for(const effect of effects) if(effect.playerId===localId && effect.effect==='hit' && effect.damage===0 && now-effect.started<120 && !kickedEffects.has(effect)) {
                 kickedEffects.add(effect);
                 if(effect.weapon==='sniper'){sniperRecoil=Math.min(1.35,sniperRecoil+1);view.pitch=Math.min(1.2,view.pitch+.045);view.yaw+=(Math.sin(effect.started*1.7)>=0?1:-1)*.008;}
-                else if(effect.weapon==='bat')batSwing=1;
+                else if(effect.weapon==='bat')batSwingAt=now;
                 else if(now-lastKickAt>25){recoil=Math.min(1,recoil+.65);lastKickAt=now;}
             }
             const firingRail=me?.railgunRemaining>0 || me?.secondaryRailgunRemaining>0;
@@ -598,7 +605,9 @@ window.Lab3D = (() => {
             viewCamera.rotation.x=-recoil*.035-sniperRecoil*.12;
             sniperKey.visible=sniperFill.visible=me?.weapon==='sniper';
             viewModel.setWeapon(me?.weapon || 'pistol');viewMixer.update(dt);
-            viewModel.root.rotation.z=-batSwing*.45;
+            viewModel.root.rotation.z=0;
+            if(me?.weapon==='bat')viewModel.poseBat((now-batSwingAt)/1000);
+            else batSwingAt=-Infinity;
             viewVisible=!!me && !frame.scoped && !me.down && !me.movingCore && !me.selectedBuild && !me.drone?.controlled && !me.missileControl;
             viewModel.root.visible=viewVisible;
             sun.position.set(center.x - 300, 700, center.y - 250); sun.target.position.set(center.x, 0, center.y);

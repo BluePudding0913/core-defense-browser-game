@@ -50,3 +50,8 @@ input.cycleScope();assert.equal(input.view.scopeLevel,1);assert(input.view.zoom)
 input.cycleScope();assert.equal(input.view.scopeLevel,2);assert(input.view.zoom);
 input.cycleScope();assert.equal(input.view.scopeLevel,0);assert(!input.view.zoom);
 input.cycleScope();input.release();assert.equal(input.view.scopeLevel,0);
+
+// Mouse settings multiply relative deltas, with scope scaling retained and touch unchanged.
+input.setActive(true);input.capture();move(0);input.view.scoped=false;
+context.window.coreMouseSettings={get:()=>2};let startYaw=input.view.yaw;move(10);assert(Math.abs(input.view.yaw-startYaw-.048)<1e-8);
+input.view.scoped=true;input.view.scopeLevel=2;startYaw=input.view.yaw;move(10);assert(Math.abs(input.view.yaw-startYaw-.0084)<1e-8);

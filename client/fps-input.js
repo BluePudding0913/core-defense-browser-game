@@ -37,7 +37,7 @@ window.FPSInput = {
         canvas.addEventListener('mousemove',e=>{
             if(!active || !locked())return;
             if(skipMouseMove){skipMouseMove=false;return;}
-            if(Number.isFinite(e.movementX)&&Number.isFinite(e.movementY))look(e.movementX,e.movementY);
+            if(Number.isFinite(e.movementX)&&Number.isFinite(e.movementY))look(e.movementX,e.movementY,.0024*(window.coreMouseSettings?.get() ?? 1));
         });
         canvas.addEventListener('pointermove',e=>{if(active&&e.pointerType!=='mouse'&&touch?.id===e.pointerId){look(e.clientX-touch.x,e.clientY-touch.y,.006);touch.x=e.clientX;touch.y=e.clientY;}});
         canvas.addEventListener('pointerdown',e=>{if(active&&e.pointerType==='touch'&&e.clientX>innerWidth*.42)touch={id:e.pointerId,x:e.clientX,y:e.clientY};});
