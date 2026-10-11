@@ -72,10 +72,18 @@ class SniperCombatTest {
         game.handleMessage(player,"FIRE:"+(player.x+200)+":"+player.y+":0:0:0");
         assertFalse(player.firing);assertNull(player.sniper.inputTime);
     }
-    @Test void pistolTrajectoryRemainsStraightAndSecondaryFireCannotBorrowTheProneBonus() throws Exception {
+    @Test void firingNeverResetsConcentrationTime() {
+        prone();player.sniper.advance(90,()->.8);double elapsed=player.sniper.elapsed;
+        fire(Double.toString(elapsed),0);assertEquals(elapsed,player.sniper.elapsed);
+        assertEquals(.675,SniperRules.stability(player.sniper.elapsed),1e-9);
+        player.firing=false;game.update(1);assertEquals(elapsed+1,player.sniper.elapsed,1e-9);
+        assertTrue(SniperRules.stability(player.sniper.elapsed)<.675);assertTrue(player.sniper.fixed);
+    }
+    @Test void pistolSamplesItsConeAndSecondaryFireCannotBorrowTheProneBonus() throws Exception {
         player.equipWeapon("pistol");game.handleMessage(player,"FIRE:"+(player.x+200)+":"+player.y+":1:0");
         var trace=new ObjectMapper().readTree(messages.stream().filter(s->s.contains("\"effect\":\"hit\"")).findFirst().orElseThrow());
-        assertEquals(player.y,trace.path("y").asDouble(),.01);assertEquals(26,trace.path("hitHeight").asDouble());
+        double distance=Math.hypot(trace.path("x").asDouble()-player.x,trace.path("y").asDouble()-player.y);
+        assertTrue(Math.hypot(trace.path("y").asDouble()-player.y,trace.path("hitHeight").asDouble()-26)<=distance*ShotSpreadRules.slope("pistol")+.01);
         player.firing=false;player.equipWeapon("sniper");player.job="attacker";prone();int ammo=player.weapons.ammo("sniper");
         game.handleMessage(player,"SECONDARY_FIRE:"+(player.x+200)+":"+player.y+":1:0");assertEquals(ammo,player.weapons.ammo("sniper"));assertTrue(player.sniper.fixed);
     }

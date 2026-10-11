@@ -16,6 +16,7 @@ class RocketAndBalanceTest {
             public void broadcast(String message) { effects.add(message); }
             public void send(Player recipient, String message) { }
         });
+        CombatTestRandom.center(game);
         player = game.connectPlayer("rocket-test");
         game.setRoomOwner(player);
         game.handleMessage(player, "ROOM_READY:1");

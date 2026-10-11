@@ -2614,19 +2614,21 @@ function drawFirstPerson() {
         ctx.save();ctx.scale(dpr,dpr);
         const x=innerWidth/2,y=innerHeight/2,r=Math.min(innerWidth,innerHeight)*.42;
         ctx.fillStyle='#020406';ctx.beginPath();ctx.rect(0,0,innerWidth,innerHeight);ctx.arc(x,y,r,0,Math.PI*2,true);ctx.fill('evenodd');
-        ctx.strokeStyle='#111a1e';ctx.lineWidth=1;ctx.beginPath();
+        if(me?.weapon!=='sniper'){ctx.strokeStyle='#111a1e';ctx.lineWidth=1;ctx.beginPath();
         for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]){ctx.moveTo(x+dx*12,y+dy*12);ctx.lineTo(x+dx*r,y+dy*r);}ctx.stroke();
-        ctx.fillStyle='#ff5b63';ctx.fillRect(x-1,y-1,2,2);ctx.restore();
+        ctx.fillStyle='#ff5b63';ctx.fillRect(x-1,y-1,2,2);}ctx.restore();
     }
     if(state.blackoutActive && !droneCameraView()){
         const shade=ctx.createRadialGradient(canvas.width/2,canvas.height/2,0,canvas.width/2,canvas.height/2,canvas.width*.65);
         shade.addColorStop(0,'rgba(0,5,10,0)');shade.addColorStop(1,'rgba(0,5,10,.45)');ctx.fillStyle=shade;ctx.fillRect(0,0,canvas.width,canvas.height);
     }
-    if(playing && !menusOpen && !scoped){ctx.save();ctx.scale(dpr,dpr);window.coreReticleSettings.draw(ctx,innerWidth/2,innerHeight/2);ctx.restore();}
-    if(playing && !menusOpen && me?.weapon==='sniper' && !me.down && !me.selectedBuild && !me.drone?.controlled) {
-        ctx.save();ctx.scale(dpr,dpr);
-        window.SniperAim.draw(ctx,innerWidth/2,innerHeight/2,innerHeight,scoped?(fpsInput.view.scopeLevel===2?10:20):fpsInput.view.zoom?48:72,window.SniperAim.sample(me,now));
-        ctx.restore();
+    if(playing && !menusOpen && (!scoped || me?.weapon==='sniper') && !me?.sniper?.fixed){ctx.save();ctx.scale(dpr,dpr);window.coreReticleSettings.draw(ctx,innerWidth/2,innerHeight/2);ctx.restore();}
+    if(playing && !menusOpen && !me.down && !me.selectedBuild && !me.drone?.controlled) {
+        const spread=me.weapon==='sniper'?window.SniperAim.sample(me,now):{slope:WEAPON_FIELDS[me.weapon]?.spreadSlope || 0};
+        if(spread.slope>0 && (DEBUG_MODE || me.weapon==='sniper' && me.sniper?.fixed)) {
+            const fov=scoped?(me.weapon==='sniper'?(fpsInput.view.scopeLevel===2?10:20):me.weapon==='rifle'?32:26):fpsInput.view.zoom?48:72;
+            ctx.save();ctx.scale(dpr,dpr);window.SniperAim.draw(ctx,innerWidth/2,innerHeight/2,innerHeight,fov,spread,DEBUG_MODE?'#438fff':'#e1e8e5');ctx.restore();
+        }
     }
     if(playing && !menusOpen && typeof CombatFeedback!=='undefined') {ctx.save();ctx.scale(dpr,dpr);CombatFeedback.drawHitMarker(ctx,now,innerWidth/2,innerHeight/2);ctx.restore();}
     drawDamageEdges();drawJoystick();drawRewindScreen();

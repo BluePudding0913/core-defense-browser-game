@@ -22,6 +22,7 @@ class GameSessionTest {
     void setUp() {
         events = new RecordingEvents();
         game = new GameSession(events);
+        CombatTestRandom.center(game);
         player = game.connectPlayer("test-session-a");
         assertNotNull(player);
         game.setRoomOwner(player);

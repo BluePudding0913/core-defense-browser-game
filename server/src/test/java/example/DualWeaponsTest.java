@@ -67,7 +67,9 @@ class DualWeaponsTest extends JobsTest {
     }
 
     @Test void rightRailgunChargesAndStopsWithoutInterruptingLeftFire() {
-        start("attacker"); player.weapons.grant("smg"); player.weapons.grant("railgun");
+        start("attacker");
+        CombatTestRandom.center(game);
+        player.weapons.grant("smg"); player.weapons.grant("railgun");
         game.handleMessage(player, "WEAPON:smg");
         game.handleMessage(player, "SECONDARY_WEAPON:railgun");
         int rounds = player.weapons.ammo("railgun");

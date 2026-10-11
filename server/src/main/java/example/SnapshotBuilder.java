@@ -132,6 +132,7 @@ final class SnapshotBuilder {
             if (!first) json.append(','); first=false;
             json.append("{\"id\":\"ally-").append(shot.id).append("\",\"source\":\"ally\",\"x\":").append(shot.x)
                 .append(",\"y\":").append(shot.y).append(",\"angle\":").append(Math.atan2(shot.dy,shot.dx))
+                .append(",\"height\":").append(shot.fps?shot.height:16).append(",\"slope\":").append(shot.slope)
                 .append(",\"speed\":").append(CombatSystem.ROCKET_SPEED).append('}');
         }
         json.append(']');
@@ -165,6 +166,7 @@ final class SnapshotBuilder {
                 .append(",\"price\":").append(shop == null ? 0 : shop.cost()).append(",\"refillCost\":").append(GameSession.ammoRefillCost(key))
                 .append(",\"gachaOnly\":").append(definition.gachaOnly())
                 .append(",\"meleeSlot\":").append(definition.meleeSlot())
+                .append(",\"spreadSlope\":").append(ShotSpreadRules.slope(key))
                 .append(",\"width\":").append(stats.width())
                 .append(",\"damage\":").append(stats.damage()).append(",\"range\":").append(stats.range())
                 .append(",\"cooldown\":").append(stats.cooldown()).append(",\"ammoPerShot\":").append(1)

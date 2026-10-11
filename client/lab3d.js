@@ -461,7 +461,7 @@ window.Lab3D = (() => {
         }
         function renderCombat(frame,now) {
             const {state,smooth}=frame;
-            for(const shot of state.projectiles || []) {const p=smooth('projectile',shot),dx=Math.cos(shot.angle),dy=Math.sin(shot.angle);beam('projectile:'+shot.id,new T.Vector3(p.x-dx*20,16,p.y-dy*20),new T.Vector3(p.x,16,p.y),shot.source==='enemy'?'#ff7050':'#69dfff',1.5);}
+            for(const shot of state.projectiles || []) {const p=smooth('projectile',shot),dx=Math.cos(shot.angle),dy=Math.sin(shot.angle);beam('projectile:'+shot.id,new T.Vector3(p.x-dx*20,(shot.height ?? 16)-(shot.slope || 0)*20,p.y-dy*20),new T.Vector3(p.x,shot.height ?? 16,p.y),shot.source==='enemy'?'#ff7050':'#69dfff',1.5);}
             for(const shell of state.artilleryShells || []) {ring('shell:'+shell.id,shell.x,shell.y,shell.radius,'#7edc7a');const remaining=shell.remaining-Math.max(0,(now-(state.artilleryReceivedAt || now))/1000);const progress=Math.max(0,Math.min(1,1-remaining/shell.duration));const x=shell.sourceX+(shell.x-shell.sourceX)*progress,y=shell.sourceY+(shell.y-shell.sourceY)*progress;beam('shell-body:'+shell.id,new T.Vector3(x,5+Math.sin(progress*Math.PI)*65,y),new T.Vector3(x,12+Math.sin(progress*Math.PI)*65,y),'#7edc7a',3);}
             for(const [i,strike] of (state.missiles || []).entries()) {
                 missileRadius=strike.radius || 120;

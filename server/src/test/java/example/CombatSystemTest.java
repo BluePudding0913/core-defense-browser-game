@@ -31,7 +31,7 @@ class CombatSystemTest {
     @Test void combatRewardsUseTheWeaponMultiplierAndNeverRepeatAfterDeath() {
         for (var weapon : WeaponCatalog.ALL) {
             var world = new World();
-            var combat = new CombatSystem(world, new Events());
+            var combat = new CombatSystem(world, new Events(), () -> 0);
             var player = shooter(weapon.id(), false);
             var enemy = new Enemy(1, "grunt", GameMap.SPAWN_POINTS.get(0), 100, 0, 0, 100);
             combat.damageEnemy(enemy, 1000, player);
@@ -45,7 +45,7 @@ class CombatSystemTest {
     @Test void missilesHaveTheirOwnRewardRateRegardlessOfEquippedWeapon() {
         for (String weapon : List.of("bat", "pistol", "railgun")) {
             var world = new World(); world.active = true;
-            var combat = new CombatSystem(world, new Events());
+            var combat = new CombatSystem(world, new Events(), () -> 0);
             var player = shooter(weapon, false);
             var enemy = new Enemy(1, "grunt", GameMap.SPAWN_POINTS.get(0), 100, 0, 0, 100);
             enemy.x = 1100; enemy.y = 1900; world.enemies.add(enemy);
@@ -56,7 +56,7 @@ class CombatSystemTest {
 
     @Test void subWeaponRewardsUseTheSubWeaponRateAndSnapshotsPublishRates() throws Exception {
         var world = new World(); world.active = true;
-        var combat = new CombatSystem(world, new Events());
+        var combat = new CombatSystem(world, new Events(), () -> 0);
         var player = shooter("smg", false); player.job = "attacker";
         player.equipWeapon("bat"); player.equipSecondaryWeapon("smg");
         var enemy = new Enemy(1, "grunt", GameMap.SPAWN_POINTS.get(0), 18, 0, 0, 100);
@@ -78,7 +78,7 @@ class CombatSystemTest {
             double[] damage = new double[2];
             for (int hand = 0; hand < 2; hand++) {
                 var world = new World(); world.active = true;
-                var combat = new CombatSystem(world, new Events());
+                var combat = new CombatSystem(world, new Events(), () -> 0);
                 var player = shooter(weapon, true);
                 var enemy = target(world, 1, 1100);
                 int ammo = player.weapons.ammo(weapon);
@@ -128,7 +128,7 @@ class CombatSystemTest {
             double[] damage = new double[2];
             for (int variant = 0; variant < 2; variant++) {
                 var world = new World(); world.active = true;
-                var combat = new CombatSystem(world, new Events());
+                var combat = new CombatSystem(world, new Events(), () -> 0);
                 var player = shooter(weapon, variant == 1);
                 var first = target(world, 1, 1100);
                 var second = target(world, 2, 1180);
@@ -146,7 +146,7 @@ class CombatSystemTest {
 
     @Test void silverIsSpentOnMissesButNotBlockedOrEmptyShotsAndLastRoundKeepsItsBoost() {
         var world = new World(); world.active = true;
-        var combat = new CombatSystem(world, new Events());
+        var combat = new CombatSystem(world, new Events(), () -> 0);
         var player = shooter("smg", true);
         player.cooldown = 1; combat.attackAt(player, 1400, 1900);
         assertEquals(20, player.weapons.silverAmmo());
@@ -172,7 +172,7 @@ class CombatSystemTest {
             double[] damage = new double[2];
             for (int variant = 0; variant < 2; variant++) {
                 var world = new World(); world.active = true;
-                var combat = new CombatSystem(world, new Events());
+                var combat = new CombatSystem(world, new Events(), () -> 0);
                 var player = shooter(weapon, variant == 1);
                 var enemy = target(world, 1, 1100);
                 player.firing = true; player.aimX = 1100; player.aimY = 1900;
@@ -186,7 +186,7 @@ class CombatSystemTest {
             assertEquals(damage[0], damage[1], 1e-7, weapon);
         }
         var world = new World(); world.active = true;
-        var combat = new CombatSystem(world, new Events());
+        var combat = new CombatSystem(world, new Events(), () -> 0);
         var player = shooter("pistol", true);
         var enemy = target(world, 1, 1100);
         combat.missileImpact(player, 1100, 1900);
@@ -196,7 +196,7 @@ class CombatSystemTest {
 
     @Test void secondaryPistolAndDroneShareSilverAmmoWithTheOwner() {
         var world = new World(); world.active = true;
-        var combat = new CombatSystem(world, new Events());
+        var combat = new CombatSystem(world, new Events(), () -> 0);
         var player = shooter("smg", true); player.job = "attacker"; player.equipSecondaryWeapon("pistol");
         var enemy = target(world, 1, 1100);
         combat.attackSecondary(player, 1400, 1900);
@@ -257,7 +257,7 @@ class CombatSystemTest {
             var world = new World();
             world.active = true;
             var events = new Events();
-            var combat = new CombatSystem(world, events);
+            var combat = new CombatSystem(world, events, () -> 0);
             var player = new Player(1);
             player.x = origins[i][0]; player.y = origins[i][1];
             player.weapons.grant("ricochet");
@@ -273,7 +273,7 @@ class CombatSystemTest {
 
     @Test void damageRewardsAndDeathCallbackWorkWithoutGameSessionOrTransport() {
         var world = new World();
-        var combat = new CombatSystem(world, new Events());
+        var combat = new CombatSystem(world, new Events(), () -> 0);
         var player = new Player(1);
         var enemy = new Enemy(1, "grunt", GameMap.SPAWN_POINTS.get(0), 100, 0, 0, 100);
         assertEquals(25, combat.damageEnemy(enemy, 25, player));
@@ -293,7 +293,7 @@ class CombatSystemTest {
     @Test void blockedAndEmptyAttacksDoNotSpendAmmoOrStartCooldown() {
         var world = new World();
         var events = new Events();
-        var combat = new CombatSystem(world, events);
+        var combat = new CombatSystem(world, events, () -> 0);
         var player = new Player(1);
         assertTrue(player.weapons.buySilverAmmo(1));
         player.weapons.grant("smg");

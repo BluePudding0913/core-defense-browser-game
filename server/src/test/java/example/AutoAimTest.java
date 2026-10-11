@@ -15,6 +15,7 @@ class AutoAimTest {
         game.unlockedAreas.addAll(GameMap.AREAS.stream().map(UnlockArea::id).toList());
         game.phase = GamePhase.WAVE;
         player.x = 1020; player.y = 1900;
+        CombatTestRandom.center(game);
         return game;
     }
     Enemy enemy(int id, double x, double y) {

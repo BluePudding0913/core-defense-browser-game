@@ -18,6 +18,7 @@ class SpyFriendlyFireTest {
             public void broadcast(String message) { messages.add(message); }
             public void send(Player player, String message) { }
         });
+        CombatTestRandom.center(game);
         game.phase = GamePhase.WAVE;
         game.players.forEach(player -> { player.human = true; player.x = 980; player.y = 1820; });
         shooter = game.players.get(0); shooter.x = 1020; shooter.y = 1900;

@@ -17,6 +17,7 @@ class DroneLoadoutTest {
             public void broadcast(String message) { effects.add(message); }
             public void send(Player p, String message) { effects.add(message); }
         });
+        CombatTestRandom.center(game);
         player = game.connectPlayer("loadout"); game.setRoomOwner(player);
         game.handleMessage(player, "JOB:drone"); game.handleMessage(player, "START");
         game.players.clear(); game.players.add(player); game.trapSlots.clear();

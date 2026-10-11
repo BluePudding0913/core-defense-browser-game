@@ -16,6 +16,7 @@ class RicochetAndAimTest {
             public void broadcast(String message) { effects.add(message); }
             public void send(Player recipient, String message) { direct.add(message); }
         });
+        CombatTestRandom.center(game);
         player = game.connectPlayer("bounce-test");
         game.setRoomOwner(player);
         game.handleMessage(player, "ROOM_READY:1");

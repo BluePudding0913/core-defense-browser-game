@@ -318,6 +318,7 @@ class GameplayRevisionTest {
             public void broadcast(String message) { broadcasts.add(message); }
             public void send(Player recipient, String message) { }
         });
+        CombatTestRandom.center(game);
         player = game.connectPlayer("revision-session");
         game.setRoomOwner(player);
         game.handleMessage(player, "ROOM_READY:1");
@@ -723,28 +724,18 @@ class GameplayRevisionTest {
         assertTrue(broadcasts.isEmpty());
     }
 
-    @Test void shotgunFiresFourStraightRaysAndMissesBetweenThem() throws Exception {
-        player.x=1020; player.y=1900; player.weapons.setOwned("shotgun", true); player.weapons.setAmmo("shotgun", 10);
+    @Test void shotgunSamplesFourPelletsAndSpendsOneRound() throws Exception {
+        CombatTestRandom.center(game);
+        player.x=1020;player.y=1900;player.weapons.setOwned("shotgun",true);player.weapons.setAmmo("shotgun",10);
         game.handleMessage(player,"WEAPON:shotgun");
-        for (int i=0;i<4;i++) {
-            double angle=(i-1.5)*.14;
-            Enemy enemy=new Enemy(9400+i,"runner",GameMap.SPAWN_POINTS.get(0),2000,0,0,0);
-            enemy.x=player.x+200*Math.cos(angle); enemy.y=player.y+200*Math.sin(angle);
-            game.enemies.add(enemy);
-        }
-        Enemy gap=new Enemy(9410,"runner",GameMap.SPAWN_POINTS.get(0),2000,0,0,0);
-        gap.x=player.x+210*Math.cos(.32); gap.y=player.y+210*Math.sin(.32); game.enemies.add(gap);
+        var hit=new Enemy(9400,"grunt",GameMap.SPAWN_POINTS.get(0),2000,0,0,0);hit.x=1070;hit.y=1900;game.enemies.add(hit);
+        var gap=new Enemy(9410,"grunt",GameMap.SPAWN_POINTS.get(0),2000,0,0,0);gap.x=1120;gap.y=1960;game.enemies.add(gap);
         game.handleMessage(player,"FIRE:1250:1900:1");
-        assertEquals(4,game.enemies.stream().filter(e -> e.hp<e.maxHp).count());
-        assertEquals(2000,gap.hp,"a target inside the old auto-hit cone must miss between rays");
+        assertEquals(2000-4*24,hit.hp);assertEquals(2000,gap.hp);
         assertEquals(9,player.weapons.ammo("shotgun"));
-        var json=new com.fasterxml.jackson.databind.ObjectMapper();
-        long rays=0;
-        for(String message:broadcasts) {
-            var effect=json.readTree(message);
-            if(effect.path("effect").asText().equals("hit") && effect.path("weapon").asText().equals("shotgun") && effect.path("damage").asDouble()==0) rays++;
-        }
-        assertEquals(4,rays,"every pellet has a visible straight trajectory");
+        var json=new com.fasterxml.jackson.databind.ObjectMapper();long rays=0;
+        for(String message:broadcasts){var e=json.readTree(message);if(e.path("effect").asText().equals("hit")&&e.path("weapon").asText().equals("shotgun")&&e.path("damage").asDouble()==0)rays++;}
+        assertEquals(4,rays);
     }
 
     @Test void sniperAndRevolverPierceAlignedEnemiesButRespectRangeAndWalls() throws Exception {

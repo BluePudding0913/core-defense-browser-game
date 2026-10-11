@@ -24,15 +24,15 @@ window.SniperAim = (() => {
             const cycle=Math.floor(elapsed/PERIOD),wave=Math.sin(elapsed%PERIOD/PERIOD*Math.PI*2);
             const special=cycle<(s.cycle || 0)?s.previousPrecision:cycle>(s.cycle || 0)?s.nextPrecision:s.precision;
             const warning=cycle<(s.cycle || 0)?s.precision:cycle===(s.cycle || 0) && s.nextPrecision;
-            radius=(38+21*wave-wave*wave-(special && wave<0?12.5*wave*wave:0)+(warning && wave>0?1.74*wave*wave:0))*stability(elapsed);
+            radius=(38+21*wave-wave*wave-(special && wave<0?12.5*wave*wave:0)+(warning && wave>0?3.48*wave*wave:0))*stability(elapsed);
             radius+=70*Math.max(0,1-elapsed/.7)**2;
         }
         radius+=48*(recovery/RECOVERY)**2;
         return {elapsed,radius,slope:radius*PIXEL_SLOPE,fixed:!!s.fixed};
     }
-    function draw(ctx,x,y,height,fov,sample) {
+    function draw(ctx,x,y,height,fov,sample,color='#e1e8e5') {
         const r=sample.slope*height/(2*Math.tan(fov*Math.PI/360));
-        ctx.save();ctx.strokeStyle='#e1e8e5';ctx.lineWidth=1.4;ctx.shadowColor='#0b1418';ctx.shadowBlur=2;
+        ctx.save();ctx.strokeStyle=color;ctx.lineWidth=1.4;ctx.shadowColor='#0b1418';ctx.shadowBlur=2;
         ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.stroke();ctx.restore();return r;
     }
     return {sample,sync,draw,shot,stability};

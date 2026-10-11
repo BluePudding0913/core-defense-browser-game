@@ -13,6 +13,7 @@ class RailgunTest {
             public void broadcast(String message) { }
             public void send(Player recipient, String message) { }
         });
+        CombatTestRandom.center(game);
         player = game.connectPlayer("railgun-test");
         game.setRoomOwner(player);
         game.handleMessage(player, "ROOM_READY:1");

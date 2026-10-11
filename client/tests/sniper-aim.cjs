@@ -3,7 +3,7 @@ const c={window:{}};vm.runInNewContext(fs.readFileSync('client/sniper-aim.js','u
 let serial=0;
 function at(elapsed,precision=false,nextPrecision=false){return {id:'sample-'+serial++,sniperReceivedAt:1000,sniper:{fixed:true,elapsed,cycle:Math.floor(elapsed/2.8),precision,nextPrecision,recovery:0}};}
 const p=at(2.1,true);
-assert(Math.abs(api.sample(at(.7,false,true),1000).radius-59.74*api.stability(.7))<1e-8,'Only preceding expansion grows by 3%');
+assert(Math.abs(api.sample(at(.7,false,true),1000).radius-61.48*api.stability(.7))<1e-8,'Only preceding expansion grows by 6%');
 assert(Math.abs(api.sample(p,1000).radius-3.5*api.stability(2.1))<1e-8);
 assert(Math.abs(api.sample(at(2.1),1000).radius-16*api.stability(2.1))<1e-8);
 assert.equal(api.stability(90),.675);assert(Math.abs(api.stability(180)-.35)<1e-8);
@@ -30,3 +30,6 @@ const source=fs.readFileSync('client/app.js','utf8'),start=source.indexOf('funct
 const fire=vm.createContext({window:{SniperAim:api},getMe:()=>p,performance:{now:()=>1000},socket:{readyState:1,send:s=>sent.push(s)},WebSocket:{OPEN:1},DEBUG_MODE:false,fpsInput:{view:{pitch:.1}},nextInputSequence:1,pendingInputs:[]});
 vm.runInContext(source.slice(start,end),fire);vm.runInContext("send('FIRE:100:200:1')",fire);assert(sent[0].endsWith(':0.100000:2.100000'),'Fire sends bounded phase time, not a success boolean');
 console.log('Sniper client passed: subtle cue, random-cycle interpolation, angular projection, shot recovery, prone anatomy and timestamp protocol');
+
+vm.runInNewContext(fs.readFileSync('client/previews/sniper-breathing.js','utf8'),c);
+const preview=c.window.createBreathingPreview(()=>.1);assert(Math.abs(preview.sample(700).radius-61.48)<1e-8);assert(Math.abs(preview.sample(1401).radius-preview.sample(1399).radius)>.08,'Preview also passes the middle without pausing');

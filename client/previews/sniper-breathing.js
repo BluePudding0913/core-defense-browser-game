@@ -10,11 +10,10 @@ window.createBreathingPreview = (random=Math.random) => {
             while(cycle<index){current=next;next=random()<.2;cycle++;}
             const phase=(Math.max(0,elapsed)%period)/period;
             const wave=Math.sin(phase*Math.PI*2);
-            const min=current?precisionMin:normalMin;
-            const max=maxRadius*(next?1.03:1);
-            // Every cycle meets at the same radius with zero velocity, even when its type changes.
+            const max=maxRadius*(next?1.06:1);
+            // Every cycle passes the middle with the same nonzero velocity.
             const baseline=38;
-            const radius=baseline+(wave>=0?max-baseline:baseline-min)*wave*Math.abs(wave);
+            const radius=baseline+21*wave-wave*wave-(current && wave<0?(normalMin-precisionMin)*wave*wave:0)+(next && wave>0?(max-maxRadius)*wave*wave:0);
             return {cycle,phase,radius,precision:current,warning:next,perfect:current&&radius<=5};
         }
     };

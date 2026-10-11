@@ -123,13 +123,8 @@ final class CombatSystem {
                     player.x + directionX * effectDistance, player.y + directionY * effectDistance,
                     0, false, 0, false, null);
         }
-        boolean shotgun = WeaponCatalog.find(player.weapon).mode() == WeaponCatalog.AttackMode.SPREAD;
         int rays = WeaponCatalog.find(player.weapon).pellets();
-        double angle = Math.atan2(directionY, directionX);
-        for (int pellet = 0; pellet < rays; pellet++) {
-            double spreadAngle = shotgun ? (pellet - (rays - 1) / 2.0) * .14 : 0;
-            fireRay(player, weapon, Math.cos(angle + spreadAngle), Math.sin(angle + spreadAngle));
-        }
+        for (int pellet = 0; pellet < rays; pellet++) fireRay(player,weapon,directionX,directionY);
     }
 
     private MapPoint assistedAim(Player player, String weapon, double x, double y, double aimX, double aimY) {
@@ -145,7 +140,9 @@ final class CombatSystem {
         double length = Math.hypot(dx, dy);
         player.railgunDx = length < .001 ? 1 : dx / length;
         player.railgunDy = length < .001 ? 0 : dy / length;
-        player.railgunPitch = player.aimPitch;
+        var shot=SniperRules.scatter(player.railgunDx,player.railgunDy,player.aimPitch==null?0:player.aimPitch,ShotSpreadRules.radius("railgun"),random);
+        player.railgunDx=shot.dx();player.railgunDy=shot.dy();
+        player.railgunPitch = player.aimPitch==null?null:shot.pitch();
     }
 
 
@@ -380,12 +377,7 @@ final class CombatSystem {
             } else if (definition.mode() == WeaponCatalog.AttackMode.FLAME) {
                 fireFlame(player, stats, directionX, directionY);
             } else {
-                double angle = Math.atan2(directionY, directionX);
-                for (int pellet = 0; pellet < definition.pellets(); pellet++) {
-                    double spread = definition.mode() == WeaponCatalog.AttackMode.SPREAD
-                            ? (pellet - (definition.pellets() - 1) / 2.0) * .14 : 0;
-                    fireRay(player, stats, Math.cos(angle + spread), Math.sin(angle + spread));
-                }
+                for (int pellet = 0; pellet < definition.pellets(); pellet++) fireRay(player,stats,directionX,directionY);
             }
         } finally { droneShot = null; }
     }
@@ -456,7 +448,7 @@ final class CombatSystem {
 
     static final class RocketFlight {
         final int id; final Player owner; final WeaponStats weapon; final double dx, dy;
-        double x, y, remaining;
+        double x, y, remaining, height, slope; boolean fps;
         RocketFlight(int id, Player owner, WeaponStats weapon, double dx, double dy, double range) {
             this.id=id; this.owner=owner; this.weapon=weapon; this.dx=dx; this.dy=dy;
             x=owner.x; y=owner.y; remaining=range;
@@ -466,7 +458,10 @@ final class CombatSystem {
     private int nextRocketId;
     static final double ROCKET_SPEED = 480;
     void fireRocket(Player player, WeaponStats weapon, double dx, double dy, double range) {
-        rockets.add(new RocketFlight(nextRocketId++, player, weapon, dx, dy, range));
+        var shot=SniperRules.scatter(dx,dy,player.aimPitch==null?0:player.aimPitch,ShotSpreadRules.radius("rocket"),random);
+        var flight=new RocketFlight(nextRocketId++,player,weapon,shot.dx(),shot.dy(),range);
+        flight.fps=player.aimPitch!=null;flight.height=26+player.jumpHeight;flight.slope=flight.fps?Math.tan(shot.pitch()):0;
+        rockets.add(flight);
     }
     void updateRockets(double dt) {
         var iterator=rockets.iterator();
@@ -477,13 +472,18 @@ final class CombatSystem {
             while (budget > 1e-9) {
                 double range=Math.min(12, budget);
                 double impactDistance = GameMap.distanceToWall(flight.x, flight.y, dx, dy, range, world.unlockedAreas());
+                var ray=flight.fps?new FpsHitRules.Ray(flight.x,flight.y,flight.height,dx,dy,flight.slope,range):null;
+                if(flight.fps && flight.slope<0)impactDistance=Math.min(impactDistance,flight.height/-flight.slope);
+                else if(flight.fps && flight.slope>0)impactDistance=Math.min(impactDistance,(GameMap.ceilingHeight(flight.x,flight.y)-flight.height)/flight.slope);
                 for (var shot : world.enemyProjectiles()) {
+                    if(ray!=null && FpsHitRules.projectile(ray,shot.x,shot.y,flight.weapon.width())==null)continue;
                     impactDistance = Math.min(impactDistance, EnemyProjectileSystem.rayEntry(shot,
                             flight.x, flight.y, dx, dy, range, flight.weapon.width()));
                 }
                 // Stop at the first enemy body; unlike bullets, the rocket detonates instead of piercing.
                 for (Enemy enemy : world.enemies()) {
                     if (enemy.hp <= 0) continue;
+                    if(ray!=null){var hit=fpsEnemy(ray,enemy,flight.weapon.width());if(hit!=null)impactDistance=Math.min(impactDistance,hit.distance());continue;}
                     double ex = enemy.x - flight.x, ey = enemy.y - flight.y;
                     double projection = ex * dx + ey * dy;
                     double perpendicular = Math.abs(ex * dy - ey * dx);
@@ -494,6 +494,7 @@ final class CombatSystem {
                 }
                 for (Player target : world.players()) {
                     if (!JobRules.canHitDisguisedAlly(player, target)) continue;
+                    if(ray!=null){var hit=fpsAlly(ray,target,flight.weapon.width());if(hit!=null)impactDistance=Math.min(impactDistance,hit.distance());continue;}
                     double projection = (target.x - flight.x) * dx + (target.y - flight.y) * dy;
                     double perpendicular = Math.abs((target.x - flight.x) * dy - (target.y - flight.y) * dx);
                     double radius = 12 + flight.weapon.width();
@@ -502,7 +503,8 @@ final class CombatSystem {
                     impactDistance = Math.min(impactDistance, entry);
                 }
 
-                flight.x += dx*impactDistance; flight.y += dy*impactDistance;
+                impactDistance=Math.max(0,impactDistance);
+                flight.x += dx*impactDistance; flight.y += dy*impactDistance;flight.height+=flight.slope*impactDistance;
                 flight.remaining -= impactDistance; budget -= impactDistance;
                 if (impactDistance < range - 1e-7 || flight.remaining <= 1e-7) {
                     rocketImpact(player, flight.weapon, flight.x, flight.y); iterator.remove(); break;
@@ -543,13 +545,22 @@ final class CombatSystem {
 
 
     private void fireRicochet(Player player, WeaponStats weapon, double dx, double dy) {
+        Double pitch=player.aimPitch;
+        var shot=SniperRules.scatter(dx,dy,pitch==null?0:pitch,ShotSpreadRules.radius("ricochet"),random);
+        if(pitch!=null)player.aimPitch=shot.pitch();
+        try { fireRicochetSegments(player,weapon,shot.dx(),shot.dy()); }
+        finally { player.aimPitch=pitch; }
+    }
+    private void fireRicochetSegments(Player player, WeaponStats weapon, double dx, double dy) {
         // All reflected segments share one distance budget, including the wall clearance.
         double x = shotX(player), y = shotY(player), remaining = weapon.range();
         for (int bounce = 0; bounce <= 2 && remaining > .01; bounce++) {
             GameMap.WallImpact wall = GameMap.rayWall(x, y, dx, dy, remaining, world.unlockedAreas());
             double length = Math.max(0, wall.distance() - .001);
-            if (fireSegment(player, weapon, x, y, dx, dy, length, shotHeight(player)
-                    + (player.aimPitch == null ? 0 : Math.tan(player.aimPitch) * (weapon.range() - remaining)))) return;
+            double height=shotHeight(player)+(player.aimPitch==null?0:Math.tan(player.aimPitch)*(weapon.range()-remaining));
+            if(player.aimPitch!=null){double slope=Math.tan(player.aimPitch);if(slope<0)length=Math.min(length,height/-slope);else if(slope>0)length=Math.min(length,(GameMap.ceilingHeight(x,y)-height)/slope);}
+            if (fireSegment(player,weapon,x,y,dx,dy,Math.max(0,length),height)) return;
+            if(length<wall.distance()-.001-1e-8)return;
             remaining -= wall.distance();
             if (!wall.flipX() && !wall.flipY()) return;
             x += dx * length; y += dy * length;
@@ -563,20 +574,20 @@ final class CombatSystem {
     void fireRay(Player player, WeaponStats weapon, double directionX, double directionY) {
         Double previousPitch=player.aimPitch;
         boolean sniper=shotWeapon(player).equals("sniper");
-        if (sniper) {
+        if (sniper || ShotSpreadRules.radius(shotWeapon(player))>0) {
             boolean fixed=droneShot==null && player.sniper.fixed;
             double time=fixed && player.sniper.inputTime!=null && player.sniper.validTime(player.sniper.inputTime)
                     ? player.sniper.inputTime : player.sniper.elapsed;
-            double radius=SniperRules.radius(player.sniper,time);
+            double radius=sniper?SniperRules.radius(player.sniper,time):ShotSpreadRules.radius(shotWeapon(player));
             var shot=SniperRules.scatter(directionX,directionY,previousPitch==null?0:previousPitch,radius,random);
             directionX=shot.dx(); directionY=shot.dy();
             if(previousPitch!=null)player.aimPitch=shot.pitch();
-            weapon=new WeaponStats(fixed?Math.hypot(WORLD_W,WORLD_H):weapon.range(),weapon.damage(),weapon.cooldown(),weapon.knockback(),0);
+            weapon=new WeaponStats(sniper && fixed?Math.hypot(WORLD_W,WORLD_H):weapon.range(),weapon.damage(),weapon.cooldown(),weapon.knockback(),sniper?0:weapon.width());
         }
         try {
         double shotDistance = GameMap.distanceToWall(shotX(player), shotY(player),
                 directionX, directionY, weapon.range(), world.unlockedAreas());
-        if(sniper && player.aimPitch!=null) {
+        if(ShotSpreadRules.radius(shotWeapon(player))>0 && player.aimPitch!=null) {
             double slope=Math.tan(player.aimPitch),height=shotHeight(player);
             if(slope<0)shotDistance=Math.min(shotDistance,height/-slope);
             else if(slope>0)shotDistance=Math.min(shotDistance,(GameMap.ceilingHeight(shotX(player),shotY(player))-height)/slope);

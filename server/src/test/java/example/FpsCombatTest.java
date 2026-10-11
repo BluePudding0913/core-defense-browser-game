@@ -12,6 +12,7 @@ class FpsCombatTest {
     GameSession game; Player player; final List<String> messages=new ArrayList<>();
     @BeforeEach void setup() {
         game=new GameSession(new GameEventSink(){public void broadcast(String text){messages.add(text);}public void send(Player p,String text){}});
+        CombatTestRandom.center(game);
         player=game.connectPlayer("fps-test");game.setRoomOwner(player);game.handleMessage(player,"START:DEBUG");game.handleMessage(player,"READY");game.update(.05);
         game.enemies.clear();game.players.forEach(p->p.human=true);
         player.job="healer";player.x=GameMap.CORE_X-40;player.y=GameMap.CORE_Y;player.cooldown=0;

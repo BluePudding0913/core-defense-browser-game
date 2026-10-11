@@ -15,6 +15,7 @@ class WeaponDamageRulesTest {
         var game = new GameSession(new GameEventSink() {
             public void broadcast(String s) {} public void send(Player p, String s) {}
         });
+        CombatTestRandom.center(game);
         var player = game.connectPlayer("distance-test"); game.setRoomOwner(player);
         game.handleMessage(player, "START"); game.phase = GamePhase.WAVE;
         game.enemies.clear(); game.trapSlots.clear();
