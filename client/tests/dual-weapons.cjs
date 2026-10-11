@@ -55,3 +55,16 @@ me.down=true; context.updateAttackerLoadout(me); assert(selects.every(s=>s.disab
 const count=commands.length; change({target:{closest:()=>selects[1]}}); assert.equal(commands.length,count);
 me.down=false; me.job='healer'; context.updateAttackerLoadout(me); assert.equal(panelHidden,true);
 console.log('Dual weapon controls passed: either press order, independent release, owned loadouts and down guard');
+
+// FPS aiming never consumes Attacker's secondary trigger, even with rifle/sniper primaries.
+context.fpsInput={capture:()=>false,view:{zoom:false,scopeLevel:0},cycleScope(){this.view.scopeLevel=(this.view.scopeLevel+1)%3;this.view.zoom=this.view.scopeLevel>0;}};
+context.window.AimControl={supported:id=>['smg','rifle','sniper'].includes(id)};
+for(const weapon of ['smg','rifle','sniper']) {
+ me.job='attacker';me.weapon=weapon;context.fpsInput.view.zoom=false;
+ canvasHandlers.mousedown(mouse(2));assert(commands.at(-1).startsWith('SECONDARY_FIRE:'),weapon+' keeps RMB secondary fire');windowHandlers.mouseup(mouse(2));
+ canvasHandlers.mousedown(mouse(1));assert(context.fpsInput.view.zoom,'MMB aims '+weapon);
+ if(weapon!=='sniper') {canvasHandlers.mousedown(mouse(2));windowHandlers.mouseup({...mouse(2),buttons:4});assert(context.fpsInput.view.zoom,'Held MMB survives secondary release');windowHandlers.mouseup({...mouse(1),buttons:0});assert(!context.fpsInput.view.zoom);}
+ else {assert.equal(context.fpsInput.view.scopeLevel,1);windowHandlers.mouseup(mouse(1));assert(context.fpsInput.view.zoom,'Sniper scope persists after tap');}
+}
+me.job='healer';me.weapon='rifle';context.fpsInput.view.zoom=false;canvasHandlers.mousedown(mouse(2));assert(context.fpsInput.view.zoom);windowHandlers.mouseup({...mouse(2),buttons:0});assert(!context.fpsInput.view.zoom);
+console.log('FPS ADS controls passed: common right aim, Attacker secondary preservation and independent MMB release');

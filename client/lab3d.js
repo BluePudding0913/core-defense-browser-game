@@ -264,7 +264,7 @@ window.Lab3D = (() => {
             finalBoss: '#57223e', poisoner: '#84982f', artilleryElite: '#345b2b', boss: '#39363d', warden: '#526679', warlord: '#75434a', titan: '#6b496f',
             tiny: '#a9bd75', shield: '#4c8ca4', bomber: '#e38d47', artillery: '#749749',
             gilded: '#e8b94f', blueAce: '#358dff', carrier: '#9b7655', blackout: '#27584d', seeker: '#a35e70', explosionBoss: '#171b20' };
-        function enemy(entity, point, radius, now) {
+        function enemy(entity, point, radius, now, hitFlash=false) {
             const item = object('enemy:' + entity.id + ':' + entity.type, () => {
                 const root = new T.Group(); root.name='enemy:'+entity.id;
                 if(entity.type==='grunt') {
@@ -282,6 +282,8 @@ window.Lab3D = (() => {
                 if (entity.type === 'poisoner') box(root, 12, 16, 12, '#b4cf48', 0, radius, -radius);
                 return { root, body };
             });
+            for(const [mesh,original] of item.flashMaterials || [])mesh.material=original;
+            item.flashMaterials=null;
             item.root.position.set(point.x, 0, point.y);
             item.root.userData.entity={x:point.x,y:point.y};
             item.root.rotation.y = Math.atan2(entity.facingX || 0, entity.facingY ?? 1);
@@ -289,6 +291,10 @@ window.Lab3D = (() => {
             item.body.material = material(entity.frozenRemaining > 0 ? '#95dded'
                 : entity.type === 'explosionBoss' && entity.fuse >= 0 && Math.sin(now / Math.max(50, entity.fuse * 15)) > 0 ? '#d64e58'
                 : enemyColors[entity.type] || '#869095');
+            if(hitFlash) {
+                item.flashMaterials=new Map();
+                item.root.traverse(mesh=>{if(mesh.isMesh){item.flashMaterials.set(mesh,mesh.material);mesh.material=material('#ef4250',true);}});
+            }
         }
 
         function resource(key, node, now) {
@@ -561,7 +567,7 @@ window.Lab3D = (() => {
             }
         }
         let lastFrame = performance.now(), walkPhase=0, walkBlend=0, recoil=0, sniperRecoil=0, batSwingAt=-Infinity, lastKickAt=-Infinity, lastWalkPoint=null;
-        const kickedEffects=new WeakSet();
+        const kickedEffects=new WeakSet(),lastGunKick=new Map();
         function render(frame) {
             const { map, reachable, center, scale, state, localId, predicted, smooth, radius, stations, aim, effects = [] } = frame;
             const now = performance.now(), dt = Math.min(.1, (now - lastFrame) / 1000); lastFrame = now;
@@ -581,14 +587,21 @@ window.Lab3D = (() => {
             recoil*=Math.exp(-18*dt);sniperRecoil*=Math.exp(-7*dt);
             if(frame.motion) for(const effect of effects) if(effect.playerId===localId && effect.effect==='hit' && effect.damage===0 && now-effect.started<120 && !kickedEffects.has(effect)) {
                 kickedEffects.add(effect);
-                if(effect.weapon==='sniper'){sniperRecoil=Math.min(1.35,sniperRecoil+1);view.pitch=Math.min(1.2,view.pitch+.045);view.yaw+=(Math.sin(effect.started*1.7)>=0?1:-1)*.008;}
+                const kick=window.AimControl?.recoilPitch(effect.weapon) || 0;
+                if(kick>0) {
+                    // Shotgun pellets share one discharge; persistent effects must not kick twice.
+                    if(effect.started-(lastGunKick.get(effect.weapon) ?? -Infinity)<25)continue;
+                    lastGunKick.set(effect.weapon,effect.started);
+                    if(!(me?.railgunRemaining>0 || me?.secondaryRailgunRemaining>0))view.pitch=Math.min(1.2,view.pitch+kick);
+                }
+                if(effect.weapon==='sniper'){sniperRecoil=Math.min(1.35,sniperRecoil+1);view.yaw+=(Math.sin(effect.started*1.7)>=0?1:-1)*.008;}
                 else if(effect.weapon==='bat')batSwingAt=now;
                 else if(now-lastKickAt>25){recoil=Math.min(1,recoil+.65);lastKickAt=now;}
             }
             const firingRail=me?.railgunRemaining>0 || me?.secondaryRailgunRemaining>0;
             const bob=(firingRail || me?.sniper?.fixed ? 0 : 1)*walkBlend*(frame.scoped ? .12 : 1)*(frame.motion?.dashing?1.15:1);
             camera.position.set(eye.x, me?.down ? 6 : me?.drone?.controlled ? 23 : (me?.sniper?.fixed ? 6.2 : 26)+(eye.jumpHeight || 0)+(eye.renderOffsetHeight || 0)+Math.sin(walkPhase*2)*.32*bob, eye.y);
-            view.recoilPitch=firingRail ? 0 : recoil*(frame.scoped ? .006 : .003);
+            view.recoilPitch=firingRail || window.AimControl?.supported(me?.weapon) ? 0 : recoil*(frame.scoped ? .006 : .003);
             camera.rotation.set(Math.max(-1.2,Math.min(1.2,view.pitch+view.recoilPitch)),-view.yaw,me?.down ? .2 : Math.sin(walkPhase)*.0025*bob,'YXZ');
             camera.updateMatrixWorld(true);
             darkened=!!state?.blackoutActive && !me?.drone?.controlled && !frame.nightVision;
@@ -660,8 +673,9 @@ window.Lab3D = (() => {
                     item.root.userData.entity={x:point.x,y:point.y};
                     item.root.visible = player.id!==localId && (!(player.tpInvulnerableRemaining > 0 || player.reviveInvulnerableRemaining > 0) || Math.floor(now/100)%2 === 0);
                 }
+                const hitEnemies=new Set(effects.filter(e=>e.effect==='hit' && e.playerId===localId && e.enemyId!=null && e.damage>0 && now>=e.started && now-e.started<180).map(e=>e.enemyId));
                 for (const entity of state.enemies) if (entity.hp > 0)
-                    enemy(entity, smooth('enemy', entity), radius(entity), now);
+                    enemy(entity, smooth('enemy', entity), radius(entity), now,hitEnemies.has(entity.id));
                 for (const owner of state.players) if (owner.drone?.active) {
                     const point = smooth('drone', { ...owner.drone, id: owner.id });
                     const item = object('drone:' + owner.id, () => {

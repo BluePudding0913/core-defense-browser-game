@@ -93,6 +93,7 @@ final class CombatSystem {
         }
         double directionX = dx / length;
         double directionY = dy / length;
+        if(AimControlRules.supported(player.weapon))player.aimControl.look(directionX,directionY,player.aimPitch==null?0:player.aimPitch);
         if (WeaponCatalog.find(player.weapon).mode() == WeaponCatalog.AttackMode.ROCKET) {
             fireRocket(player, weapon, directionX, directionY, Math.min(length, weapon.range()));
             return;
@@ -546,7 +547,7 @@ final class CombatSystem {
 
     private void fireRicochet(Player player, WeaponStats weapon, double dx, double dy) {
         Double pitch=player.aimPitch;
-        var shot=SniperRules.scatter(dx,dy,pitch==null?0:pitch,ShotSpreadRules.radius("ricochet"),random);
+        var shot=SniperRules.scatter(dx,dy,pitch==null?0:pitch,droneShot==null?AimControlRules.radius(player.aimControl,"ricochet",player.sniper):ShotSpreadRules.radius("ricochet"),random);
         if(pitch!=null)player.aimPitch=shot.pitch();
         try { fireRicochetSegments(player,weapon,shot.dx(),shot.dy()); }
         finally { player.aimPitch=pitch; }
@@ -578,7 +579,8 @@ final class CombatSystem {
             boolean fixed=droneShot==null && player.sniper.fixed;
             double time=fixed && player.sniper.inputTime!=null && player.sniper.validTime(player.sniper.inputTime)
                     ? player.sniper.inputTime : player.sniper.elapsed;
-            double radius=sniper?SniperRules.radius(player.sniper,time):ShotSpreadRules.radius(shotWeapon(player));
+            double radius=droneShot==null?AimControlRules.radius(player.aimControl,shotWeapon(player),player.sniper)
+                    :sniper?SniperRules.radius(player.sniper,time):ShotSpreadRules.radius(shotWeapon(player));
             var shot=SniperRules.scatter(directionX,directionY,previousPitch==null?0:previousPitch,radius,random);
             directionX=shot.dx(); directionY=shot.dy();
             if(previousPitch!=null)player.aimPitch=shot.pitch();

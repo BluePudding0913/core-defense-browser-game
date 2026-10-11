@@ -10,7 +10,7 @@ THREE.WebGLRenderer = class {
     render(s,c) { if(c.near===.01){viewScene=s;viewCamera=c;viewScene.updateMatrixWorld(true);viewCamera.updateMatrixWorld(true);return;}scene=s;camera=c;scene.updateMatrixWorld(true);camera.updateMatrixWorld(true); }
 };
 const context=vm.createContext({window:{THREE},document:{body:{classList:{add(){}}}},performance:{now:()=>now},console});
-for (const file of ['soldier-model.js','sniper-stance.js','zombie-model.js','lab3d.js']) vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
+for (const file of ['aim-control.js','soldier-model.js','sniper-stance.js','zombie-model.js','lab3d.js']) vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
 const renderer=context.window.Lab3D.create({width:900,height:500,before(){}});
 const player={id:'me',x:100,y:100,facingX:0,facingY:-1};
 const state={core:{x:60,y:60},players:[player],enemies:[{id:1,type:'shield',x:180,y:100,hp:100,facingX:1,facingY:0}],slots:[
@@ -310,3 +310,23 @@ for(const weapon of ['pistol','rifle','shotgun','sniper','railgun'])for(const sc
  now+=20;renderer.render(frame);viewScene.updateMatrixWorld(true);assert(new THREE.Vector3(0,0,1).transformDirection(viewScene.getObjectByName('Rifle').matrixWorld).distanceTo(initialGunBore)<1e-6,'Next frame retains the restored bore');
 }
 console.log('Bat-to-gun regression passed: first-frame restore, repeated switches, five guns, scope and cached constant tracks');
+
+// Confirmed local hits tint only that enemy, then restore frozen/original materials.
+frame.effects=[];state.enemies=[{id:901,type:'grunt',x:100,y:120,hp:100},{id:902,type:'grunt',x:140,y:120,hp:100}];now+=500;renderer.render(frame);
+const hitZombie=scene.getObjectByName('enemy:901'),otherZombie=scene.getObjectByName('enemy:902'),normalCoat=hitZombie.getObjectByName('ZombieCoat').material;
+frame.effects=[{effect:'hit',enemyId:901,playerId:'other',damage:20,started:now}];renderer.render(frame);assert.equal(hitZombie.getObjectByName('ZombieCoat').material,normalCoat,'Other players do not trigger local flash');
+frame.effects=[{effect:'hit',enemyId:901,playerId:'me',damage:0,started:now}];renderer.render(frame);assert.equal(hitZombie.getObjectByName('ZombieCoat').material,normalCoat,'Misses do not flash');
+frame.effects=[{effect:'hit',enemyId:901,playerId:'me',damage:20,started:now}];renderer.render(frame);assert.equal(hitZombie.getObjectByName('ZombieCoat').material.color.getHexString(),'ef4250');assert.equal(otherZombie.getObjectByName('ZombieCoat').material,normalCoat,'Shared materials never tint another enemy');
+now+=180;state.enemies[0].frozenRemaining=1;renderer.render(frame);assert.equal(hitZombie.getObjectByName('ZombieCoat').material.color.getHexString(),'95dded','Freeze state wins after flash expiry');state.enemies[0].frozenRemaining=0;renderer.render(frame);assert.equal(hitZombie.getObjectByName('ZombieCoat').material,normalCoat);assert(hitZombie.children.length>0);
+console.log('Local hit flash passed: confirmed damage, individual enemy, shared material isolation and expiry');
+
+// Every ordinary gun displaces actual aim, once per discharge, including scatter pellets.
+for(const weapon of ['pistol','smg','rifle','revolver','lmg','shotgun','ricochet','freezeGun','sniper']) {
+ player.weapon=weapon;frame.view={yaw:0,pitch:0};frame.scoped=false;now+=200;
+ const shot={effect:'hit',weapon,playerId:'me',damage:0,started:now,fromX:player.x,fromY:player.y,x:player.x,y:player.y-100};
+ frame.effects=Array.from({length:weapon==='shotgun'?6:1},()=>({...shot}));renderer.render(frame);
+ const pitch=context.window.AimControl.recoilPitch(weapon);assert.equal(frame.view.pitch,pitch,weapon+' kicks actual aim once');
+ renderer.render(frame);assert.equal(frame.view.pitch,pitch,'Rendering cannot repeat kick');
+ frame.effects=[];now+=2000;renderer.render(frame);assert.equal(frame.view.pitch,pitch,'Gun settling cannot restore aim');assert.equal(frame.view.recoilPitch,0,'No additional temporary aim displacement');
+}
+console.log('Common recoil passed: nine guns, shotgun discharge deduplication and persistent aim displacement');
