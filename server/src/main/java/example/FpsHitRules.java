@@ -17,6 +17,23 @@ final class FpsHitRules {
         return new Hit(hit.distance(), hit.height(), hit.height() >= radius * 1.15 && hit.height() <= radius * 1.6);
     }
 
+    /** GRUNT's lab-worker model has a small head above a separate torso/leg volume.
+     * Bullet width is body aim tolerance; it must not enlarge the headshot target.
+     * The head includes the jaw and a small allowance for the cosmetic head tilt.
+     */
+    static Hit zombie(Ray ray, double x, double y, double radius, double facingX, double facingY, double width) {
+        double length = Math.hypot(facingX, facingY);
+        double fx = length > 1e-9 ? facingX / length : 0;
+        double fy = length > 1e-9 ? facingY / length : 1;
+        Hit torso = body(ray, x, y, radius * .66, radius * .4, radius * .66, radius * .25,
+                fx, fy, width);
+        Hit head = body(ray, x + fx * radius * .085, y + fy * radius * .085,
+                radius * 1.43, radius * .12, radius * .125, radius * .13, fx, fy, 0);
+        if (head != null && (torso == null || head.distance() < torso.distance()))
+            return new Hit(head.distance(), head.height(), true);
+        return torso;
+    }
+
     static Hit ally(Ray ray, double x, double y, boolean down, double width) {
         return body(ray, x, y, down ? 6 : 16, 12, down ? 6 : 16, 12, 0, 1, width);
     }

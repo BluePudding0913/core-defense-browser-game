@@ -616,7 +616,9 @@ final class CombatSystem {
     }
 
     private FpsHitRules.Hit fpsEnemy(FpsHitRules.Ray ray, Enemy enemy, double width) {
-        return FpsHitRules.enemy(ray, enemy.x, enemy.y, enemyRadius(enemy), enemy.facingX, enemy.facingY, width);
+        return enemy.type.equals("grunt")
+                ? FpsHitRules.zombie(ray, enemy.x, enemy.y, enemyRadius(enemy), enemy.facingX, enemy.facingY, width)
+                : FpsHitRules.enemy(ray, enemy.x, enemy.y, enemyRadius(enemy), enemy.facingX, enemy.facingY, width);
     }
 
     private void rayHit(Player player, double fromX, double fromY, double x, double y, double damage,
