@@ -276,6 +276,22 @@ window.Lab3D = (() => {
             });
             item.root.position.set(node.x,2+Math.sin(now/260+node.x*.01)*1.5,node.y);
         }
+        const shotOrigins=new WeakMap();
+        function captureEffect(effect) {
+            if(shotOrigins.has(effect) || !latestFrame || !Number.isFinite(effect.fromX) || !Number.isFinite(effect.fromY))return;
+            const local=effect.playerId===latestFrame.localId && effect.weapon!=='turret' && (viewVisible || latestFrame.scoped);
+            let muzzle;
+            if(effect.weapon==='turret') {
+                const slot=latestFrame.state.slots?.find(s=>s.defense&&Math.hypot(s.x-effect.fromX,s.y-effect.fromY)<2);
+                if(slot)for(const [key,value] of objects)if(key.startsWith('defense:'+slot.id+':')){muzzle=value.muzzle;break;}
+            } else {
+                const owner=latestFrame.state.players.find(p=>p.id===effect.playerId);
+                muzzle=owner?.drone?.active&&Math.hypot(owner.drone.x-effect.fromX,owner.drone.y-effect.fromY)<12 ? objects.get('drone:'+owner.id)?.muzzle : objects.get('player:'+effect.playerId)?.muzzle;
+            }
+            const start=local ? fpsMuzzleWorld() : muzzle ? muzzle.getWorldPosition(new T.Vector3()) : new T.Vector3(effect.fromX,Number.isFinite(effect.fromHeight)?effect.fromHeight:22,effect.fromY);
+            shotOrigins.set(effect,start.clone());
+        }
+        function shotOrigin(effect) {captureEffect(effect);return shotOrigins.get(effect)?.clone() || new T.Vector3(effect.fromX,22,effect.fromY);}
         const effectIds=new WeakMap(); let nextEffectId=0;
         function isTracer(e,now) {
             return e.effect==='hit' && Number.isFinite(e.fromX) && Number.isFinite(e.fromY) && Number.isFinite(e.x) && Number.isFinite(e.y) && now-e.started>=0 && now-e.started<198
@@ -304,7 +320,7 @@ window.Lab3D = (() => {
                     } else muzzle=objects.get('player:'+effect.playerId)?.muzzle;
                 }
                 const localShot=effect.playerId===latestFrame.localId && effect.weapon!=='turret' && (viewVisible || latestFrame.scoped);
-                const start=localShot ? fpsMuzzleWorld() : muzzle ? muzzle.getWorldPosition(new T.Vector3()) : new T.Vector3(effect.fromX,22,effect.fromY);
+                const start=shotOrigins.has(effect) ? shotOrigin(effect) : localShot ? shotOrigin(effect) : muzzle ? muzzle.getWorldPosition(new T.Vector3()) : shotOrigin(effect);
                 const target=state.enemies.find(e=>e.id===effect.enemyId);
                 let height=target ? Math.max(6,radius(target)*.8) : start.y;
                 if(localShot && !target) {
@@ -341,9 +357,9 @@ window.Lab3D = (() => {
         const squareGeometry=new T.PlaneGeometry(2,2);
         function healSquare(key,x,y,halfSize) {
             const item=object(key,()=>{
-                const mat=new T.MeshBasicMaterial({color:'#84e6b5',transparent:true,opacity:.18,side:T.DoubleSide,depthWrite:false});
+                const mat=new T.MeshBasicMaterial({color:'#41df99',transparent:true,opacity:.42,side:T.DoubleSide,depthWrite:false});
                 const root=new T.Mesh(squareGeometry,mat);root.name=key;root.rotation.x=-Math.PI/2;
-                const border=new T.LineLoop(new T.BufferGeometry().setFromPoints([new T.Vector3(-1,-1,0),new T.Vector3(1,-1,0),new T.Vector3(1,1,0),new T.Vector3(-1,1,0)]),new T.LineBasicMaterial({color:'#84e6b5',transparent:true,opacity:.65}));root.add(border);
+                const border=new T.LineLoop(new T.BufferGeometry().setFromPoints([new T.Vector3(-1,-1,0),new T.Vector3(1,-1,0),new T.Vector3(1,1,0),new T.Vector3(-1,1,0)]),new T.LineBasicMaterial({color:'#50ffc0',transparent:true,opacity:.95}));root.add(border);
                 return {root,dispose(){mat.dispose();border.geometry.dispose();border.material.dispose();}};
             });
             item.root.position.set(x,.7,y);item.root.scale.set(halfSize,halfSize,1);
@@ -351,6 +367,34 @@ window.Lab3D = (() => {
         function beam(key,a,b,color,width=1) {
             const item=object(key,()=>{const root=new T.Mesh(cylinderGeometry,material(color,true));return {root};});
             const delta=b.clone().sub(a);item.root.position.copy(a).add(b).multiplyScalar(.5);item.root.scale.set(width,delta.length(),width);item.root.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),delta.normalize());
+        }
+        function firedBeam(effect,color,width) {
+            if(!effectIds.has(effect))effectIds.set(effect,++nextEffectId);
+            const item=object('special:'+effectIds.get(effect),()=>{
+                const root=new T.Mesh(cylinderGeometry,material(color,true));root.name='fired-special-beam';
+                const start=shotOrigin(effect),end=new T.Vector3(effect.x,Number.isFinite(effect.hitHeight)?effect.hitHeight:22,effect.y);
+                const delta=end.clone().sub(start);root.position.copy(start).add(end).multiplyScalar(.5);
+                root.scale.set(width,delta.length(),width);root.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),delta.normalize());
+                return {root};
+            });
+        }
+        function flameParticles(effect,age,count) {
+            if(!effectIds.has(effect))effectIds.set(effect,++nextEffectId);
+            const item=object('flame:'+effectIds.get(effect),()=>{
+                const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(new Float32Array(18),3));
+                const mat=new T.PointsMaterial({color:'#ff962e',size:4,transparent:true,depthWrite:false});
+                const root=new T.Points(geometry,mat);root.name='flame-particles';
+                return {root,start:shotOrigin(effect),dispose(){geometry.dispose();mat.dispose();}};
+            });
+            const start=item.start,angle=Math.atan2(effect.y-effect.fromY,effect.x-effect.fromX);
+            const range=Math.min(180,Math.hypot(effect.x-effect.fromX,effect.y-effect.fromY));
+            const positions=item.root.geometry.attributes.position;
+            item.root.geometry.setDrawRange(0,count);
+            for(let i=0;i<count;i++){
+                const spread=(i/Math.max(1,count-1)-.5)*.8,travel=range*Math.min(1,(age/180)*(.6+i*.07));
+                positions.setXYZ(i,start.x+Math.cos(angle+spread)*travel,start.y+(i%3-1)*travel*.08,start.z+Math.sin(angle+spread)*travel);
+            }
+            positions.needsUpdate=true;item.root.material.opacity=Math.max(0,1-age/180);
         }
         function renderCombat(frame,now) {
             const {state,smooth}=frame;
@@ -387,14 +431,17 @@ window.Lab3D = (() => {
                 });
                 item.root.position.set(decoy.x,0,decoy.y);item.root.rotation.y=Math.atan2(decoy.facingX || 0,decoy.facingY ?? 1);item.mixer.update(.016);
             }
+            let flameRemaining=48;const flameEmitters=new Map();
             for(const effect of frame.effects || []) {
                 const age=now-effect.started;
                 if(effect.effect==='hit' && age>=0 && age<360 && ['rocket','mine','droneExplosion','repulsor','freezeGun','poisonGas'].includes(effect.weapon)) ring('blast:'+effectIds.get(effect)+':'+effect.started,effect.x,effect.y,Math.max(4,(effect.radius || 35)*age/360),effect.weapon==='freezeGun'?'#95dded':'#ffae62',1-age/360);
                 if(effect.effect==='hit' && age>=0 && age<220 && effect.damage===0 && ['laserCannon','freezeGun','plasmaBlade'].includes(effect.weapon)) {
-                    const start=effect.playerId===frame.localId && viewVisible ? fpsMuzzleWorld() : new T.Vector3(effect.fromX,22,effect.fromY);
-                    beam('special:'+effect.playerId+':'+effect.weapon+':'+effect.started,start,new T.Vector3(effect.x,Number.isFinite(effect.hitHeight)?effect.hitHeight:22,effect.y),effect.weapon==='freezeGun'?'#b8efff':'#50d7ff',effect.weapon==='laserCannon'?3:1.5);
+                    firedBeam(effect,effect.weapon==='freezeGun'?'#b8efff':'#50d7ff',effect.weapon==='laserCannon'?3:1.5);
                 }
-                if(effect.effect==='hit' && age>=0 && age<180 && effect.weapon==='flamethrower') beam('flame:'+effect.started,new T.Vector3(effect.fromX,22,effect.fromY),new T.Vector3(effect.x,18,effect.y),'#ff962e',5);
+                if(effect.effect==='hit' && age>=0 && age<180 && effect.weapon==='flamethrower' && effect.damage===0 && effect.enemyId==null) {
+                    const used=flameEmitters.get(effect.playerId)||0,count=Math.min(6,12-used,flameRemaining);
+                    if(count>0){flameParticles(effect,age,count);flameEmitters.set(effect.playerId,used+count);flameRemaining-=count;}
+                }
             }
         }
         function hitParticles(effect,frame,now) {
@@ -543,7 +590,7 @@ window.Lab3D = (() => {
             if (viewVisible) { renderer.autoClear=false; renderer.clearDepth(); renderer.render(viewScene,viewCamera); renderer.autoClear=true; }
         }
         renderer.domElement.addEventListener('webglcontextlost', event => { event.preventDefault(); });
-        return { render, groundScale, project, aimPoint, stationPosition, firstPerson:true };
+        return { render, captureEffect, groundScale, project, aimPoint, stationPosition, firstPerson:true };
     }
     return { create, groundScale };
 })();

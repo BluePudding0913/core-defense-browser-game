@@ -35,7 +35,7 @@ const context = vm.createContext({
     },
     state: { rules: { medkitCapacity: 3, silverAmmo: { cost: 1, amount: 10, damageMultiplier: 2.0 } } },
     applyRules() {}, keepEndArea: () => false, hideScreenIntro() {}, window: {},
-    previousPhase: 'preparing', previousRound: 1, lastCoreHp: 100,
+    previousPhase: 'preparing', previousRound: 1, lastCoreHp: 100, lastCoreShield: 0,
     performance: { now: () => 0 }, reconcileEnemySmoothing() {}, reconcileDroneSmoothing() {}, endInteractionHold() {}, endJobHold() {},
     CORE: {}, reconcileLocalPrediction() {}, receiveLog() {}, updateHud() {}, updateRoomLobby() {},
     menu: { classList: { add() {} } }, hud: { classList: { remove() {} } },

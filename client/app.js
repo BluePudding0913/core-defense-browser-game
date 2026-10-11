@@ -149,7 +149,6 @@ let localMove = { x: 0, y: 0 };
 let localFacing = { x: 0, y: -1 };
 let aimPointer = null;
 const fpsInput = labRenderer?.firstPerson ? window.FPSInput.create(canvas) : null;
-document.addEventListener('pointerlockchange',()=>{if(fpsInput && !fpsInput.locked()) {if(firingPointer)stopFiring(firingPointer.clientX,firingPointer.clientY);if(secondaryHeld)stopSecondaryFiring();keys.clear();sendMovement();}});
 let dashRequested = false;
 let lastFrameAt = performance.now();
 let mapReady = false;
@@ -401,7 +400,9 @@ function connect() {
         }
         if (message.type === "effect" && ["hit", "intercept", "pickup", "player-hit", "player-down", "explosion", "acid-impact"].includes(message.effect)) {
             if (typeof CombatFeedback !== "undefined") CombatFeedback.add(message, performance.now(), myPlayerId, DEBUG_MODE);
-            hitEffects.push({ ...message, started: performance.now() });
+            const effect = { ...message, started: performance.now() };
+            labRenderer?.captureEffect?.(effect);
+            hitEffects.push(effect);
             if (hitEffects.length > 100) hitEffects.shift();
         }
         if (message.type === "feedback" || message.type === "error") showFeedback(message.message);
@@ -1916,7 +1917,6 @@ function requestTankWall(point) {
 // Mouse down also fires when the left button is held, allowing a dash while shooting.
 canvas.addEventListener("mousedown", event => {
     if (!state || !getMe()) return;
-    if (event.button === 0 && fpsInput?.capture()) return;
     if (event.button === 1 && fpsInput) { event.preventDefault(); fpsInput.view.zoom=true; return; }
     if (event.button === 2 && fpsInput && (!["attacker","tank","scout","spy"].includes(getMe()?.job) || ["sniper","rifle","railgun"].includes(getMe()?.weapon))) { event.preventDefault();fpsInput.view.zoom=true;return; }
     if (event.button === 0) {
@@ -2097,9 +2097,6 @@ window.addEventListener("keydown", event => {
     }
     if (isTypingTarget(event.target)) return;
     const key = window.coreKeySettings.gameKey(event);
-    if (key === "escape" && typeof fpsInput !== "undefined" && fpsInput?.locked()) {
-        event.preventDefault(); fpsInput.release(); return;
-    }
     if (exitDialog.open) {
         if (key === "e") { event.preventDefault(); if (!event.repeat) exitDialog.close("cancel"); }
         return;
@@ -2576,7 +2573,6 @@ function drawFirstPerson() {
             drawKeyPrompt('R',prompt.visible ? prompt.x/dpr : x,prompt.visible ? prompt.y/dpr : y+50);
         }
         if(placement)ctx.fillText(placement.valid?'R PLACE':'BLOCKED',x,y+70);
-        if(!fpsInput.locked() && !matchMedia('(pointer: coarse)').matches)ctx.fillText('クリックで視点操作 · Escで解除',x,y+100);
     }
     ctx.restore();
     if(scoped && playing && !menusOpen) {
@@ -2589,7 +2585,7 @@ function drawFirstPerson() {
     }
     if(state.blackoutActive && !me?.drone?.controlled){
         const shade=ctx.createRadialGradient(canvas.width/2,canvas.height/2,0,canvas.width/2,canvas.height/2,canvas.width*.65);
-        shade.addColorStop(0,'rgba(0,5,10,.48)');shade.addColorStop(1,'rgba(0,5,10,.82)');ctx.fillStyle=shade;ctx.fillRect(0,0,canvas.width,canvas.height);
+        shade.addColorStop(0,'rgba(0,5,10,.62)');shade.addColorStop(1,'rgba(0,5,10,.9)');ctx.fillStyle=shade;ctx.fillRect(0,0,canvas.width,canvas.height);
     }
     drawDamageEdges();drawJoystick();drawRewindScreen();
 }
