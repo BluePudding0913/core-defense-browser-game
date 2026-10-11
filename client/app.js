@@ -2584,6 +2584,7 @@ function drawFirstPerson() {
     const playing=!!me && ['preparing','wave'].includes(state?.phase);
     const menusOpen=exitDialog.open || !actionMenu.classList.contains('hidden') || !inventoryMenu.classList.contains('hidden') || !howToMenu.classList.contains('hidden') || window.coreMenu?.settingsOpen?.() || window.JobUI?.isConfirming?.() || me?.missileControl;
     fpsInput.setActive(playing && !menusOpen,playing && !!menusOpen);
+    window.SniperAim?.updateScope?.(fpsInput.view,me?.weapon,performance.now(),playing && !menusOpen && !me?.down && !me?.selectedBuild && !me?.drone?.controlled);
     fpsInput.setLookFrozen(!!me && (me.railgunRemaining>0 || me.secondaryRailgunRemaining>0));
     if(menusOpen || !playing) {
         if(me?.sniper?.deploying)send("SNIPER_CANCEL");
@@ -2637,9 +2638,11 @@ function drawFirstPerson() {
     }
     if(me?.sniper?.deploying && playing && !menusOpen){ctx.fillStyle='#dbe5e3';ctx.fillRect(innerWidth/2-25,innerHeight-96,50*Math.min(1,me.sniper.deployTime/.8),2);}
     ctx.restore();
-    if(scoped && playing && !menusOpen) {
+    const scopeAmount=me?.weapon==='sniper'?(fpsInput.view.sniperAds ?? (scoped?1:0)):(scoped?1:0);
+    if(scopeAmount>0 && playing && !menusOpen) {
         ctx.save();ctx.scale(dpr,dpr);
         const x=innerWidth/2,y=innerHeight/2,r=Math.min(innerWidth,innerHeight)*.42;
+        ctx.globalAlpha=me?.weapon==='sniper'?clamp((scopeAmount-.55)/.35,0,1):1;
         ctx.fillStyle='#020406';ctx.beginPath();ctx.rect(0,0,innerWidth,innerHeight);ctx.arc(x,y,r,0,Math.PI*2,true);ctx.fill('evenodd');
         ctx.restore();
     }
@@ -2650,7 +2653,7 @@ function drawFirstPerson() {
     if(playing && !menusOpen && !me.down && !me.selectedBuild && !me.drone?.controlled) {
         const spread=window.AimControl?.displaySample(me,now,WEAPON_FIELDS) || (me.weapon==='sniper'?window.SniperAim.sample(me,now):{slope:WEAPON_FIELDS[me.weapon]?.spreadSlope || 0});
         if(spread.slope>0 && window.AimControl?.visible(me,fpsInput.view,WEAPON_FIELDS)) {
-            const fov=scoped?window.AimControl.scopeFov(me.weapon):fpsInput.view.zoom?48:72;
+            const fov=window.AimControl.viewFov(me.weapon,fpsInput.view,scoped);
             ctx.save();ctx.scale(dpr,dpr);window.SniperAim.draw(ctx,innerWidth/2,innerHeight/2,innerHeight,fov,spread);ctx.restore();
         }
     }

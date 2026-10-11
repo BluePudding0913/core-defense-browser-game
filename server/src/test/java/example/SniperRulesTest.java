@@ -11,7 +11,7 @@ class SniperRulesTest {
         for(int i=0;i<100000;i++) {
             assertEquals(expected,s.precision);
             s.elapsed=i*SniperRules.PERIOD+.7;
-            assertEquals((s.nextPrecision?63.8:58)*SniperRules.stability(s.elapsed),SniperRules.radius(s,s.elapsed),1e-6);
+            assertEquals((s.nextPrecision?69.6:58)*SniperRules.stability(s.elapsed),SniperRules.radius(s,s.elapsed),1e-6);
             s.elapsed=i*SniperRules.PERIOD+2.1;
             assertEquals((s.precision?3.5:16)*SniperRules.stability(s.elapsed),SniperRules.radius(s,s.elapsed),1e-6);
             if(s.precision)special++;

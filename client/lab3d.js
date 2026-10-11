@@ -566,7 +566,7 @@ window.Lab3D = (() => {
             latestFrame=frame;stationAnchors.clear();
             const me=state?.players.find(p=>p.id===localId), view=frame.view || {yaw:0,pitch:0};
             const eye=frame.eye || predicted || me || center;
-            camera.aspect=overlay.width/overlay.height; camera.fov=frame.scoped ? window.AimControl.scopeFov(me?.weapon) : view.zoom ? 48 : 72; camera.updateProjectionMatrix();
+            camera.aspect=overlay.width/overlay.height; camera.fov=window.AimControl.viewFov(me?.weapon,view,frame.scoped); camera.updateProjectionMatrix();
             const walking=frame.motion?.moving && !me?.sniper?.fixed && !me?.down && !me?.drone?.controlled && !(eye.jumpHeight>0);
             const walkPoint=predicted || eye;
             // Keep a relaxed stride, even during dashes or position corrections.
@@ -600,10 +600,12 @@ window.Lab3D = (() => {
             nearbyLight.visible=darkened;nearbyLight.position.copy(camera.position);
             handLight.intensity=darkened?.38:1.8;sniperKey.intensity=darkened?.4:1.7;sniperFill.intensity=darkened?.15:.7;
             const holdingSniper=me?.weapon==='sniper';
-            viewCamera.aspect=camera.aspect;viewCamera.fov=holdingSniper && !view.zoom ? 62 : 58;viewCamera.updateProjectionMatrix();
+            const ads=holdingSniper?(view.sniperAds ?? (frame.scoped?1:0)):0;
+            viewCamera.aspect=camera.aspect;viewCamera.fov=holdingSniper ? 62-4*ads : 58;viewCamera.updateProjectionMatrix();
             viewCamera.position.set(view.zoom ? -.1 : .03,view.zoom ? 1.58 : 1.65,view.zoom ? .16 : holdingSniper ? -.45 : -.37);
-            viewCamera.position.x+=Math.sin(walkPhase)*.008*bob;
-            viewCamera.position.y+=Math.sin(walkPhase*2)*.01*bob;
+            if(holdingSniper)viewCamera.position.set(.03,1.65,-.45);
+            viewCamera.position.x+=Math.sin(walkPhase)*.008*bob*(1-ads);
+            viewCamera.position.y+=Math.sin(walkPhase*2)*.01*bob*(1-ads);
             viewCamera.position.z-=recoil*.035+sniperRecoil*.13;
             viewCamera.rotation.x=-recoil*.035-sniperRecoil*.12;
             sniperKey.visible=sniperFill.visible=me?.weapon==='sniper';
@@ -613,7 +615,12 @@ window.Lab3D = (() => {
             viewModel.root.rotation.z=0;
             if(me?.weapon==='bat')viewModel.poseBat((now-batSwingAt)/1000);
             else batSwingAt=-Infinity;
-            viewVisible=!!me && !frame.scoped && !me.down && !me.movingCore && !me.selectedBuild && !me.drone?.controlled && !me.missileControl;
+            if(holdingSniper && ads>0){
+                viewModel.root.updateMatrixWorld(true);
+                const scopeEye=viewModel.root.getObjectByName('Rifle').localToWorld(new T.Vector3(0,.182,-.272));
+                viewCamera.position.lerp(scopeEye,ads);
+            }
+            viewVisible=!!me && (!frame.scoped || holdingSniper && ads<.9) && !me.down && !me.movingCore && !me.selectedBuild && !me.drone?.controlled && !me.missileControl;
             viewModel.root.visible=viewVisible;
             sun.position.set(center.x - 300, 700, center.y - 250); sun.target.position.set(center.x, 0, center.y);
             rebuild(map, reachable); seen = new Set();

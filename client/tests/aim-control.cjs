@@ -14,7 +14,7 @@ console.log('Aim control passed: breathing, server penalties, movement continuit
 const smooth={id:'smooth',weapon:'rifle',aimControl:{elapsed:0,movement:0,speedRatio:0,turn:0,airborne:false}};
 api.sync([smooth],0);assert.equal(api.displaySample(smooth,0,definitions).penalty,1);
 smooth.aimControl={elapsed:.05,movement:1,speedRatio:1,turn:1,airborne:false};api.sync([smooth],50);
-const raised=api.displaySample(smooth,50,definitions).penalty;assert(raised>1&&raised<3.25);assert.equal(api.sample(smooth,50,definitions).penalty,3.25,'Display filter never weakens server-derived shot sampling');
+const raised=api.displaySample(smooth,50,definitions).penalty;assert(raised>1&&raised<3.75);assert.equal(api.sample(smooth,50,definitions).penalty,3.75,'Display filter never weakens server-derived shot sampling');
 const same=api.displaySample(smooth,50,definitions);assert.equal(same.penalty,raised,'Same frame stays continuous');
 const beforeDrop=api.displaySample(smooth,100,definitions).penalty;assert(beforeDrop>raised);
 smooth.aimControl={elapsed:.1,movement:0,speedRatio:0,turn:0,airborne:false};api.sync([smooth],100);

@@ -18,7 +18,7 @@ final class WeaponCatalog {
         boolean meleeSlot() { return mode == AttackMode.MELEE; }
         boolean usesAmmo() { return capacity > 0; }
         int pellets() { return mode == AttackMode.SPREAD ? GameConfig.SHOTGUN_PELLETS : 1; }
-        int maxTargets() { return piercing || mode == AttackMode.BEAM ? -1 : mode == AttackMode.SPREAD ? GameConfig.SHOTGUN_MAX_TARGETS : 1; }
+        int maxTargets() { return id.equals("sniper") ? 2 : piercing || mode == AttackMode.BEAM ? -1 : mode == AttackMode.SPREAD ? GameConfig.SHOTGUN_MAX_TARGETS : 1; }
         double blastRadius() { return mode == AttackMode.ROCKET ? GameConfig.ROCKET_BLAST_RADIUS : mode == AttackMode.GAS ? PoisonGasRules.RADIUS : 0; }
         String ownedField() { return "owns" + Character.toUpperCase(id.charAt(0)) + id.substring(1); }
         String ammoField() { return id + "Ammo"; }
@@ -29,7 +29,7 @@ final class WeaponCatalog {
             new Definition("shotgun", 50, AttackMode.SPREAD, false, new WeaponStats(220, 24, 1.25, 45, 2), 1.2),
             new Definition("smg", 240, AttackMode.RAY, false, new WeaponStats(270, 18, .14, 0, 2), 1),
             new Definition("rifle", 30, AttackMode.RAY, false, new WeaponStats(430, 120, 1.15, 0, 2), 1),
-            new Definition("sniper", 30, AttackMode.RAY, true, new WeaponStats(0, 280, 1.8, 0, 2), .85),
+            new Definition("sniper", 30, AttackMode.RAY, true, new WeaponStats(0, 280, 3.6, 0, 2), .85),
             new Definition("ricochet", 240, AttackMode.RICOCHET, false, new WeaponStats(600, 30, .30, 0, 2), .9),
             new Definition("revolver", 30, AttackMode.RAY, true, new WeaponStats(360, 320, 1.6, 10, 2), .95),
             new Definition("railgun", 2, AttackMode.BEAM, false, new WeaponStats(2400, 3000, 30, 0, 20), .55),

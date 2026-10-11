@@ -2,7 +2,7 @@ package example;
 
 /** Server-clock aim and movement penalties. No transport, rendering or session dependencies. */
 final class AimControlRules {
-    static final double PERIOD=2.8, MOVE_RECOVERY=.25, TURN_RECOVERY=.22;
+    static final double PERIOD=2.8, MOVE_RECOVERY=.25, TURN_RECOVERY=.22, TURN_WEIGHT=1.5;
     private AimControlRules() {}
     static boolean supported(String weapon) {
         return switch(weapon) {
@@ -46,7 +46,7 @@ final class AimControlRules {
         }
     }
     static double breath(double elapsed) { return 1+.35*Math.sin(elapsed/PERIOD*Math.PI*2); }
-    static double penalty(State state) { return 1+1.25*Math.max(state.movement,state.speedRatio)+state.turn+(state.airborne?.8:0); }
+    static double penalty(State state) { return 1+1.25*Math.max(state.movement,state.speedRatio)+TURN_WEIGHT*state.turn+(state.airborne?.8:0); }
     static double radius(State state,String weapon,SniperRules.State sniper) {
         if(!supported(weapon))return ShotSpreadRules.radius(weapon);
         double time=state.inputTime!=null&&state.validTime(state.inputTime)?state.inputTime:state.elapsed;

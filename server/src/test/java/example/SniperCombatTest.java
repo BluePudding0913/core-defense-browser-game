@@ -46,7 +46,7 @@ class SniperCombatTest {
         prone();precision();int ammo=player.weapons.ammo("sniper");
         var e=new Enemy(9901,"grunt",GameMap.SPAWN_POINTS.get(0),2000,0,0,0);e.x=player.x+100;e.y=player.y;game.enemies.add(e);
         double pitch=Math.atan2(26-SniperRules.EYE_HEIGHT,100);fire("2.1",pitch);
-        assertEquals(ammo-1,player.weapons.ammo("sniper"));assertEquals(1.8,player.cooldown);assertTrue(player.sniper.fixed);
+        assertEquals(ammo-1,player.weapons.ammo("sniper"));assertEquals(3.6,player.cooldown);assertTrue(player.sniper.fixed);
         assertEquals(.9,player.sniper.recovery);assertEquals(pitch,player.aimPitch);
         var mapper=new ObjectMapper();var trace=mapper.readTree(messages.stream().filter(s->s.contains("\"effect\":\"hit\"")&&s.contains("\"damage\":0")).findFirst().orElseThrow());
         assertEquals(6.2,trace.path("fromHeight").asDouble(),.001);assertTrue(e.hp<2000);
@@ -67,7 +67,7 @@ class SniperCombatTest {
             game.handleMessage(player,"FIRE:"+x+":"+y+":1:"+pitch+(fixed?":2.1":""));
             double expected=280*(1+100.0/2400)*(fixed?1.25:1)*(head?2:1);
             assertEquals(expected,5000-e.hp,1e-6,"Fixed="+fixed+", head="+head);
-            assertEquals(ammo-1,player.weapons.ammo("sniper"));assertEquals(1.8,player.cooldown);
+            assertEquals(ammo-1,player.weapons.ammo("sniper"));assertEquals(3.6,player.cooldown);
             assertEquals(elapsed,player.sniper.elapsed);assertEquals(fixed,player.sniper.fixed);
             var impact=new ObjectMapper().readTree(messages.stream().filter(m->m.contains("\"enemyId\":9950")).findFirst().orElseThrow());
             assertEquals(head,impact.path("headshot").asBoolean());
@@ -106,12 +106,33 @@ class SniperCombatTest {
         player.firing=false;player.equipWeapon("sniper");player.job="attacker";prone();int ammo=player.weapons.ammo("sniper");
         game.handleMessage(player,"SECONDARY_FIRE:"+(player.x+200)+":"+player.y+":1:0");assertEquals(ammo,player.weapons.ammo("sniper"));assertTrue(player.sniper.fixed);
     }
+    @Test void sniperStopsAtSecondEnemyForStandingProneAndSecondaryShots() throws Exception {
+        CombatTestRandom.center(game);
+        for(int mode=0;mode<3;mode++) {
+            player.sniper.stop();player.firing=player.secondaryFiring=false;player.cooldown=player.secondaryCooldown=0;
+            player.job="healer";player.equipWeapon("sniper");if(mode==1){prone();precision();}
+            if(mode==2){player.job="attacker";player.equipWeapon("pistol");player.equipSecondaryWeapon("sniper");}
+            game.enemies.clear();messages.clear();
+            var victims=new java.util.ArrayList<Enemy>();
+            for(int i=0;i<3;i++){var e=new Enemy(9960+i,"grunt",GameMap.SPAWN_POINTS.get(0),5000,0,0,0);e.x=player.x+100+i*50;e.y=player.y;victims.add(e);}
+            game.enemies.add(victims.get(2));game.enemies.add(victims.get(0));game.enemies.add(victims.get(1));
+            double pitch=Math.atan2(16-(mode==1?SniperRules.EYE_HEIGHT:26),100);int ammo=player.weapons.ammo("sniper");
+            game.handleMessage(player,(mode==2?"SECONDARY_FIRE:":"FIRE:")+(player.x+200)+":"+player.y+":1:"+pitch+(mode==1?":2.1":""));
+            assertTrue(victims.get(0).hp<5000);assertTrue(victims.get(1).hp<5000);assertEquals(5000,victims.get(2).hp);
+            assertEquals(ammo-1,player.weapons.ammo("sniper"));assertEquals(3.6,mode==2?player.secondaryCooldown:player.cooldown);
+            var trace=new ObjectMapper().readTree(messages.stream().filter(m->m.contains("\"effect\":\"hit\"")&&m.contains("\"damage\":0")).findFirst().orElseThrow());
+            assertTrue(trace.path("x").asDouble()>victims.get(0).x);assertTrue(trace.path("x").asDouble()<victims.get(1).x);
+            assertFalse(messages.stream().anyMatch(m->m.contains("\"enemyId\":9962")));
+        }
+    }
     @Test void allSniperUsersAndSnapshotsShareTheMapDiagonalRange() throws Exception {
         double range=Math.hypot(GameMap.WORLD_W,GameMap.WORLD_H);
         assertTrue(range>2400);assertEquals(range,WeaponCatalog.stats("sniper").range());
         assertEquals(range,WeaponCatalog.find("sniper").stats().range());
         var snapshot=new ObjectMapper().readTree(SnapshotBuilder.build(game));
         assertEquals(range,snapshot.path("rules").path("weapons").path("sniper").path("range").asDouble());
+        assertEquals(2,snapshot.path("rules").path("weapons").path("sniper").path("maxTargets").asInt());
+        assertEquals(3.6,snapshot.path("rules").path("weapons").path("sniper").path("cooldown").asDouble());
         assertEquals(2400,WeaponCatalog.stats("railgun").range());
     }
     @Test void standingProneAndSecondarySniperShotsStopAtTheSameWall() throws Exception {
