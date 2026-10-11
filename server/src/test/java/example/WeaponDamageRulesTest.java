@@ -2,13 +2,14 @@ package example;
 import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 class WeaponDamageRulesTest {
-    @Test void sniperKeepsBaseDamageAndScalesToDoubleAtMaximumRange() {
+    @Test void sniperKeepsDistanceDamageScaleWhenReachExtends() {
         assertEquals(280, WeaponCatalog.stats("sniper").damage());
         assertEquals(30, WeaponCatalog.capacity("sniper"));
         assertEquals(280, WeaponDamageRules.atDistance("sniper", 280, 0));
         assertEquals(420, WeaponDamageRules.atDistance("sniper", 280, 1200));
         assertEquals(560, WeaponDamageRules.atDistance("sniper", 280, 2400));
         assertEquals(560, WeaponDamageRules.atDistance("sniper", 280, 3000));
+        assertEquals(560, WeaponDamageRules.atDistance("sniper", 280, WeaponCatalog.stats("sniper").range()));
         assertEquals(18, WeaponDamageRules.atDistance("smg", 18, 2400));
     }
     @Test void piercingSniperAppliesDistanceBonusToEachEnemyAndConsumesOneRound() {

@@ -584,7 +584,7 @@ final class CombatSystem {
             var shot=SniperRules.scatter(directionX,directionY,previousPitch==null?0:previousPitch,radius,random);
             directionX=shot.dx(); directionY=shot.dy();
             if(previousPitch!=null)player.aimPitch=shot.pitch();
-            weapon=new WeaponStats(sniper && fixed?Math.hypot(WORLD_W,WORLD_H):weapon.range(),weapon.damage(),weapon.cooldown(),weapon.knockback(),sniper?0:weapon.width());
+            weapon=new WeaponStats(weapon.range(),weapon.damage(),weapon.cooldown(),weapon.knockback(),sniper?0:weapon.width());
         }
         try {
         double shotDistance = GameMap.distanceToWall(shotX(player), shotY(player),

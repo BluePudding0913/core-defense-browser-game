@@ -19,8 +19,9 @@ assert.equal(ctx.strokeStyle,'#ffaa00');assert.equal(strokes[1][0],388);assert.e
 const svg=decodeURIComponent(initial.styles.get('--reticle-preview'));
 assert(svg.includes('stroke="#ffaa00"'));assert(svg.includes('M35.2 35.2L28 28'),'Preview uses the same shape geometry');
 assert.equal(load(initial.stored.get('core-defense-reticle')).api.get().shape,'cross');
-initial.api.update({shape:'dot',size:8});initial.api.draw(ctx,400,300);assert.deepEqual(dots[0].slice(0,3),[400,300,4]);
-assert(decodeURIComponent(initial.styles.get('--reticle-preview')).includes('fill='),'Circle preview is hollow');
+initial.api.update({shape:'dot',size:8});initial.api.draw(ctx,400,300);assert.equal(initial.api.get().shape,'plus');assert.equal(dots.length,0,'Retired circle never draws an arc');
+const retired=load('{"shape":"dot","color":"#123456","size":16}');assert.deepEqual({...retired.api.get()},{shape:'plus',color:'#123456',size:16},'Retired circle preserves color and size');
+assert(!fs.readFileSync('client/menu-ui.js','utf8').includes('["dot", "○"]'),'Circle is absent from settings');
 const copy=initial.api.get();copy.size=32;assert.equal(initial.api.get().size,8);
 for(const value of ['{broken','null','{"color":"url(bad)","size":"32","shape":"bad"}'])assert.deepEqual({...load(value).api.get()},{color:'#e8f4f8',size:20,shape:'plus'});
 initial.api.update({size:100});assert.equal(initial.api.get().size,32);
@@ -30,7 +31,7 @@ const blocked=load(null,true);blocked.api.update({color:'#123456'});assert.equal
 
 // Settings retain only the normal preview and drawing API.
 assert.equal(initial.api.drawHit,undefined);assert(!initial.styles.has('--reticle-preview-hit'));assert(!initial.styles.has('--reticle-preview-headshot'));
-assert(!fs.readFileSync('client/menu-ui.js','utf8').includes('is-headshot'));assert(!source.includes('ctx.fill('),'Circle remains hollow');
+assert(!fs.readFileSync('client/menu-ui.js','utf8').includes('is-headshot'));assert(!source.includes('ctx.fill('),'Reticle center remains open');
 
 // Exercise the real FPS overlay through active play, failure and menus.
 const app=fs.readFileSync('client/app.js','utf8');const start=app.indexOf('function drawFirstPerson()'),end=app.indexOf('\nfunction drawDamageEdges()',start);
@@ -40,21 +41,24 @@ const hiddenMenu={classList:{contains:()=>true}};
 const context=vm.createContext({window:{coreReticleSettings:{draw:(ctx,x,y)=>{assert.equal(x,400);assert.equal(y,300);reticles++;}},coreMenu:{settingsOpen:()=>menuOpen}},getMe:()=>player,droneCameraView:()=>null,predictedLocal:player,camera:{},fpsInput:{view:{zoom:false,yaw:0,pitch:0},setActive:noOp,setLookFrozen:noOp,locked:()=>true,facing:()=>({x:0,y:-1})},state:{phase:'wave',players:[player],enemies:[],core:{x:100,y:100},slots:[]},DEBUG_MODE:false,WEAPON_FIELDS:{pistol:{spreadSlope:.04}},exitDialog:{open:false},actionMenu:hiddenMenu,inventoryMenu:hiddenMenu,howToMenu:hiddenMenu,firingPointer:null,secondaryHeld:false,send:noOp,keys:new Set(),joystick:null,sendMovement:noOp,placementSelection:()=>null,labRenderer:{render:noOp,project:()=>({visible:false})},TILE_MAP:{},reachableFloorTiles:()=>new Set(),scale:1,myPlayerId:'me',smoothEntity:noOp,enemyRadius:()=>10,labStations:()=>[],hitEffects:[],worldFromScreen:()=>({x:0,y:0}),localMove:{x:0,y:0},ctx:canvasCtx,canvas:{width:800,height:600},innerWidth:800,innerHeight:600,performance:{now:()=>100},smoothed:new Map(),findNearestInteraction:()=>null,drawDamageEdges:noOp,drawJoystick:noOp,drawRewindScreen:noOp});
 vm.runInContext(fs.readFileSync("client/key-settings.js","utf8"),context);
 vm.runInContext(fs.readFileSync("client/sniper-aim.js","utf8"),context);
-context.window.SniperAim.draw=(ctx,x,y,h,fov,sample,color)=>circles.push(color);
+context.window.SniperAim.draw=(ctx,x,y,h,fov,sample,color='rgba(190,224,246,.55)')=>circles.push(color);
 vm.runInContext(fs.readFileSync("client/aim-control.js","utf8"),context);
 vm.runInContext(app.slice(start,end),context);
 context.drawFirstPerson();assert.equal(reticles,1);
 context.state.phase='lost';context.drawFirstPerson();assert.equal(reticles,1,'Failure hides the aiming mark');
 context.state.phase='won';context.drawFirstPerson();assert.equal(reticles,1);
 context.state.phase='wave';menuOpen=true;context.drawFirstPerson();assert.equal(reticles,1,'Settings hide the aiming mark');
-menuOpen=false;context.fpsInput.view.zoom=true;context.drawFirstPerson();assert.equal(reticles,1,'Standing sniper ADS replaces the normal reticle');assert.equal(circles.pop(),'#e1e8e5','Standing sniper ADS shows breathing circle');
-context.fpsInput.view.zoom=false;context.drawFirstPerson();assert.equal(reticles,2,'Hip fire preserves the configured reticle');
+menuOpen=false;context.fpsInput.view.zoom=true;context.drawFirstPerson();assert.equal(reticles,2,'Standing sniper ADS preserves the normal reticle');assert.equal(circles.pop(),'rgba(190,224,246,.55)','Standing sniper ADS shows breathing circle');
+context.fpsInput.view.zoom=false;context.drawFirstPerson();assert.equal(reticles,3,'Hip fire preserves the configured reticle');
 assert.equal(circles.length,0,'Standing sniper hides its internal cone');
-player.sniper={fixed:true,elapsed:1,cycle:0};context.drawFirstPerson();assert.equal(reticles,2);assert.equal(circles.pop(),'#e1e8e5');
-context.fpsInput.view.zoom=true;context.drawFirstPerson();assert.equal(reticles,2,'Prone scope hides the normal reticle');assert.equal(circles.pop(),'#e1e8e5');
-player.sniper.fixed=false;player.weapon='pistol';context.fpsInput.view.zoom=false;context.drawFirstPerson();assert.equal(circles.length,0,'Ordinary weapons hide cones during hip fire');context.fpsInput.view.zoom=true;context.drawFirstPerson();assert.equal(circles.pop(),'#e1e8e5','Ordinary ADS shows breathing circle');context.fpsInput.view.zoom=false;
+player.sniper={fixed:true,elapsed:1,cycle:0};context.drawFirstPerson();assert.equal(reticles,4);assert.equal(circles.pop(),'rgba(190,224,246,.55)');
+context.fpsInput.view.zoom=true;context.drawFirstPerson();assert.equal(reticles,5,'Prone scope preserves the normal reticle');assert.equal(circles.pop(),'rgba(190,224,246,.55)');
+player.sniper.fixed=false;player.weapon='pistol';context.fpsInput.view.zoom=false;context.drawFirstPerson();assert.equal(circles.length,0,'Ordinary weapons hide cones during hip fire');context.fpsInput.view.zoom=true;context.drawFirstPerson();assert.equal(circles.pop(),'rgba(190,224,246,.55)','Ordinary ADS shows breathing circle');context.fpsInput.view.zoom=false;
 context.DEBUG_MODE=true;context.drawFirstPerson();assert.equal(circles.pop(),'#438fff','Debug shows the server cone in blue');
 player.weapon='sniper';context.drawFirstPerson();assert.equal(circles.pop(),'#438fff','Debug can inspect the hidden standing sniper cone');
 player.sniper.fixed=true;context.drawFirstPerson();assert.equal(circles.pop(),'#438fff');
 assert(!fs.existsSync('client/pointer-settings.js'));assert(!fs.readFileSync('client/index.html','utf8').includes('pointer-settings'));
 console.log('Reticle settings passed: geometry, live preview, persistence, validation, no custom cursor, play/failure/menu/scope lifecycle');
+
+for(const weapon of ['rifle','railgun']) {player.weapon=weapon;player.sniper.fixed=false;context.fpsInput.view.zoom=true;const before=reticles;context.drawFirstPerson();assert.equal(reticles,before+1,weapon+' scope preserves the configured reticle');}
+const before=reticles;player.down=true;context.drawFirstPerson();assert.equal(reticles,before,'Downed player has no reticle');player.down=false;player.selectedBuild='turret';context.drawFirstPerson();assert.equal(reticles,before,'Placement has no weapon reticle');player.selectedBuild=null;player.drone={controlled:true};context.drawFirstPerson();assert.equal(reticles,before,'Drone retains its own UI');

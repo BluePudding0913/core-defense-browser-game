@@ -1,7 +1,8 @@
 /* Each local hit keeps its own reward label, independently from hit animations. */
 const CombatFeedback = (() => {
-    let popups = [];
+    let popups = [],headshotAt=-Infinity;
     function add(effect, now, playerId, debugMode = false) {
+        if(effect.effect==='hit' && effect.playerId===playerId && effect.enemyId!=null && effect.damage>0 && effect.headshot===true)headshotAt=now;
         const damage = debugMode && Number.isFinite(effect.damage) && effect.damage > 0 ? effect.damage : 0;
         if (effect.effect !== "hit" || effect.playerId !== playerId
                 || !(effect.credits > 0 || damage > 0)) return;
@@ -59,6 +60,11 @@ const CombatFeedback = (() => {
             ctx.restore();
         }
     }
-    return {add, layout, draw, reset() {popups = [];} };
+    function drawHeadShot(ctx,now,x,y) {
+        const age=now-headshotAt;if(age<0 || age>=400)return;
+        ctx.save();ctx.globalAlpha=Math.min(1,(400-age)/180);ctx.fillStyle='#e8f4f8';
+        ctx.font='600 11px ui-monospace, monospace';ctx.textAlign='right';ctx.fillText('HeadShot',x-12,y-18);ctx.restore();
+    }
+    return {add, layout, draw, drawHeadShot, reset() {popups = [];headshotAt=-Infinity;} };
 })();
 if (typeof module !== "undefined") module.exports = CombatFeedback;

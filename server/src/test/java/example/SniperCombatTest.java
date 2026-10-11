@@ -87,4 +87,28 @@ class SniperCombatTest {
         player.firing=false;player.equipWeapon("sniper");player.job="attacker";prone();int ammo=player.weapons.ammo("sniper");
         game.handleMessage(player,"SECONDARY_FIRE:"+(player.x+200)+":"+player.y+":1:0");assertEquals(ammo,player.weapons.ammo("sniper"));assertTrue(player.sniper.fixed);
     }
+    @Test void allSniperUsersAndSnapshotsShareTheMapDiagonalRange() throws Exception {
+        double range=Math.hypot(GameMap.WORLD_W,GameMap.WORLD_H);
+        assertTrue(range>2400);assertEquals(range,WeaponCatalog.stats("sniper").range());
+        assertEquals(range,WeaponCatalog.find("sniper").stats().range());
+        var snapshot=new ObjectMapper().readTree(SnapshotBuilder.build(game));
+        assertEquals(range,snapshot.path("rules").path("weapons").path("sniper").path("range").asDouble());
+        assertEquals(2400,WeaponCatalog.stats("railgun").range());
+    }
+    @Test void standingProneAndSecondarySniperShotsStopAtTheSameWall() throws Exception {
+        game.unlockedAreas.addAll(GameMap.AREAS.stream().map(UnlockArea::id).toList());
+        player.x=1020;player.y=1900;CombatTestRandom.center(game);
+        double expected=GameMap.distanceToWall(player.x,player.y,1,0,WeaponCatalog.stats("sniper").range(),game.unlockedAreas);
+        assertTrue(expected>0);int initialAmmo=player.weapons.ammo("sniper");
+        for(int mode=0;mode<3;mode++) {
+            player.firing=player.secondaryFiring=false;player.cooldown=player.secondaryCooldown=0;messages.clear();
+            if(mode==1)player.sniper.start(()->.8);
+            if(mode==2){player.sniper.stop();player.job="attacker";player.equipWeapon("pistol");player.equipSecondaryWeapon("sniper");}
+            game.handleMessage(player,(mode==2?"SECONDARY_FIRE:":"FIRE:")+(player.x+200)+":"+player.y+":1:0");
+            var trace=new ObjectMapper().readTree(messages.stream().filter(m->m.contains("\"effect\":\"hit\"")).findFirst().orElseThrow());
+            assertEquals(player.x+expected,trace.path("x").asDouble(),1e-8);assertEquals(player.y,trace.path("y").asDouble(),1e-8);
+            assertEquals(initialAmmo-mode-1,player.weapons.ammo("sniper"));
+        }
+    }
+
 }

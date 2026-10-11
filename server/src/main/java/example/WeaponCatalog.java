@@ -10,6 +10,10 @@ final class WeaponCatalog {
     enum AttackMode { RAY, MELEE, SPREAD, RICOCHET, ROCKET, BEAM, FLAME, HOOK, GAS, PUSH, FREEZE }
     record WeaponStats(double range, double damage, double cooldown, double knockback, double width) { }
     record Definition(String id, int capacity, AttackMode mode, boolean piercing, WeaponStats stats, double goldMultiplier) {
+        // Resolve the map-dependent range only after static map validation has completed.
+        public WeaponStats stats() {
+            return id.equals("sniper") ? new WeaponStats(Math.hypot(GameMap.WORLD_W,GameMap.WORLD_H),stats.damage(),stats.cooldown(),stats.knockback(),stats.width()) : stats;
+        }
         boolean gachaOnly() { return GachaRules.POOL.contains(id); }
         boolean meleeSlot() { return mode == AttackMode.MELEE; }
         boolean usesAmmo() { return capacity > 0; }
@@ -25,7 +29,7 @@ final class WeaponCatalog {
             new Definition("shotgun", 50, AttackMode.SPREAD, false, new WeaponStats(220, 24, 1.25, 45, 2), 1.2),
             new Definition("smg", 240, AttackMode.RAY, false, new WeaponStats(270, 18, .14, 0, 2), 1),
             new Definition("rifle", 30, AttackMode.RAY, false, new WeaponStats(430, 120, 1.15, 0, 2), 1),
-            new Definition("sniper", 30, AttackMode.RAY, true, new WeaponStats(2400, 280, 1.8, 0, 2), .85),
+            new Definition("sniper", 30, AttackMode.RAY, true, new WeaponStats(0, 280, 1.8, 0, 2), .85),
             new Definition("ricochet", 240, AttackMode.RICOCHET, false, new WeaponStats(600, 30, .30, 0, 2), .9),
             new Definition("revolver", 30, AttackMode.RAY, true, new WeaponStats(360, 320, 1.6, 10, 2), .95),
             new Definition("railgun", 2, AttackMode.BEAM, false, new WeaponStats(2400, 3000, 30, 0, 20), .55),
