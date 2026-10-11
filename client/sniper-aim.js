@@ -30,10 +30,10 @@ window.SniperAim = (() => {
         radius+=48*(recovery/RECOVERY)**2;
         return {elapsed,radius,slope:radius*PIXEL_SLOPE,fixed:!!s.fixed};
     }
-    function draw(ctx,x,y,height,fov,sample,color='#e1e8e5') {
+    function draw(ctx,x,y,height,fov,sample,color='rgba(190,224,246,.55)',fillColor='rgba(190,224,246,.07)') {
         const r=sample.slope*height/(2*Math.tan(fov*Math.PI/360));
-        ctx.save();ctx.strokeStyle=color;ctx.lineWidth=1.4;ctx.shadowColor='#0b1418';ctx.shadowBlur=2;
-        ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.stroke();ctx.restore();return r;
+        ctx.save();ctx.strokeStyle=color;ctx.lineWidth=1.4;ctx.shadowBlur=0;
+        ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);if(fillColor){ctx.fillStyle=fillColor;ctx.fill();}ctx.shadowColor='#0b1418';ctx.shadowBlur=2;ctx.stroke();ctx.restore();return r;
     }
     return {sample,sync,draw,shot,stability};
 })();

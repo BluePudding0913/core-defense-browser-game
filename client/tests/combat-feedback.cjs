@@ -118,3 +118,15 @@ assert.equal(feedback.hitMarker,undefined);assert.equal(feedback.drawHitMarker,u
 feedback.add({...hit(3),damage:10,headshot:true},100,'me');assert.equal(feedback.layout(100)[0].text,'+3G');
 assert(!fs.readFileSync('client/app.js','utf8').includes('CombatFeedback.drawHitMarker'));
 console.log('Hit marker removal passed: reward labels remain, no hit/HS reticle state or overlay');
+
+// Only confirmed local headshots show the one small label, above and left of the reticle.
+{
+const texts=[],labelCtx={save(){},restore(){},fillText(text,x,y){texts.push({text,x,y,alpha:this.globalAlpha});}};
+feedback.reset();for(const effect of [{...hit(0),damage:20},{...hit(0),damage:0,headshot:true},{...hit(0),damage:20,headshot:true,playerId:'other'},{...hit(0),damage:20,headshot:true,enemyId:null}])feedback.add(effect,100,'me');
+feedback.drawHeadShot(labelCtx,100,400,300);assert.equal(texts.length,0);
+feedback.add({...hit(0),damage:20,headshot:true},200,'me');feedback.drawHeadShot(labelCtx,200,400,300);assert.deepEqual(texts.at(-1),{text:'HeadShot',x:388,y:282,alpha:1});
+feedback.add({...hit(0),damage:20},500,'me');feedback.drawHeadShot(labelCtx,500,400,300);assert(texts.at(-1).alpha<1);const count=texts.length;
+feedback.drawHeadShot(labelCtx,600,400,300);assert.equal(texts.length,count,'Body hits do not extend the HS label');feedback.reset();feedback.drawHeadShot(labelCtx,200,400,300);assert.equal(texts.length,count,'Reset clears the label');
+console.log('HeadShot label passed: confirmed local HS only, left/up placement, short lifetime, no body extension or extra markers');
+
+}
