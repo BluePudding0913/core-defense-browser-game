@@ -646,7 +646,10 @@ final class CombatSystem {
                 .sorted(Comparator.comparingDouble(enemy ->
                         fpsRay == null ? (enemy.x - originX) * directionX + (enemy.y - originY) * directionY : fpsHits.get(enemy).distance())).toList();
         boolean piercing = WeaponCatalog.find(shotWeapon(player)).piercing();
-        List<Enemy> targets = piercing ? candidates : candidates.stream().limit(1).toList();
+        int maxTargets = WeaponCatalog.find(shotWeapon(player)).maxTargets();
+        List<Enemy> targets = piercing && maxTargets < 0 ? candidates
+                : candidates.stream().limit(piercing ? maxTargets : 1).toList();
+        boolean penetrationSpent = piercing && maxTargets > 0 && targets.size() == maxTargets;
         List<Player> allies = WeaponCatalog.find(shotWeapon(player)).mode() == WeaponCatalog.AttackMode.MELEE
                 ? List.of() : friendlyRayTargets(player, originX, originY, directionX, directionY, weapon, shotDistance);
         if (fpsRay != null) allies = allies.stream()
@@ -668,8 +671,8 @@ final class CombatSystem {
             if (fpsRay != null) entry = fpsAlly(fpsRay,first,weapon.width()).distance();
             endX = originX + directionX * entry; endY = originY + directionY * entry;
         }
-        if (!piercing && !targets.isEmpty() && WeaponCatalog.find(shotWeapon(player)).mode() != WeaponCatalog.AttackMode.MELEE) {
-            Enemy first = targets.get(0);
+        if ((!piercing || penetrationSpent) && !targets.isEmpty() && WeaponCatalog.find(shotWeapon(player)).mode() != WeaponCatalog.AttackMode.MELEE) {
+            Enemy first = targets.get(penetrationSpent ? targets.size()-1 : 0);
             double projection = (first.x - originX) * directionX + (first.y - originY) * directionY;
             double perpendicular = Math.abs((first.x - originX) * directionY - (first.y - originY) * directionX);
             double radius = enemyRadius(first) + weapon.width();
@@ -679,6 +682,10 @@ final class CombatSystem {
         }
         boolean intercepted = false;
         double firstBody = Math.hypot(endX - originX, endY - originY);
+        final double penetrationEnd = firstBody;
+        if (penetrationSpent) allies = allies.stream().filter(target ->
+                (fpsRay == null ? (target.x-originX)*directionX+(target.y-originY)*directionY
+                        : fpsAlly(fpsRay,target,weapon.width()).distance()) < penetrationEnd).toList();
         if (!piercing && !targets.isEmpty() && WeaponCatalog.find(shotWeapon(player)).mode() == WeaponCatalog.AttackMode.MELEE) {
             Enemy first = targets.get(0);
             double projection = (first.x - originX) * directionX + (first.y - originY) * directionY;
@@ -698,7 +705,7 @@ final class CombatSystem {
             double entry = fpsRay == null ? EnemyProjectileSystem.rayEntry(shot, originX, originY,
                     directionX, directionY, shotDistance, weapon.width())
                     : FpsHitRules.projectile(fpsRay, shot.x, shot.y, weapon.width()).distance();
-            if (!piercing && entry >= firstBody) break;
+            if ((!piercing || penetrationSpent) && entry >= firstBody) break;
             damageShot(player, shotWeapon(player), shot, WeaponDamageRules.atDistance(shotWeapon(player), weapon.damage(),
                     distance(originX, originY, shot.x, shot.y)));
             intercepted = true;

@@ -43,7 +43,7 @@ window.MiniMap = (() => {
         ctx.restore();
         ctx.save();ctx.translate(cx,cy);ctx.rotate(yaw);ctx.fillStyle='#e9f9ff';ctx.beginPath();ctx.moveTo(0,-6);ctx.lineTo(-4,4);ctx.lineTo(0,2);ctx.lineTo(4,4);ctx.closePath();ctx.fill();ctx.restore();
         ctx.strokeStyle='#829ca9';ctx.lineWidth=1;ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
-        ctx.fillStyle='#e9f9ff';ctx.font='bold 10px system-ui';ctx.fillText('N',cx,cy-r+12);ctx.fillStyle='#a9bdc6';ctx.fillText('9 TILES',cx,cy+r+14);
+        ctx.fillStyle='#e9f9ff';ctx.font='bold 10px system-ui';ctx.fillText('N',cx,cy-r+12);
         if(state.blackoutActive && data.breakers.some(p=>(state.trippedBreakers || []).includes(p.id))){ctx.fillStyle='#ff6572';ctx.fillText('! RESET',cx,cy+r+28);}
         ctx.restore();
     }
