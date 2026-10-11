@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>狙撃姿勢の試作</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#192328;color:#e8eded;font:14px system-ui}header{position:absolute;top:28px;left:32px;z-index:2}h1{font-size:22px;margin:0 0 8px}p{color:#b6c6c8;margin:0}nav{position:absolute;bottom:25px;left:32px;display:flex;gap:8px;z-index:2}button{background:#2e4147;color:#edf3ef;border:1px solid #5b747a;padding:10px 20px;border-radius:6px;cursor:pointer}button[aria-pressed=true]{background:#516454;border-color:#9cad91}canvas{display:block;width:100vw;height:100vh}</style>
+<header><h1>狙撃姿勢 / 試作</h1><p>伏せて、両肘で銃を支える</p></header>
+<nav><button data-angle=".85" aria-pressed="true">斜め</button><button data-angle="1.57">側面</button><button data-angle="0">正面</button><button data-angle="3.14">背面</button></nav>
+<script src="../vendor/three.min.js"></script><script src="../soldier-model.js"></script><script src="sniper-stance.js"></script>
+<script>
+const T=THREE,scene=new T.Scene();scene.background=new T.Color('#192328');scene.fog=new T.Fog('#192328',9,18);
+const renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputEncoding=T.sRGBEncoding;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1;renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;document.body.append(renderer.domElement);
+const camera=new T.PerspectiveCamera(36,1,.01,30),target=new T.Vector3(0,.28,.55);let angle=.85;
+scene.add(new T.HemisphereLight(0xddebf2,0x494f3b,.75));
+for(const [x,y,z,power,color]of [[-3,5,4,1.2,0xffefd9],[3,3,-3,.9,0xa3cddd]]){const light=new T.DirectionalLight(color,power);light.position.set(x,y,z);light.castShadow=true;light.shadow.mapSize.set(2048,2048);light.shadow.camera.left=-3;light.shadow.camera.right=3;light.shadow.camera.top=3;light.shadow.camera.bottom=-3;light.shadow.normalBias=.015;scene.add(light);}
+const ground=new T.Mesh(new T.PlaneGeometry(200,200),new T.MeshStandardMaterial({color:0x303e40,roughness:1}));ground.rotation.x=-Math.PI/2;ground.position.y=-.015;ground.receiveShadow=true;scene.add(ground);
+const soldier=buildSniperStance(T);scene.add(soldier.root);window.previewSoldier=soldier;window.previewGold=9999;
+function render(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();camera.position.set(Math.sin(angle)*4.7,1.65,Math.cos(angle)*4.7);camera.lookAt(target);renderer.render(scene,camera);}window.renderPreview=render;
+document.querySelectorAll('button').forEach(b=>b.onclick=()=>{angle=Number(b.dataset.angle);document.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));render();});addEventListener('resize',render);render();
+</script></html>

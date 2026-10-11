@@ -336,3 +336,5 @@ FPSInput.createのonEscapeは、利用者がマウス固定を解除した時だ
 JobRulesの通常移動はWALK_SPEED=125、走行は通常205／Scout235とし、SnapshotBuilderがwalkSpeedとdashSpeedを配信する。GameSessionとクライアント予測は同じ値を使い、レールガンのチャージ中60%／発射中30%の制限も通常速度を基準にする。ダウン・コア運搬・ドローン操縦・Scoutの専用短距離ダッシュは従来のルールを保つ。JobsTestとmovement-speed.cjsは人間／CPU・通常／走行・レールガン・予測の一致を検証する。
 
 GRUNTだけはzombie-model.jsのbuildLabZombieで、くすんだ作業着・ID・青白い肌・頭／腕／脚を持つ研究所の感染作業員として描く。他の敵とサーバーの性能・頭部判定帯は変更しない。頭部は既存の高さ1.15r〜1.6r付近へ収め、共有Geometry／Materialを使う。実移動距離で小さい足運びを進め、停止時は滑らかに戻し、凍結時は肌と作業着を青くする。zombie-model.cjsは高さ・形状負荷・歩行／停止・凍結復旧、lab3d-models.cjsはFPSの向き・射線との連携を確認する。
+
+client/previews/sniper-stance.html は既存の兵士・スナイパーを使う伏せ撃ち姿勢の独立した試作。sniper-stance.js が関節・銃・手の位置を調整し、4方向を確認できる。ゲーム本体から読み込まず、姿勢固定・呼吸・射撃判定には接続しない。
