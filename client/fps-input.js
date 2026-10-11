@@ -1,12 +1,12 @@
 "use strict";
 window.FPSInput = {
     create(canvas, {onEscape} = {}) {
-        const view={yaw:0,pitch:0,zoom:false,scopeLevel:0};
+        const view={yaw:0,pitch:0,zoom:false};
         let active=false,touch=null,skipMouseMove=true,lookFrozen=false;
         let pendingLock=false,lockWanted=false,resumeAfterUI=false,hadLock=false,entryCapture=true;
         const locked=()=>document.pointerLockElement===canvas;
         function release(){
-            resumeAfterUI=false;lockWanted=false;view.zoom=false;view.scopeLevel=0;touch=null;skipMouseMove=true;
+            resumeAfterUI=false;lockWanted=false;view.zoom=false;touch=null;skipMouseMove=true;
             if(locked())document.exitPointerLock();
         }
         function capture(){
@@ -28,12 +28,12 @@ window.FPSInput = {
                 hadLock=true;
                 if(!active || !lockWanted)document.exitPointerLock();
             } else {
-                const escaped=hadLock && active && lockWanted && document.hasFocus?.()!==false && document.visibilityState!=="hidden";hadLock=false;lockWanted=false;view.zoom=false;view.scopeLevel=0;
+                const escaped=hadLock && active && lockWanted && document.hasFocus?.()!==false && document.visibilityState!=="hidden";hadLock=false;lockWanted=false;view.zoom=false;
                 if(escaped)onEscape?.();
             }
         });
         document.addEventListener('pointerlockerror',()=>{pendingLock=false;lockWanted=false;});
-        function look(dx,dy,sensitivity=.0024){if(lookFrozen)return;sensitivity*=view.scoped?(view.scopeLevel===2?.175:.35):1;view.yaw+=dx*sensitivity;view.pitch=Math.max(-1.2,Math.min(1.2,view.pitch-dy*sensitivity));}
+        function look(dx,dy,sensitivity=.0024){if(lookFrozen)return;sensitivity*=view.scoped ? .35 : 1;view.yaw+=dx*sensitivity;view.pitch=Math.max(-1.2,Math.min(1.2,view.pitch-dy*sensitivity));}
         canvas.addEventListener('mousemove',e=>{
             if(!active || !locked())return;
             if(skipMouseMove){skipMouseMove=false;return;}
@@ -44,7 +44,6 @@ window.FPSInput = {
         for(const type of ['pointerup','pointercancel'])window.addEventListener(type,e=>{if(touch?.id===e.pointerId)touch=null;});
         return {
             view,release,capture,locked,
-            cycleScope(){view.scopeLevel=(view.scopeLevel+1)%3;view.zoom=view.scopeLevel>0;},
             setLookFrozen(on){if(lookFrozen===on)return;lookFrozen=on;skipMouseMove=true;},
             setActive(on,pausingForUI=false){
                 if(active===on){if(!on && !pausingForUI){resumeAfterUI=false;entryCapture=true;}return;}

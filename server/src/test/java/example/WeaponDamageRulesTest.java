@@ -2,6 +2,12 @@ package example;
 import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 class WeaponDamageRulesTest {
+    @Test void stanceBonusRequiresAnActuallyFixedSniper() {
+        assertEquals(350,WeaponDamageRules.atStance("sniper",280,true));
+        assertEquals(280,WeaponDamageRules.atStance("sniper",280,false));
+        assertEquals(120,WeaponDamageRules.atStance("rifle",120,true));
+        assertEquals(525,WeaponDamageRules.atDistance("sniper",WeaponDamageRules.atStance("sniper",280,true),1200));
+    }
     @Test void sniperKeepsDistanceDamageScaleWhenReachExtends() {
         assertEquals(280, WeaponCatalog.stats("sniper").damage());
         assertEquals(30, WeaponCatalog.capacity("sniper"));

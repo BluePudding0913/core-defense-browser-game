@@ -54,6 +54,25 @@ class SniperCombatTest {
         assertTrue(state.path("fixed").asBoolean());assertEquals(2.1,state.path("elapsed").asDouble());assertTrue(state.path("precision").asBoolean());
         int remaining=player.weapons.ammo("sniper");fire("2.1",pitch);assertEquals(remaining,player.weapons.ammo("sniper"));
     }
+    @Test void fixedStanceBoostsBodyAndHeadDamageAndConsumesOneRoundWithoutResettingConcentration() throws Exception {
+        player.job="healer";CombatTestRandom.center(game);
+        for(boolean fixed:new boolean[]{false,true}) for(boolean head:new boolean[]{false,true}) {
+            player.firing=false;player.cooldown=0;player.sniper.stop();if(fixed){prone();precision();}
+            game.enemies.clear();messages.clear();
+            var e=new Enemy(9950,"grunt",GameMap.SPAWN_POINTS.get(0),5000,0,0,0);e.x=player.x+100;e.y=player.y;game.enemies.add(e);
+            double x=e.x,y=e.y,height=16;
+            if(head){y+=e.facingY*21*.085;x+=e.facingX*21*.085;height=21*1.43;}
+            double pitch=Math.atan2(height-(fixed?SniperRules.EYE_HEIGHT:26),Math.hypot(x-player.x,y-player.y));
+            int ammo=player.weapons.ammo("sniper");double elapsed=player.sniper.elapsed;
+            game.handleMessage(player,"FIRE:"+x+":"+y+":1:"+pitch+(fixed?":2.1":""));
+            double expected=280*(1+100.0/2400)*(fixed?1.25:1)*(head?2:1);
+            assertEquals(expected,5000-e.hp,1e-6,"Fixed="+fixed+", head="+head);
+            assertEquals(ammo-1,player.weapons.ammo("sniper"));assertEquals(1.8,player.cooldown);
+            assertEquals(elapsed,player.sniper.elapsed);assertEquals(fixed,player.sniper.fixed);
+            var impact=new ObjectMapper().readTree(messages.stream().filter(m->m.contains("\"enemyId\":9950")).findFirst().orElseThrow());
+            assertEquals(head,impact.path("headshot").asBoolean());
+        }
+    }
     @Test void falseOldAndFutureTimesCannotBuyPrecisionOrSpendAmmo() {
         prone();precision();int ammo=player.weapons.ammo("sniper");
         for(String value:List.of("0","1.8","2.17","NaN","Infinity")){fire(value,0);assertEquals(ammo,player.weapons.ammo("sniper"));assertEquals(0,player.cooldown);}
