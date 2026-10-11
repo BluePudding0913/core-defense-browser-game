@@ -45,5 +45,5 @@ for (const damage of [0, 20]) {
     vm.runInContext('drawHitEffects()', context);
     assert(lines.some(([x, y]) => x === 180 && y === 100), 'turret hits and misses must show a shot');
 }
-assert(fs.readFileSync('client/style.css', 'utf8').includes('cursor: var(--game-pointer, crosshair)'), 'game uses the player pointer preference');
-console.log('Defense display passed: one-tile barricade, shield counters, blast ring and configurable pointer');
+assert(!fs.readFileSync('client/style.css','utf8').includes('--game-pointer'),'No custom pointer remains on the game canvas');
+console.log('Defense display passed: one-tile barricade, shield counters, blast ring and removed custom pointer');
