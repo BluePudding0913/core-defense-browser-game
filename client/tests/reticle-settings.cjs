@@ -54,9 +54,9 @@ assert.equal(circles.length,0,'Standing sniper hides its internal cone');
 player.sniper={fixed:true,elapsed:1,cycle:0};context.drawFirstPerson();assert.equal(reticles,4);assert.equal(circles.pop(),'rgba(190,224,246,.55)');
 context.fpsInput.view.zoom=true;context.drawFirstPerson();assert.equal(reticles,5,'Prone scope preserves the normal reticle');assert.equal(circles.pop(),'rgba(190,224,246,.55)');
 player.sniper.fixed=false;player.weapon='pistol';context.fpsInput.view.zoom=false;context.drawFirstPerson();assert.equal(circles.length,0,'Ordinary weapons hide cones during hip fire');context.fpsInput.view.zoom=true;context.drawFirstPerson();assert.equal(circles.pop(),'rgba(190,224,246,.55)','Ordinary ADS shows breathing circle');context.fpsInput.view.zoom=false;
-context.DEBUG_MODE=true;context.drawFirstPerson();assert.equal(circles.pop(),'#438fff','Debug shows the server cone in blue');
-player.weapon='sniper';context.drawFirstPerson();assert.equal(circles.pop(),'#438fff','Debug can inspect the hidden standing sniper cone');
-player.sniper.fixed=true;context.drawFirstPerson();assert.equal(circles.pop(),'#438fff');
+context.DEBUG_MODE=true;context.drawFirstPerson();assert.equal(circles.length,0,'Debug hip fire hides the internal cone');
+player.weapon='sniper';context.drawFirstPerson();assert.equal(circles.length,0,'Debug standing sniper hides its internal cone');
+player.sniper.fixed=true;context.drawFirstPerson();assert.equal(circles.pop(),'rgba(190,224,246,.55)','Debug prone uses the ordinary breathing circle');
 assert(!fs.existsSync('client/pointer-settings.js'));assert(!fs.readFileSync('client/index.html','utf8').includes('pointer-settings'));
 console.log('Reticle settings passed: geometry, live preview, persistence, validation, no custom cursor, play/failure/menu/scope lifecycle');
 
