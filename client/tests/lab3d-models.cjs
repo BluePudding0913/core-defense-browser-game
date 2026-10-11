@@ -188,6 +188,12 @@ const topAt=x=>new THREE.Raycaster(new THREE.Vector3(x,.2,-.30),new THREE.Vector
 assert(topAt(0)-topAt(.040)>.005,'Cheek rest has a curved cross-section rather than a flat extrusion');
 const paintSurface=bodyView.getObjectByName('SniperSandSurface');
 assert.equal(paintSurface.geometry.attributes.color.count,paintSurface.geometry.attributes.position.count,'Cavity shading survives material batching');
+assert.equal(throughBody(-.028,.78).length,0,'Mk II fore-end keeps its forward vent open');
+const crownRay=new THREE.Raycaster(new THREE.Vector3(0,.01,1.8),new THREE.Vector3(0,0,-1)).intersectObject(bodyView,true);
+assert(!crownRay.some(h=>h.point.z>1.11),'Extended muzzle assembly has an open bore');
+const shroudRay=throughBody(.01,1.30);assert(shroudRay.length>0 && shroudRay[0].face.normal.x<0,'Muzzle hull has an outward-facing surface');
+const barrelHit=new THREE.Raycaster(new THREE.Vector3(0,.15,1.0),new THREE.Vector3(0,-1,0)).intersectObject(bodyView,true)[0];
+assert(barrelHit.face.normal.y>0,'Fluted barrel normals point outwards');
 let detailTriangles=0;
 for(const surface of precision.children){
  const a=surface.geometry.attributes;
@@ -207,3 +213,13 @@ let textureDisposals=0;
 for(const t of [sniperMaterials.SniperSteel.normalMap,sniperMaterials.SniperSteel.roughnessMap,sniperMaterials.SniperSteel.envMap,sniperMaterials.SniperSand.roughnessMap])t.addEventListener('dispose',()=>textureDisposals++);
 Object.values(sniperMaterials).forEach(m=>m.dispose());assert.equal(textureDisposals,4,'Weapon-specific textures are released with their actor');
 console.log('Precision sniper passed: silhouette, batched geometry budget, distinct PBR surfaces, muzzle stability and geometry/texture lifetime');
+
+// Extended Mk II muzzle still lines up between the hand camera and world tracer.
+now+=1000;player.weapon='sniper';frame.scoped=false;frame.view={yaw:.3,pitch:.12};frame.motion=undefined;frame.effects=[];renderer.render(frame);
+const mk2MuzzleNdc=viewScene.getObjectByName('Muzzle').getWorldPosition(new THREE.Vector3()).project(viewCamera);
+frame.effects=[{effect:'hit',weapon:'sniper',playerId:'me',fromX:player.x,fromY:player.y,x:player.x+70,y:player.y-200,hitHeight:35,damage:0,started:now}];
+renderer.render(frame);
+const mk2Trace=scene.children.find(o=>o.name==='muzzle-tracer');
+const mk2OriginNdc=new THREE.Vector3().fromBufferAttribute(mk2Trace.geometry.attributes.position,0).project(camera);
+assert(Math.hypot(mk2OriginNdc.x-mk2MuzzleNdc.x,mk2OriginNdc.y-mk2MuzzleNdc.y)<1e-4,'Mk II tracer starts at the extended visible muzzle');
+console.log('Mk II integration passed: extended hand-model muzzle aligns with the world shot');

@@ -292,7 +292,7 @@ function buildPrecisionSniper(T, parent, materials) {
     for(let y=0;y<size;y++)for(let x=0;x<size;x++){
       seed=(Math.imul(seed,1664525)+1013904223)>>>0;
       const i=(y*size+x)*4,n=(seed>>>24)/255;
-      const brushed=Math.sin(y*1.71)*.45+n*.55;
+      const brushed=.44+n*.20+Math.sin(y*.49)*.025;
       rough[i]=rough[i+1]=rough[i+2]=Math.round(155+brushed*55);rough[i+3]=255;
       normal[i]=128;normal[i+1]=Math.round(128+(brushed-.5)*18);normal[i+2]=255;normal[i+3]=255;
     }
@@ -312,10 +312,10 @@ function buildPrecisionSniper(T, parent, materials) {
     const environment=new T.DataTexture(pixels,ew,eh,T.RGBAFormat);
     environment.mapping=T.EquirectangularReflectionMapping;environment.encoding=T.sRGBEncoding;environment.needsUpdate=true;
     const configs={
-      Steel:{color:0x303940,metalness:.88,roughness:.32,envMapIntensity:.65},
-      Edge:{color:0x737d83,metalness:.92,roughness:.26,envMapIntensity:.75},
-      Black:{color:0x141a20,metalness:.60,roughness:.44,envMapIntensity:.45},
-      Sand:{color:0x80765b,metalness:.25,roughness:.64,envMapIntensity:.35},
+      Steel:{color:0x45484a,metalness:.80,roughness:.43,envMapIntensity:.55},
+      Edge:{color:0x727574,metalness:.90,roughness:.38,envMapIntensity:.60},
+      Black:{color:0x272a2b,metalness:.62,roughness:.52,envMapIntensity:.40},
+      Sand:{color:0x35463b,metalness:.20,roughness:.72,envMapIntensity:.28},
       Rubber:{color:0x17191a,metalness:0,roughness:.94,envMapIntensity:.12},
       Glass:{color:0x183f50,metalness:.72,roughness:.085,envMapIntensity:1.35},
       Mark:{color:0xb4b6ac,metalness:.12,roughness:.65,envMapIntensity:.2},
@@ -324,7 +324,7 @@ function buildPrecisionSniper(T, parent, materials) {
       const m=new T.MeshStandardMaterial({name:'Sniper'+name,...config,envMap:environment});
       if(name!=='Glass' && name!=='Mark'){
         m.roughnessMap=roughnessMap;m.normalMap=normalMap;
-        m.normalScale=new T.Vector2(name==='Rubber'?.11:.035,name==='Rubber'?.11:.035);
+        m.normalScale=new T.Vector2(name==='Rubber'?.035:.018,name==='Rubber'?.11:.035);
       }
       materials['Sniper'+name]=m;
     }
@@ -337,7 +337,7 @@ function buildPrecisionSniper(T, parent, materials) {
   const mesh=(name,geo,material,x=0,y=0,z=0)=>{
     if(material==='Sand'){
       const normals=geo.attributes.normal,color=new Float32Array(normals.count*3);
-      const cavity=/PocketBack/.test(name)?.60:1;
+      const cavity=/PocketBack/.test(name)?.60:name==='ForeEndBottom'?.18:1;
       for(let i=0;i<normals.count;i++){const shade=cavity*(.92+.08*Math.max(-1,normals.getY(i)));color.set([shade,shade,shade],i*3);}
       geo.setAttribute('color',new T.BufferAttribute(color,3));
     }
@@ -348,7 +348,7 @@ function buildPrecisionSniper(T, parent, materials) {
     const o=mesh(name,new T.CylinderGeometry(r2,r,length,r<.02?16:32,1),m,x,y,z);o.rotation.x=Math.PI/2;return o;
   };
   const ring=(name,r,thickness,m,x,y,z)=>{
-    const o=mesh(name,new T.TorusGeometry(r,thickness,8,name==='BarrelCollarStep'?16:32),m,x,y,z);return o;
+    const o=mesh(name,new T.TorusGeometry(r,thickness,thickness<=.002?4:8,name==='BarrelCollarStep'?16:32),m,x,y,z);return o;
   };
   // Side-profile extrusion gives the stock, chassis and grip continuous beveled edges.
   const profile=(name,points,width,m,holes=[])=>{
@@ -385,108 +385,97 @@ function buildPrecisionSniper(T, parent, materials) {
     return mesh(name,geometry,m);
   };
 
-  // Stepped bedding block and separate action avoid one flat slab across the receiver.
-  profile('Chassis',[[-.13,.024],[.04,.024],[.07,.008],[.29,.008],[.34,-.018],[.29,-.072],[.075,-.074],[.045,-.092],[-.035,-.089],[-.075,-.052],[-.13,-.040]],.080,'Sand',[
-    [[-.076,-.025],[-.037,-.015],[.033,-.026],[.054,-.045],[.031,-.061],[-.055,-.051]],
-    [[.096,-.019],[.241,-.019],[.263,-.036],[.244,-.052],[.091,-.052],[.079,-.039]]
+  // Mk II: one coherent action/chassis silhouette with a long, enclosed fore-end.
+  shell('ActionHousing',[[-.130,.025,.031,.036],[-.095,.031,.054,.052],[.225,.031,.054,.052],[.290,.021,.044,.043]],'Black');
+  tube('BoltShroud',.031,.055,'Steel',0,.035,-.130);
+  profile('Chassis',[[-.142,.008],[-.095,.027],[.045,.022],[.080,.008],[.286,.008],[.321,-.014],[.286,-.083],[.075,-.086],[.043,-.101],[-.055,-.088],[-.116,-.050],[-.142,-.041]],.105,'Sand',[
+    [[-.090,-.025],[-.058,-.014],[.021,-.026],[.038,-.045],[.020,-.063],[-.068,-.057]],
+    [[.096,-.023],[.241,-.023],[.265,-.039],[.240,-.061],[.090,-.061],[.078,-.043]]
   ]);
-  shell('LowerBedding',[[-.115,-.045,.026,.010],[-.07,-.062,.036,.013],[.06,-.078,.043,.013],[.29,-.071,.033,.009]],'Black');
-  shell('MagwellLowerFlange',[[.082,-.069,.038,.008],[.102,-.074,.052,.012],[.255,-.074,.051,.012],[.284,-.068,.035,.008]],'Sand');
-  tube('Receiver',.047,.35,'Steel',0,.034,.095);
+  shell('BeddingLowerSpine',[[-.123,-.048,.033,.010],[-.06,-.074,.042,.012],[.06,-.089,.048,.012],[.29,-.076,.035,.010]],'Black');
+  shell('MagwellFlange',[[.079,-.075,.044,.008],[.101,-.082,.059,.010],[.25,-.082,.059,.010],[.29,-.074,.041,.008]],'Sand');
   for(const side of [-1,1]){
-    const shoulder=profile('ActionShoulder',[[-.115,.029],[-.07,.065],[.235,.065],[.274,.035],[.265,.013],[-.105,.013]],.009,'Black');
-    shoulder.position.x=side*.046;
-    const scallop=profile('ReceiverScallop',[[-.07,.035],[-.052,.051],[.21,.051],[.232,.034],[.216,.025],[-.052,.025]],.002,'Steel');
-    scallop.position.x=side*.052;
-    const inset=profile('ChassisPocketBack',[[-.076,-.025],[-.037,-.015],[.033,-.026],[.054,-.045],[.031,-.061],[-.055,-.051]],.004,'Sand');
-    inset.position.x=side*.023;
-    const release=profile('MagazineRelease',[[.060,-.060],[.083,-.064],[.075,-.101],[.057,-.099]],.010,'Steel');
-    release.position.x=side*.041;
-    box('ReleaseRib',.003,.003,.014,'Edge',side*.048,-.086,.067);
-    const pocket=profile('MagazinePocketBack',[[.096,-.019],[.241,-.019],[.263,-.036],[.244,-.052],[.091,-.052],[.079,-.039]],.004,'Sand');
-    pocket.position.x=side*.023;
-
-    box('ChassisMachinedLip',.003,.005,.19,'Edge',side*.043,-.068,.18);
+    const inset=profile('ChassisPocketBack',[[-.09,-.025],[-.058,-.014],[.021,-.026],[.038,-.045],[.020,-.063],[-.068,-.057]],.004,'Sand');inset.position.x=side*.027;
+    const pocket=profile('MagazinePocketBack',[[.096,-.023],[.241,-.023],[.265,-.039],[.240,-.061],[.09,-.061],[.078,-.043]],.004,'Sand');pocket.position.x=side*.028;
+    const actionFlat=profile('ActionSideFlat',[[-.103,.025],[-.080,.061],[.225,.061],[.258,.033],[.239,.012],[-.093,.012]],.006,'Steel');actionFlat.position.x=side*.052;
+    const release=profile('MagazineRelease',[[.055,-.065],[.080,-.067],[.077,-.111],[.056,-.107]],.009,'Black');release.position.x=side*.052;
+    for(const y of [-.088,-.094,-.100])box('ReleaseSerration',.003,.002,.015,'Steel',side*.059,y,.067);
+    const safety=tube('SafetyPivot',.010,.009,'Steel',side*.061,.003,-.076);safety.rotation.set(0,0,Math.PI/2);
+    const lever=box('SafetyLever',.009,.008,.036,'Black',side*.066,.004,-.058);lever.rotation.x=-.18;
   }
-  box('EjectionPort',.008,.026,.105,'Black',-.055,.045,.13);
-  box('BoltInsidePort',.009,.010,.082,'Edge',-.059,.040,.13);
-  tube('BoltShroud',.035,.055,'Black',0,.037,-.105);
-  tube('BarrelCollar',.047,.065,'Black',0,.024,.31);
-  for(const z of [.288,.307,.326])ring('BarrelCollarStep',.047,.002,'Steel',0,.024,z);
-  tube('FreeFloatingBarrel',.022,.78,'Steel',0,.01,.725,.026);
-  for(let i=0;i<8;i++){
-    const a=i*Math.PI/4;
-    const flute=box('BarrelFlute',.007,.003,.36,'Black',Math.sin(a)*.023,.01+Math.cos(a)*.023,.90);
-    flute.rotation.z=-a;
-  }
-  // Actual apertures in thin side walls reveal the barrel and the opposite side.
+  // Ejection recess and the visible bolt occupy only the right side of the action.
+  box('EjectionRecess',.007,.028,.114,'Black',-.059,.042,.129);
+  box('VisibleBolt',.008,.010,.098,'Edge',-.064,.036,.129);
+  box('Extractor',.006,.006,.024,'Steel',-.069,.042,.171);
+  tube('BarrelTenon',.046,.060,'Black',0,.014,.294);
+  for(const z of [.279,.300,.320])ring('BarrelCollarStep',.046,.0018,'Steel',0,.014,z);
+  buildFlutedSniperBarrel(T,mesh);
+  // The fore-end wraps above and below the bore, with genuine recessed apertures.
   const ventHoles=[];
   for(let i=0;i<5;i++){
-    const z=.365+i*.068;
-    ventHoles.push([[z,-.021],[z+.005,-.016],[z+.042,-.016],[z+.047,-.021],[z+.047,-.036],[z+.042,-.041],[z+.005,-.041],[z,-.036]]);
+    const z=.367+i*.096;
+    ventHoles.push([[z,-.021],[z+.006,-.015],[z+.052,-.015],[z+.058,-.021],[z+.058,-.037],[z+.052,-.043],[z+.006,-.043],[z,-.037]]);
   }
   for(const side of [-1,1]){
-    const panel=profile('PerforatedHandguard',[[.30,.012],[.70,.012],[.756,-.007],[.738,-.047],[.705,-.060],[.335,-.060],[.30,-.041]],.007,'Sand',ventHoles);
-    panel.position.x=side*.050;
-    const edge=profile('AngledHandguardShoulder',[[.305,.011],[.70,.011],[.746,-.004],[.727,-.012],[.322,-.009]],.012,'Sand');
-    edge.position.x=side*.043;edge.rotation.z=side*.24;
-    const shoulder=shell('HandguardCrown',[[.305,.012,.009,.007],[.355,.017,.012,.010],[.68,.017,.012,.010],[.74,.001,.008,.006]],'Sand');shoulder.position.x=side*.039;
-    const p=panel.geometry.attributes.position;
-    for(let i=0;i<p.count;i++){const z=p.getZ(i),t=Math.max(0,Math.min(1,(z-.32)/.42));p.setX(i,(p.getX(i)+side*.050)*(1-.15*t)-side*.050);}
-    panel.geometry.computeVertexNormals();
-    box('HandguardLowerEdge',.006,.008,.35,'Black',side*.048,-.057,.52);
-    for(const z of [.326,.715]){
-      const pin=mesh('HandguardFastener',new T.CylinderGeometry(.007,.007,.003,6),'Steel',side*.057,-.025,z);pin.rotation.z=Math.PI/2;
+    const wall=profile('Mk2ForeEndWall',[[.318,.022],[.855,.022],[.927,.001],[.919,-.052],[.878,-.071],[.345,-.071],[.318,-.049]],.010,'Sand',ventHoles);
+    wall.position.x=side*.060;
+    const p=wall.geometry.attributes.position;
+    for(let i=0;i<p.count;i++){
+      const z=p.getZ(i),t=Math.max(0,Math.min(1,(z-.34)/.58));
+      p.setX(i,(p.getX(i)+side*.060)*(1-.13*t)-side*.060);
+    }wall.geometry.computeVertexNormals();
+    const wn=wall.geometry.attributes.normal,wc=wall.geometry.attributes.color;
+    for(let i=0;i<wn.count;i++)if(wn.getX(i)*side<-.2)wc.setXYZ(i,wc.getX(i)*.47,wc.getY(i)*.47,wc.getZ(i)*.47);
+    const shoulder=shell('ForeEndUpperShoulder',[[.322,.022,.011,.010],[.37,.035,.016,.013],[.85,.035,.014,.013],[.923,.013,.009,.008]],'Sand');
+    shoulder.position.x=side*.047;
+    box('ForeEndSeam',.004,.003,.47,'Black',side*.060,-.064,.605);
+    for(const z of [.345,.888]){
+      const pin=mesh('ForeEndPin',new T.CylinderGeometry(.007,.007,.004,6),'Black',side*.069,-.028,z);pin.rotation.z=Math.PI/2;
     }
   }
-  shell('HandguardFloor',[[.32,-.060,.030,.007],[.35,-.062,.038,.009],[.69,-.059,.033,.008],[.729,-.049,.025,.007]],'Black');
-  for(const z of [.326,.716])shell('HandguardLowerCollar',[[z-.012,-.044,.038,.015],[z-.004,-.046,.056,.022],[z+.004,-.046,.056,.022],[z+.012,-.044,.039,.015]],'Sand');
-  box('UnderBarrelRail',.038,.009,.16,'Steel',0,-.074,.638);
-  for(let i=0;i<7;i++)box('UnderRailTooth',.046,.005,.012,'Black',0,-.081,.58+i*.019);
-  box('ReceiverRail',.072,.014,.39,'Black',0,.091,.11);
-  for(let i=0;i<19;i++)box('RailTooth',.080,.009,.012,'Steel',0,.101,-.065+i*.020);
-  // A genuine open stock frame, hinge and sliding pad replace the filled wedge.
-  tube('StockHinge',.028,.086,'Steel',0,-.022,-.141).rotation.set(0,0,Math.PI/2);
-  tube('HingePin',.009,.094,'Black',0,-.022,-.141).rotation.set(0,0,Math.PI/2);
-  shell('StockUpperBeam',[[-.16,-.022,.025,.015],[-.22,-.021,.033,.015],[-.42,-.020,.032,.016],[-.466,-.032,.025,.018]],'Sand');
-  shell('StockLowerBeam',[[-.16,-.057,.024,.015],[-.22,-.087,.032,.014],[-.40,-.101,.035,.015],[-.469,-.135,.024,.016]],'Sand');
-  shell('StockRearBrace',[[-.44,-.030,.026,.019],[-.46,-.068,.031,.029],[-.478,-.125,.028,.021]],'Sand');
-  shell('StockFrontBrace',[[-.163,-.026,.026,.018],[-.18,-.048,.030,.026],[-.208,-.078,.029,.019]],'Sand');
-  profile('StockHeel',[[-.459,.012],[-.492,.003],[-.50,-.137],[-.477,-.149],[-.458,-.117]],.069,'Black');
-  tube('StockAdjustmentRail',.009,.20,'Steel',0,-.022,-.329);
-  shell('CheekRest',[[-.448,.028,.025,.010],[-.418,.040,.043,.022],[-.255,.040,.043,.022],[-.219,.027,.026,.010]],'Sand');
-  shell('CheekCushion',[[-.431,.057,.028,.003],[-.412,.062,.038,.005],[-.258,.062,.038,.005],[-.235,.052,.026,.003]],'Rubber');
-  for(const z of [-.39,-.26])tube('CheekRiser',.008,.049,'Edge',0,.017,z).rotation.x=0;
-  for(const [z,y] of [[-.392,-.098],[-.267,-.032]]){
-    const dial=tube('StockAdjustmentDial',.016,.018,'Black',-.045,y,z);dial.rotation.set(0,0,Math.PI/2);
-    const cap=tube('StockDialCap',.010,.003,'Steel',-.056,y,z);cap.rotation.set(0,0,Math.PI/2);
+  shell('ForeEndBottom',[[.33,-.068,.040,.008],[.37,-.073,.049,.011],[.86,-.070,.044,.011],[.921,-.052,.031,.007]],'Sand');
+  box('ForeEndTopSpine',.035,.009,.53,'Black',0,.047,.607);
+  for(let i=0;i<10;i++)box('TopSpineSlot',.039,.005,.012,'Steel',0,.054,.37+i*.047);
+  box('BipodMountRail',.046,.014,.125,'Black',0,-.087,.821);
+  box('ReceiverRail',.075,.013,.38,'Black',0,.094,.092);
+  for(let i=0;i<18;i++)box('RailTooth',.082,.008,.012,'Steel',0,.105,-.068+i*.021);
+  // Broad folding stock with an adjustable cheek pad and a deep open frame.
+  tube('StockHinge',.032,.108,'Steel',0,-.019,-.157).rotation.set(0,0,Math.PI/2);
+  tube('HingePin',.011,.117,'Black',0,-.019,-.157).rotation.set(0,0,Math.PI/2);
+  shell('StockUpperBeam',[[-.182,-.015,.031,.022],[-.245,-.011,.043,.022],[-.434,-.017,.045,.023],[-.487,-.036,.036,.022]],'Sand');
+  shell('StockLowerBeam',[[-.206,-.071,.033,.018],[-.248,-.092,.039,.019],[-.40,-.108,.043,.020],[-.489,-.141,.034,.018]],'Sand');
+  shell('StockFrontBrace',[[-.186,-.017,.032,.021],[-.201,-.045,.037,.026],[-.228,-.081,.036,.022]],'Sand');
+  shell('StockRearBrace',[[-.447,-.031,.038,.025],[-.474,-.080,.043,.030],[-.491,-.136,.035,.022]],'Sand');
+  shell('CheekRest',[[-.452,.030,.029,.012],[-.418,.045,.047,.022],[-.260,.045,.047,.022],[-.223,.029,.030,.011]],'Black');
+  shell('CheekCushion',[[-.438,.060,.028,.003],[-.411,.068,.040,.004],[-.268,.068,.040,.004],[-.240,.057,.026,.003]],'Rubber');
+  for(const z of [-.397,-.279])tube('CheekRiser',.008,.055,'Edge',0,.020,z).rotation.x=0;
+  tube('StockSlideRod',.010,.23,'Steel',0,-.027,-.353);
+  for(const z of [-.41,-.275]){
+    const dial=tube('StockAdjustmentDial',.016,.020,'Black',-.052,-.039,z);dial.rotation.set(0,0,Math.PI/2);
+    const cap=tube('StockDialCap',.009,.003,'Steel',-.064,-.039,z);cap.rotation.set(0,0,Math.PI/2);
   }
-  profile('ButtPad',[[-.50,.025],[-.521,.015],[-.535,-.123],[-.527,-.148],[-.502,-.15]],.084,'Rubber');
-  for(let i=0;i<9;i++)box('ButtPadGroove',.080,.004,.004,'Black',0,.003-i*.016,-.532);
-  // A curved palm swell, tapered heel and recessed side grips.
-  profile('PistolGrip',[[-.061,-.061],[-.013,-.069],[.001,-.092],[-.007,-.124],[-.018,-.162],[-.014,-.194],[-.034,-.209],[-.075,-.198],[-.091,-.181],[-.090,-.153],[-.081,-.119],[-.083,-.090]],.053,'Rubber');
+  profile('RecoilPadBacking',[[-.487,.025],[-.509,.020],[-.528,-.142],[-.502,-.166]],.088,'Black');
+  profile('ButtPad',[[-.509,.021],[-.537,.009],[-.552,-.127],[-.543,-.163],[-.521,-.166]],.094,'Rubber');
+  for(let i=0;i<9;i++)box('ButtPadGroove',.087,.003,.003,'Black',0,-.004-i*.017,-.548);
+  profile('PistolGrip',[[-.070,-.065],[-.019,-.071],[.003,-.098],[-.006,-.135],[-.016,-.176],[-.009,-.201],[-.034,-.219],[-.080,-.209],[-.103,-.185],[-.100,-.157],[-.086,-.121],[-.091,-.089]],.061,'Rubber');
   for(const side of [-1,1]){
-    const grip=profile('GripSidePanel',[[-.056,-.095],[-.024,-.103],[-.034,-.160],[-.030,-.184],[-.062,-.181],[-.073,-.165]],.003,'Black');
-    grip.position.x=side*.030;
-    for(let i=0;i<7;i++){
-      const rib=box('GripTexture',.002,.003,.029,'Steel',side*.033,-.116-i*.009,-.046-i*.001);
-      rib.rotation.x=-.16;
-    }
+    const panel=profile('GripPalmPanel',[[-.066,-.099],[-.030,-.106],[-.038,-.169],[-.030,-.192],[-.068,-.189],[-.082,-.170]],.003,'Black');panel.position.x=side*.035;
+    for(let i=0;i<7;i++){const rib=box('GripRib',.002,.002,.033,'Steel',side*.038,-.12-i*.01,-.051);rib.rotation.x=-.16;}
   }
+  const guardPoints=[[-.041,-.079],[.074,-.080],[.088,-.126],[.069,-.147],[-.013,-.147],[-.041,-.079]].map(([z,y])=>new T.Vector3(0,y,z));
+  mesh('TriggerGuard',new T.TubeGeometry(new T.CatmullRomCurve3(guardPoints),20,.006,6,false),'Black');
+  const triggerPoints=[[.026,-.079],[.017,-.108],[.028,-.126]].map(([z,y])=>new T.Vector3(0,y,z));
+  mesh('Trigger',new T.TubeGeometry(new T.CatmullRomCurve3(triggerPoints),10,.004,6,false),'Edge');
+  profile('Magazine',[[.098,-.086],[.231,-.086],[.220,-.196],[.108,-.199]],.074,'Black');
+  profile('MagazineFloorplate',[[.100,-.193],[.228,-.190],[.235,-.207],[.102,-.213]],.082,'Rubber');
+  for(const side of [-1,1])for(let i=0;i<3;i++){
+    const rib=profile('MagazinePressedRib',[[.125+i*.029,-.115],[.136+i*.029,-.114],[.131+i*.029,-.177],[.122+i*.029,-.177]],.003,'Steel');rib.position.x=side*.040;
+  }
+  const bolt=tube('BoltHandle',.009,.086,'Edge',-.086,.012,-.091);bolt.rotation.set(0,0,-1.12);
+  mesh('BoltKnob',new T.SphereGeometry(.023,16,10),'Black',-.125,-.009,-.091).scale.set(1,1.22,1);
+  for(let i=0;i<5;i++)ring('BoltKnurl',.019,.0013,'Steel',-.125,-.023+i*.007,-.091).rotation.x=Math.PI/2;
+  materials.SniperSand.vertexColors=true;materials.SniperSand.normalMap=null;materials.SniperSand.roughness=.72;
 
-  // A hollow trigger guard and curved trigger, rather than a solid block.
-  const guardPoints=[[-.04,-.073],[.075,-.073],[.082,-.12],[.065,-.14],[-.01,-.14],[-.04,-.073]].map(([z,y])=>new T.Vector3(0,y,z));
-  mesh('TriggerGuard',new T.TubeGeometry(new T.CatmullRomCurve3(guardPoints),24,.007,8,false),'Black');
-  const triggerPoints=[[.025,-.073],[.018,-.10],[.027,-.12]].map(([z,y])=>new T.Vector3(0,y,z));
-  mesh('Trigger',new T.TubeGeometry(new T.CatmullRomCurve3(triggerPoints),12,.004,8,false),'Edge');
-  profile('Magazine',[[.105,-.08],[.22,-.08],[.21,-.19],[.11,-.187]],.062,'Black');
-  profile('MagazineBase',[[.10,-.184],[.217,-.184],[.224,-.197],[.103,-.199]],.070,'Rubber');
-  for(const side of [-1,1])for(let i=0;i<3;i++)box('MagazineStamp',.003,.063,.005,'Steel',side*.034,-.14,.127+i*.028);
-  materials.SniperSand.vertexColors=true;materials.SniperSand.normalMap=null;materials.SniperSand.roughness=.68;
-  // Bolt handle sits on the right-hand side and has a turned, knurled knob.
-  const bolt=tube('BoltHandle',.010,.079,'Edge',-.076,.020,-.065);bolt.rotation.set(0,0,-1.12);
-  mesh('BoltKnob',new T.SphereGeometry(.022,16,10),'Black',-.113,.001,-.065).scale.set(1,1.15,1);
-  for(let i=0;i<5;i++)ring('BoltKnurl',.018,.0015,'Edge',-.113,-.012+i*.006,-.065).rotation.x=Math.PI/2;
   // Scope mounts leave a visible air gap above the receiver rail.
   for(const z of [-.012,.24]){
     box('ScopeFoot',.085,.015,.047,'Black',0,.117,z);
@@ -513,29 +502,40 @@ function buildPrecisionSniper(T, parent, materials) {
     tick.rotation.y=a;
   }
   box('ScopeIndex',.005,.002,.014,'Mark',0,.220,.174);
-  // Open-bore muzzle brake with three recessed side ports and a visible crown.
-  tube('MuzzleThread',.026,.050,'Edge',0,.01,1.105);
-  const brakePoints=[[.033,-.058],[.036,-.050],[.036,.050],[.033,.058],[.012,.058],[.012,-.058],[.033,-.058]].map(([r,z])=>new T.Vector2(r,z));
-  const brake=mesh('MuzzleBrake',new T.LatheGeometry(brakePoints,32),'Black',0,.01,1.19);brake.rotation.x=Math.PI/2;
-  ring('MuzzleCrown',.015,.003,'Edge',0,.01,1.249);
-  for(const side of [-1,1])for(let i=0;i<3;i++)box('BrakePort',.002,.027,.013,'Rubber',side*.035,.01,1.155+i*.032);
-  // Folded bipod follows the fore-end, with separate hinges, feet and springs.
-  box('BipodMount',.058,.020,.055,'Black',0,-.078,.68);
+  // A long, stepped muzzle assembly changes the rifle's overall balance and silhouette.
+  const mountProfile=[[.034,-.027],[.034,.027],[.025,.027],[.025,-.027],[.034,-.027]].map(([r,z])=>new T.Vector2(r,z));
+  const mount=mesh('MuzzleMount',new T.LatheGeometry(mountProfile,32),'Steel',0,.01,1.100);mount.rotation.x=Math.PI/2;
+  const shroudProfile=[
+    [.034,-.185],[.044,-.175],[.049,-.151],[.049,.145],[.047,.164],[.043,.177],
+    [.014,.177],[.014,.151],[.038,.145],[.038,-.151],[.030,-.170],[.030,-.185],[.034,-.185]
+  ].map(([r,z])=>new T.Vector2(r,z));
+  const shroud=mesh('Mk2MuzzleShroud',new T.LatheGeometry(shroudProfile,40),'Black',0,.01,1.263);shroud.rotation.x=Math.PI/2;
+  for(const z of [1.092,1.108,1.124])ring('MuzzleMountGroove',.044,.0018,'Steel',0,.01,z);
+  ring('ShroudFrontSeam',.046,.0018,'Steel',0,.01,1.419);
+  ring('MuzzleCrown',.015,.002,'Edge',0,.01,1.446);
+  stampSniperLabel(T,mesh,'R-07',-.050,.017,1.193,.0015);
+
+  // Compact folded bipod, rear-facing legs, spring collars and rubber feet.
+  box('BipodClamp',.074,.019,.054,'Black',0,-.097,.818);
   for(const side of [-1,1]){
-    tube('BipodHinge',.018,.018,'Edge',side*.035,-.09,.68).rotation.set(0,0,Math.PI/2);
-    tube('FoldedBipodLeg',.010,.29,'Steel',side*.050,-.090,.85);
-    tube('BipodSleeve',.014,.10,'Black',side*.050,-.090,.95);
-    box('BipodFoot',.030,.029,.035,'Rubber',side*.050,-.09,1.014);
+    tube('BipodHinge',.020,.018,'Steel',side*.048,-.106,.815).rotation.set(0,0,Math.PI/2);
+    tube('BipodFoldedLeg',.010,.245,'Steel',side*.072,-.111,.681);
+    tube('BipodSleeve',.014,.092,'Black',side*.072,-.111,.610);
+    box('BipodRubberFoot',.031,.028,.033,'Rubber',side*.072,-.111,.548);
+    for(const z of [.782,.793,.804])ring('BipodSpring',.013,.0014,'Steel',side*.072,-.111,z);
   }
-  // Recessed hex fasteners provide readable highlights at FPS distances.
-  for(const [x,y,z] of [[-.047,-.022,.31],[.047,-.022,.31],[-.047,-.022,.71],[.047,-.022,.71],[-.037,-.035,-.43],[.037,-.035,-.43]]){
-    const screw=mesh('ChassisScrew',new T.CylinderGeometry(.009,.009,.003,6),'Edge',x,y,z);screw.rotation.z=Math.PI/2;
-    const socket=mesh('HexSocket',new T.CylinderGeometry(.004,.004,.004,6),'Black',x+Math.sign(x)*.002,y,z);socket.rotation.z=Math.PI/2;
+  // Recessed hex fasteners and visible tool sockets.
+  for(const [x,y,z] of [[-.058,-.003,-.116],[.058,-.003,-.116],[-.058,-.071,.274],[.058,-.071,.274],[-.047,-.120,-.448],[.047,-.120,-.448]]){
+    const screw=mesh('ChassisScrew',new T.CylinderGeometry(.008,.008,.003,6),'Steel',x,y,z);screw.rotation.z=Math.PI/2;
+    const socket=mesh('HexSocket',new T.CylinderGeometry(.0035,.0035,.004,6),'Black',x+Math.sign(x)*.002,y,z);socket.rotation.z=Math.PI/2;
   }
-  ring('SlingSocket',.013,.004,'Steel',.046,-.055,-.41).rotation.y=Math.PI/2;
+  ring('SlingSocket',.013,.003,'Steel',.048,-.049,-.429).rotation.y=Math.PI/2;
+  stampSniperLabel(T,mesh,'MK-II',-.057,-.006,-.080,.0018);
+  stampSniperLabel(T,mesh,'R-07 7.62',-.058,-.065,.120,.0015);
+
   batchSniperGeometry(T,group);
-  group.userData.detail='precision-sniper';
-  return 1.249;
+  group.userData.detail='precision-sniper';group.userData.design='precision-mk2';
+  return 1.446;
 }
 
 // Merge static parts without sharing disposable geometry between actors.
@@ -567,4 +567,45 @@ function batchSniperGeometry(T,group) {
     geometry.setIndex(new T.BufferAttribute(indices,1));geometry.computeBoundingSphere();
     const surface=new T.Mesh(geometry,material);surface.name=material.name+'Surface';group.add(surface);
   }
+}
+
+function buildFlutedSniperBarrel(T,mesh) {
+  const rings=[.321,.35,.63,.67,1.055,1.085,1.112],count=48,vertices=[],uv=[],indices=[];
+  for(let k=0;k<rings.length;k++)for(let i=0;i<=count;i++){
+    const z=rings[k],a=i/count*Math.PI*2;
+    const flute=(z>=.67 && z<=1.055)?Math.pow(Math.max(0,Math.cos(a*8)),2)*.0027:0;
+    const radius=.027-(z-.321)*.006-flute;
+    vertices.push(Math.sin(a)*radius,.01+Math.cos(a)*radius,z);uv.push(i/count,k/(rings.length-1));
+  }
+  for(let k=0;k<rings.length-1;k++)for(let i=0;i<count;i++){
+    const a=k*(count+1)+i,b=a+1,c=b+count+1,d=a+count+1;
+    indices.push(a,d,b,b,d,c);
+  }
+  const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(vertices,3));
+  geo.setAttribute('uv',new T.Float32BufferAttribute(uv,2));geo.setIndex(indices);geo.computeVertexNormals();
+  mesh('Mk2FlutedBarrel',geo,'Steel');
+}
+
+// Small stamped identifiers are real surface geometry and share the markings material.
+function stampSniperLabel(T,mesh,text,x,y,z,scale=.0017) {
+  const font={
+    'M':['101','111','111','101','101'],'K':['101','110','100','110','101'],
+    'I':['111','010','010','010','111'],'L':['100','100','100','100','111'],
+    'R':['110','101','110','101','101'],'P':['110','101','110','100','100'],
+    'S':['111','100','111','001','111'],'N':['101','111','111','111','101'],
+    '0':['111','101','101','101','111'],'1':['010','110','010','010','111'],
+    '2':['110','001','010','100','111'],'3':['110','001','010','001','110'],
+    '6':['011','100','110','101','010'],'7':['111','001','010','010','010'],
+    '-':['000','000','111','000','000'],'.':['000','000','000','000','010'],
+    '/':['001','001','010','100','100'],' ':['000','000','000','000','000'],
+  };
+  const positions=[],normals=[],uv=[];
+  for(const [letter,char] of [...text].entries())for(const [row,line] of (font[char]||font[' ']).entries())for(let col=0;col<3;col++){
+    if(line[col]!=='1')continue;
+    const a=z+(letter*4+col)*scale,b=a+scale*.72,c=y-row*scale,d=c-scale*.72;
+    for(const [zz,yy] of [[a,c],[a,d],[b,c],[b,c],[a,d],[b,d]]){positions.push(x,yy,zz);normals.push(-1,0,0);uv.push(0,0);}
+  }
+  const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(positions,3));
+  geo.setAttribute('normal',new T.Float32BufferAttribute(normals,3));geo.setAttribute('uv',new T.Float32BufferAttribute(uv,2));
+  mesh('StampedIdentifier',geo,'Mark');
 }
