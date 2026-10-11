@@ -78,7 +78,7 @@ class RailgunTest {
         assertEquals(0, player.railgunDx, .001); assertEquals(1, player.railgunDy, .001);
         player.moveX = 1; player.dashHeld = true;
         double x = player.x; advance(.1);
-        assertEquals(x + 155 * .3 * .1, player.x, .001);
+        assertEquals(x + JobRules.WALK_SPEED * .3 * .1, player.x, .001);
         assertFalse(player.dashing);
         player.moveX = 0;
         Enemy entrant = enemy(1, "grunt", player.x, 1540);

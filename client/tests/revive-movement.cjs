@@ -15,7 +15,7 @@ assert.equal(context.predictedLocal.x,100);assert.equal(commands.at(-1),'MOVE:0.
 context.updateLocalPrediction(.05);assert.equal(context.predictedLocal.x,100);
 now=1119;context.sendMovement();assert.equal(context.localMove.x,0);
 now=1120;context.updateLocalPrediction(.02);
-assert.equal(commands.at(-1),'MOVE:1.00:0.00');assert.equal(context.predictedLocal.x,103.1);
+assert.equal(commands.at(-1),'MOVE:1.00:0.00');assert.equal(context.predictedLocal.x,102.5);
 context.sendMovement();assert.equal(commands.length,2,'movement resumes once even with the key held');
 now=2000;me.down=true;me.downSpeed=60;me.staminaMax=300;me.staminaRecovery=60;
 context.predictedLocal.stamina=10;context.predictedLocal.dashing=true;

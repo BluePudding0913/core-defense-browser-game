@@ -315,6 +315,7 @@ final class SnapshotBuilder {
                     .append(",\"healHalfSize\":").append(JobRules.HEAL_HALF_SIZE)
                     .append(",\"jobCooldown\":").append(roundOne(player.jobCooldown))
                     .append(",\"teleportCooldown\":").append(roundOne(player.teleportCooldown))
+                    .append(",\"walkSpeed\":").append(JobRules.WALK_SPEED)
                     .append(",\"dashSpeed\":").append(JobRules.dashSpeed(player.job))
                     .append(",\"downSpeed\":").append(JobRules.downSpeed(player.job))
                     .append(",\"staminaRecovery\":").append(JobRules.staminaRecovery(player.job))

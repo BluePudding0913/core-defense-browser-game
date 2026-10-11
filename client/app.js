@@ -148,7 +148,7 @@ let predictedLocal = null;
 let localMove = { x: 0, y: 0 };
 let localFacing = { x: 0, y: -1 };
 let aimPointer = null;
-const fpsInput = labRenderer?.firstPerson ? window.FPSInput.create(canvas) : null;
+const fpsInput = labRenderer?.firstPerson ? window.FPSInput.create(canvas,{onEscape:()=>{if(state && ["preparing","wave"].includes(state.phase))openExitDialog();}}) : null;
 let dashRequested = false;
 let lastFrameAt = performance.now();
 let mapReady = false;
@@ -780,12 +780,14 @@ const exitDialog = document.querySelector("#exit-dialog");
 document.querySelector("#leave-game").addEventListener("click", openExitDialog);
 function openExitDialog() {
     if (exitDialog.open) return;
+    fpsInput?.setActive(false,true);
     endInteractionHold(true);
     keys.clear(); joystick = null;
     dashKey = false; setDash(false);
     if (pendingMove) clearTimeout(pendingMove.timer);
     pendingMove = null;
     if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
+    if (secondaryHeld) stopSecondaryFiring();
     sendMovement();
     exitDialog.returnValue = "cancel";
     exitDialog.showModal();
@@ -2107,7 +2109,6 @@ window.addEventListener("keydown", event => {
         event.preventDefault();
         return;
     }
-    if (key === "escape" && fpsInput?.locked()) { event.preventDefault(); fpsInput.release(); return; }
     if (key === "escape" && state && ["preparing", "wave"].includes(state.phase)) {
         event.preventDefault();
         if (!event.repeat) openExitDialog();
@@ -2406,7 +2407,8 @@ function updateLocalPrediction(dt, visualDt = dt) {
         predictedLocal.stamina = Math.min(serverMe.staminaMax ?? 100, predictedLocal.stamina + (serverMe.staminaRecovery ?? 24) * dt);
     }
 
-    const speed = serverMe.railgunRemaining > 0 || serverMe.secondaryRailgunRemaining > 0 ? 155 * .3 : serverMe.railgunCharge > 0 || serverMe.secondaryRailgunCharge > 0 ? 155 * .6 : serverMe.down ? (serverMe.downSpeed ?? 45) : serverMe.movingCore ? 82 : predictedLocal.dashing ? (serverMe.dashSpeed ?? 265) : 155;
+    const walkSpeed = serverMe.walkSpeed ?? 125;
+    const speed = serverMe.railgunRemaining > 0 || serverMe.secondaryRailgunRemaining > 0 ? walkSpeed * .3 : serverMe.railgunCharge > 0 || serverMe.secondaryRailgunCharge > 0 ? walkSpeed * .6 : serverMe.down ? (serverMe.downSpeed ?? 45) : serverMe.movingCore ? 82 : predictedLocal.dashing ? (serverMe.dashSpeed ?? 205) : walkSpeed;
     const nextX = clamp(predictedLocal.x + localMove.x * speed * dt, 25, WORLD.width - 25);
     const nextY = clamp(predictedLocal.y + localMove.y * speed * dt, 25, WORLD.height - 25);
     if (canPredictOccupy(nextX, predictedLocal.y, 5, true, predictedLocal.jumpHeight || 0)) predictedLocal.x = nextX;
@@ -2576,7 +2578,6 @@ function drawFirstPerson() {
             drawKeyPrompt('R',prompt.visible ? prompt.x/dpr : x,prompt.visible ? prompt.y/dpr : y+50);
         }
         if(placement)ctx.fillText(placement.valid?'R PLACE':'BLOCKED',x,y+70);
-        if(!fpsInput.locked() && !matchMedia('(pointer: coarse)').matches)ctx.fillText('クリックで視点操作',x,y+100);
     }
     ctx.restore();
     if(scoped && playing && !menusOpen) {

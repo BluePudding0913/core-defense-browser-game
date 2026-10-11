@@ -889,7 +889,8 @@ class GameSessionTest {
     @Test
     void enemyFollowsTheEntryCorridorBeforeTurningTowardTheCore() {
         startWave();
-        game.players.forEach(candidate -> candidate.human = true);
+        // Discard CPU movement left by startWave before testing the enemy route.
+        game.players.forEach(candidate -> {candidate.human=true;candidate.moveX=0;candidate.moveY=0;});
         game.enemies.clear();
         game.queuedEnemies = 0;
         game.queuedBosses = 0;
