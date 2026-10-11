@@ -2,6 +2,8 @@
 
 const canvas = document.querySelector("#game");
 const ctx = canvas.getContext("2d");
+const labRenderer = window.Lab3D?.create(canvas) || null;
+let renderPositions = null;
 const menu = document.querySelector("#menu");
 const menuStatus = document.querySelector("#menu-status");
 const startButton = document.querySelector("#start");
@@ -145,6 +147,9 @@ let droneAftermath = null;
 let predictedLocal = null;
 let localMove = { x: 0, y: 0 };
 let localFacing = { x: 0, y: -1 };
+let aimPointer = null;
+const fpsInput = labRenderer?.firstPerson ? window.FPSInput.create(canvas) : null;
+document.addEventListener('pointerlockchange',()=>{if(fpsInput && !fpsInput.locked()) {if(firingPointer)stopFiring(firingPointer.clientX,firingPointer.clientY);if(secondaryHeld)stopSecondaryFiring();keys.clear();sendMovement();}});
 let dashRequested = false;
 let lastFrameAt = performance.now();
 let mapReady = false;
@@ -522,6 +527,7 @@ function renderRoomList(rooms) {
 function send(message) {
     if (socket?.readyState !== WebSocket.OPEN) return;
     if (message === "START" && DEBUG_MODE) message = "START:DEBUG";
+    if (/^(FIRE|SECONDARY_FIRE):/.test(message) && fpsInput) message += ':' + Math.max(-1.2,Math.min(1.2,fpsInput.view.pitch+(fpsInput.view.recoilPitch || 0))).toFixed(6);
     const sequence = nextInputSequence++;
     socket.send(`INPUT:${sequence}:${message}`);
     pendingInputs.push({ sequence, kind: message.split(":", 1)[0] });
@@ -1423,6 +1429,15 @@ function reconcileLocalPrediction(snapshot) {
         sendMovement(true);
     }
     predictedLocal.down = Boolean(serverMe.down);
+    const beforeX=predictedLocal.x, beforeY=predictedLocal.y, beforeHeight=predictedLocal.jumpHeight || 0;
+    if (typeof window !== "undefined" && window.JumpMovement) {
+        const jumpPending=pendingInputs.some(input=>input.kind==="JUMP");
+        if (!jumpPending) {
+            predictedLocal.jumpHeight=serverMe.jumpHeight || 0;
+            predictedLocal.jumpVelocity=serverMe.jumpVelocity || 0;
+            predictedLocal.renderOffsetHeight=(predictedLocal.renderOffsetHeight || 0)+beforeHeight-predictedLocal.jumpHeight;
+        }
+    }
     const errorX = serverMe.x - predictedLocal.x;
     const errorY = serverMe.y - predictedLocal.y;
     const error = Math.hypot(errorX, errorY);
@@ -1437,6 +1452,10 @@ function reconcileLocalPrediction(snapshot) {
         predictedLocal.x += errorX * correction;
         predictedLocal.y += errorY * correction;
     }
+    if (error <= 120 && !predictedLocal.movementPauseUntil) {
+        predictedLocal.renderOffsetX=(predictedLocal.renderOffsetX || 0)+beforeX-predictedLocal.x;
+        predictedLocal.renderOffsetY=(predictedLocal.renderOffsetY || 0)+beforeY-predictedLocal.y;
+    } else { predictedLocal.renderOffsetX=0; predictedLocal.renderOffsetY=0; predictedLocal.renderOffsetHeight=0; }
     predictedLocal.stamina += (serverMe.stamina - predictedLocal.stamina) * .4;
     predictedLocal.scoutDashRemaining = serverMe.scoutDashRemaining || 0;
     predictedLocal.scoutDashDx = serverMe.scoutDashDx || 0;
@@ -1850,11 +1869,19 @@ function resize() {
 window.addEventListener("resize", resize);
 resize();
 
+function worldYScale() { return typeof labRenderer !== "undefined" && labRenderer ? labRenderer.groundScale : 1; }
+
 function worldFromScreen(clientX, clientY) {
+    if (typeof fpsInput !== "undefined" && fpsInput) {
+        const aim=labRenderer.aimPoint();
+        if (aim) return aim;
+        const me=predictedLocal || getMe() || camera, f=fpsInput.facing();
+        return {x:me.x+f.x*2400,y:me.y+f.y*2400};
+    }
     const rect = canvas.getBoundingClientRect();
     const px = (clientX - rect.left) * canvas.width / rect.width;
     const py = (clientY - rect.top) * canvas.height / rect.height;
-    return { x: camera.x + (px - canvas.width / 2) / scale, y: camera.y + (py - canvas.height / 2) / scale };
+    return { x: camera.x + (px - canvas.width / 2) / scale, y: camera.y + (py - canvas.height / 2) / (scale * worldYScale()) };
 }
 
 function requestDecoy(point) {
@@ -1889,6 +1916,9 @@ function requestTankWall(point) {
 // Mouse down also fires when the left button is held, allowing a dash while shooting.
 canvas.addEventListener("mousedown", event => {
     if (!state || !getMe()) return;
+    if (event.button === 0 && fpsInput?.capture()) return;
+    if (event.button === 1 && fpsInput) { event.preventDefault(); fpsInput.view.zoom=true; return; }
+    if (event.button === 2 && fpsInput && (!["attacker","tank","scout","spy"].includes(getMe()?.job) || ["sniper","rifle","railgun"].includes(getMe()?.weapon))) { event.preventDefault();fpsInput.view.zoom=true;return; }
     if (event.button === 0) {
         canvas.focus({ preventScroll: true });
         startFiring("mouse", event.clientX, event.clientY);
@@ -1913,8 +1943,8 @@ canvas.addEventListener("mousedown", event => {
 canvas.addEventListener("pointerdown", event => {
     if (!state || !getMe()) return;
     canvas.focus({ preventScroll: true });
-    canvas.setPointerCapture(event.pointerId);
     if (event.pointerType === "mouse") return;
+    canvas.setPointerCapture(event.pointerId);
     const inMovementArea = event.pointerType !== "mouse"
         && event.clientX < innerWidth * .42 && event.clientY > innerHeight * .42;
     if (inMovementArea) {
@@ -1927,6 +1957,7 @@ canvas.addEventListener("pointerdown", event => {
 });
 
 canvas.addEventListener("pointermove", event => {
+    if (event.pointerType === "mouse" || firingPointer?.id === event.pointerId) aimPointer = { x: event.clientX, y: event.clientY };
     if (pendingMove?.id === event.pointerId) { pendingMove.x = event.clientX; pendingMove.y = event.clientY; }
     if (joystick?.id === event.pointerId) updateJoystick(event.clientX, event.clientY);
     if (firingPointer?.id === event.pointerId || event.pointerType === "mouse" && firingPointer?.id === "mouse") updateFiringAim(event.clientX, event.clientY);
@@ -1955,6 +1986,7 @@ function stopSecondaryFiring() {
     window.coreAudio?.stopRailgun?.(myPlayerId + ":right");
 }
 window.addEventListener("mouseup", event => {
+    if (fpsInput && [1,2].includes(event.button)) fpsInput.view.zoom=false;
     if (event.button === 0 && firingPointer?.id === "mouse") stopFiring(event.clientX, event.clientY);
     if (event.button === 2) stopSecondaryFiring();
 });
@@ -1974,6 +2006,7 @@ function startFiring(pointerId, clientX, clientY) {
         return;
     }
     const point = worldFromScreen(clientX, clientY);
+    aimPointer = { x: clientX, y: clientY };
     firingPointer = { id: pointerId, clientX, clientY, lastAimSent: performance.now() };
     send(`FIRE:${point.x.toFixed(1)}:${point.y.toFixed(1)}:1`);
 }
@@ -2041,6 +2074,7 @@ function sendMovement(force = false) {
     if (predictedLocal?.movementPauseUntil && performance.now() < predictedLocal.movementPauseUntil) x = y = 0;
     const length = Math.hypot(x, y);
     if (length > 1) { x /= length; y /= length; }
+    if (typeof fpsInput !== "undefined" && fpsInput) ({x,y}=fpsInput.movement(x,y));
     localMove.x = Number(x.toFixed(2));
     localMove.y = Number(y.toFixed(2));
     if (length > .12) localFacing = quantizeFacing(localMove.x, localMove.y);
@@ -2063,6 +2097,9 @@ window.addEventListener("keydown", event => {
     }
     if (isTypingTarget(event.target)) return;
     const key = window.coreKeySettings.gameKey(event);
+    if (key === "escape" && typeof fpsInput !== "undefined" && fpsInput?.locked()) {
+        event.preventDefault(); fpsInput.release(); return;
+    }
     if (exitDialog.open) {
         if (key === "e") { event.preventDefault(); if (!event.repeat) exitDialog.close("cancel"); }
         return;
@@ -2117,6 +2154,16 @@ window.addEventListener("keydown", event => {
         if (!event.repeat) beginInteractionHold();
         return;
     }
+    if (key === " " && state && ["preparing", "wave"].includes(state.phase)) {
+        event.preventDefault();
+        const me = getMe();
+        if (!event.repeat && actionMenu.classList.contains("hidden") && inventoryMenu.classList.contains("hidden")
+                && me && !me.down && !me.movingCore && !me.drone?.controlled && !me.missileControl) {
+            send("JUMP");
+            if (predictedLocal) window.JumpMovement.start(predictedLocal, state.slots || []);
+        }
+        return;
+    }
     if (key === "shift") {
         event.preventDefault();
         if (!dashKey) { dashKey = true; setDash(true); }
@@ -2133,6 +2180,7 @@ window.addEventListener("keyup", event => {
     keys.delete(key); sendMovement();
 });
 window.addEventListener("blur", () => {
+    if (fpsInput) fpsInput.release();
     stopSecondaryFiring();
     endInteractionHold(true);
     keys.clear(); joystick = null;
@@ -2260,7 +2308,7 @@ function quantizeFacing(x, y) {
 
 function frontPlacementTile(player) {
     const origin = snapToTile(player);
-    const direction = player.id === myPlayerId ? localFacing
+    const direction = player.id === myPlayerId ? (typeof fpsInput !== "undefined" && fpsInput ? fpsInput.facing() : localFacing)
         : { x: player.facingX, y: player.facingY };
     const facing = quantizeFacing(Number.isFinite(direction.x) ? direction.x : 0,
         Number.isFinite(direction.y) ? direction.y : -1);
@@ -2282,7 +2330,9 @@ function placeSelectedInFront() {
     const selection = placementSelection(me);
     if (!selection) return false;
     // The preview is advisory; only the server has the current collision state.
-    send("PLACE_FRONT");
+    if (typeof fpsInput !== 'undefined' && fpsInput) {
+        const facing=fpsInput.facing();send(`PLACE_FRONT:${facing.x.toFixed(4)}:${facing.y.toFixed(4)}`);
+    } else send("PLACE_FRONT");
     return true;
 }
 
@@ -2307,8 +2357,13 @@ function openDroneLaunch() {
 
 function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
-function updateLocalPrediction(dt) {
+function updateLocalPrediction(dt, visualDt = dt) {
     const serverMe = getMe();
+    if (predictedLocal) {
+        predictedLocal.renderOffsetHeight=(predictedLocal.renderOffsetHeight || 0)*Math.exp(-18*visualDt);
+        predictedLocal.renderOffsetX=(predictedLocal.renderOffsetX || 0)*Math.exp(-14*visualDt);
+        predictedLocal.renderOffsetY=(predictedLocal.renderOffsetY || 0)*Math.exp(-14*visualDt);
+    }
     if (serverMe?.missileControl) return;
     if (serverMe?.drone?.controlled && predictedLocal) {
         predictedLocal.x = serverMe.x; predictedLocal.y = serverMe.y;
@@ -2322,11 +2377,15 @@ function updateLocalPrediction(dt) {
         predictedLocal.movementPauseUntil = 0;
         sendMovement(true);
     }
+    if (typeof window !== "undefined" && window.JumpMovement) {
+        if (serverMe.down || serverMe.movingCore) { predictedLocal.jumpHeight=0; predictedLocal.jumpVelocity=0; }
+        else window.JumpMovement.advance(predictedLocal, dt, state.slots || [], TILE_MAP);
+    }
     if (predictedLocal.scoutDashRemaining > 0 && !serverMe.down && !serverMe.movingCore
             && !serverMe.selectedBuild && !(serverMe.railgunRemaining > 0 || serverMe.railgunCharge > 0 || serverMe.secondaryRailgunRemaining > 0 || serverMe.secondaryRailgunCharge > 0)) {
         const travel = serverMe.scoutDashSpeed * Math.min(dt, predictedLocal.scoutDashRemaining);
         const next = window.ScoutMovement.advance(predictedLocal, predictedLocal.scoutDashDx,
-            predictedLocal.scoutDashDy, travel, serverMe.scoutDashStep, canPredictOccupy);
+            predictedLocal.scoutDashDy, travel, serverMe.scoutDashStep, (x,y)=>canPredictOccupy(x,y,5,true,predictedLocal.jumpHeight || 0));
         predictedLocal.x = next.x; predictedLocal.y = next.y;
         predictedLocal.scoutDashRemaining = next.blocked ? 0 : Math.max(0, predictedLocal.scoutDashRemaining - dt);
         if (predictedLocal.scoutDashRemaining < 1e-9) predictedLocal.scoutDashRemaining = 0;
@@ -2351,11 +2410,11 @@ function updateLocalPrediction(dt) {
     const speed = serverMe.railgunRemaining > 0 || serverMe.secondaryRailgunRemaining > 0 ? 155 * .3 : serverMe.railgunCharge > 0 || serverMe.secondaryRailgunCharge > 0 ? 155 * .6 : serverMe.down ? (serverMe.downSpeed ?? 45) : serverMe.movingCore ? 82 : predictedLocal.dashing ? (serverMe.dashSpeed ?? 265) : 155;
     const nextX = clamp(predictedLocal.x + localMove.x * speed * dt, 25, WORLD.width - 25);
     const nextY = clamp(predictedLocal.y + localMove.y * speed * dt, 25, WORLD.height - 25);
-    if (canPredictOccupy(nextX, predictedLocal.y, 5)) predictedLocal.x = nextX;
-    if (canPredictOccupy(predictedLocal.x, nextY, 5)) predictedLocal.y = nextY;
+    if (canPredictOccupy(nextX, predictedLocal.y, 5, true, predictedLocal.jumpHeight || 0)) predictedLocal.x = nextX;
+    if (canPredictOccupy(predictedLocal.x, nextY, 5, true, predictedLocal.jumpHeight || 0)) predictedLocal.y = nextY;
 }
 
-function canPredictOccupy(x, y, radius, includeDefenses = true) {
+function canPredictOccupy(x, y, radius, includeDefenses = true, feetHeight = 0) {
     if (![x, y, radius].every(Number.isFinite) || radius < 0) return false;
     if (x - radius < 0 || y - radius < 0 || x + radius > WORLD.width || y + radius > WORLD.height
             || x >= WORLD.width || y >= WORLD.height) return false;
@@ -2376,15 +2435,17 @@ function canPredictOccupy(x, y, radius, includeDefenses = true) {
             if (!symbol || !TILE_MAP.legend[symbol] || TILE_MAP.legend[symbol].solid) return false;
         }
     }
-    if (includeDefenses && state.slots.some(slot => slot.defense && ["block", "barricade", "copperBarricade", "silverBarricade"].includes(slot.defense.type)
+    if (feetHeight > 0 && window.JumpMovement && feetHeight + 32 > window.JumpMovement.ceiling(TILE_MAP,x,y) + .01) return false;
+    if (includeDefenses && feetHeight < 23.99 && state.slots.some(slot => slot.defense && ["block", "barricade", "copperBarricade", "silverBarricade"].includes(slot.defense.type)
             && Math.hypot(x - slot.x, y - slot.y) < radius + 18)) return false;
     return true;
 }
 
 function animate(now = performance.now()) {
-    const dt = Math.min(.05, Math.max(0, (now - lastFrameAt) / 1000));
+    const elapsed = Math.max(0, (now - lastFrameAt) / 1000);
+    const dt = Math.min(.05, elapsed);
     lastFrameAt = now;
-    updateLocalPrediction(dt);
+    updateLocalPrediction(dt, elapsed);
     window.coreAudio?.syncRailguns?.(socket?.readyState === WebSocket.OPEN ? state?.players || [] : [], predictedLocal || getMe(), myPlayerId, Boolean(firingPointer), secondaryHeld);
     window.TerminalUI?.update(state, getMe(), { map: { world: WORLD, tileMap: TILE_MAP, areas: AREAS, startingArea: STARTING_AREA, breakerTerminals: BREAKER_TERMINALS }, send });
     draw();
@@ -2408,6 +2469,8 @@ function droneCameraView() {
 }
 
 function draw() {
+    if (fpsInput) { drawFirstPerson(); return; }
+    renderPositions = labRenderer ? new Map() : null;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const me = getMe();
@@ -2415,12 +2478,20 @@ function draw() {
     if (cameraTarget) {
         camera.x += (cameraTarget.x - camera.x) * .12;
         camera.y += (cameraTarget.y - camera.y) * .12;
-        const halfW = canvas.width / scale / 2, halfH = canvas.height / scale / 2;
+        const halfW = canvas.width / scale / 2, halfH = canvas.height / (scale * worldYScale()) / 2;
         camera.x = clamp(camera.x, halfW, WORLD.width - halfW);
         camera.y = clamp(camera.y, halfH, WORLD.height - halfH);
     }
-    ctx.setTransform(scale, 0, 0, scale, canvas.width / 2 - camera.x * scale, canvas.height / 2 - camera.y * scale);
-    drawWorld();
+    ctx.setTransform(scale, 0, 0, scale * worldYScale(), canvas.width / 2 - camera.x * scale, canvas.height / 2 - camera.y * scale * worldYScale());
+    if (labRenderer) labRenderer.render({ map: TILE_MAP, reachable: reachableFloorTiles(), center: camera, scale,
+        state, localId: myPlayerId, predicted: predictedLocal, smooth: smoothEntity, radius: enemyRadius,
+        stations: labStations(), effects: hitEffects,
+        aim: aimPointer ? worldFromScreen(aimPointer.x, aimPointer.y) : null });
+    else drawWorld();
+    if (labRenderer) {
+        SPAWN_POINTS.forEach(drawSpawnEntrance);
+        if (DEBUG_MODE) SPAWN_POINTS.forEach(drawDebugSpawn);
+    }
     if (state) {
         drawAreas();
         drawBreakers();
@@ -2451,13 +2522,76 @@ function draw() {
         drawBlackoutEnemyGlow();
     }
     if (state && typeof CoreFeedback !== "undefined") {
-        ctx.setTransform(scale, 0, 0, scale, canvas.width / 2 - camera.x * scale, canvas.height / 2 - camera.y * scale);
+        ctx.setTransform(scale, 0, 0, scale * worldYScale(), canvas.width / 2 - camera.x * scale, canvas.height / 2 - camera.y * scale * worldYScale());
         CoreFeedback.draw(ctx, performance.now(), WORLD, scale);
         ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
     if (state) drawDamageEdges();
     drawJoystick();
     drawRewindScreen();
+}
+
+
+function drawFirstPerson() {
+    renderPositions=new Map();
+    const me=getMe(), baseEye=droneCameraView() || predictedLocal || me || camera;
+    const eye=baseEye===predictedLocal ? {...baseEye,x:baseEye.x+(baseEye.renderOffsetX || 0),y:baseEye.y+(baseEye.renderOffsetY || 0)} : baseEye;
+    const scoped=!!fpsInput.view.zoom && ['sniper','rifle','railgun'].includes(me?.weapon) && !me?.selectedBuild && !me?.drone?.controlled;
+    fpsInput.view.scoped=scoped;
+    const playing=!!me && ['preparing','wave'].includes(state?.phase);
+    const menusOpen=exitDialog.open || !actionMenu.classList.contains('hidden') || !inventoryMenu.classList.contains('hidden') || !howToMenu.classList.contains('hidden') || window.coreMenu?.settingsOpen?.() || window.JobUI?.isConfirming?.() || me?.missileControl;
+    fpsInput.setActive(playing && !menusOpen,playing && !!menusOpen);
+    if(menusOpen || !playing) {
+        if(firingPointer)stopFiring(firingPointer.clientX,firingPointer.clientY);
+        if(secondaryHeld)stopSecondaryFiring();
+        if(keys.size || joystick){keys.clear();joystick=null;sendMovement();}
+    } else sendMovement(); // Turning changes the world direction of a held movement key.
+    if(eye){camera.x=eye.x;camera.y=eye.y;}
+    const selection=me && placementSelection(me), point=selection ? frontPlacementTile(me) : null;
+    const placement=point ? {...point,valid:canBuildAt(point,selection.forCore)} : null;
+    labRenderer.render({map:TILE_MAP,reachable:reachableFloorTiles(),center:camera,eye,scale,state,localId:myPlayerId,predicted:predictedLocal,smooth:smoothEntity,radius:enemyRadius,stations:labStations(),effects:hitEffects,aim:worldFromScreen(0,0),view:fpsInput.view,placement,scoped,motion:{moving:Math.hypot(localMove.x,localMove.y)>.12,dashing:predictedLocal?.dashing}});
+    if(firingPointer)updateFiringAim(firingPointer.clientX,firingPointer.clientY);
+    if(secondaryHeld){const p=worldFromScreen(0,0);const now=performance.now();if(now-(drawFirstPerson.secondaryAt || 0)>70){send(`SECONDARY_FIRE:${p.x.toFixed(1)}:${p.y.toFixed(1)}:1`);drawFirstPerson.secondaryAt=now;}}
+    ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);
+    if(!state)return;
+    const now=performance.now();hitEffects=hitEffects.filter(e=>now-e.started<1200);
+    const activeProjectiles=new Set((state.projectiles || []).map(p=>"projectile-"+p.id));
+    for(const key of smoothed.keys())if(key.startsWith("projectile-") && !activeProjectiles.has(key))smoothed.delete(key);
+    const text=(label,x,y,height=32,color='#e8f4f8')=>{const p=labRenderer.project(x,y,height);if(!p.visible)return;ctx.save();const pixelRatio=canvas.width/innerWidth;const fontSize=Math.max(12,Math.min(28,p.pixelsPerUnit*6/pixelRatio));ctx.font=`bold ${fontSize*pixelRatio}px system-ui`;ctx.textAlign='center';ctx.fillStyle=color;ctx.shadowColor='#08121a';ctx.shadowBlur=4;ctx.fillText(label,p.x,p.y);ctx.restore();};
+    const bar=(entity,p,height,color)=>{const a=labRenderer.project(p.x,p.y,height);if(!a.visible)return;const w=38*canvas.width/innerWidth,h=4*canvas.width/innerWidth;ctx.fillStyle='#16232c';ctx.fillRect(a.x-w/2,a.y,w,h);ctx.fillStyle=color;ctx.fillRect(a.x-w/2,a.y,w*clamp(entity.hp/Math.max(1,entity.maxHp || entity.hp),0,1),h);};
+    for(const [p,label,color] of labStations()) if(Math.hypot(p.x-eye.x,p.y-eye.y)<420){const anchor=labRenderer.stationPosition(p);text(label,anchor.x,anchor.y,38,color);}
+    for(const enemy of state.enemies)if(enemy.hp>0){const p=smoothEntity('enemy',enemy);if(enemy.hp<enemy.maxHp)bar(enemy,p,enemyRadius(enemy)*2.2,'#ff7780');}
+    for(const player of state.players)if(player.id!==myPlayerId){const p=smoothEntity('player',player);text(player.name,p.x,p.y,34,player.down?'#ff7780':'#e8f4f8');bar(player,p,30,'#91dcc1');}
+    for(const slot of state.slots || [])if(slot.defense)bar(slot.defense,slot,32,'#79d8ff');
+    if(!state.players.some(p=>p.movingCore)) {text('CORE',state.core.x,state.core.y,50);bar(state.core,state.core,45,'#79d8ff');}
+    for(const drop of state.drops || [])if(Math.hypot(drop.x-eye.x,drop.y-eye.y)<160)text(RESOURCE_NAMES[drop.type] || drop.type,drop.x,drop.y,20);
+    if(typeof CombatFeedback!=='undefined'){ctx.setTransform(scale,0,0,scale,0,0);CombatFeedback.draw(ctx,now,popup=>{const p=projectCombatPopup(popup);return p;});ctx.setTransform(1,0,0,1,0,0);}
+    const interaction=findNearestInteraction();
+    ctx.save();const dpr=canvas.width/innerWidth;ctx.scale(dpr,dpr);ctx.textAlign='center';ctx.font='bold 14px system-ui';ctx.fillStyle='#f1f8fb';ctx.shadowColor='#07121b';ctx.shadowBlur=4;
+    if(playing && !menusOpen){
+        const x=innerWidth/2,y=innerHeight/2;if(!scoped){ctx.strokeStyle='#e8f4f8';ctx.lineWidth=1.5;ctx.beginPath();for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]){ctx.moveTo(x+dx*4,y+dy*4);ctx.lineTo(x+dx*10,y+dy*10);}ctx.stroke();}
+        const target=placement ? (placement.valid ? placement : null) : interaction?.target;
+        if(target) {
+            const anchor=labRenderer.stationPosition(target);const prompt=labRenderer.project(anchor.x,anchor.y,40);
+            drawKeyPrompt('R',prompt.visible ? prompt.x/dpr : x,prompt.visible ? prompt.y/dpr : y+50);
+        }
+        if(placement)ctx.fillText(placement.valid?'R PLACE':'BLOCKED',x,y+70);
+        if(!fpsInput.locked() && !matchMedia('(pointer: coarse)').matches)ctx.fillText('クリックで視点操作 · Escで解除',x,y+100);
+    }
+    ctx.restore();
+    if(scoped && playing && !menusOpen) {
+        ctx.save();ctx.scale(dpr,dpr);
+        const x=innerWidth/2,y=innerHeight/2,r=Math.min(innerWidth,innerHeight)*.42;
+        ctx.fillStyle='#020406';ctx.beginPath();ctx.rect(0,0,innerWidth,innerHeight);ctx.arc(x,y,r,0,Math.PI*2,true);ctx.fill('evenodd');
+        ctx.strokeStyle='#111a1e';ctx.lineWidth=1;ctx.beginPath();
+        for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]){ctx.moveTo(x+dx*12,y+dy*12);ctx.lineTo(x+dx*r,y+dy*r);}ctx.stroke();
+        ctx.fillStyle='#ff5b63';ctx.fillRect(x-1,y-1,2,2);ctx.restore();
+    }
+    if(state.blackoutActive && !me?.drone?.controlled){
+        const shade=ctx.createRadialGradient(canvas.width/2,canvas.height/2,0,canvas.width/2,canvas.height/2,canvas.width*.65);
+        shade.addColorStop(0,'rgba(0,5,10,.48)');shade.addColorStop(1,'rgba(0,5,10,.82)');ctx.fillStyle=shade;ctx.fillRect(0,0,canvas.width,canvas.height);
+    }
+    drawDamageEdges();drawJoystick();drawRewindScreen();
 }
 
 function drawDamageEdges() {
@@ -2495,7 +2629,7 @@ function drawBlackoutSignals() {
         if (!tripped.has(breaker.id)
                 || (breaker.requiredArea && !state.areas[breaker.requiredArea])) continue;
         const x = (breaker.x - camera.x) * scale + canvas.width / 2;
-        const y = (breaker.y - camera.y) * scale + canvas.height / 2;
+        const y = (breaker.y - camera.y) * scale * worldYScale() + canvas.height / 2;
         for (let ring = 0; ring < 3; ring++) {
             const expansion = (progress + ring / 3) % 1;
             ctx.globalAlpha = .75 * (1 - expansion);
@@ -2520,7 +2654,7 @@ function drawBlackout() {
     const me = predictedLocal || local;
     if (!me) return;
     const x = (me.x - camera.x) * scale + canvas.width / 2;
-    const y = (me.y - camera.y) * scale + canvas.height / 2;
+    const y = (me.y - camera.y) * scale * worldYScale() + canvas.height / 2;
     const remaining = (state.trippedBreakers || []).length;
     const total = Math.max(1, state.blackoutBreakerTotal || remaining);
     const severity = state.enemyBlackout ? 1 : remaining / total;
@@ -2663,10 +2797,12 @@ function drawAreas() {
         }
 
         if (!unlocked && terminalVisible) {
-            ctx.fillStyle = "#d8d8d8";
-            ctx.fillRect(area.terminalX - 15, area.terminalY - 15, 30, 30);
-            ctx.strokeStyle = "#79d8ff"; ctx.lineWidth = 2;
-            ctx.strokeRect(area.terminalX - 18, area.terminalY - 18, 36, 36);
+            if (typeof labRenderer === "undefined" || !labRenderer) {
+                ctx.fillStyle = "#d8d8d8";
+                ctx.fillRect(area.terminalX - 15, area.terminalY - 15, 30, 30);
+                ctx.strokeStyle = "#79d8ff"; ctx.lineWidth = 2;
+                ctx.strokeRect(area.terminalX - 18, area.terminalY - 18, 36, 36);
+            }
             ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace"; ctx.textAlign = "center";
             ctx.fillText("UNLOCK", area.terminalX, area.terminalY - 24);
         }
@@ -2681,22 +2817,24 @@ function drawBreakers() {
         const needsReset = state.blackoutActive && tripped.has(breaker.id);
         const pulse = (Math.sin(performance.now() / 130) + 1) / 2;
         ctx.save();
-        ctx.fillStyle = needsReset ? "#ff5964" : "#8b8b8b";
-        ctx.strokeStyle = needsReset ? "#fff" : "#d8d8d8";
-        ctx.lineWidth = 2;
-        if (needsReset) {
-            ctx.shadowColor = "#ff5964";
-            ctx.shadowBlur = 10 + pulse * 8;
+        if (typeof labRenderer === "undefined" || !labRenderer) {
+            ctx.fillStyle = needsReset ? "#ff5964" : "#8b8b8b";
+            ctx.strokeStyle = needsReset ? "#fff" : "#d8d8d8";
+            ctx.lineWidth = 2;
+            if (needsReset) {
+                ctx.shadowColor = "#ff5964";
+                ctx.shadowBlur = 10 + pulse * 8;
+            }
+            ctx.fillRect(breaker.x - 10, breaker.y - 14, 20, 28);
+            ctx.strokeRect(breaker.x - 10, breaker.y - 14, 20, 28);
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = "#111";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(breaker.x, breaker.y - 7);
+            ctx.lineTo(breaker.x, breaker.y + 6);
+            ctx.stroke();
         }
-        ctx.fillRect(breaker.x - 10, breaker.y - 14, 20, 28);
-        ctx.strokeRect(breaker.x - 10, breaker.y - 14, 20, 28);
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = "#111";
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(breaker.x, breaker.y - 7);
-        ctx.lineTo(breaker.x, breaker.y + 6);
-        ctx.stroke();
         if (needsReset) {
             ctx.fillStyle = "#ff5964";
             ctx.font = "900 9px ui-monospace, monospace";
@@ -2754,19 +2892,22 @@ function drawCore() {
         ctx.lineTo(x + 5, carrierY - 4);
         ctx.stroke();
     }
-    ctx.fillStyle = "#666";
-    ctx.fillRect(x - size / 2, y - size / 2, size, size);
-    ctx.fillStyle = "#79d8ff";
-    ctx.fillRect(x - size / 2, y + size / 2 - size * ratio, size, size * ratio);
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 3;
-    ctx.strokeRect(x - size / 2, y - size / 2, size, size);
+    if (typeof labRenderer === "undefined" || !labRenderer) {
+        ctx.fillStyle = "#666";
+        ctx.fillRect(x - size / 2, y - size / 2, size, size);
+        ctx.fillStyle = "#79d8ff";
+        ctx.fillRect(x - size / 2, y + size / 2 - size * ratio, size, size * ratio);
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x - size / 2, y - size / 2, size, size);
+    }
     if (core.shield > 0) {
         ctx.strokeStyle = "#70bfff";
         ctx.globalAlpha = .8;
         ctx.lineWidth = 2;
         ctx.strokeRect(x - size / 2 - 5, y - size / 2 - 5, size + 10, size + 10);
     }
+    if (typeof labRenderer !== "undefined" && labRenderer) drawBar(x - 20, y + size / 2 + 10, 40, 4, ratio, "#79d8ff");
     const hitAge = performance.now() - coreHitStarted;
     if (hitAge < 350) {
         ctx.strokeStyle = "#ff4e58"; ctx.globalAlpha = 1 - hitAge / 350; ctx.lineWidth = 9;
@@ -2814,12 +2955,15 @@ function isUnlockedPoint(point) {
 }
 
 function drawStation(station, label, color, labelColor = "#111") {
-    ctx.fillStyle = color; ctx.fillRect(station.x - 20, station.y - 20, 40, 40);
-    ctx.fillStyle = "#111"; ctx.fillRect(station.x - 11, station.y - 11, 22, 22);
+    if (typeof labRenderer === "undefined" || !labRenderer) {
+        ctx.fillStyle = color; ctx.fillRect(station.x - 20, station.y - 20, 40, 40);
+        ctx.fillStyle = "#111"; ctx.fillRect(station.x - 11, station.y - 11, 22, 22);
+    }
     ctx.fillStyle = labelColor; ctx.font = "900 9px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText(label, station.x, station.y + 31);
 }
 
 function drawResources() {
+    if (typeof labRenderer !== "undefined" && labRenderer) return;
     for (const node of state.resources || []) {
         if (!node.available) continue;
         const bob = Math.sin(performance.now() / 260 + node.x * .01) * 3;
@@ -2845,23 +2989,25 @@ function drawDroppedResources() {
         const bob = Math.sin(performance.now() / 230 + drop.id) * 2;
         ctx.save();
         ctx.translate(drop.x, drop.y + bob);
-        ctx.fillStyle = drop.type === "wood" ? "#b8b8b8" : drop.type === "copper" ? "#aa754d" : drop.type === "silver" ? "#eee" : "#777";
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 1.5;
-        if (drop.type === "medkit") {
-            ctx.fillStyle = "#eee";
-            ctx.fillRect(-10, -8, 20, 16);
-            ctx.strokeRect(-10, -8, 20, 16);
-            ctx.fillStyle = "#e45151";
-            ctx.fillRect(-2, -6, 4, 12);
-            ctx.fillRect(-6, -2, 12, 4);
-        } else if (drop.type === "wood") {
-            ctx.fillRect(-8, -6, 16, 12);
-            ctx.strokeRect(-8, -6, 16, 12);
-        } else {
-            ctx.beginPath();
-            ctx.moveTo(0, -10); ctx.lineTo(10, -2); ctx.lineTo(6, 9);
-            ctx.lineTo(-7, 8); ctx.lineTo(-10, -3); ctx.closePath(); ctx.fill(); ctx.stroke();
+        if (typeof labRenderer === "undefined" || !labRenderer) {
+            ctx.fillStyle = drop.type === "wood" ? "#b8b8b8" : drop.type === "copper" ? "#aa754d" : drop.type === "silver" ? "#eee" : "#777";
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 1.5;
+            if (drop.type === "medkit") {
+                ctx.fillStyle = "#eee";
+                ctx.fillRect(-10, -8, 20, 16);
+                ctx.strokeRect(-10, -8, 20, 16);
+                ctx.fillStyle = "#e45151";
+                ctx.fillRect(-2, -6, 4, 12);
+                ctx.fillRect(-6, -2, 12, 4);
+            } else if (drop.type === "wood") {
+                ctx.fillRect(-8, -6, 16, 12);
+                ctx.strokeRect(-8, -6, 16, 12);
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(0, -10); ctx.lineTo(10, -2); ctx.lineTo(6, 9);
+                ctx.lineTo(-7, 8); ctx.lineTo(-10, -3); ctx.closePath(); ctx.fill(); ctx.stroke();
+            }
         }
         ctx.fillStyle = "#fff";
         ctx.font = "900 10px ui-monospace, monospace";
@@ -2884,25 +3030,27 @@ function drawTrapSlots() {
 
 function drawDefense(slot) {
     const defense = slot.defense;
-    if (defense.type === "block") {
-        ctx.fillStyle = "#666"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
-        ctx.fillStyle = "#929292"; ctx.fillRect(slot.x - 14, slot.y - 14, 28, 7);
-        ctx.fillStyle = "#444"; ctx.fillRect(slot.x - 14, slot.y - 3, 10, 13);
-        ctx.strokeStyle = "#bbb"; ctx.lineWidth = 2; ctx.strokeRect(slot.x - 18, slot.y - 18, 36, 36);
-    } else if (["turret", "copperTurret", "silverTurret", "overclockSilver"].includes(defense.type)) {
-        ctx.fillStyle = "#79d8ff"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
-        ctx.strokeStyle = "#fff"; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(slot.x, slot.y); ctx.lineTo(slot.x, slot.y - 29); ctx.stroke();
-        if (defense.type !== "turret") { ctx.fillStyle = defense.type === "overclockSilver" ? "#b686ff" : defense.type === "copperTurret" ? "#aa754d" : "#eee"; ctx.fillRect(slot.x - 8, slot.y - 8, 16, 16); }
-    } else if (defense.type === "wire") {
-        ctx.strokeStyle = "#b8b8b8"; ctx.lineWidth = 3; ctx.beginPath();
-        for (let i = -24; i <= 24; i += 8) { ctx.moveTo(slot.x + i, slot.y - 20); ctx.lineTo(slot.x + i + 10, slot.y + 20); }
-        ctx.stroke();
-    } else if (defense.type === "mine") {
-        ctx.fillStyle = "#ff5964"; ctx.beginPath(); ctx.arc(slot.x, slot.y, 17, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(slot.x, slot.y, 5, 0, Math.PI * 2); ctx.fill();
-    } else {
-        ctx.fillStyle = defense.type === "copperBarricade" ? "#986543" : defense.type === "silverBarricade" ? "#c3cbd0" : "#666"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
-        ctx.strokeStyle = "#bbb"; ctx.lineWidth = 3; ctx.strokeRect(slot.x - 18, slot.y - 18, 36, 36);
+    if (typeof labRenderer === "undefined" || !labRenderer) {
+        if (defense.type === "block") {
+            ctx.fillStyle = "#666"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
+            ctx.fillStyle = "#929292"; ctx.fillRect(slot.x - 14, slot.y - 14, 28, 7);
+            ctx.fillStyle = "#444"; ctx.fillRect(slot.x - 14, slot.y - 3, 10, 13);
+            ctx.strokeStyle = "#bbb"; ctx.lineWidth = 2; ctx.strokeRect(slot.x - 18, slot.y - 18, 36, 36);
+        } else if (["turret", "copperTurret", "silverTurret", "overclockSilver"].includes(defense.type)) {
+            ctx.fillStyle = "#79d8ff"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
+            ctx.strokeStyle = "#fff"; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(slot.x, slot.y); ctx.lineTo(slot.x, slot.y - 29); ctx.stroke();
+            if (defense.type !== "turret") { ctx.fillStyle = defense.type === "overclockSilver" ? "#b686ff" : defense.type === "copperTurret" ? "#aa754d" : "#eee"; ctx.fillRect(slot.x - 8, slot.y - 8, 16, 16); }
+        } else if (defense.type === "wire") {
+            ctx.strokeStyle = "#b8b8b8"; ctx.lineWidth = 3; ctx.beginPath();
+            for (let i = -24; i <= 24; i += 8) { ctx.moveTo(slot.x + i, slot.y - 20); ctx.lineTo(slot.x + i + 10, slot.y + 20); }
+            ctx.stroke();
+        } else if (defense.type === "mine") {
+            ctx.fillStyle = "#ff5964"; ctx.beginPath(); ctx.arc(slot.x, slot.y, 17, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(slot.x, slot.y, 5, 0, Math.PI * 2); ctx.fill();
+        } else {
+            ctx.fillStyle = defense.type === "copperBarricade" ? "#986543" : defense.type === "silverBarricade" ? "#c3cbd0" : "#666"; ctx.fillRect(slot.x - 18, slot.y - 18, 36, 36);
+            ctx.strokeStyle = "#bbb"; ctx.lineWidth = 3; ctx.strokeRect(slot.x - 18, slot.y - 18, 36, 36);
+        }
     }
     if (["barricade", "copperBarricade", "silverBarricade"].includes(defense.type)) drawBar(slot.x - 14, slot.y + 10, 28, 4, defense.hp / defense.maxHp, "#fff");
     else if (defense.type !== "mine") drawBar(slot.x - 25, slot.y + 29, 50, 4, defense.hp / defense.maxHp, "#fff");
@@ -2910,9 +3058,12 @@ function drawDefense(slot) {
 
 function smoothEntity(prefix, entity) {
     const key = `${prefix}-${entity.id}`;
+    if (typeof renderPositions !== "undefined" && renderPositions?.has(key)) return renderPositions.get(key);
     const point = smoothed.get(key) || { x: entity.x, y: entity.y };
     point.x += (entity.x - point.x) * .32; point.y += (entity.y - point.y) * .32;
-    smoothed.set(key, point); return point;
+    smoothed.set(key, point);
+    if (typeof renderPositions !== "undefined" && renderPositions) renderPositions.set(key, point);
+    return point;
 }
 
 function enemyRadius(enemy) {
@@ -2989,6 +3140,7 @@ function drawEnemies() {
             ctx.beginPath(); ctx.arc(p.x, p.y, radius + 7, 0, Math.PI * 2); ctx.fill();
             ctx.restore();
         }
+        const isBoss = ["boss", "warlord", "titan", "warden", "finalBoss"].includes(enemy.type);
         const explosionBoss = enemy.type === "explosionBoss";
         let flashing = false;
         if (explosionBoss && enemy.fuse >= 0) {
@@ -2997,35 +3149,37 @@ function drawEnemies() {
             // Integrate a frequency rising from 0.5 Hz to 5 Hz for a continuous blink phase.
             flashing = Math.sin(2 * Math.PI * (.5 * elapsed + .075 * elapsed * elapsed)) > 0;
         }
-        ctx.fillStyle = enemy.type === "warden" ? ["#4c5965", "#73563e", "#8b343b"][(enemy.bossPhase || 1) - 1]
-            : explosionBoss ? (flashing ? "#b52b32" : "#080808") : colors[enemy.type] || colors.grunt;
-        ctx.beginPath();
-        if (explosionBoss) {
-            for (let i = 0; i < 6; i++) {
-                const angle = Math.PI / 3 * i - Math.PI / 6;
-                const x = p.x + Math.cos(angle) * radius, y = p.y + Math.sin(angle) * radius;
-                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-            }
-            ctx.closePath();
-        } else if (enemy.type === "blueAce") {
-            ctx.moveTo(p.x-radius, p.y-radius); ctx.lineTo(p.x+radius, p.y-radius);
-            ctx.lineTo(p.x+radius, p.y+radius); ctx.lineTo(p.x-radius, p.y+radius); ctx.closePath();
-        } else ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-        ctx.fill();
-        const isBoss = ["boss", "warlord", "titan", "warden", "finalBoss"].includes(enemy.type);
-        ctx.strokeStyle = isBoss ? "#fff" : "#c8c8c8"; ctx.lineWidth = isBoss ? 5 : Math.min(2, radius / 3); ctx.stroke();
-        const eyeRadius = Math.min(3, radius * .2), eyeOffset = Math.min(3, radius * .5);
-        ctx.fillStyle = explosionBoss ? "#ff1527" : "#fff"; ctx.beginPath(); ctx.arc(p.x - radius * .3, p.y - eyeOffset, eyeRadius, 0, Math.PI * 2); ctx.arc(p.x + radius * .3, p.y - eyeOffset, eyeRadius, 0, Math.PI * 2); ctx.fill();
+        if (typeof labRenderer === "undefined" || !labRenderer) {
+            ctx.fillStyle = enemy.type === "warden" ? ["#4c5965", "#73563e", "#8b343b"][(enemy.bossPhase || 1) - 1]
+                : explosionBoss ? (flashing ? "#b52b32" : "#080808") : colors[enemy.type] || colors.grunt;
+            ctx.beginPath();
+            if (explosionBoss) {
+                for (let i = 0; i < 6; i++) {
+                    const angle = Math.PI / 3 * i - Math.PI / 6;
+                    const x = p.x + Math.cos(angle) * radius, y = p.y + Math.sin(angle) * radius;
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+            } else if (enemy.type === "blueAce") {
+                ctx.moveTo(p.x-radius, p.y-radius); ctx.lineTo(p.x+radius, p.y-radius);
+                ctx.lineTo(p.x+radius, p.y+radius); ctx.lineTo(p.x-radius, p.y+radius); ctx.closePath();
+            } else ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = isBoss ? "#fff" : "#c8c8c8"; ctx.lineWidth = isBoss ? 5 : Math.min(2, radius / 3); ctx.stroke();
+            const eyeRadius = Math.min(3, radius * .2), eyeOffset = Math.min(3, radius * .5);
+            ctx.fillStyle = explosionBoss ? "#ff1527" : "#fff"; ctx.beginPath(); ctx.arc(p.x - radius * .3, p.y - eyeOffset, eyeRadius, 0, Math.PI * 2); ctx.arc(p.x + radius * .3, p.y - eyeOffset, eyeRadius, 0, Math.PI * 2); ctx.fill();
+        }
         if (enemy.frozenRemaining > 0) {
             ctx.save(); ctx.fillStyle = "rgb(90 211 255 / 35%)"; ctx.strokeStyle = "#a7edff"; ctx.lineWidth = 2;
             ctx.beginPath(); ctx.arc(p.x, p.y, radius + 3, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.restore();
         }
-        if (enemy.type === "shield") {
+        if (enemy.type === "shield" && (typeof labRenderer === "undefined" || !labRenderer)) {
             const angle = Math.atan2(enemy.facingY ?? 1, enemy.facingX ?? 0);
             ctx.strokeStyle = "#83d5f2"; ctx.lineWidth = 7;
             ctx.beginPath(); ctx.arc(p.x, p.y, radius + 4, angle - Math.PI / 3, angle + Math.PI / 3); ctx.stroke();
         }
-        if ((enemy.type === "artillery" || enemy.type === "artilleryElite")) {
+        if ((enemy.type === "artillery" || enemy.type === "artilleryElite") && (typeof labRenderer === "undefined" || !labRenderer)) {
             ctx.fillStyle = "#cce76b";
             ctx.beginPath(); ctx.arc(p.x, p.y - radius * .7, 9, 0, Math.PI * 2); ctx.fill();
         }
@@ -3190,56 +3344,58 @@ function drawPlayers() {
         }
         const rescuers = state.players.filter(worker => worker.action === player.id);
         if (player.down && rescuers.length && (player.id === myPlayerId || rescuers.some(worker => worker.id === myPlayerId))) drawReviveEffect(p.x, p.y, Math.max(...rescuers.map(worker => worker.actionProgress / (worker.reviveSeconds ?? 4))));
-        ctx.save();
-        if (player.down) { ctx.translate(p.x, p.y + 8); ctx.scale(1.35, .65); }
-        else ctx.translate(p.x, p.y);
-        if (!player.down && (player.tpInvulnerableRemaining > 0 || player.reviveInvulnerableRemaining > 0)) {
-            ctx.globalAlpha = Math.floor(performance.now() / 100) % 2 ? .25 : 1;
-        }
-        const hit = hitEffects.findLast(effect => effect.effect === "player-hit"
-            && effect.playerId === player.id && performance.now() - effect.started < 300);
-        if (hit) {
+        if (typeof labRenderer === "undefined" || !labRenderer) {
             ctx.save();
-            ctx.globalAlpha = .3 * (1 - (performance.now() - hit.started) / 300);
-            ctx.fillStyle = "#ff3948";
-            ctx.shadowColor = "#ff3948";
-            ctx.shadowBlur = 8;
-            ctx.fillRect(-9, -9, 18, 18);
+            if (player.down) { ctx.translate(p.x, p.y + 8); ctx.scale(1.35, .65); }
+            else ctx.translate(p.x, p.y);
+            if (!player.down && (player.tpInvulnerableRemaining > 0 || player.reviveInvulnerableRemaining > 0)) {
+                ctx.globalAlpha = Math.floor(performance.now() / 100) % 2 ? .25 : 1;
+            }
+            const hit = hitEffects.findLast(effect => effect.effect === "player-hit"
+                && effect.playerId === player.id && performance.now() - effect.started < 300);
+            if (hit) {
+                ctx.save();
+                ctx.globalAlpha = .3 * (1 - (performance.now() - hit.started) / 300);
+                ctx.fillStyle = "#ff3948";
+                ctx.shadowColor = "#ff3948";
+                ctx.shadowBlur = 8;
+                ctx.fillRect(-9, -9, 18, 18);
+                ctx.restore();
+            }
+            ctx.fillStyle = hit || player.down ? "#ff5964" : player.id === myPlayerId ? "#79d8ff" : "#454545";
+            if (player.job === "attacker" && !player.down) {
+                ctx.save();
+                ctx.fillStyle = "#b5b5b5";
+                ctx.fillRect(-12, -3, 4, 12); ctx.fillRect(8, -3, 4, 12);
+                ctx.fillStyle = "#454545";
+                ctx.fillRect(-12, -3, 4, 4); ctx.fillRect(8, -3, 4, 4);
+                ctx.restore();
+            }
+            const playerSize = 10;
+            const disguised = player.spyRemaining > 0 && !player.down;
+            if (disguised) {
+                ctx.fillStyle = "#707070"; ctx.strokeStyle = "#c8c8c8"; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                ctx.fillStyle = "#fff";
+                ctx.fillRect(-6, -5, 3, 3); ctx.fillRect(3, -5, 3, 3);
+                ctx.fillStyle = "#79d8ff"; ctx.fillRect(-2, 6, 4, 2);
+            } else ctx.fillRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize);
+            if (player.id === myPlayerId && !disguised) { ctx.strokeStyle = "white"; ctx.lineWidth = 1.5; ctx.strokeRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize); }
+            if (player.drone?.controlled && player.drone?.active && !player.down) {
+                ctx.fillStyle = "#b7c9d1"; ctx.fillRect(-8, 5, 16, 8);
+                ctx.fillStyle = "#253f49"; ctx.fillRect(-5, 7, 3, 3); ctx.fillRect(2, 7, 3, 3);
+            }
+            if (player.selectedBuild?.endsWith("Factory") && player.buildItems?.[player.selectedBuild] > 0) {
+                ctx.fillStyle = "#70bfff";
+                ctx.fillRect(-9, -24, 18, 16);
+                ctx.fillStyle = "#111";
+                ctx.fillRect(-5, -20, 10, 8);
+            }
             ctx.restore();
         }
-        ctx.fillStyle = hit || player.down ? "#ff5964" : player.id === myPlayerId ? "#79d8ff" : "#454545";
-        if (player.job === "attacker" && !player.down) {
-            ctx.save();
-            ctx.fillStyle = "#b5b5b5";
-            ctx.fillRect(-12, -3, 4, 12); ctx.fillRect(8, -3, 4, 12);
-            ctx.fillStyle = "#454545";
-            ctx.fillRect(-12, -3, 4, 4); ctx.fillRect(8, -3, 4, 4);
-            ctx.restore();
-        }
-        const playerSize = 10;
-        const disguised = player.spyRemaining > 0 && !player.down;
-        if (disguised) {
-            ctx.fillStyle = "#707070"; ctx.strokeStyle = "#c8c8c8"; ctx.lineWidth = 1.5;
-            ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-            ctx.fillStyle = "#fff";
-            ctx.fillRect(-6, -5, 3, 3); ctx.fillRect(3, -5, 3, 3);
-            ctx.fillStyle = "#79d8ff"; ctx.fillRect(-2, 6, 4, 2);
-        } else ctx.fillRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize);
-        if (player.id === myPlayerId && !disguised) { ctx.strokeStyle = "white"; ctx.lineWidth = 1.5; ctx.strokeRect(-playerSize / 2, -playerSize / 2, playerSize, playerSize); }
-        if (player.drone?.controlled && player.drone?.active && !player.down) {
-            ctx.fillStyle = "#b7c9d1"; ctx.fillRect(-8, 5, 16, 8);
-            ctx.fillStyle = "#253f49"; ctx.fillRect(-5, 7, 3, 3); ctx.fillRect(2, 7, 3, 3);
-        }
-        if (player.selectedBuild?.endsWith("Factory") && player.buildItems?.[player.selectedBuild] > 0) {
-            ctx.fillStyle = "#70bfff";
-            ctx.fillRect(-9, -24, 18, 16);
-            ctx.fillStyle = "#111";
-            ctx.fillRect(-5, -20, 10, 8);
-        }
-        ctx.restore();
         if (player.id === myPlayerId) drawLocalWeaponCooldown(p.x, p.y, player);
-        ctx.textAlign = "center"; ctx.fillStyle = "#454545"; ctx.font = "800 11px system-ui";
-        ctx.fillText(player.name, p.x, p.y - 14);
+        ctx.textAlign = "center"; ctx.fillStyle = typeof labRenderer !== "undefined" && labRenderer ? "#f2f7fa" : "#454545"; ctx.font = "800 11px system-ui";
+        ctx.fillText(player.name, p.x, p.y - (typeof labRenderer !== "undefined" && labRenderer ? 37 : 14));
         drawMedbayParticles(player, p);
 
     }
@@ -3258,15 +3414,17 @@ function drawDrones() {
         const p = smoothEntity("drone", { ...owner.drone, id: owner.id });
         ctx.save();
         ctx.translate(p.x, p.y);
-        ctx.fillStyle = "#0005";
-        ctx.beginPath(); ctx.ellipse(0, 12, 15, 6, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#8be8f5"; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(-9, -9); ctx.lineTo(9, 9);
-        ctx.moveTo(9, -9); ctx.lineTo(-9, 9); ctx.stroke();
-        for (const [x, y] of [[-9, -9], [9, -9], [-9, 9], [9, 9]]) {
-            ctx.beginPath(); ctx.ellipse(x, y, 6, 3, performance.now() / 70, 0, Math.PI * 2); ctx.stroke();
+        if (typeof labRenderer === "undefined" || !labRenderer) {
+            ctx.fillStyle = "#0005";
+            ctx.beginPath(); ctx.ellipse(0, 12, 15, 6, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = "#8be8f5"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(-9, -9); ctx.lineTo(9, 9);
+            ctx.moveTo(9, -9); ctx.lineTo(-9, 9); ctx.stroke();
+            for (const [x, y] of [[-9, -9], [9, -9], [-9, 9], [9, 9]]) {
+                ctx.beginPath(); ctx.ellipse(x, y, 6, 3, performance.now() / 70, 0, Math.PI * 2); ctx.stroke();
+            }
+            ctx.fillStyle = "#ddfbff"; ctx.fillRect(-4, -4, 8, 8);
         }
-        ctx.fillStyle = "#ddfbff"; ctx.fillRect(-4, -4, 8, 8);
         drawBar(-15, -23, 30, 3, owner.drone.hp / owner.drone.maxHp, "#8be8f5");
         if (owner.id === myPlayerId && droneRecoveryAvailable(owner)
                 && actionMenu.classList.contains("hidden") && inventoryMenu.classList.contains("hidden")
@@ -3420,7 +3578,7 @@ function drawHitEffects() {
                 ctx.arc(effect.x, effect.y, 4 + progress * 6, 0, Math.PI * 2);
                 ctx.stroke();
             }
-            if ((effect.weapon === "turret" || effect.damage === 0)
+            if ((typeof labRenderer === "undefined" || !labRenderer) && (effect.weapon === "turret" || effect.damage === 0)
                 && !["bat", "mine"].includes(effect.weapon) && progress < .55) {
                 ctx.lineWidth = 1.35;
                 ctx.beginPath(); ctx.moveTo(effect.fromX, effect.fromY); ctx.lineTo(effect.x, effect.y); ctx.stroke();
@@ -3428,7 +3586,13 @@ function drawHitEffects() {
             ctx.restore();
         }
     }
-    if (typeof CombatFeedback !== "undefined") CombatFeedback.draw(ctx, now);
+    if (typeof CombatFeedback !== "undefined") {
+        if (typeof labRenderer !== "undefined" && labRenderer) {
+            ctx.save(); ctx.setTransform(scale, 0, 0, scale, 0, 0);
+            CombatFeedback.draw(ctx, now, projectCombatPopup);
+            ctx.restore();
+        } else CombatFeedback.draw(ctx, now);
+    }
     ctx.textAlign = "left";
 }
 
@@ -3519,7 +3683,7 @@ function drawBlackoutEnemyGlow() {
     for (const enemy of state.enemies || []) {
         if (enemy.type !== "blackout" || !enemy.powerCut || enemy.hp <= 0) continue;
         const p = smoothed.get("enemy-" + enemy.id) || enemy;
-        const x = (p.x - camera.x) * scale + canvas.width / 2, y = (p.y - camera.y) * scale + canvas.height / 2;
+        const x = (p.x - camera.x) * scale + canvas.width / 2, y = (p.y - camera.y) * scale * worldYScale() + canvas.height / 2;
         ctx.strokeStyle = "#8affd7"; ctx.shadowColor = "#66ffcb"; ctx.shadowBlur = 16; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(x, y, enemyRadius(enemy) * scale, 0, Math.PI * 2); ctx.stroke();
         ctx.fillStyle = "#e2fff5"; ctx.fillRect(x-8*scale, y-6*scale, 5*scale, 4*scale);
@@ -3557,4 +3721,32 @@ function drawRewindScreen() {
         ctx.fillStyle = "rgba(170,255,230," + flash * .75 + ")"; ctx.fillRect(0, 0, w, h);
     }
     ctx.restore();
+}
+
+function projectCombatPopup(popup) {
+    const enemy = state.enemies.find(entity => entity.id === popup.enemyId && entity.hp > 0);
+    const point = enemy ? smoothEntity('enemy', enemy) : popup;
+    if (enemy) popup.height = enemyRadius(enemy) * 1.6;
+    const projected = labRenderer.project(point.x, point.y, popup.height || 24);
+    return { x: projected.visible===false ? -10000 : projected.x / scale, y: projected.visible===false ? -10000 : projected.y / scale };
+}
+
+function labStations() {
+    if (!state) return [];
+    const stations = SHOP_UNITS.filter(isUnlockedPoint).map(p => [p, p.label, '#80cee1']);
+    for (const p of MEDBAYS.filter(isUnlockedPoint)) stations.push([p, 'MED BAY', '#88d7b1']);
+    for (const p of [WOODCUTTER, QUARRY].filter(isUnlockedPoint)) stations.push([p, '', '#d3b78c']);
+    for (const p of [...WORKBENCHES, PREP_CONSOLE, MISSILE_COMPUTER, JOB_STATION].filter(Boolean))
+        if (!p.requiredArea || state.areas[p.requiredArea]) stations.push([p, '', '#89cbd8']);
+    const tripped = new Set(state.trippedBreakers || []);
+    for (const p of BREAKER_TERMINALS) if (!p.requiredArea || state.areas[p.requiredArea])
+        stations.push([p, '', state.blackoutActive && tripped.has(p.id) ? '#ff5964' : '#89cbd8', 'breaker']);
+    const reachable = reachableFloorTiles(), size = TILE_MAP.tileSize;
+    for (const area of AREAS) {
+        const c = Math.floor(area.terminalX / size), r = Math.floor(area.terminalY / size);
+        if (!state.areas[area.id] && [[0,0],[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy]) => reachable.has((r+dy)+':'+(c+dx))))
+            stations.push([{id:'unlock:'+area.id, x:area.terminalX, y:area.terminalY}, 'UNLOCK', '#79d8ff', 'terminal']);
+    }
+    for (const p of state.factories || []) stations.push([p, '', '#80cee1']);
+    return stations;
 }

@@ -25,6 +25,7 @@ final class Player {
     boolean dashing;
     boolean dashExhausted;
     double stamina;
+    double jumpHeight, jumpVelocity;
     String job = JobRules.DEFAULT;
     double spyRemaining;
     final java.util.Set<Integer> spyCheckedEnemies = new java.util.HashSet<>();
@@ -60,6 +61,7 @@ final class Player {
 
     double railgunCharge, railgunRemaining, railgunTick;
     double railgunDx = 1, railgunDy;
+    Double railgunPitch;
 
     void stopRailgun() {
         if (railgunRemaining > 0) {
@@ -67,6 +69,7 @@ final class Player {
             cooldownMax = cooldown;
         }
         railgunCharge = railgunRemaining = railgunTick = 0;
+        railgunPitch = null;
     }
 
     final WeaponInventory weapons = new WeaponInventory(() -> job);
@@ -78,6 +81,7 @@ final class Player {
     final java.util.Map<String, Double> secondaryWeaponCooldownMaxima = new java.util.HashMap<>();
     double secondaryRailgunCharge, secondaryRailgunRemaining, secondaryRailgunTick;
     double secondaryRailgunDx = 1, secondaryRailgunDy;
+    Double secondaryRailgunPitch;
 
     void stopSecondaryRailgun() {
         if (secondaryRailgunRemaining > 0) {
@@ -85,6 +89,7 @@ final class Player {
             secondaryCooldownMax = secondaryCooldown;
         }
         secondaryRailgunCharge = secondaryRailgunRemaining = secondaryRailgunTick = 0;
+        secondaryRailgunPitch = null;
     }
 
     void equipSecondaryWeapon(String next) {
@@ -106,12 +111,14 @@ final class Player {
     }
     boolean secondaryFiring;
     double secondaryAimX, secondaryAimY;
+    Double secondaryAimPitch;
     int hookTargetId = -1;
     boolean hookReeling, hookPressHandled, secondaryHookPressHandled;
     String gachaWeapon;
     boolean firing;
     double aimX;
     double aimY;
+    Double aimPitch;
     int wood;
     int ore;
     int copper, silver, medkits, copperTurretItems, silverTurretItems;
@@ -182,6 +189,7 @@ final class Player {
         dashing = source.dashing;
         dashExhausted = source.dashExhausted;
         stamina = source.stamina;
+        jumpHeight = source.jumpHeight; jumpVelocity = source.jumpVelocity;
         job = source.job;
         spyRemaining = source.spyRemaining;
         spyCheckedEnemies.clear(); spyCheckedEnemies.addAll(source.spyCheckedEnemies);
@@ -210,6 +218,7 @@ final class Player {
         railgunTick = source.railgunTick;
         railgunDx = source.railgunDx;
         railgunDy = source.railgunDy;
+        railgunPitch = source.railgunPitch;
         weapons.copyFrom(source.weapons);
         healRemaining = source.healRemaining;
         healX = source.healX;
@@ -224,9 +233,11 @@ final class Player {
         secondaryRailgunTick = source.secondaryRailgunTick;
         secondaryRailgunDx = source.secondaryRailgunDx;
         secondaryRailgunDy = source.secondaryRailgunDy;
+        secondaryRailgunPitch = source.secondaryRailgunPitch;
         secondaryFiring = source.secondaryFiring;
         secondaryAimX = source.secondaryAimX;
         secondaryAimY = source.secondaryAimY;
+        secondaryAimPitch = source.secondaryAimPitch;
         hookTargetId = source.hookTargetId;
         hookReeling = source.hookReeling;
         hookPressHandled = source.hookPressHandled;
@@ -235,6 +246,7 @@ final class Player {
         firing = source.firing;
         aimX = source.aimX;
         aimY = source.aimY;
+        aimPitch = source.aimPitch;
         wood = source.wood;
         ore = source.ore;
         copper = source.copper;

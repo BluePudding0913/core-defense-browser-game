@@ -62,7 +62,7 @@ class EnemyExpansionTest {
         assertEquals(50,game.round);assertEquals(1,game.queuedBosses);assertEquals("boss_assault",game.roundEvent);
         game.queuedEnemies=game.queuedTinyEnemies=0;invoke("updateSpawning",10);invoke("updateSpawning",10);
         assertEquals(1,game.enemies.size());Enemy boss=game.enemies.get(0);
-        assertEquals("finalBoss",boss.type);assertTrue(boss.isBoss());assertEquals(200000,boss.maxHp);assertEquals(170,boss.damage);
+        assertEquals("finalBoss",boss.type);assertTrue(boss.isBoss());assertEquals(140000,boss.maxHp);assertEquals(170,boss.damage);
         game.update(.05);assertEquals(GamePhase.WAVE,game.phase);
         game.combat.damageEnemy(boss,200000,null);
         game.update(.05);assertEquals(GamePhase.WON,game.phase);

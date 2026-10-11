@@ -16,12 +16,19 @@ final class GameEffects implements CombatEvents {
 
     public void hit(String playerId, String weapon, double fromX, double fromY,
             double x, double y, double damage, boolean defeated, int credits, boolean headshot, Integer enemyId) {
+        hitAtHeight(playerId, weapon, fromX, fromY, x, y, damage, defeated, credits, headshot, enemyId, Double.NaN, Double.NaN);
+    }
+
+    public void hitAtHeight(String playerId, String weapon, double fromX, double fromY,
+            double x, double y, double damage, boolean defeated, int credits, boolean headshot, Integer enemyId,
+            double fromHeight, double hitHeight) {
         sink.broadcast("{\"type\":\"effect\",\"effect\":\"hit\",\"playerId\":\"" + escapeJson(playerId)
                 + "\",\"weapon\":\"" + escapeJson(weapon) + "\",\"fromX\":" + roundOne(fromX)
                 + ",\"fromY\":" + roundOne(fromY) + ",\"x\":" + roundOne(x)
                 + ",\"y\":" + roundOne(y) + ",\"damage\":" + (Math.round(damage * 1000) / 1000.0)
                 + ",\"defeated\":" + defeated + ",\"credits\":" + credits
-                + ",\"headshot\":" + headshot + ",\"enemyId\":" + enemyId + "}");
+                + ",\"headshot\":" + headshot + ",\"enemyId\":" + enemyId
+                + (Double.isFinite(hitHeight) ? ",\"hitHeight\":" + roundOne(hitHeight) + ",\"fromHeight\":" + roundOne(fromHeight) : "") + "}");
     }
 
     public void intercepted(double x, double y) {

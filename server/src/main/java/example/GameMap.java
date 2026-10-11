@@ -50,6 +50,22 @@ final class GameMap {
 
     private GameMap() { }
 
+    static double ceilingHeight(double x, double y) {
+        AreaTile cell = TILE_MAP.cellAt(x, y);
+        int shortest = Integer.MAX_VALUE;
+        for (int[] direction : new int[][]{{1, 0}, {0, 1}}) {
+            int count = 1;
+            for (int sign : new int[]{-1, 1}) for (int n = 1; ; n++) {
+                TileType tile = TILE_MAP.typeAt(cell.column() + direction[0] * n * sign,
+                        cell.row() + direction[1] * n * sign);
+                if (tile == null || tile.solid()) break;
+                count++;
+            }
+            shortest = Math.min(shortest, count);
+        }
+        return shortest <= 2 ? 64 : 130;
+    }
+
     private static List<Station> buildMedbays() {
         List<Station> stations = new ArrayList<>();
         stations.add(DEFINITION.stations().medBay());

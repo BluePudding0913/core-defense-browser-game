@@ -11,6 +11,10 @@ class EarlyRoundDifficultyTest {
         public void send(Player player, String message) { }
     });
 
+    @org.junit.jupiter.api.BeforeEach void fourHumans() {
+        game.players.forEach(player -> player.human = true);
+    }
+
     private Object invoke(String name, Class<?>[] types, Object... args) throws Exception {
         Method method = GameSession.class.getDeclaredMethod(name, types);
         method.setAccessible(true);

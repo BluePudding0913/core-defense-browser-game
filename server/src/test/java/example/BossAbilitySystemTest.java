@@ -23,6 +23,7 @@ class BossAbilitySystemTest {
     @Test void warlordSalvoWarnsAtThreeFixedLocationsAndUsesOrdinaryBlastDamage() throws Exception {
         Enemy boss = boss("warlord"); update(.05);
         assertEquals(3,game.artilleryShells.size()); assertEquals(100,player.hp);
+        assertEquals(1,boss.facingX,1e-6); assertEquals(0,boss.facingY,1e-6);
         assertTrue(game.artilleryShells.stream().allMatch(s -> s.enemyId == boss.id && s.remaining == 1.0));
         assertEquals(3,game.artilleryShells.stream().map(s -> s.y).distinct().count());
         var snapshot = new ObjectMapper().readTree(SnapshotBuilder.build(game));
