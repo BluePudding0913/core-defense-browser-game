@@ -93,7 +93,7 @@ final class CombatSystem {
         }
         double directionX = dx / length;
         double directionY = dy / length;
-        if(AimControlRules.supported(player.weapon))player.aimControl.look(directionX,directionY,player.aimPitch==null?0:player.aimPitch);
+        if(AimControlRules.supported(player.weapon))player.aimControl.look(directionX,directionY,player.aimPitch==null?0:player.aimPitch,player.weapon.equals("sniper") && player.sniper.fixed);
         if (WeaponCatalog.find(player.weapon).mode() == WeaponCatalog.AttackMode.ROCKET) {
             fireRocket(player, weapon, directionX, directionY, Math.min(length, weapon.range()));
             return;
