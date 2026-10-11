@@ -4,6 +4,23 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 
 class BossRulesTest {
+    @Test void firstBossHasHalfHealthForAllPlayerCountsAndSpawnPaths() throws Exception {
+        GameSession game = new GameSession(new GameEventSink() {
+            public void broadcast(String s) {} public void send(Player p, String s) {}
+        });
+        var spawn = GameSession.class.getDeclaredMethod("spawnEnemy", String.class, SpawnPoint.class, boolean.class);
+        spawn.setAccessible(true);
+        for (int humans=1; humans<=4; humans++) for (boolean debug : new boolean[]{false,true}) {
+            game.round=4;game.roundHumanCount=humans;game.enemies.clear();
+            spawn.invoke(game,"boss",GameMap.SPAWN_POINTS.get(0),debug);
+            Enemy boss=game.enemies.get(0);
+            double expected=6100*RoundDifficultyRules.multiplier(humans);
+            assertEquals(expected,boss.hp,1e-8);assertEquals(expected,boss.maxHp,1e-8);
+        }
+        assertEquals(15000,EnemyTierRules.hp("boss",23040,8),1e-8,"Later bosses retain their health");
+        assertEquals(BossRules.spawnHp("warden",10000),EnemyTierRules.hp("warden",10000,4),1e-8);
+    }
+
     @Test void bossSpawnHpIsReducedAndRoundedForNormalAndDebugSpawns() throws Exception {
         GameSession game = new GameSession(new GameEventSink() {
             public void broadcast(String s) {}
