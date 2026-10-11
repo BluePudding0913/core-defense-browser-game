@@ -1917,6 +1917,7 @@ function requestTankWall(point) {
 // Mouse down also fires when the left button is held, allowing a dash while shooting.
 canvas.addEventListener("mousedown", event => {
     if (!state || !getMe()) return;
+    if (event.button === 0 && fpsInput?.capture()) { event.preventDefault(); return; }
     if (event.button === 1 && fpsInput) { event.preventDefault(); fpsInput.view.zoom=true; return; }
     if (event.button === 2 && fpsInput && (!["attacker","tank","scout","spy"].includes(getMe()?.job) || ["sniper","rifle","railgun"].includes(getMe()?.weapon))) { event.preventDefault();fpsInput.view.zoom=true;return; }
     if (event.button === 0) {
@@ -2106,6 +2107,7 @@ window.addEventListener("keydown", event => {
         event.preventDefault();
         return;
     }
+    if (key === "escape" && fpsInput?.locked()) { event.preventDefault(); fpsInput.release(); return; }
     if (key === "escape" && state && ["preparing", "wave"].includes(state.phase)) {
         event.preventDefault();
         if (!event.repeat) openExitDialog();
@@ -2574,6 +2576,7 @@ function drawFirstPerson() {
             drawKeyPrompt('R',prompt.visible ? prompt.x/dpr : x,prompt.visible ? prompt.y/dpr : y+50);
         }
         if(placement)ctx.fillText(placement.valid?'R PLACE':'BLOCKED',x,y+70);
+        if(!fpsInput.locked() && !matchMedia('(pointer: coarse)').matches)ctx.fillText('クリックで視点操作',x,y+100);
     }
     ctx.restore();
     if(scoped && playing && !menusOpen) {

@@ -9,7 +9,7 @@ const dialog = { open: false, showModal() { this.open = true; },
 const context = vm.createContext({
     document: { querySelector(selector) { return selector === '#exit-dialog' ? dialog
         : { addEventListener(type, fn) { handlers[type] = fn; } }; } },
-    endInteractionHold() {}, endJobHold() {}, keys: new Set(['w']), joystick: {}, dashKey: true,
+    fpsInput: null, endInteractionHold() {}, endJobHold() {}, keys: new Set(['w']), joystick: {}, dashKey: true,
     setDash() {}, pendingMove: null, firingPointer: null, sendMovement() {},
     leaveRoom() { exits++; }, window: { confirm() { throw Error('Blocking confirmation'); } },
     performance: { now: () => 100 }, lastFrameAt: 0, updateLocalPrediction() {},
