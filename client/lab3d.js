@@ -604,6 +604,8 @@ window.Lab3D = (() => {
             viewCamera.position.z-=recoil*.035+sniperRecoil*.13;
             viewCamera.rotation.x=-recoil*.035-sniperRecoil*.12;
             sniperKey.visible=sniperFill.visible=me?.weapon==='sniper';
+            // Restore procedural overrides before the mixer, which skips unchanged animation tracks.
+            viewModel.resetBatPose();
             viewModel.setWeapon(me?.weapon || 'pistol');viewMixer.update(dt);
             viewModel.root.rotation.z=0;
             if(me?.weapon==='bat')viewModel.poseBat((now-batSwingAt)/1000);

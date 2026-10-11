@@ -21,6 +21,7 @@ const state={core:{x:60,y:60},players:[player],enemies:[{id:1,type:'shield',x:18
 ],resources:[{id:'ore',type:'ore',x:200,y:200,available:true},{id:'empty',type:'wood',x:220,y:220,available:false}],drops:[{id:1,type:'medkit',x:240,y:240}]};
 const frame={map:{tileSize:40,rows:['#####','#...#','#...#','#...#','#####']},reachable:new Set(['1:1','1:2','1:3','2:1','2:2','2:3','3:1','3:2','3:3']),center:{x:140,y:140},scale:1,state,localId:'me',predicted:player,smooth:(_,p)=>p,radius:()=>24,stations:[[{id:'breaker',x:40,y:100},'', '#ff5964','breaker'],[{id:'unlock',x:40,y:140},'UNLOCK','#79d8ff','terminal']],aim:{x:200,y:100},effects:[]};
 renderer.render(frame);
+const initialGunBore=new THREE.Vector3(0,0,1).transformDirection(viewScene.getObjectByName('Rifle').matrixWorld);
 const find=name=>{const result=scene.getObjectByName(name);assert(result,name);return result;};
 const soldier=scene.children.find(o=>o.getObjectByName('Muzzle'));
 assert(Math.abs(soldier.rotation.y-Math.PI/2)<1e-8,'Local actor faces pointer instead of movement');
@@ -129,11 +130,14 @@ frame.eye=player;frame.motion={moving:false};frame.effects=[];player.healRemaini
 const heal=find('heal:me');assert.equal(heal.geometry.type,'PlaneGeometry');assert.equal(heal.scale.x*2,120);assert.equal(heal.scale.y*2,120);
 player.weapon='sniper';frame.view={yaw:0,pitch:0,zoom:true};frame.scoped=true;renderer.render(frame);assert.equal(camera.fov,20);
 frame.scoped=false;frame.view.zoom=false;player.jumpHeight=24;renderer.render(frame);assert.equal(camera.position.y,50);player.jumpHeight=0;
+const gunPoseBeforeBat=viewScene.getObjectByName('Rifle').quaternion.clone();
 player.weapon='bat';frame.effects=[];renderer.render(frame);const batRest=viewScene.getObjectByName('Rifle').quaternion.clone();
 frame.effects=[{effect:'hit',weapon:'bat',playerId:'me',fromX:100,fromY:100,x:100,y:60,damage:0,started:now}];renderer.render(frame);
 assert(!scene.children.some(o=>o.name.startsWith('special:')),'Bat never creates a blue beam');now+=180;renderer.render(frame);assert(viewScene.getObjectByName('Rifle').quaternion.angleTo(batRest)>.5,'Bat sweeps through the view');assert.equal(viewScene.getObjectByName('Soldier').rotation.z,0,'Swing never rolls the entire player');
 now+=500;frame.effects=[];renderer.render(frame);assert(viewScene.getObjectByName('Rifle').quaternion.angleTo(batRest)<1e-6,'Bat returns smoothly to ready');player.weapon='sniper';
 frame.effects=[{effect:'hit',weapon:'sniper',playerId:'me',fromX:100,fromY:100,x:100,y:60,damage:0,started:now+30}];now+=30;renderer.render(frame);assert(viewCamera.rotation.x<0,'Shot produces slight viewmodel recoil');
+assert.deepEqual(viewScene.getObjectByName('Rifle').quaternion.toArray(),gunPoseBeforeBat.toArray(),'Switching from bat restores the original gun pose');
+const boreAfterBat=new THREE.Vector3(0,0,1).transformDirection(viewScene.getObjectByName('Rifle').matrixWorld);assert(boreAfterBat.distanceTo(initialGunBore)<1e-6,'Gun barrel restores its original direction after a bat swing');
 const thick=scene.children.find(o=>o.name==='muzzle-tracer');assert(thick.children[0].isMesh);assert.equal(thick.children[0].scale.x,.35,'Visible thick red tracer');
 frame.effects=[];frame.motion.moving=true;player.y-=4;now+=50;renderer.render(frame);assert(Math.abs(camera.rotation.z)>0,'Walking gently sways camera');
 frame.motion.moving=false;now+=2000;for(let i=0;i<60;i++){now+=50;renderer.render(frame);}assert(Math.abs(camera.rotation.z)<1e-8,'Sway settles smoothly after stopping');
@@ -294,3 +298,15 @@ assert(Math.abs(frame.view.recoilPitch)<1e-8,'Persistent sniper kick is not coun
 frame.effects=[];for(let i=0;i<120;i++){now+=1000/60;renderer.render(frame);}assert.equal(frame.view.pitch,kickedPitch,'Aim stays displaced after the gun animation settles');assert.equal(frame.view.yaw,kickedYaw,'No repeated recoil for the same shot');
 frame.scoped=true;frame.view.scopeLevel=1;renderer.render(frame);assert.equal(camera.fov,20);frame.view.scopeLevel=2;renderer.render(frame);assert.equal(camera.fov,10);
 console.log('Sniper integration passed: prone camera/body, standing restore and strong recoil recovery');
+
+// The mixer caches constant tracks. Repeated procedural overrides must not survive a swap.
+frame.scoped=false;frame.view.zoom=false;frame.effects=[];
+for(const weapon of ['pistol','rifle','shotgun','sniper','railgun'])for(const scoped of [false,true]) {
+ player.weapon='bat';frame.scoped=false;now+=20;renderer.render(frame);
+ frame.effects=[{effect:'hit',weapon:'bat',playerId:'me',damage:0,fromX:player.x,fromY:player.y,x:player.x,y:player.y-60,started:now}];renderer.render(frame);now+=180;renderer.render(frame);
+ player.weapon=weapon;frame.effects=[];frame.scoped=scoped;now+=20;renderer.render(frame);
+ viewScene.updateMatrixWorld(true);const bore=new THREE.Vector3(0,0,1).transformDirection(viewScene.getObjectByName('Rifle').matrixWorld);
+ assert(bore.distanceTo(initialGunBore)<1e-6,weapon+' restores its forward bore on the first frame, scope='+scoped);
+ now+=20;renderer.render(frame);viewScene.updateMatrixWorld(true);assert(new THREE.Vector3(0,0,1).transformDirection(viewScene.getObjectByName('Rifle').matrixWorld).distanceTo(initialGunBore)<1e-6,'Next frame retains the restored bore');
+}
+console.log('Bat-to-gun regression passed: first-frame restore, repeated switches, five guns, scope and cached constant tracks');

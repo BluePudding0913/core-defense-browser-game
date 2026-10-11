@@ -85,9 +85,10 @@ function buildSoldier(THREE) {
 
   // Keep the animated grip and muzzle nodes stable when changing weapon geometry.
   const rifle = node('Rifle', spine), muzzle = node('Muzzle', rifle);
-  let currentWeapon;
+  let currentWeapon,batPoseRestore=null;
   function setWeapon(weapon) {
     if(currentWeapon===weapon)return;
+    resetBatPose();
     currentWeapon=weapon;rifle.userData.weapon=weapon;
     for(const child of [...rifle.children])if(child!==muzzle){child.traverse(o=>o.geometry?.dispose());rifle.remove(child);}
     const part=(w,h,d,m='Gun',x=0,y=0,z=0)=>box(rifle,w,h,d,m,x,y,z);
@@ -277,7 +278,15 @@ function buildSoldier(THREE) {
     if (r.p) o.position.copy(r.p);
   });
 
+  function resetBatPose() {
+    if(!batPoseRestore)return;
+    for(const {part,position,quaternion} of batPoseRestore) {
+      part.position.copy(position);part.quaternion.copy(quaternion);
+    }
+    batPoseRestore=null;
+  }
   function poseBat(age=Infinity) {
+    resetBatPose();
     // Both hands follow the handle; a short wind-up, strike and recovery replace whole-body rolling.
     const frames=[[0,0],[.07,-.25],[.18,1],[.48,0]];
     let amount=0;
@@ -288,11 +297,14 @@ function buildSoldier(THREE) {
     const u=aimed();u.riflePos.set(-.23+.3*amount,.64-.16*amount,.27+.08*amount);
     u.riflePitch=-.95+1.05*amount;u.rifleYaw=-.35+1.5*amount;u.rifleRoll=-.12-.22*amount;
     const pose={};upperBody(pose,-.25,u);
+    batPoseRestore=[];
     for(const [name,value] of Object.entries(pose)) {
-      const part=root.getObjectByName(name);if(value.p)part.position.copy(value.p);if(value.q)part.quaternion.copy(value.q);
+      const part=root.getObjectByName(name);
+      batPoseRestore.push({part,position:part.position.clone(),quaternion:part.quaternion.clone()});
+      if(value.p)part.position.copy(value.p);if(value.q)part.quaternion.copy(value.q);
     }
   }
-  return { root, clips, materials: mats, setWeapon, poseBat };
+  return { root, clips, materials: mats, setWeapon, poseBat, resetBatPose };
 }
 
 window.buildSoldier = buildSoldier;
