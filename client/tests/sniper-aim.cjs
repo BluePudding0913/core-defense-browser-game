@@ -3,7 +3,7 @@ const c={window:{}};vm.runInNewContext(fs.readFileSync('client/sniper-aim.js','u
 let serial=0;
 function at(elapsed,precision=false,nextPrecision=false){return {id:'sample-'+serial++,sniperReceivedAt:1000,sniper:{fixed:true,elapsed,cycle:Math.floor(elapsed/2.8),precision,nextPrecision,recovery:0}};}
 const p=at(2.1,true);
-assert(Math.abs(api.sample(at(.7,false,true),1000).radius-63.8*api.stability(.7))<1e-8,'Only preceding expansion grows by 10%');
+assert(Math.abs(api.sample(at(.7,false,true),1000).radius-69.6*api.stability(.7))<1e-8,'Only preceding expansion grows by 20%');
 assert(Math.abs(api.sample(p,1000).radius-3.5*api.stability(2.1))<1e-8);
 assert(Math.abs(api.sample(at(2.1),1000).radius-16*api.stability(2.1))<1e-8);
 assert.equal(api.stability(90),.675);assert(Math.abs(api.stability(180)-.35)<1e-8);
@@ -32,4 +32,13 @@ vm.runInContext(source.slice(start,end),fire);vm.runInContext("send('FIRE:100:20
 console.log('Sniper client passed: subtle cue, random-cycle interpolation, angular projection, shot recovery, prone anatomy and timestamp protocol');
 
 vm.runInNewContext(fs.readFileSync('client/previews/sniper-breathing.js','utf8'),c);
-const preview=c.window.createBreathingPreview(()=>.1);assert(Math.abs(preview.sample(700).radius-63.8)<1e-8);assert(Math.abs(preview.sample(1401).radius-preview.sample(1399).radius)>.08,'Preview also passes the middle without pausing');
+const preview=c.window.createBreathingPreview(()=>.1);assert(Math.abs(preview.sample(700).radius-69.6)<1e-8);assert(Math.abs(preview.sample(1401).radius-preview.sample(1399).radius)>.08,'Preview also passes the middle without pausing');
+
+const view={zoom:false};api.updateScope(view,'sniper',0);view.zoom=true;
+assert.equal(api.updateScope(view,'sniper',0),0);
+assert(Math.abs(api.updateScope(view,'sniper',110)-.5)<1e-8,'Halfway eye-to-scope motion');
+assert.equal(api.updateScope(view,'sniper',220),1);
+view.zoom=false;assert(Math.abs(api.updateScope(view,'sniper',300)-.5)<1e-8);
+view.zoom=true;assert.equal(api.updateScope(view,'sniper',410),1,'Reversal starts from current position');
+assert.equal(api.updateScope(view,'sniper',420,false),0,'Menus reset scope motion');
+assert.equal(api.updateScope(view,'pistol',430),0,'Switching weapons clears the animation');

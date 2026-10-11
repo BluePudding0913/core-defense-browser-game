@@ -24,16 +24,24 @@ window.SniperAim = (() => {
             const cycle=Math.floor(elapsed/PERIOD),wave=Math.sin(elapsed%PERIOD/PERIOD*Math.PI*2);
             const special=cycle<(s.cycle || 0)?s.previousPrecision:cycle>(s.cycle || 0)?s.nextPrecision:s.precision;
             const warning=cycle<(s.cycle || 0)?s.precision:cycle===(s.cycle || 0) && s.nextPrecision;
-            radius=(38+21*wave-wave*wave-(special && wave<0?12.5*wave*wave:0)+(warning && wave>0?5.8*wave*wave:0))*stability(elapsed);
+            radius=(38+21*wave-wave*wave-(special && wave<0?12.5*wave*wave:0)+(warning && wave>0?11.6*wave*wave:0))*stability(elapsed);
             radius+=70*Math.max(0,1-elapsed/.7)**2;
         }
         radius+=48*(recovery/RECOVERY)**2;
         return {elapsed,radius,slope:radius*PIXEL_SLOPE,fixed:!!s.fixed};
+    }
+    // View-only transition: neither shot timing nor authoritative spread is changed.
+    function updateScope(view,weapon,now,eligible=true) {
+        const dt=Math.max(0,now-(view.sniperAdsAt ?? now));view.sniperAdsAt=now;
+        if(weapon!=='sniper' || !eligible){view.sniperAdsProgress=0;view.sniperAds=0;return 0;}
+        const p=view.sniperAdsProgress || 0;
+        view.sniperAdsProgress=Math.max(0,Math.min(1,p+(view.zoom?dt/220:-dt/160)));
+        const t=view.sniperAdsProgress;return view.sniperAds=t*t*(3-2*t);
     }
     function draw(ctx,x,y,height,fov,sample,color='rgba(190,224,246,.55)',fillColor='rgba(190,224,246,.07)') {
         const r=sample.slope*height/(2*Math.tan(fov*Math.PI/360));
         ctx.save();ctx.strokeStyle=color;ctx.lineWidth=1.4;ctx.shadowBlur=0;
         ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);if(fillColor){ctx.fillStyle=fillColor;ctx.fill();}ctx.shadowColor='#0b1418';ctx.shadowBlur=2;ctx.stroke();ctx.restore();return r;
     }
-    return {sample,sync,draw,shot,stability};
+    return {sample,sync,draw,shot,stability,updateScope};
 })();

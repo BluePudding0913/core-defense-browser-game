@@ -349,3 +349,11 @@ frame.view.yaw+=1;renderer.render(frame);marks.getMatrixAt(0,hitMatrix);assert(n
 frame.effects=Array.from({length:50},()=>({...shot}));renderer.render(frame);assert.equal(marks.count,32,'Instanced mark budget is capped');
 frame.effects=[];now+=2000;renderer.render(frame);assert.equal(marks.count,0,'Marks expire independently of event retention');
 console.log('Simple spawn and wall impact integration passed: four faces, no glow, stable world placement, deduplication, 32-mark cap and expiry');
+
+player.weapon='sniper';frame.effects=[];frame.scoped=true;frame.view={yaw:0,pitch:0,zoom:true,sniperAds:.5};now+=1000;renderer.render(frame);
+assert.equal(camera.fov,44,'World zoom follows scope animation');
+assert(viewScene.getObjectByName('Rifle').parent.visible,'Gun stays visible while moving toward scope');
+const midEye=viewCamera.position.clone();frame.view.sniperAds=0;renderer.render(frame);
+assert(midEye.distanceTo(viewCamera.position)>.1,'Eye moves toward physical scope');
+frame.view.sniperAds=1;renderer.render(frame);assert.equal(camera.fov,16);
+console.log('Eye-to-scope transition passed');

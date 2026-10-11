@@ -11,5 +11,14 @@ class AimControlRulesTest {
  @Test void displayedTimeIsFiniteBoundedAndMonotonic(){var s=new AimControlRules.State();s.advance(10);assertTrue(s.validTime(9.8));assertTrue(s.validTime(10.06));assertFalse(s.validTime(9.79));assertFalse(s.validTime(10.061));assertFalse(s.validTime(Double.NaN));s.inputTime=10.;assertFalse(s.validTime(9.99));assertTrue(s.validTime(10.01));}
  @Test void deferredWeaponsRetainTheirExistingCones(){var s=new AimControlRules.State();s.movement=1;s.turn=1;s.elapsed=.7;for(String w:new String[]{"rocket","railgun","laserCannon","poisonGas","repulsor","bat","hook","flamethrower","plasmaBlade"}){assertFalse(AimControlRules.supported(w));assertEquals(ShotSpreadRules.radius(w),AimControlRules.radius(s,w,new SniperRules.State()));}}
  @Test void proneSniperPreservesSpecialBreathAndConcentration(){var s=new AimControlRules.State();var sniper=new SniperRules.State();sniper.start(()->.1);sniper.elapsed=2.1;assertEquals(SniperRules.radius(sniper,2.1),AimControlRules.radius(s,"sniper",sniper));sniper.elapsed=182.1;sniper.cycle=65;double before=sniper.elapsed;sniper.recovery=.9;AimControlRules.radius(s,"sniper",sniper);assertEquals(before,sniper.elapsed);}
+ @Test void turningWidensEverySupportedWeaponIncludingProneSniper(){
+  var s=new AimControlRules.State();var sniper=new SniperRules.State();
+  for(String weapon:new String[]{"pistol","smg","rifle","revolver","lmg","shotgun","ricochet","freezeGun","sniper"}) {
+   s.turn=0;double base=AimControlRules.radius(s,weapon,sniper);s.turn=1.5;
+   assertEquals(base*3.25,AimControlRules.radius(s,weapon,sniper),1e-9,weapon);
+  }
+  sniper.start(()->.1);sniper.elapsed=2.1;s.turn=0;double base=AimControlRules.radius(s,"sniper",sniper);s.turn=1.5;
+  assertEquals(base*3.25,AimControlRules.radius(s,"sniper",sniper),1e-9);
+ }
  @Test void copyIsIndependent(){var s=new AimControlRules.State();s.motion(100,true);s.look(1,0,.2);s.inputTime=0.;var copy=s.copy();copy.advance(1);copy.motion(0,false);assertEquals(0,s.elapsed);assertTrue(s.airborne);assertEquals(100./JobRules.WALK_SPEED,s.speedRatio);assertTrue(copy.hasLook);assertEquals(s.inputTime,copy.inputTime);}
 }
