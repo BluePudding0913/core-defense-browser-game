@@ -182,6 +182,12 @@ assert.equal(throughBody(-.028,.385).length,0,'Handguard slots are real openings
 assert(throughBody(-.055,.385).length>0,'Handguard keeps structural material around the opening');
 assert.equal(throughBody(-.055,-.30).length,0,'Stock frame has an open center rather than a painted recess');
 assert(throughBody(-.096,-.30).length>0,'Stock lower frame remains solid');
+const outerHit=(y,z)=>throughBody(y,z)[0];
+assert(outerHit(-.035,.17).distance-outerHit(-.010,.17).distance>.01,'Chassis pocket has a bottom physically recessed more than 10mm');
+const topAt=x=>new THREE.Raycaster(new THREE.Vector3(x,.2,-.30),new THREE.Vector3(0,-1,0)).intersectObject(bodyView,true)[0].point.y;
+assert(topAt(0)-topAt(.040)>.005,'Cheek rest has a curved cross-section rather than a flat extrusion');
+const paintSurface=bodyView.getObjectByName('SniperSandSurface');
+assert.equal(paintSurface.geometry.attributes.color.count,paintSurface.geometry.attributes.position.count,'Cavity shading survives material batching');
 let detailTriangles=0;
 for(const surface of precision.children){
  const a=surface.geometry.attributes;
@@ -198,6 +204,6 @@ precisionModel.setWeapon('pistol');assert.equal(disposed,7,'All batched weapon s
 assert.equal(precisionModel.root.getObjectByName('Muzzle'),precisionMuzzle);
 precisionModel.setWeapon('sniper');assert.equal(precisionModel.materials,sniperMaterials,'Material maps are reused when re-equipping');
 let textureDisposals=0;
-for(const t of [sniperMaterials.SniperSteel.normalMap,sniperMaterials.SniperSteel.roughnessMap,sniperMaterials.SniperSteel.envMap])t.addEventListener('dispose',()=>textureDisposals++);
-Object.values(sniperMaterials).forEach(m=>m.dispose());assert.equal(textureDisposals,3,'Weapon-specific textures are released with their actor');
+for(const t of [sniperMaterials.SniperSteel.normalMap,sniperMaterials.SniperSteel.roughnessMap,sniperMaterials.SniperSteel.envMap,sniperMaterials.SniperSand.roughnessMap])t.addEventListener('dispose',()=>textureDisposals++);
+Object.values(sniperMaterials).forEach(m=>m.dispose());assert.equal(textureDisposals,4,'Weapon-specific textures are released with their actor');
 console.log('Precision sniper passed: silhouette, batched geometry budget, distinct PBR surfaces, muzzle stability and geometry/texture lifetime');
