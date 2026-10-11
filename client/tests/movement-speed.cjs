@@ -7,3 +7,8 @@ for(const [patch,dash,expected] of [[{},false,12.5],[{},true,20.5],[{railgunChar
  assert(Math.abs(context.predictedLocal.x-100-expected)<1e-8,'Prediction follows the authoritative speed for '+JSON.stringify(patch));
 }
 console.log('Movement prediction passed: walk, sprint, railgun, down and core carry');
+
+Object.assign(me,{sniper:{fixed:true},down:false,movingCore:false});context.predictedLocal={x:100,y:100,stamina:100};context.updateLocalPrediction(.1);assert.equal(context.predictedLocal.x,100);
+const sent=[],movement=vm.createContext({getMe:()=>me,keys:new Set(['w']),joystick:null,predictedLocal:null,localMove:{x:0,y:0},localFacing:null,lastMove:'',quantizeFacing:()=>0,send:s=>sent.push(s)});
+const moveStart=source.indexOf('function sendMovement(');vm.runInContext(source.slice(moveStart,source.indexOf('\nfunction ',moveStart+1)),movement);
+movement.sendMovement();assert.equal(sent.pop(),'MOVE:0.00:0.00');me.sniper.fixed=false;movement.sendMovement();assert.equal(sent.pop(),'MOVE:0.00:-1.00','Held movement resumes when prone is released');

@@ -16,7 +16,7 @@ class SniperCombatTest {
         player.x=GameMap.CORE_X-80;player.y=GameMap.CORE_Y;player.weapons.grant("sniper");player.equipWeapon("sniper");
         messages.clear();
     }
-    void prone(){game.handleMessage(player,"SNIPER:1");assertTrue(player.sniper.fixed);}
+    void prone(){game.handleMessage(player,"SNIPER:1");assertFalse(player.sniper.fixed);game.update(.8);assertTrue(player.sniper.fixed);}
     void precision() {player.sniper.elapsed=2.1;player.sniper.precision=true;player.sniper.nextPrecision=false;}
     void fire(String time,double pitch) {game.handleMessage(player,"FIRE:"+(player.x+200)+":"+player.y+":1:"+pitch+":"+time);}
     @Test void stanceRequiresStationaryGroundedSniperAndNeverRestartsOnRepeatedInput() {
@@ -26,7 +26,15 @@ class SniperCombatTest {
         game.handleMessage(player,"SNIPER:1");assertEquals(elapsed,player.sniper.elapsed);
         double x=player.x;game.update(.1);assertEquals(x,player.x);
         game.handleMessage(player,"SNIPER_LOOK:0.6:0.8:0.1");assertEquals(.6,player.sniper.facingX,1e-9);
-        game.handleMessage(player,"MOVE:1:0");assertFalse(player.sniper.fixed);game.update(.1);assertTrue(player.x>x);
+        game.handleMessage(player,"MOVE:1:0");assertTrue(player.sniper.fixed);game.update(.1);assertEquals(x,player.x);
+        game.handleMessage(player,"SNIPER:0");game.handleMessage(player,"MOVE:1:0");game.update(.1);assertTrue(player.x>x);
+    }
+    @Test void stanceRequiresAnUninterruptedHoldAndCancelDoesNotReleaseAnAlreadyFixedStance() {
+        game.handleMessage(player,"SNIPER:1");game.update(.4);assertFalse(player.sniper.fixed);assertTrue(player.sniper.deploying);
+        game.handleMessage(player,"SNIPER_CANCEL");game.update(.5);assertFalse(player.sniper.fixed);assertFalse(player.sniper.deploying);
+        game.handleMessage(player,"SNIPER:1");game.update(.4);game.handleMessage(player,"SNIPER:1");game.update(.4);assertTrue(player.sniper.fixed);
+        game.handleMessage(player,"SNIPER_CANCEL");assertTrue(player.sniper.fixed);
+        game.handleMessage(player,"SNIPER:0");game.handleMessage(player,"SNIPER:1");game.update(.4);game.handleMessage(player,"MOVE:1:0");game.update(.5);assertFalse(player.sniper.fixed);
     }
     @Test void jumpWeaponSelectionDisconnectAndDownRemoveTheStance() {
         prone();game.handleMessage(player,"JUMP");assertFalse(player.sniper.fixed);assertTrue(player.jumpVelocity>0);

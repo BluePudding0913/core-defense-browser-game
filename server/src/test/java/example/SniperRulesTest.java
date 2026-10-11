@@ -11,14 +11,24 @@ class SniperRulesTest {
         for(int i=0;i<100000;i++) {
             assertEquals(expected,s.precision);
             s.elapsed=i*SniperRules.PERIOD+.7;
-            assertEquals(s.nextPrecision?59.74:58,SniperRules.radius(s,s.elapsed),1e-6);
+            assertEquals((s.nextPrecision?59.74:58)*SniperRules.stability(s.elapsed),SniperRules.radius(s,s.elapsed),1e-6);
             s.elapsed=i*SniperRules.PERIOD+2.1;
-            assertEquals(s.precision?3.5:16,SniperRules.radius(s,s.elapsed),1e-6);
+            assertEquals((s.precision?3.5:16)*SniperRules.stability(s.elapsed),SniperRules.radius(s,s.elapsed),1e-6);
             if(s.precision)special++;
             expected=s.nextPrecision;s.advance(.7+1e-7,random::nextDouble);
-            assertEquals(38,SniperRules.radius(s,s.elapsed),1e-6);
+            assertEquals(38*SniperRules.stability(s.elapsed),SniperRules.radius(s,s.elapsed),1e-5);
         }
         assertEquals(.2,special/100000.0,.005);
+    }
+    @Test void breathingKeepsMovingThroughTheMiddleAndConcentrationShrinksLinearlyWithTime() {
+        var s=new SniperRules.State();s.start(()->.1);s.elapsed=100;
+        for(double t:new double[]{1.4,2.8,4.2}) {
+            double speed=(SniperRules.radius(s,t+.0001)-SniperRules.radius(s,t-.0001))/.0002;
+            assertTrue(Math.abs(speed)>40,"No mid-breath pause");
+        }
+        assertEquals(1,SniperRules.stability(0));assertEquals(.675,SniperRules.stability(90),1e-9);assertEquals(.35,SniperRules.stability(180),1e-9);
+        assertEquals(.35,SniperRules.stability(1000),1e-9);
+        s.elapsed=90;s.stop();assertEquals(0,s.elapsed);assertEquals(1,SniperRules.stability(s.elapsed));
     }
     @Test void scatterIsUniformInTheSightDiskEvenWhenLookingUpAndTurning() {
         var random=new Random(88);double yaw=.7,pitch=.8,dx=Math.cos(yaw),dy=Math.sin(yaw),sum=0,meanX=0,meanY=0;

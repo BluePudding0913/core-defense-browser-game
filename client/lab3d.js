@@ -563,7 +563,7 @@ window.Lab3D = (() => {
             latestFrame=frame;stationAnchors.clear();
             const me=state?.players.find(p=>p.id===localId), view=frame.view || {yaw:0,pitch:0};
             const eye=frame.eye || predicted || me || center;
-            camera.aspect=overlay.width/overlay.height; camera.fov=frame.scoped ? (me?.weapon==='sniper' ? 20 : me?.weapon==='rifle' ? 32 : 26) : view.zoom ? 48 : 72; camera.updateProjectionMatrix();
+            camera.aspect=overlay.width/overlay.height; camera.fov=frame.scoped ? (me?.weapon==='sniper' ? (view.scopeLevel===2?10:20) : me?.weapon==='rifle' ? 32 : 26) : view.zoom ? 48 : 72; camera.updateProjectionMatrix();
             const walking=frame.motion?.moving && !me?.sniper?.fixed && !me?.down && !me?.drone?.controlled && !(eye.jumpHeight>0);
             const walkPoint=predicted || eye;
             // Keep a relaxed stride, even during dashes or position corrections.
@@ -574,14 +574,14 @@ window.Lab3D = (() => {
             recoil*=Math.exp(-18*dt);sniperRecoil*=Math.exp(-7*dt);batSwing*=Math.exp(-9*dt);
             if(frame.motion) for(const effect of effects) if(effect.playerId===localId && effect.effect==='hit' && effect.damage===0 && now-effect.started<120 && !kickedEffects.has(effect)) {
                 kickedEffects.add(effect);
-                if(effect.weapon==='sniper')sniperRecoil=Math.min(1.35,sniperRecoil+1);
+                if(effect.weapon==='sniper'){sniperRecoil=Math.min(1.35,sniperRecoil+1);view.pitch=Math.min(1.2,view.pitch+.045);view.yaw+=(Math.sin(effect.started*1.7)>=0?1:-1)*.008;}
                 else if(effect.weapon==='bat')batSwing=1;
                 else if(now-lastKickAt>25){recoil=Math.min(1,recoil+.65);lastKickAt=now;}
             }
             const firingRail=me?.railgunRemaining>0 || me?.secondaryRailgunRemaining>0;
             const bob=(firingRail || me?.sniper?.fixed ? 0 : 1)*walkBlend*(frame.scoped ? .12 : 1)*(frame.motion?.dashing?1.15:1);
             camera.position.set(eye.x, me?.down ? 6 : me?.drone?.controlled ? 23 : (me?.sniper?.fixed ? 6.2 : 26)+(eye.jumpHeight || 0)+(eye.renderOffsetHeight || 0)+Math.sin(walkPhase*2)*.32*bob, eye.y);
-            view.recoilPitch=firingRail ? 0 : recoil*(frame.scoped ? .006 : .003)+sniperRecoil*.045;
+            view.recoilPitch=firingRail ? 0 : recoil*(frame.scoped ? .006 : .003);
             camera.rotation.set(Math.max(-1.2,Math.min(1.2,view.pitch+view.recoilPitch)),-view.yaw,me?.down ? .2 : Math.sin(walkPhase)*.0025*bob,'YXZ');
             camera.updateMatrixWorld(true);
             darkened=!!state?.blackoutActive && !me?.drone?.controlled && !frame.nightVision;

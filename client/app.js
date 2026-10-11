@@ -1926,6 +1926,7 @@ function requestTankWall(point) {
 canvas.addEventListener("mousedown", event => {
     if (!state || !getMe()) return;
     if (event.button === 0 && fpsInput?.capture()) { event.preventDefault(); return; }
+    if (event.button === 2 && fpsInput && getMe()?.weapon==='sniper' && !getMe()?.drone?.controlled) { event.preventDefault();fpsInput.cycleScope();return; }
     if (event.button === 1 && fpsInput) { event.preventDefault(); fpsInput.view.zoom=true; return; }
     if (event.button === 2 && fpsInput && (!["attacker","tank","scout","spy"].includes(getMe()?.job) || ["sniper","rifle","railgun"].includes(getMe()?.weapon))) { event.preventDefault();fpsInput.view.zoom=true;return; }
     if (event.button === 0) {
@@ -1995,7 +1996,7 @@ function stopSecondaryFiring() {
     window.coreAudio?.stopRailgun?.(myPlayerId + ":right");
 }
 window.addEventListener("mouseup", event => {
-    if (fpsInput && [1,2].includes(event.button)) fpsInput.view.zoom=false;
+    if (fpsInput && [1,2].includes(event.button) && !(event.button===2 && getMe()?.weapon==='sniper')) fpsInput.view.zoom=false;
     if (event.button === 0 && firingPointer?.id === "mouse") stopFiring(event.clientX, event.clientY);
     if (event.button === 2) stopSecondaryFiring();
 });
@@ -2084,9 +2085,10 @@ function sendMovement(force = false) {
     const length = Math.hypot(x, y);
     if (length > 1) { x /= length; y /= length; }
     if (typeof fpsInput !== "undefined" && fpsInput) ({x,y}=fpsInput.movement(x,y));
+    if(getMe()?.sniper?.fixed)x=y=0;
     localMove.x = Number(x.toFixed(2));
     localMove.y = Number(y.toFixed(2));
-    if (length > .12) localFacing = quantizeFacing(localMove.x, localMove.y);
+    if (Math.hypot(localMove.x,localMove.y) > .12) localFacing = quantizeFacing(localMove.x, localMove.y);
     const message = `MOVE:${localMove.x.toFixed(2)}:${localMove.y.toFixed(2)}`;
     if (force || message !== lastMove) { lastMove = message; send(message); }
 }
@@ -2190,6 +2192,7 @@ window.addEventListener("keydown", event => {
 });
 window.addEventListener("keyup", event => {
     const key = window.coreKeySettings.gameKey(event);
+    if (key === window.coreKeySettings.getSniperStance?.()) {send("SNIPER_CANCEL");return;}
     if (key === window.coreKeySettings.getJobEffect()) return;
     if (key === "r") { endInteractionHold(); return; }
     if (key === "shift") { dashKey = false; setDash(false); return; }
@@ -2197,6 +2200,7 @@ window.addEventListener("keyup", event => {
 });
 window.addEventListener("blur", () => {
     if (fpsInput) fpsInput.release();
+    send("SNIPER_CANCEL");
     stopSecondaryFiring();
     endInteractionHold(true);
     keys.clear(); joystick = null;
@@ -2409,7 +2413,7 @@ function updateLocalPrediction(dt, visualDt = dt) {
         return;
     }
     predictedLocal.scoutDashRemaining = 0;
-    if (serverMe.sniper?.fixed && Math.hypot(localMove.x,localMove.y)<=.12) {predictedLocal.dashing=false;return;}
+    if (serverMe.sniper?.fixed) {predictedLocal.dashing=false;return;}
     const input = Math.hypot(localMove.x, localMove.y);
     if (predictedLocal.exhausted && predictedLocal.stamina >= 28) predictedLocal.exhausted = false;
     predictedLocal.dashing = !(serverMe.railgunRemaining > 0 || serverMe.railgunCharge > 0 || serverMe.secondaryRailgunRemaining > 0 || serverMe.secondaryRailgunCharge > 0) && !serverMe.down && !serverMe.movingCore
@@ -2561,6 +2565,7 @@ function drawFirstPerson() {
     fpsInput.setActive(playing && !menusOpen,playing && !!menusOpen);
     fpsInput.setLookFrozen(!!me && (me.railgunRemaining>0 || me.secondaryRailgunRemaining>0));
     if(menusOpen || !playing) {
+        if(me?.sniper?.deploying)send("SNIPER_CANCEL");
         if(firingPointer)stopFiring(firingPointer.clientX,firingPointer.clientY);
         if(secondaryHeld)stopSecondaryFiring();
         if(keys.size || joystick){keys.clear();joystick=null;sendMovement();}
@@ -2598,10 +2603,12 @@ function drawFirstPerson() {
             const anchor=labRenderer.stationPosition(target);const prompt=labRenderer.project(anchor.x,anchor.y,40);
             drawKeyPrompt('R',prompt.visible ? prompt.x/dpr : x,prompt.visible ? prompt.y/dpr : y+50);
         }
+        if(scoped && me?.weapon==='sniper')ctx.fillText(fpsInput.view.scopeLevel===2?'8×':'4×',x,innerHeight-130);
         if(placement)ctx.fillText(placement.valid?'R PLACE':'BLOCKED',x,y+70);
         if(me?.weapon==='sniper' && !me.down && !me.selectedBuild && !me.drone?.controlled)
-            ctx.fillText(window.coreKeySettings.getSniperStance().toUpperCase()+(me.sniper?.fixed?'  STAND':'  PRONE'),x,innerHeight-105);
+            ctx.fillText(window.coreKeySettings.getSniperStance().toUpperCase()+(me.sniper?.fixed?'  STAND':'  HOLD PRONE'),x,innerHeight-105);
     }
+    if(me?.sniper?.deploying && playing && !menusOpen){ctx.fillStyle='#dbe5e3';ctx.fillRect(innerWidth/2-25,innerHeight-96,50*Math.min(1,me.sniper.deployTime/.8),2);}
     ctx.restore();
     if(scoped && playing && !menusOpen) {
         ctx.save();ctx.scale(dpr,dpr);
@@ -2618,7 +2625,7 @@ function drawFirstPerson() {
     if(playing && !menusOpen && !scoped){ctx.save();ctx.scale(dpr,dpr);window.coreReticleSettings.draw(ctx,innerWidth/2,innerHeight/2);ctx.restore();}
     if(playing && !menusOpen && me?.weapon==='sniper' && !me.down && !me.selectedBuild && !me.drone?.controlled) {
         ctx.save();ctx.scale(dpr,dpr);
-        window.SniperAim.draw(ctx,innerWidth/2,innerHeight/2,innerHeight,scoped?20:fpsInput.view.zoom?48:72,window.SniperAim.sample(me,now));
+        window.SniperAim.draw(ctx,innerWidth/2,innerHeight/2,innerHeight,scoped?(fpsInput.view.scopeLevel===2?10:20):fpsInput.view.zoom?48:72,window.SniperAim.sample(me,now));
         ctx.restore();
     }
     if(playing && !menusOpen && typeof CombatFeedback!=='undefined') {ctx.save();ctx.scale(dpr,dpr);CombatFeedback.drawHitMarker(ctx,now,innerWidth/2,innerHeight/2);ctx.restore();}

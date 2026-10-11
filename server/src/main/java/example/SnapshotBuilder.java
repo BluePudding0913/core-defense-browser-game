@@ -298,6 +298,9 @@ final class SnapshotBuilder {
                         ? GameMap.distanceToWall(player.x, player.y, player.secondaryRailgunDx, player.secondaryRailgunDy,
                             GameSession.weaponStats("railgun").range(), game.unlockedAreas) : 0);
             json.append(",\"sniper\":{\"fixed\":").append(player.sniper.fixed)
+                    .append(",\"deploying\":").append(player.sniper.deploying)
+                    .append(",\"deployTime\":").append(player.sniper.deployTime)
+                    .append(",\"previousPrecision\":").append(player.sniper.previousPrecision)
                     .append(",\"elapsed\":").append(player.sniper.elapsed)
                     .append(",\"cycle\":").append(player.sniper.cycle)
                     .append(",\"precision\":").append(player.sniper.precision)

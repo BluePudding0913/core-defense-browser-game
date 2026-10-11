@@ -1,13 +1,20 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),T=require('../vendor/three.min.js');
 const c={window:{}};vm.runInNewContext(fs.readFileSync('client/sniper-aim.js','utf8'),c);const api=c.window.SniperAim;
-const p={id:'test',sniper:{fixed:true,elapsed:.7,cycle:0,precision:false,nextPrecision:true,recovery:0}};api.sync([p],1000);
-assert(Math.abs(api.sample(p,1000).radius-59.74)<1e-8,'Only the preceding expansion grows by 3%');
-p.sniper.elapsed=2.1;p.sniper.precision=true;p.sniper.nextPrecision=false;
-assert(Math.abs(api.sample(p,1000).radius-3.5)<1e-8,'Deep breath reaches the narrow disk');
-p.sniper.precision=false;assert(Math.abs(api.sample(p,1000).radius-16)<1e-8);
-p.sniper.elapsed=2.75;p.sniper.nextPrecision=true;assert(api.sample(p,1100).elapsed>2.8,'Display crosses the known next cycle');
-assert.equal(api.sample(p,10000).elapsed,2.95,'Extrapolation is bounded when updates stop');
-p.sniper.elapsed=2.1;p.sniper.precision=true;api.shot(p.id,1000);assert(api.sample(p,1000).radius>50,'Confirmed shot opens the ring immediately');assert(api.sample(p,1900).radius<20,'Recovery settles');
+let serial=0;
+function at(elapsed,precision=false,nextPrecision=false){return {id:'sample-'+serial++,sniperReceivedAt:1000,sniper:{fixed:true,elapsed,cycle:Math.floor(elapsed/2.8),precision,nextPrecision,recovery:0}};}
+const p=at(2.1,true);
+assert(Math.abs(api.sample(at(.7,false,true),1000).radius-59.74*api.stability(.7))<1e-8,'Only preceding expansion grows by 3%');
+assert(Math.abs(api.sample(p,1000).radius-3.5*api.stability(2.1))<1e-8);
+assert(Math.abs(api.sample(at(2.1),1000).radius-16*api.stability(2.1))<1e-8);
+assert.equal(api.stability(90),.675);assert(Math.abs(api.stability(180)-.35)<1e-8);
+for(const t of [1.4,2.8,4.2]){const p=at(t,true);const speed=(api.sample(p,1000.1).radius-api.sample(p,999.9).radius)/.0002;assert(Math.abs(speed)>20,'No pause in the middle');}
+const moving=at(1);api.sync([moving],1000);assert(api.sample(moving,1400).elapsed>api.sample(moving,1300).elapsed,'No freeze after 200ms between snapshots');
+const before=api.sample(moving,1400);const next={...moving,sniper:{...moving.sniper,elapsed:1.38}};api.sync([next],1400);
+assert(Math.abs(api.sample(next,1400).elapsed-before.elapsed)<1e-8,'Snapshot time correction is continuous');assert(Math.abs(api.sample(next,1400).radius-before.radius)<1e-8);
+assert(api.sample(next,1500).elapsed>before.elapsed);
+assert(api.sample(next,10000).elapsed<5.6,'Never guess an unknown breathing cycle');
+api.shot(p.id,1000);assert(api.sample(p,1000).radius>50,'Shot opens ring immediately');
+const clean={...p,id:'clean'};assert.equal(api.sample(p,1900).radius,api.sample(clean,1900).radius,'Recovery ends without freezing the breathing clock');
 let drawnRadius;const ctx={save(){},restore(){},beginPath(){},arc(x,y,r){drawnRadius=r;},stroke(){}};
 const sample={slope:58*Math.tan(Math.PI/18)/425};api.draw(ctx,0,0,850,20,sample);assert(Math.abs(drawnRadius-58)<1e-8);
 api.draw(ctx,0,0,1700,20,sample);assert(Math.abs(drawnRadius-116)<1e-8,'Circle scales with screen height');

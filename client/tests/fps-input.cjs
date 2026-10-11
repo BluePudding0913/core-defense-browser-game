@@ -45,3 +45,8 @@ console.log('FPS input passed: unbounded relative look, capture/retry, UI restor
 
 input.setActive(true);deferred=false;input.capture();document.hasFocus=()=>false;
 const beforeBlur=escaped;document.exitPointerLock();assert.equal(escaped,beforeBlur,'Focus loss is not treated as Escape');
+
+input.cycleScope();assert.equal(input.view.scopeLevel,1);assert(input.view.zoom);
+input.cycleScope();assert.equal(input.view.scopeLevel,2);assert(input.view.zoom);
+input.cycleScope();assert.equal(input.view.scopeLevel,0);assert(!input.view.zoom);
+input.cycleScope();input.release();assert.equal(input.view.scopeLevel,0);

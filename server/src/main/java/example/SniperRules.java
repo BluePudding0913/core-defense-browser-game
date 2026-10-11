@@ -6,24 +6,27 @@ import java.util.function.DoubleSupplier;
 final class SniperRules {
     static final double PERIOD = 2.8, EYE_HEIGHT = 6.2, RECOVERY = .9;
     static final double PIXEL_SLOPE = Math.tan(Math.toRadians(10)) / 425;
-    static final double MAX_REWIND = .20;
+    static final double MAX_REWIND = .20, DEPLOY_SECONDS = .8;
+    static double stability(double time) { return 1-.65*Math.min(1,Math.max(0,time)/180); }
     private SniperRules() {}
 
     static final class State {
-        boolean fixed, precision, nextPrecision, previousPrecision;
+        boolean fixed, deploying, precision, nextPrecision, previousPrecision;
+        double deployTime;
         int cycle;
         double elapsed, recovery, facingX, facingY = -1, pitch;
         Double inputTime;
         State copy() {
-            var s = new State(); s.fixed=fixed; s.precision=precision; s.nextPrecision=nextPrecision;
+            var s = new State(); s.fixed=fixed; s.deploying=deploying; s.deployTime=deployTime; s.precision=precision; s.nextPrecision=nextPrecision;
             s.previousPrecision=previousPrecision; s.cycle=cycle; s.elapsed=elapsed; s.recovery=recovery;
             s.facingX=facingX; s.facingY=facingY; s.pitch=pitch; s.inputTime=inputTime; return s;
         }
         void start(DoubleSupplier random) {
-            fixed=true; elapsed=0; cycle=0; inputTime=null; previousPrecision=false;
+            fixed=true; deploying=false; deployTime=0; elapsed=0; cycle=0; inputTime=null; previousPrecision=false;
             precision=random.getAsDouble()<.2; nextPrecision=random.getAsDouble()<.2;
         }
-        void stop() { fixed=false; elapsed=0; cycle=0; inputTime=null; precision=nextPrecision=previousPrecision=false; }
+        void cancelDeploy() { deploying=false; deployTime=0; }
+        void stop() { cancelDeploy(); fixed=false; elapsed=0; cycle=0; inputTime=null; precision=nextPrecision=previousPrecision=false; }
         void advance(double dt, DoubleSupplier random) {
             recovery=Math.max(0,recovery-dt);
             if (!fixed) return;
@@ -51,9 +54,10 @@ final class SniperRules {
         boolean special=index<state.cycle?state.previousPrecision:index>state.cycle?state.nextPrecision:state.precision;
         boolean warning=index<state.cycle?state.precision:index==state.cycle && state.nextPrecision;
         double wave=Math.sin((time%PERIOD)/PERIOD*Math.PI*2),baseline=38;
-        double min=special?3.5:16,max=58*(warning?1.03:1);
-        return baseline+(wave>=0?max-baseline:baseline-min)*wave*Math.abs(wave)
-                +70*Math.max(0,1-time/.7)+48*Math.pow(state.recovery/RECOVERY,2);
+        double breath=baseline+21*wave-wave*wave
+                -(special && wave<0?12.5*wave*wave:0)+(warning && wave>0?1.74*wave*wave:0);
+        return breath*stability(time)
+                +70*Math.pow(Math.max(0,1-time/.7),2)+48*Math.pow(state.recovery/RECOVERY,2);
     }
 
     record Direction(double dx, double dy, double pitch) {}

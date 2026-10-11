@@ -344,6 +344,7 @@ final class GameSession {
             case "JUMP" -> jump(player);
             case "SNIPER" -> { if (parts.length > 1) sniperStance(player, parts[1].equals("1")); }
             case "SNIPER_LOOK" -> sniperLook(player, parts);
+            case "SNIPER_CANCEL" -> player.sniper.cancelDeploy();
             case "DASH" -> handleDash(player, parts);
             case "ATTACK" -> combat.attackAt(player, player.aimX, player.aimY);
             case "FIRE" -> handleFire(player, message.split(":", 6));
@@ -498,6 +499,14 @@ final class GameSession {
         for (Player player : players) {
             if (!canMove() || !SniperRules.eligible(player)) player.sniper.stop();
             player.sniper.advance(dt, random::nextDouble);
+            if (player.sniper.deploying) {
+                if (Math.hypot(player.moveX,player.moveY)>.12 || !JumpRules.grounded(player.jumpHeight,player.jumpVelocity,jumpSupport(player))) player.sniper.cancelDeploy();
+                else if ((player.sniper.deployTime+=dt)>=SniperRules.DEPLOY_SECONDS) {
+                    player.sniper.start(random::nextDouble);
+                    player.sniper.facingX=player.facingX; player.sniper.facingY=player.facingY;
+                    player.firing=player.secondaryFiring=player.dashHeld=player.dashing=false;
+                }
+            }
             if (!canMove()) recallDrone(player);
             if (player.drone != null) player.drone.cooldown = Math.max(0, player.drone.cooldown - dt);
             player.missileCooldown = Math.max(0, player.missileCooldown - dt);
@@ -629,12 +638,10 @@ final class GameSession {
 
     private void sniperStance(Player player, boolean active) {
         if (!active) { player.sniper.stop(); return; }
-        if (!canMove() || !SniperRules.eligible(player) || player.sniper.fixed
+        if (!canMove() || !SniperRules.eligible(player) || player.sniper.fixed || player.sniper.deploying
                 || Math.hypot(player.moveX, player.moveY)>.12
                 || !JumpRules.grounded(player.jumpHeight, player.jumpVelocity, jumpSupport(player))) return;
-        player.sniper.start(random::nextDouble);
-        player.sniper.facingX=player.facingX; player.sniper.facingY=player.facingY;
-        player.firing=player.secondaryFiring=player.dashHeld=player.dashing=false;
+        player.sniper.deploying=true; player.sniper.deployTime=0;
     }
 
     private void sniperLook(Player player, String[] parts) {
@@ -663,6 +670,7 @@ final class GameSession {
         double x = Double.parseDouble(parts[1]);
         double y = Double.parseDouble(parts[2]);
         if (!Double.isFinite(x) || !Double.isFinite(y)) return;
+        if (player.sniper.fixed) { player.moveX=player.moveY=0; return; }
         player.moveX = clamp(x, -1, 1);
         player.moveY = clamp(y, -1, 1);
         double length = Math.hypot(player.moveX, player.moveY);
@@ -670,7 +678,7 @@ final class GameSession {
             player.moveX /= length;
             player.moveY /= length;
         }
-        if (length > 0.12) player.sniper.stop();
+        if (length > 0.12) player.sniper.cancelDeploy();
         if (length > 0.12 && !DroneRules.controlling(player)) {
             updateFacing(player, player.moveX, player.moveY);
         }

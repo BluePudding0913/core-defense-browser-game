@@ -10,7 +10,7 @@ const context = vm.createContext({
     HTMLInputElement, HTMLTextAreaElement,
     exitDialog: { open: false }, howToMenu: { classList: { contains: () => true } },
     state: { phase: 'wave' }, keys: new Set(), joystick: null, predictedLocal: null,
-    localMove: {}, localFacing: 0, quantizeFacing: () => 0,
+    localMove: {}, localFacing: 0, quantizeFacing: () => 0, getMe: () => null,
     send: command => commands.push(command),
 });
 vm.runInContext(fs.readFileSync('client/key-settings.js', 'utf8'), context);
