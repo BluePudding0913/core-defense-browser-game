@@ -1044,7 +1044,7 @@ final class GameSession {
 
     private void handleLook(Player player,String[] parts) {
         if(parts.length<4||!canMove()||player.down||player.missileControl||DroneRules.controlling(player))return;
-        player.aimControl.look(Double.parseDouble(parts[1]),Double.parseDouble(parts[2]),Double.parseDouble(parts[3]));
+        player.aimControl.look(Double.parseDouble(parts[1]),Double.parseDouble(parts[2]),Double.parseDouble(parts[3]),player.weapon.equals("sniper") && player.sniper.fixed);
     }
     private boolean acceptAimTime(Player player,String[] parts,String weapon) {
         if(parts.length<6||!AimControlRules.supported(weapon))return true;
@@ -1061,7 +1061,7 @@ final class GameSession {
         Double pitch = parts.length >= 5 ? Double.valueOf(parts[4]) : null;
         if (pitch != null && !FpsHitRules.validPitch(pitch)) return;
         if(!acceptAimTime(player,parts,player.secondaryWeapon))return;
-        player.aimControl.look(x-player.x,y-player.y,pitch==null?0:pitch);
+        player.aimControl.look(x-player.x,y-player.y,pitch==null?0:pitch,player.weapon.equals("sniper") && player.sniper.fixed);
         player.secondaryAimPitch = pitch;
         player.secondaryAimX = clamp(x, pitch == null ? 0 : -WORLD_W * 2, pitch == null ? WORLD_W : WORLD_W * 3);
         player.secondaryAimY = clamp(y, pitch == null ? 0 : -WORLD_H * 2, pitch == null ? WORLD_H : WORLD_H * 3);
@@ -1090,7 +1090,7 @@ final class GameSession {
             if(active && !DroneRules.controlling(player) && !acceptAimTime(player,parts,player.weapon))return;
             player.sniper.inputTime=null;
         }
-        if(active && AimControlRules.supported(player.weapon) && !DroneRules.controlling(player))player.aimControl.look(x-player.x,y-player.y,pitch==null?0:pitch);
+        if(active && AimControlRules.supported(player.weapon) && !DroneRules.controlling(player))player.aimControl.look(x-player.x,y-player.y,pitch==null?0:pitch,player.weapon.equals("sniper") && player.sniper.fixed);
         player.aimPitch = pitch;
         boolean beginsPress = active && !player.firing;
         player.aimX = clamp(x, pitch == null ? 0 : -WORLD_W * 2, pitch == null ? WORLD_W : WORLD_W * 3);

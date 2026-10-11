@@ -23,3 +23,11 @@ assert(api.displaySample(smooth,400,definitions).penalty<1.05,'Stop recovery con
 console.log('Smooth visual aim passed: continuous movement/turn snapshots, bounded recovery and unchanged firing time/radius');
 
 assert.equal(api.scopeFov('sniper'),16);assert.equal(api.scopeFov('rifle'),32);assert.equal(api.scopeFov('railgun'),26);
+
+const prone={id:'prone-turn',weapon:'sniper',sniper:{fixed:true,elapsed:2.1,cycle:0,precision:true,recovery:0},aimControl:{elapsed:0,turn:.3,movement:0,speedRatio:0,airborne:false}};
+const base=c.window.SniperAim.sample(prone,1000).slope;
+assert(Math.abs(api.sample(prone,1000,definitions).slope/base-1.9)<1e-9,'Small prone tracking noticeably widens displayed and fired circle');
+prone.aimControl.turn=1.5;assert.equal(api.sample(prone,1000,definitions).penalty,5.5);
+prone.sniper.fixed=false;assert.equal(api.sample(prone,1000,definitions).penalty,3.25,'Standing sniper retains shared sensitivity');
+prone.sniper.fixed=true;prone.weapon='rifle';assert.equal(api.sample(prone,1000,definitions).penalty,3.25,'Other weapons retain shared sensitivity');
+prone.weapon='sniper';api.sync([prone],1000);assert(api.sample(prone,1660,definitions).penalty<1.225,'Server turn state decays at original rate');

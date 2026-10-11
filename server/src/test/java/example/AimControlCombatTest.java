@@ -10,6 +10,14 @@ class AimControlCombatTest {
  void fire(String suffix){game.handleMessage(player,"FIRE:"+(player.x+200)+":"+player.y+":1:0"+suffix);}
  @Test void lookUsesServerTime(){game.handleMessage(player,"LOOK:0:-1:0");game.update(.05);game.handleMessage(player,"LOOK:1:0:0");assertEquals(1.5,player.aimControl.turn);for(int i=0;i<100;i++)game.handleMessage(player,"LOOK:1:0:0");assertEquals(1.5,player.aimControl.turn);}
  @Test void fireChecksDirectionWithoutLookPackets(){equip("pistol");game.handleMessage(player,"LOOK:0:-1:0");fire("");assertEquals(1.5,player.aimControl.turn);}
+ @Test void proneLookAndFireBothValidateSmallTurns(){
+  equip("sniper");player.sniper.start(()->.9);game.handleMessage(player,"LOOK:1:0:0");
+  game.update(.1);game.handleMessage(player,"LOOK:1:0:0.02");assertEquals(.3,player.aimControl.turn,1e-9);
+  player.aimControl.turn=0;game.update(.1);
+  game.handleMessage(player,"FIRE:1220:1900:1:0.04");
+  assertEquals(.3,player.aimControl.turn,1e-9);assertEquals(19,player.weapons.ammo("sniper"));
+  assertTrue(player.sniper.fixed);
+ }
  @Test void invalidDisplayedTimeDoesNotSpendAmmo(){equip("rifle");fire(":10");assertEquals(20,player.weapons.ammo("rifle"));assertFalse(player.firing);fire(":NaN");assertEquals(20,player.weapons.ammo("rifle"));fire(":0");assertEquals(19,player.weapons.ammo("rifle"));}
  @Test void secondaryHasSameValidation(){player.job="attacker";player.weapons.grant("rifle");player.secondaryWeapon="rifle";player.weapons.setAmmo("rifle",20);game.handleMessage(player,"LOOK:0:-1:0");game.handleMessage(player,"SECONDARY_FIRE:1220:1900:1:0:100");assertEquals(20,player.weapons.ammo("rifle"));game.handleMessage(player,"SECONDARY_FIRE:1220:1900:1:0:0");assertEquals(19,player.weapons.ammo("rifle"));assertEquals(1.5,player.aimControl.turn);}
  @Test void actualMovementStoppingAndJumpAreMeasured(){player.moveX=1;game.update(.1);assertTrue(player.aimControl.speedRatio>.5);player.moveX=0;game.update(.1);assertEquals(0,player.aimControl.speedRatio);double peak=player.aimControl.movement;game.update(.5);assertTrue(player.aimControl.movement<peak*.2);game.handleMessage(player,"JUMP");game.update(.05);assertTrue(player.aimControl.airborne);}

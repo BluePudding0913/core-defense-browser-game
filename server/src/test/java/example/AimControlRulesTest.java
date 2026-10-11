@@ -18,7 +18,20 @@ class AimControlRulesTest {
    assertEquals(base*3.25,AimControlRules.radius(s,weapon,sniper),1e-9,weapon);
   }
   sniper.start(()->.1);sniper.elapsed=2.1;s.turn=0;double base=AimControlRules.radius(s,"sniper",sniper);s.turn=1.5;
-  assertEquals(base*3.25,AimControlRules.radius(s,"sniper",sniper),1e-9);
+  assertEquals(base*5.5,AimControlRules.radius(s,"sniper",sniper),1e-9);
+ }
+ @Test void proneSniperReactsToSmallHorizontalAndVerticalTrackingAndStillRecovers(){
+  for(boolean vertical:new boolean[]{false,true}) {
+   var standing=new AimControlRules.State();var prone=new AimControlRules.State();
+   standing.look(0,-1,0);prone.look(0,-1,0,true);standing.advance(.1);prone.advance(.1);
+   double angle=.02;double x=vertical?0:Math.sin(angle),y=vertical?-1:-Math.cos(angle),pitch=vertical?angle:0;
+   standing.look(x,y,pitch);prone.look(x,y,pitch,true);
+   assertEquals(0,standing.turn);assertEquals(.3,prone.turn,1e-9);
+   assertEquals(1.9,AimControlRules.penalty(prone,true),1e-9);
+   prone.advance(.66);assertTrue(AimControlRules.penalty(prone,true)<1.05);
+   for(int i=0;i<100;i++)prone.look(x,y,pitch,true);
+   assertTrue(prone.turn>0,"Repeated packets cannot instantly recover precision");
+  }
  }
  @Test void copyIsIndependent(){var s=new AimControlRules.State();s.motion(100,true);s.look(1,0,.2);s.inputTime=0.;var copy=s.copy();copy.advance(1);copy.motion(0,false);assertEquals(0,s.elapsed);assertTrue(s.airborne);assertEquals(100./JobRules.WALK_SPEED,s.speedRatio);assertTrue(copy.hasLook);assertEquals(s.inputTime,copy.inputTime);}
 }
