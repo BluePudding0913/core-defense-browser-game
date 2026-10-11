@@ -8,7 +8,7 @@ final class EnemyWaveRules {
     static final List<Entry> SPECIALS = List.of(
         new Entry("gilded",6,3), new Entry("shield",7,9), new Entry("armored",10,12),
         new Entry("coreHunter",10,6), new Entry("seeker",10,6), new Entry("artillery",12,5), new Entry("blackout",14,2),
-        new Entry("bomber",15,8), new Entry("hunter",18,10), new Entry("ghost",18,10),
+        new Entry("poisoner",16,5), new Entry("artilleryElite",30,5), new Entry("bomber",15,8), new Entry("hunter",18,10), new Entry("ghost",18,10),
         new Entry("carrier",22,2), new Entry("siege",26,8), new Entry("champion",34,7));
     static int regularCount(int round) {
         int count = 6 + round * 3 - relief(round);
@@ -18,7 +18,7 @@ final class EnemyWaveRules {
         return count;
     }
     static boolean explosionRound(int round) { return round >= 25 && (round - 25) % 10 == 0; }
-    static int bossCount(int round) { return explosionRound(round) || round % 4 == 0 ? 1 : 0; }
+    static int bossCount(int round) { return round == 50 || explosionRound(round) || round % 4 == 0 ? 1 : 0; }
     static int relief(int round) {
         int opening = switch(round) { case 1 -> 3; case 2 -> 4; case 3 -> 5; case 4,5 -> 6; case 6 -> 5;
             default -> Math.max(0, Math.min(4, 11-round)); };

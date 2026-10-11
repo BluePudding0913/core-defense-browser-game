@@ -33,7 +33,7 @@ class CoreHunterTest {
         var spawn = GameSession.class.getDeclaredMethod("spawnEnemy", String.class, SpawnPoint.class); spawn.setAccessible(true);
         spawn.invoke(game, "coreHunter", GameMap.SPAWN_POINTS.get(0));
         var hunter = game.enemies.get(0);
-        assertEquals(360, hunter.maxHp); assertEquals(28, hunter.damage); assertEquals("core", hunter.targetPriority);
+        assertEquals(432, hunter.maxHp); assertEquals(33.6, hunter.damage, 1e-9); assertEquals("core", hunter.targetPriority);
         assertTrue(GameSession.DEBUG_ENEMY_TYPES.contains("coreHunter"));
         var entry = EnemyWaveRules.SPECIALS.stream().filter(e -> e.type().equals("coreHunter")).findFirst().orElseThrow();
         assertEquals(0, EnemyWaveRules.weight(entry,9,true,true));

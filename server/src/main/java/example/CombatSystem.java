@@ -764,6 +764,9 @@ final class CombatSystem {
             case "warlord" -> 44;
             case "warden" -> 44;
             case "titan" -> 48;
+            case "finalBoss" -> 58;
+            case "poisoner" -> 20;
+            case "artilleryElite" -> 27;
             case "armored" -> 30;
             case "shield" -> 24;
             case "artillery" -> 22;

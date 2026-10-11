@@ -13,5 +13,18 @@ final class BotCombatRules {
     static double safePositionScore(double closestEnemy, double teamSpacing, boolean clearShot) {
         return Math.min(350, closestEnemy) * 2 + Math.min(100, teamSpacing) * .35 + (clearShot ? 45 : -35);
     }
+    static MapPoint poisonEscape(double x, double y, java.util.List<EnemyPoisonSystem.Cloud> threats,
+            java.util.function.BiPredicate<Double, Double> reachable) {
+        double best = Double.NEGATIVE_INFINITY;
+        MapPoint destination = null;
+        for (int i = 0; i < 16; i++) {
+            double angle = i * Math.PI / 8;
+            double tx = x + Math.cos(angle) * 100, ty = y + Math.sin(angle) * 100;
+            if (!reachable.test(tx, ty)) continue;
+            double score = threats.stream().mapToDouble(c -> GameSupport.distance(c.x, c.y, tx, ty)).min().orElse(0);
+            if (score > best) { best = score; destination = new MapPoint(tx, ty); }
+        }
+        return destination;
+    }
     private BotCombatRules() { }
 }

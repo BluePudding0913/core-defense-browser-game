@@ -147,3 +147,11 @@ now+=300;frame.effects=Array.from({length:20},(_,i)=>({effect:'hit',weapon:'flam
 const flames=scene.children.filter(o=>o.name==='flame-particles');assert(flames.length>0);assert(flames.every(o=>o.isPoints),'Flame emits particles, never cylinders or lines');assert(flames.reduce((n,o)=>n+o.geometry.drawRange.count,0)<=48);
 assert(!scene.getObjectByName('fired-special-beam'));assert(find('heal:me').material.opacity>=.4);
 console.log('FPS requested fixes passed: captured special shot origins, movement/turn stability, bounded flame particles and stronger heal area');
+
+// New enemies share their rendered body dimensions with server FPS hit rules.
+now+=500;frame.effects=[];state.enemies=[{id:501,type:'finalBoss',x:180,y:100,hp:140000,bossAction:'PULSE_WARNING',pulseRadius:260},{id:502,type:'poisoner',x:140,y:100,hp:400},{id:503,type:'artilleryElite',x:220,y:100,hp:900}];
+state.poisonClouds=[{x:140,y:100,radius:55,remaining:4,hostile:true}];frame.radius=e=>({finalBoss:58,poisoner:20,artilleryElite:27})[e.type]||21;renderer.render(frame);
+for(const e of state.enemies){const root=find('enemy:'+e.id),body=root.children[0];assert.equal(body.scale.x,frame.radius(e)*.9);}
+assert.equal(find('boss-warning:501').scale.x,260,'Final boss pulse has a visible 3D warning');
+assert.equal(find('gas:0').scale.x,55);assert(find('gas:0').material.color.equals(new THREE.Color('#a6ce46')),'Small hostile poison uses its own radius and color');
+console.log('FPS new enemies passed: body sizes, final boss warning and hostile poison');

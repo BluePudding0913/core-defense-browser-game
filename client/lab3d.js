@@ -230,7 +230,7 @@ window.Lab3D = (() => {
         }
         const enemyColors = { grunt: '#687a73', runner: '#b4b18a', brute: '#596260', armored: '#6d8395',
             hunter: '#a86a6a', siege: '#88784c', champion: '#8b689d', coreHunter: '#d4954b',
-            boss: '#39363d', warden: '#526679', warlord: '#75434a', titan: '#6b496f',
+            finalBoss: '#57223e', poisoner: '#84982f', artilleryElite: '#345b2b', boss: '#39363d', warden: '#526679', warlord: '#75434a', titan: '#6b496f',
             tiny: '#a9bd75', shield: '#4c8ca4', bomber: '#e38d47', artillery: '#749749',
             gilded: '#e8b94f', blueAce: '#358dff', carrier: '#9b7655', blackout: '#27584d', seeker: '#a35e70', explosionBoss: '#171b20' };
         function enemy(entity, point, radius, now) {
@@ -242,7 +242,9 @@ window.Lab3D = (() => {
                 for (const x of [-.3,.3]) box(root, radius * .18, radius * .15, radius * .12, '#ff826c', radius*x, radius*1.2, radius*.7, true);
                 if (entity.type === 'shield') box(root, radius * 1.5, radius * 1.5, 6, '#78b7ca', 0, radius, radius);
                 if (entity.type === 'carrier') box(root, 22, 27, 20, '#886543', 0, 17, -radius);
-                if (entity.type === 'artillery') box(root, 10, 20, 10, '#b7d471', 0, radius*1.8);
+                if (entity.type === 'artillery' || entity.type === 'artilleryElite') box(root, 10, 20, 10, '#b7d471', 0, radius*1.8);
+                if (entity.type === 'artilleryElite') for (const x of [-10,10]) box(root, 8, 18, 8, '#b7d471', x, radius*1.6);
+                if (entity.type === 'poisoner') box(root, 12, 16, 12, '#b4cf48', 0, radius, -radius);
                 return { root, body };
             });
             item.root.position.set(point.x, 0, point.y);
@@ -349,7 +351,7 @@ window.Lab3D = (() => {
 
         const ringGeometry=new T.RingGeometry(.88,1,48);
         function ring(key,x,y,r,color,opacity=.6) {
-            const item=object(key,()=>{const mat=new T.MeshBasicMaterial({color,transparent:true,opacity,side:T.DoubleSide,depthWrite:false});const root=new T.Mesh(ringGeometry,mat);root.rotation.x=-Math.PI/2;return {root,dispose(){mat.dispose();}};});
+            const item=object(key,()=>{const mat=new T.MeshBasicMaterial({color,transparent:true,opacity,side:T.DoubleSide,depthWrite:false});const root=new T.Mesh(ringGeometry,mat);root.name=key;root.rotation.x=-Math.PI/2;return {root,dispose(){mat.dispose();}};});
             item.root.position.set(x,.7,y);item.root.scale.setScalar(r);item.root.material.color.set(color);item.root.material.opacity=opacity;
         }
         const squareGeometry=new T.PlaneGeometry(2,2);
@@ -400,7 +402,7 @@ window.Lab3D = (() => {
             for(const shell of state.artilleryShells || []) {ring('shell:'+shell.id,shell.x,shell.y,shell.radius,'#7edc7a');const remaining=shell.remaining-Math.max(0,(now-(state.artilleryReceivedAt || now))/1000);const progress=Math.max(0,Math.min(1,1-remaining/shell.duration));const x=shell.sourceX+(shell.x-shell.sourceX)*progress,y=shell.sourceY+(shell.y-shell.sourceY)*progress;beam('shell-body:'+shell.id,new T.Vector3(x,5+Math.sin(progress*Math.PI)*65,y),new T.Vector3(x,12+Math.sin(progress*Math.PI)*65,y),'#7edc7a',3);}
             for(const [i,strike] of (state.missiles || []).entries()) ring('missile:'+i,strike.x,strike.y,strike.radius || 120,'#79bfff');
             for(const [i,area] of (state.healingAreas || []).entries()) ring('healing:'+i,area.x,area.y,area.radius || 100,'#84e6b5',.3);
-            for(const [i,gas] of (state.poisonClouds || state.poisonGas || []).entries()) ring('gas:'+i,gas.x,gas.y,gas.radius || 80,'#8de276',.5);
+            for(const [i,gas] of (state.poisonClouds || state.poisonGas || []).entries()) ring('gas:'+i,gas.x,gas.y,gas.radius || 80,gas.hostile?'#a6ce46':'#b46eeb',gas.hostile?.8:.5);
             for(const player of state.players) {
                 const p=player.id===frame.localId && frame.predicted ? frame.predicted : smooth('player',player);
                 for(const [side,remaining,dx,dy,range,pitch] of [['main',player.railgunRemaining,player.railgunDx,player.railgunDy,player.railgunRange,player.railgunPitch],['sub',player.secondaryRailgunRemaining,player.secondaryRailgunDx,player.secondaryRailgunDy,player.secondaryRailgunRange,player.secondaryRailgunPitch]]) if(remaining>0) {
@@ -410,6 +412,9 @@ window.Lab3D = (() => {
                 }
             }
             for(const enemy of state.enemies) if(enemy.hp>0 && enemy.chargeWarning>0) {const p=smooth('enemy',enemy);beam('charge:'+enemy.id,new T.Vector3(p.x,1,p.y),new T.Vector3(p.x+enemy.chargeDx*286,1,p.y+enemy.chargeDy*286),'#ff5964',5);}
+            for(const enemy of state.enemies) if(enemy.hp>0 && ['PULSE_WARNING','SUMMON_WARNING'].includes(enemy.bossAction)) {
+                ring('boss-warning:'+enemy.id,enemy.x,enemy.y,enemy.pulseRadius,enemy.bossAction==='SUMMON_WARNING'?'#9ce8ff':'#ffac70',.95);
+            }
             const placement=frame.placement;if(placement) ring('placement',placement.x,placement.y,19,placement.valid?'#79d8ff':'#ff5964',.9);
             for(const owner of state.players) {
                 for(const [i,pad] of (owner.teleportPads || []).entries()) ring('teleport:'+owner.id+':'+i,pad.x,pad.y,18,'#ab9cff');

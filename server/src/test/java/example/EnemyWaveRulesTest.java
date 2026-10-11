@@ -17,7 +17,7 @@ class EnemyWaveRulesTest {
     @Test void waveBudgetsHaveOneBossAndKeepSpecialSchedules() {
         for (int round=1;round<=50;round++) {
             assertTrue(EnemyWaveRules.regularCount(round)>0);
-            assertEquals(round%4==0 || Set.of(25,35,45).contains(round) ? 1 : 0,EnemyWaveRules.bossCount(round));
+            assertEquals(round==50 || round%4==0 || Set.of(25,35,45).contains(round) ? 1 : 0,EnemyWaveRules.bossCount(round));
         }
         assertEquals(141,EnemyWaveRules.regularCount(40)); assertEquals(274,EnemyWaveRules.regularCount(50));
     }
@@ -38,8 +38,8 @@ class EnemyWaveRulesTest {
         var spawn = GameSession.class.getDeclaredMethod("spawnEnemy",String.class,SpawnPoint.class); spawn.setAccessible(true);
         game.round = 40;
         for (String type : List.of("boss","warden","warlord","titan")) spawn.invoke(game,type,GameMap.SPAWN_POINTS.get(0));
-        assertEquals(37400,game.enemies.get(0).maxHp); assertEquals(46800,game.enemies.get(1).maxHp);
-        assertEquals(46800,game.enemies.get(2).maxHp); assertEquals(56200,game.enemies.get(3).maxHp);
+        assertEquals(67400,game.enemies.get(0).maxHp); assertEquals(84200,game.enemies.get(1).maxHp);
+        assertEquals(84200,game.enemies.get(2).maxHp); assertEquals(101100,game.enemies.get(3).maxHp);
     }
 
     @Test void saturatedUtilityEnemyCapsRemoveThemFromTheLotteryAndKeepBaseEnemies() {
