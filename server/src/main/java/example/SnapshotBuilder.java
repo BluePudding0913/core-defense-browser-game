@@ -167,6 +167,7 @@ final class SnapshotBuilder {
                 .append(",\"gachaOnly\":").append(definition.gachaOnly())
                 .append(",\"meleeSlot\":").append(definition.meleeSlot())
                 .append(",\"spreadSlope\":").append(ShotSpreadRules.slope(key))
+                .append(",\"aimControl\":").append(AimControlRules.supported(key))
                 .append(",\"width\":").append(stats.width())
                 .append(",\"damage\":").append(stats.damage()).append(",\"range\":").append(stats.range())
                 .append(",\"cooldown\":").append(stats.cooldown()).append(",\"ammoPerShot\":").append(1)
@@ -311,6 +312,11 @@ final class SnapshotBuilder {
                     .append(",\"facingX\":").append(player.sniper.facingX)
                     .append(",\"facingY\":").append(player.sniper.facingY)
                     .append(",\"pitch\":").append(player.sniper.pitch).append('}');
+            json.append(",\"aimControl\":{\"elapsed\":").append(player.aimControl.elapsed)
+                    .append(",\"movement\":").append(player.aimControl.movement)
+                    .append(",\"speedRatio\":").append(player.aimControl.speedRatio)
+                    .append(",\"turn\":").append(player.aimControl.turn)
+                    .append(",\"airborne\":").append(player.aimControl.airborne).append('}');
             json.append(",\"jumpHeight\":").append(player.jumpHeight)
                     .append(",\"jumpVelocity\":").append(player.jumpVelocity)
                     .append(",\"stamina\":").append(roundOne(player.stamina))

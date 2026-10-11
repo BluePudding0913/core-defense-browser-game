@@ -27,6 +27,7 @@ final class Player {
     double stamina;
     double jumpHeight, jumpVelocity;
     SniperRules.State sniper = new SniperRules.State();
+    AimControlRules.State aimControl = new AimControlRules.State();
     String job = JobRules.DEFAULT;
     double spyRemaining;
     final java.util.Set<Integer> spyCheckedEnemies = new java.util.HashSet<>();
@@ -193,6 +194,7 @@ final class Player {
         stamina = source.stamina;
         jumpHeight = source.jumpHeight; jumpVelocity = source.jumpVelocity;
         sniper = source.sniper.copy();
+        aimControl = source.aimControl.copy();
         job = source.job;
         spyRemaining = source.spyRemaining;
         spyCheckedEnemies.clear(); spyCheckedEnemies.addAll(source.spyCheckedEnemies);

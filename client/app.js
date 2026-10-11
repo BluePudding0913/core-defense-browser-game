@@ -534,6 +534,11 @@ function send(message) {
     if (/^FIRE:/.test(message) && typeof window!=="undefined" && window.SniperAim && typeof getMe==="function" && getMe()?.sniper?.fixed) {
         message+=':'+window.SniperAim.sample(getMe(),performance.now()).elapsed.toFixed(6);
     }
+    if (/^(FIRE|SECONDARY_FIRE):/.test(message) && fpsInput && typeof window!=="undefined" && window.AimControl && getMe()?.aimControl && !getMe()?.drone?.controlled
+            && !(message.startsWith('FIRE:') && getMe()?.sniper?.fixed)) {
+        const weapon=message.startsWith('SECONDARY_FIRE:')?getMe()?.secondaryWeapon:getMe()?.weapon;
+        if(window.AimControl.supported(weapon,WEAPON_FIELDS))message+=':'+window.AimControl.sample(getMe(),performance.now(),WEAPON_FIELDS,weapon).elapsed.toFixed(6);
+    }
     const sequence = nextInputSequence++;
     socket.send(`INPUT:${sequence}:${message}`);
     pendingInputs.push({ sequence, kind: message.split(":", 1)[0] });
@@ -619,6 +624,7 @@ function receiveState(next) {
     reconcileDroneSmoothing(next);
     reconcileEnemySmoothing(next);
     window.SniperAim?.sync(next.players,performance.now());
+    window.AimControl?.sync(next.players,performance.now());
     state = next;
     if (getMe()?.drone?.controlled) slotPopup.classList.add("hidden");
     if (controlChanged) {
@@ -1941,9 +1947,10 @@ function requestTankWall(point) {
 canvas.addEventListener("mousedown", event => {
     if (!state || !getMe()) return;
     if (event.button === 0 && fpsInput?.capture()) { event.preventDefault(); return; }
-    if (event.button === 2 && fpsInput && getMe()?.weapon==='sniper' && !getMe()?.drone?.controlled) { event.preventDefault();fpsInput.cycleScope();return; }
-    if (event.button === 1 && fpsInput) { event.preventDefault(); fpsInput.view.zoom=true; return; }
-    if (event.button === 2 && fpsInput && (!["attacker","tank","scout","spy"].includes(getMe()?.job) || ["sniper","rifle","railgun"].includes(getMe()?.weapon))) { event.preventDefault();fpsInput.view.zoom=true;return; }
+    if (event.button === 2 && fpsInput && getMe()?.weapon==='sniper' && getMe()?.job!=='attacker' && !getMe()?.drone?.controlled) { event.preventDefault();fpsInput.cycleScope();return; }
+    if (event.button === 1 && fpsInput) { event.preventDefault(); if(getMe()?.weapon==='sniper')fpsInput.cycleScope();else fpsInput.view.zoom=true; return; }
+    if(event.button===2 && fpsInput && getMe()?.job!=='attacker' && !event.altKey && window.AimControl?.supported(getMe()?.weapon,WEAPON_FIELDS)) {event.preventDefault();fpsInput.view.zoom=true;return;}
+    if (event.button === 2 && fpsInput && getMe()?.job!=="attacker" && !event.altKey && (!["tank","scout","spy"].includes(getMe()?.job) || ["sniper","rifle","railgun"].includes(getMe()?.weapon))) { event.preventDefault();fpsInput.view.zoom=true;return; }
     if (event.button === 0) {
         canvas.focus({ preventScroll: true });
         startFiring("mouse", event.clientX, event.clientY);
@@ -2011,7 +2018,7 @@ function stopSecondaryFiring() {
     window.coreAudio?.stopRailgun?.(myPlayerId + ":right");
 }
 window.addEventListener("mouseup", event => {
-    if (fpsInput && [1,2].includes(event.button) && !(event.button===2 && getMe()?.weapon==='sniper')) fpsInput.view.zoom=false;
+    if (fpsInput && [1,2].includes(event.button) && getMe()?.weapon!=='sniper') fpsInput.view.zoom=!!(event.buttons & 4) || !!(event.buttons & 2) && getMe()?.job!=='attacker';
     if (event.button === 0 && firingPointer?.id === "mouse") stopFiring(event.clientX, event.clientY);
     if (event.button === 2) stopSecondaryFiring();
 });
@@ -2584,7 +2591,13 @@ function drawFirstPerson() {
         if(firingPointer)stopFiring(firingPointer.clientX,firingPointer.clientY);
         if(secondaryHeld)stopSecondaryFiring();
         if(keys.size || joystick){keys.clear();joystick=null;sendMovement();}
-    } else sendMovement(); // Turning changes the world direction of a held movement key.
+    } else {
+        sendMovement(); // Turning changes the world direction of a held movement key.
+        if(window.AimControl && !me?.drone?.controlled && performance.now()-(drawFirstPerson.lookAt || -Infinity)>=50) {
+            const facing=fpsInput.facing();send('LOOK:'+facing.x.toFixed(6)+':'+facing.y.toFixed(6)+':'+fpsInput.view.pitch.toFixed(6));
+            drawFirstPerson.lookAt=performance.now();
+        }
+    }
     if(me?.sniper?.fixed && playing && !menusOpen && performance.now()-(drawFirstPerson.sniperLookAt || 0)>100) {
         const facing=fpsInput.facing();send('SNIPER_LOOK:'+facing.x.toFixed(6)+':'+facing.y.toFixed(6)+':'+fpsInput.view.pitch.toFixed(6));
         drawFirstPerson.sniperLookAt=performance.now();
@@ -2629,7 +2642,7 @@ function drawFirstPerson() {
         ctx.save();ctx.scale(dpr,dpr);
         const x=innerWidth/2,y=innerHeight/2,r=Math.min(innerWidth,innerHeight)*.42;
         ctx.fillStyle='#020406';ctx.beginPath();ctx.rect(0,0,innerWidth,innerHeight);ctx.arc(x,y,r,0,Math.PI*2,true);ctx.fill('evenodd');
-        if(me?.weapon!=='sniper'){ctx.strokeStyle='#111a1e';ctx.lineWidth=1;ctx.beginPath();
+        if(!window.AimControl?.supported(me?.weapon,WEAPON_FIELDS)){ctx.strokeStyle='#111a1e';ctx.lineWidth=1;ctx.beginPath();
         for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]){ctx.moveTo(x+dx*12,y+dy*12);ctx.lineTo(x+dx*r,y+dy*r);}ctx.stroke();
         ctx.fillStyle='#ff5b63';ctx.fillRect(x-1,y-1,2,2);}ctx.restore();
     }
@@ -2637,15 +2650,14 @@ function drawFirstPerson() {
         const shade=ctx.createRadialGradient(canvas.width/2,canvas.height/2,0,canvas.width/2,canvas.height/2,canvas.width*.65);
         shade.addColorStop(0,'rgba(0,5,10,0)');shade.addColorStop(1,'rgba(0,5,10,.45)');ctx.fillStyle=shade;ctx.fillRect(0,0,canvas.width,canvas.height);
     }
-    if(playing && !menusOpen && (!scoped || me?.weapon==='sniper') && !me?.sniper?.fixed){ctx.save();ctx.scale(dpr,dpr);window.coreReticleSettings.draw(ctx,innerWidth/2,innerHeight/2);ctx.restore();}
+    if(playing && !menusOpen && (!scoped || me?.weapon==='sniper') && !window.AimControl?.visible(me,fpsInput.view,WEAPON_FIELDS) && !me?.sniper?.fixed){ctx.save();ctx.scale(dpr,dpr);window.coreReticleSettings.draw(ctx,innerWidth/2,innerHeight/2);ctx.restore();}
     if(playing && !menusOpen && !me.down && !me.selectedBuild && !me.drone?.controlled) {
-        const spread=me.weapon==='sniper'?window.SniperAim.sample(me,now):{slope:WEAPON_FIELDS[me.weapon]?.spreadSlope || 0};
-        if(spread.slope>0 && (DEBUG_MODE || me.weapon==='sniper' && me.sniper?.fixed)) {
+        const spread=window.AimControl?.displaySample(me,now,WEAPON_FIELDS) || (me.weapon==='sniper'?window.SniperAim.sample(me,now):{slope:WEAPON_FIELDS[me.weapon]?.spreadSlope || 0});
+        if(spread.slope>0 && (DEBUG_MODE || window.AimControl?.visible(me,fpsInput.view,WEAPON_FIELDS))) {
             const fov=scoped?(me.weapon==='sniper'?(fpsInput.view.scopeLevel===2?10:20):me.weapon==='rifle'?32:26):fpsInput.view.zoom?48:72;
             ctx.save();ctx.scale(dpr,dpr);window.SniperAim.draw(ctx,innerWidth/2,innerHeight/2,innerHeight,fov,spread,DEBUG_MODE?'#438fff':'#e1e8e5');ctx.restore();
         }
     }
-    if(playing && !menusOpen && typeof CombatFeedback!=='undefined') {ctx.save();ctx.scale(dpr,dpr);CombatFeedback.drawHitMarker(ctx,now,innerWidth/2,innerHeight/2);ctx.restore();}
     if(playing && !menusOpen) {ctx.save();ctx.scale(dpr,dpr);window.MiniMap?.draw(ctx,{map:TILE_MAP,reachable:reachableFloorTiles(),player:predictedLocal || me,yaw:fpsInput.view.yaw,state,spawns:SPAWN_POINTS,breakers:BREAKER_TERMINALS,width:innerWidth,height:innerHeight});ctx.restore();}
     drawDamageEdges();drawJoystick();drawRewindScreen();
 }
@@ -3800,8 +3812,7 @@ function labStations() {
     const reachable = reachableFloorTiles(), size = TILE_MAP.tileSize;
     for(const p of SPAWN_POINTS) {
         if(p.id.startsWith('area-') && !state.areas[p.id.slice(5).split(':')[0]])continue;
-        const active=state.phase==='wave' && (state.activeSpawns || []).includes(p.id);
-        stations.push([p,active?'INCOMING':'ENTRY',active?'#ff5964':'#e2aa69','spawn']);
+        stations.push([p,'','#222b30','spawn']);
     }
     for (const area of AREAS) {
         const c = Math.floor(area.terminalX / size), r = Math.floor(area.terminalY / size);

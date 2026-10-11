@@ -52,9 +52,25 @@ window.Lab3D = (() => {
         }
         let terrain = new T.Group(); scene.add(terrain);
         let lastMap, lastReachable;
+        const impactMarks=[],processedImpacts=new WeakSet(),impactDummy=new T.Object3D(),impactNormal=new T.Vector3(),planeNormal=new T.Vector3(0,0,1);
+        const impactGeometry=new T.CircleGeometry(1.1,8),impactMaterial=new T.MeshBasicMaterial({color:'#252a2c',transparent:true,opacity:.75,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
+        const impactMesh=new T.InstancedMesh(impactGeometry,impactMaterial,32);impactMesh.name='wall-impact-marks';impactMesh.count=0;impactMesh.frustumCulled=false;scene.add(impactMesh);
+        function renderWallImpacts(effects,now) {
+            for(const e of effects)if(now>=e.started && now-e.started<250 && !processedImpacts.has(e)) {
+                processedImpacts.add(e);const point=window.WallImpacts?.surface(e,lastMap,lastReachable);
+                if(point){impactMarks.push({...point,at:e.started});if(impactMarks.length>32)impactMarks.shift();}
+            }
+            for(let i=impactMarks.length-1;i>=0;i--)if(now-impactMarks[i].at>=2000)impactMarks.splice(i,1);
+            impactMesh.count=impactMarks.length;
+            for(let i=0;i<impactMarks.length;i++) {
+                const p=impactMarks[i],scale=Math.min(1,(2000-(now-p.at))/300);
+                impactDummy.position.set(p.x,p.y,p.z);impactDummy.quaternion.setFromUnitVectors(planeNormal,impactNormal.set(p.nx,p.ny,p.nz));impactDummy.scale.setScalar(scale);impactDummy.updateMatrix();impactMesh.setMatrixAt(i,impactDummy.matrix);
+            }
+            impactMesh.instanceMatrix.needsUpdate=true;
+        }
         function rebuild(map, reachable) {
             if (lastMap === map && lastReachable === reachable) return;
-            lastMap = map; lastReachable = reachable;
+            lastMap = map; lastReachable = reachable;impactMarks.length=0;impactMesh.count=0;
             scene.remove(terrain);
             terrain.traverse(o => { if (o.isInstancedMesh) o.dispose(); });
             terrain = new T.Group(); scene.add(terrain);
@@ -174,9 +190,9 @@ window.Lab3D = (() => {
         const stationPosition = point => stationAnchors.get(point.x+':'+point.y) || point;
         function station(key, point, color, kind = 'terminal') {
             let anchor=point,facing=0,mounted=false;
-            if((kind==='terminal' || kind==='breaker') && lastMap && lastReachable) {
+            if((kind==='terminal' || kind==='breaker' || kind==='spawn') && lastMap && lastReachable) {
                 const size=lastMap.tileSize,r=Math.floor(point.y/size),c=Math.floor(point.x/size);
-                const directions=[[0,1],[1,0],[0,-1],[-1,0]],depth=kind==='breaker'?4.5:3;
+                const directions=[[0,1],[1,0],[0,-1],[-1,0]],depth=kind==='spawn'?.35:kind==='breaker'?4.5:3;
                 if(!lastReachable.has(r+':'+c)) {
                     const edge=directions.find(([dx,dz])=>lastReachable.has((r+dz)+':'+(c+dx)));
                     if(edge) {
@@ -184,7 +200,7 @@ window.Lab3D = (() => {
                         anchor={x:(c+.5)*size+dx*(size/2+depth),y:(r+.5)*size+dz*(size/2+depth)};
                         facing=Math.atan2(dx,dz);mounted=true;
                     }
-                } else if(kind==='breaker') {
+                } else if(kind==='breaker' || kind==='spawn') {
                     const walls=directions.filter(([dx,dz])=>!lastReachable.has((r+dz)+':'+(c+dx)));
                     const distance=([dx,dz])=>dx?dx*((c+.5)*size+dx*size/2-point.x):dz*((r+.5)*size+dz*size/2-point.y);
                     walls.sort((a,b)=>distance(a)-distance(b));
@@ -236,10 +252,10 @@ window.Lab3D = (() => {
                     for(const x of [-11,11])box(root, 2, 28, 2, '#65d6ee', x, 20, 4, true);
                     box(root, 16, 3, 3, '#172832', 0, 10, 5);
                 } else if (kind === 'spawn') {
-                    box(root, 34, 2, 34, '#292d32',0,1);
-                    for(const x of [-15,15])box(root,3,38,3,color,x,19,15,true);
-                    box(root,33,3,3,color,0,38,15,true);
-                    for(const z of [-10,0,10])box(root,25,1,2,color,0,2.5,z,true);
+                    // A dark recess sits flush against the adjacent wall, without signs or lights.
+                    box(root,30,44,.5,'#0c1216',0,22);
+                    for(const x of [-15.5,15.5])box(root,1,45,.8,'#4e5a60',x,22.5,.3);
+                    box(root,32,1,.8,'#4e5a60',0,44.5,.3);
                 } else if (kind === 'breaker') {
                     box(root, 20, 29, 9, '#7b909b');
                     box(root, 15, 24, 2, '#d2dce1', 0, 16, 5);
@@ -264,7 +280,7 @@ window.Lab3D = (() => {
             finalBoss: '#57223e', poisoner: '#84982f', artilleryElite: '#345b2b', boss: '#39363d', warden: '#526679', warlord: '#75434a', titan: '#6b496f',
             tiny: '#a9bd75', shield: '#4c8ca4', bomber: '#e38d47', artillery: '#749749',
             gilded: '#e8b94f', blueAce: '#358dff', carrier: '#9b7655', blackout: '#27584d', seeker: '#a35e70', explosionBoss: '#171b20' };
-        function enemy(entity, point, radius, now) {
+        function enemy(entity, point, radius, now, hitFlash=false) {
             const item = object('enemy:' + entity.id + ':' + entity.type, () => {
                 const root = new T.Group(); root.name='enemy:'+entity.id;
                 if(entity.type==='grunt') {
@@ -282,6 +298,8 @@ window.Lab3D = (() => {
                 if (entity.type === 'poisoner') box(root, 12, 16, 12, '#b4cf48', 0, radius, -radius);
                 return { root, body };
             });
+            for(const [mesh,original] of item.flashMaterials || [])mesh.material=original;
+            item.flashMaterials=null;
             item.root.position.set(point.x, 0, point.y);
             item.root.userData.entity={x:point.x,y:point.y};
             item.root.rotation.y = Math.atan2(entity.facingX || 0, entity.facingY ?? 1);
@@ -289,6 +307,10 @@ window.Lab3D = (() => {
             item.body.material = material(entity.frozenRemaining > 0 ? '#95dded'
                 : entity.type === 'explosionBoss' && entity.fuse >= 0 && Math.sin(now / Math.max(50, entity.fuse * 15)) > 0 ? '#d64e58'
                 : enemyColors[entity.type] || '#869095');
+            if(hitFlash) {
+                item.flashMaterials=new Map();
+                item.root.traverse(mesh=>{if(mesh.isMesh){item.flashMaterials.set(mesh,mesh.material);mesh.material=material('#ef4250',true);}});
+            }
         }
 
         function resource(key, node, now) {
@@ -523,32 +545,6 @@ window.Lab3D = (() => {
                 }
             }
         }
-        function hitParticles(effect,frame,now) {
-            if (!effectIds.has(effect)) effectIds.set(effect,++nextEffectId);
-            const item=object('hit-particles:'+effectIds.get(effect),()=>{
-                const geometry=new T.BufferGeometry();
-                geometry.setAttribute('position',new T.Float32BufferAttribute(new Float32Array(15),3));
-                const mat=new T.PointsMaterial({color:'#f04b59',size:2,transparent:true,depthWrite:false});
-                const root=new T.Points(geometry,mat);root.name='enemy-hit-particles';
-                const target=frame.state.enemies.find(e=>e.id===effect.enemyId);
-                const point=target ? frame.smooth('enemy',target) : effect;
-                const radius=target ? frame.radius(target) : 18;
-                const dx=(effect.fromX ?? point.x)-point.x,dz=(effect.fromY ?? point.y)-point.y;
-                const distance=Math.hypot(dx,dz),nx=distance>.001 ? dx/distance : 0,nz=distance>.001 ? dz/distance : -1;
-                // Start on the struck side, so the small burst is visible in front of the body.
-                if(Number.isFinite(effect.hitHeight))root.position.set(effect.x,effect.hitHeight,effect.y);
-                else root.position.set(point.x+nx*radius*.85,Math.max(3,radius*.95),point.y+nz*radius*.85);
-                const velocities=Array.from({length:5},(_,i)=>{
-                    const angle=i*Math.PI*2/5+effectIds.get(effect)*.7;
-                    return new T.Vector3(nx*12+Math.cos(angle)*16,15+(i%3)*7,nz*12+Math.sin(angle)*16);
-                });
-                return {root,velocities,dispose(){geometry.dispose();mat.dispose();}};
-            });
-            const t=(now-effect.started)/1000,positions=item.root.geometry.attributes.position;
-            item.velocities.forEach((v,i)=>positions.setXYZ(i,v.x*t,v.y*t-45*t*t,v.z*t));
-            positions.needsUpdate=true;item.root.material.opacity=1-t/.28;
-        }
-
         function collect() {
             for (const [key,item] of objects) if (!seen.has(key)) {
                 scene.remove(item.root);
@@ -561,7 +557,7 @@ window.Lab3D = (() => {
             }
         }
         let lastFrame = performance.now(), walkPhase=0, walkBlend=0, recoil=0, sniperRecoil=0, batSwingAt=-Infinity, lastKickAt=-Infinity, lastWalkPoint=null;
-        const kickedEffects=new WeakSet();
+        const kickedEffects=new WeakSet(),lastGunKick=new Map();
         function render(frame) {
             const { map, reachable, center, scale, state, localId, predicted, smooth, radius, stations, aim, effects = [] } = frame;
             const now = performance.now(), dt = Math.min(.1, (now - lastFrame) / 1000); lastFrame = now;
@@ -581,14 +577,21 @@ window.Lab3D = (() => {
             recoil*=Math.exp(-18*dt);sniperRecoil*=Math.exp(-7*dt);
             if(frame.motion) for(const effect of effects) if(effect.playerId===localId && effect.effect==='hit' && effect.damage===0 && now-effect.started<120 && !kickedEffects.has(effect)) {
                 kickedEffects.add(effect);
-                if(effect.weapon==='sniper'){sniperRecoil=Math.min(1.35,sniperRecoil+1);view.pitch=Math.min(1.2,view.pitch+.045);view.yaw+=(Math.sin(effect.started*1.7)>=0?1:-1)*.008;}
+                const kick=window.AimControl?.recoilPitch(effect.weapon) || 0;
+                if(kick>0) {
+                    // Shotgun pellets share one discharge; persistent effects must not kick twice.
+                    if(effect.started-(lastGunKick.get(effect.weapon) ?? -Infinity)<25)continue;
+                    lastGunKick.set(effect.weapon,effect.started);
+                    if(!(me?.railgunRemaining>0 || me?.secondaryRailgunRemaining>0))view.pitch=Math.min(1.2,view.pitch+kick);
+                }
+                if(effect.weapon==='sniper'){sniperRecoil=Math.min(1.35,sniperRecoil+1);view.yaw+=(Math.sin(effect.started*1.7)>=0?1:-1)*.008;}
                 else if(effect.weapon==='bat')batSwingAt=now;
                 else if(now-lastKickAt>25){recoil=Math.min(1,recoil+.65);lastKickAt=now;}
             }
             const firingRail=me?.railgunRemaining>0 || me?.secondaryRailgunRemaining>0;
             const bob=(firingRail || me?.sniper?.fixed ? 0 : 1)*walkBlend*(frame.scoped ? .12 : 1)*(frame.motion?.dashing?1.15:1);
             camera.position.set(eye.x, me?.down ? 6 : me?.drone?.controlled ? 23 : (me?.sniper?.fixed ? 6.2 : 26)+(eye.jumpHeight || 0)+(eye.renderOffsetHeight || 0)+Math.sin(walkPhase*2)*.32*bob, eye.y);
-            view.recoilPitch=firingRail ? 0 : recoil*(frame.scoped ? .006 : .003);
+            view.recoilPitch=firingRail || window.AimControl?.supported(me?.weapon) ? 0 : recoil*(frame.scoped ? .006 : .003);
             camera.rotation.set(Math.max(-1.2,Math.min(1.2,view.pitch+view.recoilPitch)),-view.yaw,me?.down ? .2 : Math.sin(walkPhase)*.0025*bob,'YXZ');
             camera.updateMatrixWorld(true);
             darkened=!!state?.blackoutActive && !me?.drone?.controlled && !frame.nightVision;
@@ -660,8 +663,9 @@ window.Lab3D = (() => {
                     item.root.userData.entity={x:point.x,y:point.y};
                     item.root.visible = player.id!==localId && (!(player.tpInvulnerableRemaining > 0 || player.reviveInvulnerableRemaining > 0) || Math.floor(now/100)%2 === 0);
                 }
+                const hitEnemies=new Set(effects.filter(e=>e.effect==='hit' && e.playerId===localId && e.enemyId!=null && e.damage>0 && now>=e.started && now-e.started<180).map(e=>e.enemyId));
                 for (const entity of state.enemies) if (entity.hp > 0)
-                    enemy(entity, smooth('enemy', entity), radius(entity), now);
+                    enemy(entity, smooth('enemy', entity), radius(entity), now,hitEnemies.has(entity.id));
                 for (const owner of state.players) if (owner.drone?.active) {
                     const point = smooth('drone', { ...owner.drone, id: owner.id });
                     const item = object('drone:' + owner.id, () => {
@@ -681,9 +685,7 @@ window.Lab3D = (() => {
             }
             if (state) {
                 renderCombat(frame,now);
-                const impacts=effects.filter(e=>e.effect==='hit' && e.enemyId!=null && e.damage>0
-                    && Number.isFinite(e.x) && Number.isFinite(e.y) && now-e.started>=0 && now-e.started<280);
-                for(const effect of impacts.slice(-12)) hitParticles(effect,frame,now);
+                renderWallImpacts(effects,now);
             }
             // Transient objects are collected after resources and tracers have marked themselves live.
             collect();

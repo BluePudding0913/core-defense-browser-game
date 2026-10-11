@@ -344,11 +344,12 @@ final class GameSession {
             case "JUMP" -> jump(player);
             case "SNIPER" -> { if (parts.length > 1) sniperStance(player, parts[1].equals("1")); }
             case "SNIPER_LOOK" -> sniperLook(player, parts);
+            case "LOOK" -> handleLook(player, parts);
             case "SNIPER_CANCEL" -> player.sniper.cancelDeploy();
             case "DASH" -> handleDash(player, parts);
             case "ATTACK" -> combat.attackAt(player, player.aimX, player.aimY);
             case "FIRE" -> handleFire(player, message.split(":", 6));
-            case "SECONDARY_FIRE" -> handleSecondaryFire(player, message.split(":", 5));
+            case "SECONDARY_FIRE" -> handleSecondaryFire(player, message.split(":", 6));
             case "INTERACT" -> { if (parts.length >= 2) interact(player, parts[1]); }
             case "WEAPON" -> { if (parts.length >= 2) switchWeapon(player, parts[1]); }
             case "SECONDARY_WEAPON" -> { if (parts.length >= 2) switchSecondaryWeapon(player, parts[1]); }
@@ -497,6 +498,7 @@ final class GameSession {
         }
         if (canUseFacilities()) teamBuffRemaining = Math.max(0, teamBuffRemaining - dt);
         for (Player player : players) {
+            if(canMove())player.aimControl.advance(dt);
             if (!canMove() || !SniperRules.eligible(player)) player.sniper.stop();
             player.sniper.advance(dt, random::nextDouble);
             if (player.sniper.deploying) {
@@ -1040,6 +1042,16 @@ final class GameSession {
         }
     }
 
+    private void handleLook(Player player,String[] parts) {
+        if(parts.length<4||!canMove()||player.down||player.missileControl||DroneRules.controlling(player))return;
+        player.aimControl.look(Double.parseDouble(parts[1]),Double.parseDouble(parts[2]),Double.parseDouble(parts[3]));
+    }
+    private boolean acceptAimTime(Player player,String[] parts,String weapon) {
+        if(parts.length<6||!AimControlRules.supported(weapon))return true;
+        double time=Double.parseDouble(parts[5]);
+        if(!player.aimControl.validTime(time))return false;
+        player.aimControl.inputTime=time;return true;
+    }
     private void handleSecondaryFire(Player player, String[] parts) {
         if (parts.length < 4) return;
         if (parts[3].equals("0")) { player.secondaryFiring = false; player.secondaryHookPressHandled = false; player.stopSecondaryRailgun(); return; }
@@ -1048,6 +1060,8 @@ final class GameSession {
         if (!Double.isFinite(x) || !Double.isFinite(y)) return;
         Double pitch = parts.length >= 5 ? Double.valueOf(parts[4]) : null;
         if (pitch != null && !FpsHitRules.validPitch(pitch)) return;
+        if(!acceptAimTime(player,parts,player.secondaryWeapon))return;
+        player.aimControl.look(x-player.x,y-player.y,pitch==null?0:pitch);
         player.secondaryAimPitch = pitch;
         player.secondaryAimX = clamp(x, pitch == null ? 0 : -WORLD_W * 2, pitch == null ? WORLD_W : WORLD_W * 3);
         player.secondaryAimY = clamp(y, pitch == null ? 0 : -WORLD_H * 2, pitch == null ? WORLD_H : WORLD_H * 3);
@@ -1072,7 +1086,11 @@ final class GameSession {
             double time=Double.parseDouble(parts[5]);
             if (!player.sniper.validTime(time)) return;
             player.sniper.inputTime=time;
-        } else player.sniper.inputTime=null;
+        } else {
+            if(active && !DroneRules.controlling(player) && !acceptAimTime(player,parts,player.weapon))return;
+            player.sniper.inputTime=null;
+        }
+        if(active && AimControlRules.supported(player.weapon) && !DroneRules.controlling(player))player.aimControl.look(x-player.x,y-player.y,pitch==null?0:pitch);
         player.aimPitch = pitch;
         boolean beginsPress = active && !player.firing;
         player.aimX = clamp(x, pitch == null ? 0 : -WORLD_W * 2, pitch == null ? WORLD_W : WORLD_W * 3);
@@ -1250,6 +1268,8 @@ final class GameSession {
 
     private void updatePlayers(double dt) {
         for (Player player : players) {
+            double previousX=player.x,previousY=player.y;
+            try {
             if (phase == GamePhase.WON && (!player.human || player.down)) continue;
             if (player.sniper.fixed && SniperRules.eligible(player)) { player.dashing=false; continue; }
             if (player.down || player.movingCore) { player.jumpHeight = 0; player.jumpVelocity = 0; }
@@ -1309,6 +1329,10 @@ final class GameSession {
             if (player.movingCore) {
                 coreX = player.x;
                 coreY = player.y;
+            }
+            } finally {
+                player.aimControl.motion(dt>0?Math.hypot(player.x-previousX,player.y-previousY)/dt:0,
+                    !JumpRules.grounded(player.jumpHeight,player.jumpVelocity,jumpSupport(player)));
             }
         }
     }
@@ -3814,6 +3838,7 @@ final class GameSession {
             player.stamina = JobRules.staminaMax(player.job);
             player.jumpHeight = 0; player.jumpVelocity = 0;
             player.sniper = new SniperRules.State();
+            player.aimControl = new AimControlRules.State();
             player.spyCheckedEnemies.clear(); player.spyHostileEnemies.clear();
             player.spyRemaining = 0;
             player.drone = null;
