@@ -52,10 +52,9 @@ final class SniperRules {
         time=Math.max(0,Math.min(time,state.elapsed+.06));
         int index=(int)Math.floor(time/PERIOD);
         boolean special=index<state.cycle?state.previousPrecision:index>state.cycle?state.nextPrecision:state.precision;
-        boolean warning=index<state.cycle?state.precision:index==state.cycle && state.nextPrecision;
         double wave=Math.sin((time%PERIOD)/PERIOD*Math.PI*2),baseline=38;
         double breath=baseline+21*wave-wave*wave
-                -(special && wave<0?12.5*wave*wave:0)+(warning && wave>0?11.6*wave*wave:0);
+                -(special && wave<0?12.5*wave*wave:0)+(special && wave>0?11.6*wave*wave:0);
         return breath*stability(time)
                 +70*Math.pow(Math.max(0,1-time/.7),2)+48*Math.pow(state.recovery/RECOVERY,2);
     }
