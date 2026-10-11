@@ -155,3 +155,16 @@ for(const e of state.enemies){const root=find('enemy:'+e.id),body=root.children[
 assert.equal(find('boss-warning:501').scale.x,260,'Final boss pulse has a visible 3D warning');
 assert.equal(find('gas:0').scale.x,55);assert(find('gas:0').material.color.equals(new THREE.Color('#a6ce46')),'Small hostile poison uses its own radius and color');
 console.log('FPS new enemies passed: body sizes, final boss warning and hostile poison');
+
+// Handheld devices use their actual silhouette, not a recolored rifle.
+frame.motion={moving:false};frame.effects=[];player.weapon='poisonGas';renderer.render(frame);
+const bottle=viewScene.getObjectByName('BottleBody');assert(bottle);assert.equal(bottle.material.color.getHex(),0x974be0);assert.equal(bottle.geometry.type,'CylinderGeometry');assert(viewScene.getObjectByName('BottleCap'));
+player.weapon='repulsor';renderer.render(frame);assert(viewScene.getObjectByName('RemoteBody'));assert(viewScene.getObjectByName('RemoteScreen'));assert(viewScene.getObjectByName('RemoteAntenna'));assert(!viewScene.getObjectByName('BottleBody'));
+now+=1000;const pressure={effect:'hit',weapon:'repulsor',playerId:'me',fromX:100,fromY:100,x:260,y:100,damage:0,started:now-350};frame.effects=[pressure];renderer.render(frame);
+const wave=find('repulsor-longitudinal-wave'),positions=wave.geometry.attributes.position,beforePressure=Array.from(positions.array);assert.equal(wave.geometry.drawRange.count,450);assert(!scene.children.some(o=>o.name.startsWith('blast:')),'Repulsor creates no ground impact ring');
+now+=25;renderer.render(frame);assert.notEqual(positions.getX(20),beforePressure[60],'Pressure particles oscillate along propagation');for(let i=0;i<450;i++){assert.equal(positions.getY(i),beforePressure[i*3+1]);assert.equal(positions.getZ(i),beforePressure[i*3+2],'No transverse oscillation');}
+state.missiles=[{x:100,y:60,radius:100,remaining:1}];renderer.render(frame);assert.equal(find('missile-beacon:0').scale.y,98);assert(find('missile-inner:0'));
+state.missiles=[];now+=100;frame.effects=[{effect:'missile-impact',x:100,y:60,started:now}];renderer.render(frame);assert(find('missile-impact-flash').material.opacity>0);assert(scene.children.some(o=>o.name.startsWith('missile-flash-column:')));assert(!scene.getObjectByName('repulsor-longitudinal-wave'),'Expired pressure wave removed');
+now+=700;renderer.render(frame);assert(!scene.getObjectByName('missile-impact-flash'),'Impact fades and is disposed');
+player.railgunRemaining=1;frame.view.pitch=.2;frame.view.yaw=.3;frame.motion={moving:true};renderer.render(frame);assert.equal(camera.rotation.x,.2);assert.equal(camera.rotation.z,0,'Railgun camera has no bob or recoil drift');player.railgunRemaining=0;
+console.log('Weapon FX passed: purple bottle, remote, longitudinal compression, no repulsor impact, missile beacon/flash/expiry and stable railgun view');
