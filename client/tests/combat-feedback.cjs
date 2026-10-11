@@ -122,11 +122,15 @@ feedback.add(confirmed(),650,'me');assert.equal(feedback.hitMarker(750).headshot
 assert.equal(feedback.hitMarker(760).headshot,false,'Body hits do not extend the 360 ms headshot window');
 assert.equal(feedback.hitMarker(890),null,'Body confirmation expires independently');
 const colors=[],segments=[];
+const reticleContext={window:{},document:{documentElement:{style:{setProperty(){}}}},localStorage:{getItem(){return null;},setItem(){}}};
+require('node:vm').runInNewContext(fs.readFileSync('client/reticle-settings.js','utf8'),reticleContext);
+const hitReticle=reticleContext.window.coreReticleSettings;
+
 const markerCtx={save(){},restore(){},beginPath(){},moveTo(x,y){segments.push(['move',x,y]);},lineTo(x,y){segments.push(['line',x,y]);},stroke(){colors.push(this.strokeStyle);}};
-feedback.add(confirmed(),1000,'me');feedback.drawHitMarker(markerCtx,1000,100,100);
+feedback.add(confirmed(),1000,'me');feedback.drawHitMarker(markerCtx,1000,100,100,hitReticle);
 assert.equal(segments.filter(p=>p[0]==='line').length,4,'Normal hit uses four short strokes with an open center');
-segments.length=0;feedback.add(confirmed(true),1300,'me');feedback.drawHitMarker(markerCtx,1300,100,100);
-assert.equal(segments.filter(p=>p[0]==='line').length,8,'HS has additional small caps, distinguishable without relying on color');
+segments.length=0;feedback.add(confirmed(true),1300,'me');feedback.drawHitMarker(markerCtx,1300,100,100,hitReticle);
+assert.equal(segments.filter(p=>p[0]==='line').length,12,'HS has additional small caps, distinguishable without relying on color');
 assert.deepEqual(colors,['#f1f8fb','#ffc45c']);
 assert.equal(markerCtx.shadowBlur,3,'Soft shadow preserves contrast without a heavy outline');
 feedback.reset();for(const bad of [{...confirmed(),playerId:'other'},{...confirmed(),enemyId:null},{...confirmed(),damage:0},{...confirmed(),damage:NaN}])feedback.add(bad,600,'me');assert.equal(feedback.hitMarker(600),null,'No markers for allies, misses or zero damage');

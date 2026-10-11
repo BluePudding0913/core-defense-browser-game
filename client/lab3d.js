@@ -21,7 +21,10 @@ window.Lab3D = (() => {
         const scene = new T.Scene();
         scene.background = new T.Color('#141e26');
         const camera = new T.PerspectiveCamera(72, 1, .5, 5000);
-        scene.add(new T.HemisphereLight(0xe4f5ff, 0x455262, .75));
+        const ambient=new T.HemisphereLight(0xe4f5ff, 0x455262, .75);scene.add(ambient);
+        const blackoutFog=new T.Fog(0x010205,48,160);
+        const nearbyLight=new T.PointLight(0xc6dded,1.8,160,2);nearbyLight.name="blackout-nearby-light";nearbyLight.visible=false;scene.add(nearbyLight);
+        let darkened=false;
         const sun = new T.DirectionalLight(0xfff3dd, 1.0);
         sun.castShadow = true;
         sun.shadow.mapSize.set(1024, 1024);
@@ -109,7 +112,7 @@ window.Lab3D = (() => {
         }
         // Like the reference demo, render first-person arms separately to avoid wall clipping.
         const viewScene = new T.Scene();
-        viewScene.add(new T.HemisphereLight(0xe4f5ff, 0x455262, 1.8));
+        const handLight=new T.HemisphereLight(0xe4f5ff, 0x455262, 1.8);viewScene.add(handLight);
         const sniperKey=new T.DirectionalLight(0xe3efff,1.7);sniperKey.position.set(-1,3,-2);
         const sniperFill=new T.DirectionalLight(0xffdfbc,.7);sniperFill.position.set(2,1,2);
         viewScene.add(sniperKey,sniperFill);
@@ -170,15 +173,33 @@ window.Lab3D = (() => {
         const stationAnchors = new Map();
         const stationPosition = point => stationAnchors.get(point.x+':'+point.y) || point;
         function station(key, point, color, kind = 'terminal') {
-            let anchor = point, facing = 0;
-            if ((kind === 'terminal' || kind === 'breaker') && lastMap && lastReachable) {
+            let anchor=point,facing=0,mounted=false;
+            if((kind==='terminal' || kind==='breaker') && lastMap && lastReachable) {
                 const size=lastMap.tileSize,r=Math.floor(point.y/size),c=Math.floor(point.x/size);
-                if (!lastReachable.has(r+':'+c)) {
-                    const edge=[[0,1],[1,0],[0,-1],[-1,0]].find(([dx,dz])=>lastReachable.has((r+dz)+':'+(c+dx)));
-                    if(edge){const [dx,dz]=edge;anchor={x:(c+.5)*size+dx*(size/2+4),y:(r+.5)*size+dz*(size/2+4)};facing=Math.atan2(dx,dz);}
+                const directions=[[0,1],[1,0],[0,-1],[-1,0]],depth=kind==='breaker'?4.5:3;
+                if(!lastReachable.has(r+':'+c)) {
+                    const edge=directions.find(([dx,dz])=>lastReachable.has((r+dz)+':'+(c+dx)));
+                    if(edge) {
+                        const [dx,dz]=edge;
+                        anchor={x:(c+.5)*size+dx*(size/2+depth),y:(r+.5)*size+dz*(size/2+depth)};
+                        facing=Math.atan2(dx,dz);mounted=true;
+                    }
+                } else if(kind==='breaker') {
+                    const walls=directions.filter(([dx,dz])=>!lastReachable.has((r+dz)+':'+(c+dx)));
+                    const distance=([dx,dz])=>dx?dx*((c+.5)*size+dx*size/2-point.x):dz*((r+.5)*size+dz*size/2-point.y);
+                    walls.sort((a,b)=>distance(a)-distance(b));
+                    if(walls.length) {
+                        const [dx,dz]=walls[0];
+                        anchor={x:dx?(c+.5)*size+dx*(size/2-depth):point.x,y:dz?(r+.5)*size+dz*(size/2-depth):point.y};
+                        facing=Math.atan2(-dx,-dz);mounted=true;
+                    } else {
+                        // Standalone cabinets face away from the closest wall, on one of four axes.
+                        const exits=directions.map(([dx,dz])=>{let n=1;while(n<lastMap.rows.length+lastMap.rows[0].length && lastReachable.has((r+dz*n)+':'+(c+dx*n)))n++;return {dx,dz,n};});
+                        exits.sort((a,b)=>a.n-b.n);
+                        facing=Math.atan2(-exits[0].dx,-exits[0].dz);
+                    }
                 }
             }
-            const mounted=anchor!==point;
             stationAnchors.set(point.x+':'+point.y,anchor);
             const item = object(key + ':' + kind + ':' + color + ':' + mounted, () => {
                 const root = new T.Group();
@@ -228,7 +249,7 @@ window.Lab3D = (() => {
                 return { root, turretHead, muzzle };
             });
             item.root.position.set(anchor.x, 0, anchor.y);
-            item.root.rotation.y=facing;
+            item.root.rotation.y=facing;item.root.userData.wallMounted=mounted;
             return item;
         }
         const enemyColors = { grunt: '#687a73', runner: '#b4b18a', brute: '#596260', armored: '#6d8395',
@@ -346,6 +367,7 @@ window.Lab3D = (() => {
         function project(x,y,height=0) {
             const p=new T.Vector3(x,height,y).project(camera);
             let visible=p.z>=-1 && p.z<=1 && Math.abs(p.x)<1.1 && Math.abs(p.y)<1.1;
+            if(darkened && Math.hypot(x-camera.position.x,y-camera.position.z)>145)visible=false;
             if(visible){const target=new T.Vector3(x,height,y),delta=target.clone().sub(camera.position);raycaster.set(camera.position,delta.clone().normalize());const wall=raycaster.intersectObject(terrain,true)[0];if(wall && wall.distance<delta.length()-3)visible=false;}
             const depth = -new T.Vector3(x,height,y).applyMatrix4(camera.matrixWorldInverse).z;
             const pixelsPerUnit = overlay.height * camera.projectionMatrix.elements[5] / (2 * Math.max(.5, depth));
@@ -556,6 +578,11 @@ window.Lab3D = (() => {
             view.recoilPitch=firingRail ? 0 : recoil*(frame.scoped ? .006 : .003);
             camera.rotation.set(Math.max(-1.2,Math.min(1.2,view.pitch+view.recoilPitch)),-view.yaw,me?.down ? .2 : Math.sin(walkPhase)*.0025*bob,'YXZ');
             camera.updateMatrixWorld(true);
+            darkened=!!state?.blackoutActive && !me?.drone?.controlled && !frame.nightVision;
+            scene.fog=darkened?blackoutFog:null;scene.background.set(darkened?'#010205':'#141e26');
+            ambient.intensity=darkened?.07:.75;sun.intensity=darkened?.08:1;
+            nearbyLight.visible=darkened;nearbyLight.position.copy(camera.position);
+            handLight.intensity=darkened?.38:1.8;sniperKey.intensity=darkened?.4:1.7;sniperFill.intensity=darkened?.15:.7;
             const holdingSniper=me?.weapon==='sniper';
             viewCamera.aspect=camera.aspect;viewCamera.fov=holdingSniper && !view.zoom ? 62 : 58;viewCamera.updateProjectionMatrix();
             viewCamera.position.set(view.zoom ? -.1 : .03,view.zoom ? 1.58 : 1.65,view.zoom ? .16 : holdingSniper ? -.45 : -.37);
