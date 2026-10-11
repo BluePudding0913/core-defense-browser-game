@@ -23,6 +23,15 @@ class JumpMovementTest {
             assertEquals(0,h);assertEquals(0,v);assertEquals(30.625,max,.1);
         }
     }
+    @Test void jumpKeepsClearanceWithShorterAirtime() {
+        for(double dt:new double[]{1.0/30,1.0/60,1.0/120}) {
+            double h=0,v=JumpRules.SPEED,airtime=0,max=0;
+            do {var m=JumpRules.advance(h,v,dt,0,130);h=m.height();v=m.velocity();max=Math.max(max,h);airtime+=dt;}while(h>0);
+            assertEquals(.625,airtime,dt+.00001);
+            assertEquals(30.625,max,.1);
+            assertTrue(airtime<.7);
+        }
+    }
     @Test void ceilingAndObstacleSupportStopVerticalMovement() {
         var m=JumpRules.advance(30,140,.05,24,64);assertEquals(32,m.height());assertEquals(0,m.velocity());
         m=JumpRules.advance(25,-40,.05,24,130);assertEquals(24,m.height());assertEquals(0,m.velocity());
@@ -67,7 +76,7 @@ class JumpMovementTest {
         assertTrue(json.path("players").get(0).has("jumpHeight"));
         messages.clear();game.handleMessage(player,"FIRE:"+(player.x+100)+":"+player.y+":1:0");
         var hit=messages.stream().filter(s->s.contains("fromHeight")).findFirst().orElseThrow();
-        assertEquals(26+player.jumpHeight,new com.fasterxml.jackson.databind.ObjectMapper().readTree(hit).path("fromHeight").asDouble(),.001);
+        assertEquals(Math.round((26+player.jumpHeight)*10)/10.0,new com.fasterxml.jackson.databind.ObjectMapper().readTree(hit).path("fromHeight").asDouble(),.001);
     }
     @Test void airborneAllyGeometryUsesTheirActualHeight() {
         var ray=new FpsHitRules.Ray(0,0,26,1,0,0,200);
