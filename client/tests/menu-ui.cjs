@@ -317,6 +317,7 @@ assert.equal(notice.delay, 2000);
 notice.callback(); assert.equal(toast.hidden, true); assert.equal(toast.textContent, '');
 handlers.keydown({ target: medkitInput, key: 'q', preventDefault() {} });
 assert.equal(toast.textContent, '保存しました'); assert.equal(toast.hidden, false);
+assert.match(root.innerHTML, /<small>通常<\/small>/);assert.match(root.innerHTML, /<small>命中<\/small>/);assert.match(root.innerHTML, /<small>HS<\/small>/);
 assert.match(root.innerHTML, /type="color" name="reticle-color" value="#e8f4f8"/);
 assert.match(root.innerHTML, /type="range" name="reticle-size"[^>]*value="20"/);
 handlers.input({ target: { name: 'reticle-color', value: '#ff9900' } });

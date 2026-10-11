@@ -71,21 +71,8 @@ const CombatFeedback = (() => {
         if(age>=lifetime)return null;
         return {headshot,age,alpha:Math.min(1,(lifetime-age)/(lifetime-hold))};
     }
-    function drawHitMarker(ctx,now,x,y) {
-        const hit=hitMarker(now);if(!hit)return;
-        const pop=1+Math.max(0,1-hit.age/80)*.18;
-        const inner=(hit.headshot?7:6)*pop,outer=(hit.headshot?16:13)*pop;
-        ctx.save();ctx.globalAlpha=hit.alpha;ctx.lineCap='round';ctx.lineJoin='round';
-        ctx.beginPath();
-        for(const [dx,dy] of [[-1,-1],[1,-1],[-1,1],[1,1]]) {
-            ctx.moveTo(x+dx*inner,y+dy*inner);ctx.lineTo(x+dx*outer,y+dy*outer);
-            if(hit.headshot) {
-                ctx.moveTo(x+dx*(outer-4),y+dy*(outer+4));
-                ctx.lineTo(x+dx*(outer+4),y+dy*(outer-4));
-            }
-        }
-        ctx.shadowColor='rgba(10,16,22,.7)';ctx.shadowBlur=3;ctx.shadowOffsetY=1;
-        ctx.strokeStyle=hit.headshot?'#ffc45c':'#f1f8fb';ctx.lineWidth=3;ctx.stroke();ctx.restore();
+    function drawHitMarker(ctx,now,x,y,reticle=typeof window!=="undefined"?window.coreReticleSettings:null) {
+        const hit=hitMarker(now);if(hit)reticle?.drawHit(ctx,x,y,hit);
     }
     return {add, layout, draw, hitMarker, drawHitMarker, reset() {popups = [];marker=null;} };
 })();

@@ -17,15 +17,30 @@ assert.deepEqual(strokes,[[396,300],[390,300],[404,300],[410,300],[400,296],[400
 initial.api.update({color:'#FFAA00',size:24,shape:'cross'});strokes.length=0;initial.api.draw(ctx,400,300);
 assert.equal(ctx.strokeStyle,'#ffaa00');assert.equal(strokes[1][0],388);assert.equal(strokes[1][1],288);
 const svg=decodeURIComponent(initial.styles.get('--reticle-preview'));
-assert(svg.includes('stroke="#ffaa00"'));assert(svg.includes('M11.2 11.2L4 4'),'Preview uses the same shape geometry');
+assert(svg.includes('stroke="#ffaa00"'));assert(svg.includes('M35.2 35.2L28 28'),'Preview uses the same shape geometry');
 assert.equal(load(initial.stored.get('core-defense-reticle')).api.get().shape,'cross');
 initial.api.update({shape:'dot',size:8});initial.api.draw(ctx,400,300);assert.deepEqual(dots[0].slice(0,3),[400,300,4]);
+assert(decodeURIComponent(initial.styles.get('--reticle-preview')).includes('fill='),'Circle preview is hollow');
 const copy=initial.api.get();copy.size=32;assert.equal(initial.api.get().size,8);
 for(const value of ['{broken','null','{"color":"url(bad)","size":"32","shape":"bad"}'])assert.deepEqual({...load(value).api.get()},{color:'#e8f4f8',size:20,shape:'plus'});
 initial.api.update({size:100});assert.equal(initial.api.get().size,32);
 initial.api.update({size:-1});assert.equal(initial.api.get().size,4);
 initial.api.update({size:NaN,shape:'bad'});assert.equal(initial.api.get().size,20);assert.equal(initial.api.get().shape,'plus');
 const blocked=load(null,true);blocked.api.update({color:'#123456'});assert.equal(blocked.api.get().color,'#123456');
+
+// All three selections have distinct hit and HS shapes, from the same drawing API used by previews.
+const signatures=new Set();
+for(const shape of ['dot','cross','plus']) {
+ initial.api.update({shape,size:20});strokes.length=0;dots.length=0;
+ initial.api.drawHit(ctx,400,300,{headshot:false,age:80,alpha:1});
+ const normal=JSON.stringify({strokes:[...strokes],dots:[...dots]});assert.equal(ctx.strokeStyle,'#f1f8fb');
+ signatures.add(normal);strokes.length=0;dots.length=0;
+ initial.api.drawHit(ctx,400,300,{headshot:true,age:80,alpha:1});
+ assert.equal(ctx.strokeStyle,'#ffc45c');assert.notEqual(JSON.stringify({strokes,dots}),normal,'HS differs in shape as well as color');
+ assert(initial.styles.has('--reticle-preview-hit'));assert(initial.styles.has('--reticle-preview-headshot'));
+}
+assert.equal(signatures.size,3,'Each reticle has its own hit shape');
+assert(!source.includes('ctx.fill('),'No reticle or confirmation fills the aiming center');
 
 // Exercise the real FPS overlay through active play, failure and menus.
 const app=fs.readFileSync('client/app.js','utf8');const start=app.indexOf('function drawFirstPerson()'),end=app.indexOf('\nfunction drawDamageEdges()',start);
