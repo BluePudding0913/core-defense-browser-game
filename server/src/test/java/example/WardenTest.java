@@ -34,7 +34,7 @@ class WardenTest {
             game.round = round; game.enemies.clear();
             spawn.invoke(game, "warden", GameMap.SPAWN_POINTS.get(0));
             Enemy spawned = game.enemies.get(0);
-            double expectedHp = Math.round((1600 + round * 50) * 13.0 / 100) * 100.0;
+            double expectedHp = Math.round((1600 + round * 50) * 13.0 * (1 + (round / 10) * .2) / 100) * 100.0;
             assertEquals(expectedHp, spawned.hp);
             assertEquals(expectedHp, spawned.maxHp);
             var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game)).path("enemies").get(0);

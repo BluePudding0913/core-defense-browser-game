@@ -3067,7 +3067,7 @@ function smoothEntity(prefix, entity) {
 }
 
 function enemyRadius(enemy) {
-    return ({ boss: 42, warlord: 44, titan: 48, warden: 44, brute: 28, armored: 30,
+    return ({ finalBoss: 58, poisoner: 20, artilleryElite: 27, boss: 42, warlord: 44, titan: 48, warden: 44, brute: 28, armored: 30,
         siege: 32, champion: 26, blueAce: 9, runner: 16, hunter: 18, ghost: 18, tiny: 3, shield: 24, bomber: 20, artillery: 22, explosionBoss: 42 })[enemy.type] || 21;
 }
 
@@ -3093,7 +3093,7 @@ function drawArtilleryShells() {
 }
 
 function drawEnemies() {
-    const colors = { grunt: "#707070", coreHunter: "#d4954b", runner: "#999", brute: "#505050", boss: "#2f2f2f",
+    const colors = { finalBoss: "#301626", poisoner: "#84982f", artilleryElite: "#345b2b", grunt: "#707070", coreHunter: "#d4954b", runner: "#999", brute: "#505050", boss: "#2f2f2f",
         armored: "#626c78", hunter: "#a66e6e", siege: "#776951", champion: "#786283",
         warlord: "#4d3030", titan: "#34253f", tiny: "#a9bd75", shield: "#466c80", bomber: "#dd7b32", artillery: "#65803c", gilded: "#e8b94f", blueAce: "#358dff", carrier: "#836044", blackout: "#24443d", seeker: "#82434d" };
     for (const enemy of state.enemies) {
@@ -3140,7 +3140,7 @@ function drawEnemies() {
             ctx.beginPath(); ctx.arc(p.x, p.y, radius + 7, 0, Math.PI * 2); ctx.fill();
             ctx.restore();
         }
-        const isBoss = ["boss", "warlord", "titan", "warden"].includes(enemy.type);
+        const isBoss = ["boss", "warlord", "titan", "warden", "finalBoss"].includes(enemy.type);
         const explosionBoss = enemy.type === "explosionBoss";
         let flashing = false;
         if (explosionBoss && enemy.fuse >= 0) {
@@ -3179,11 +3179,11 @@ function drawEnemies() {
             ctx.strokeStyle = "#83d5f2"; ctx.lineWidth = 7;
             ctx.beginPath(); ctx.arc(p.x, p.y, radius + 4, angle - Math.PI / 3, angle + Math.PI / 3); ctx.stroke();
         }
-        if (enemy.type === "artillery" && (typeof labRenderer === "undefined" || !labRenderer)) {
+        if ((enemy.type === "artillery" || enemy.type === "artilleryElite") && (typeof labRenderer === "undefined" || !labRenderer)) {
             ctx.fillStyle = "#cce76b";
             ctx.beginPath(); ctx.arc(p.x, p.y - radius * .7, 9, 0, Math.PI * 2); ctx.fill();
         }
-        if (enemy.type !== "grunt" && enemy.type !== "tiny") { ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText((enemy.type === "coreHunter" ? "CORE HUNTER" : enemy.type.toUpperCase()), p.x, p.y + radius + 15); }
+        if (enemy.type !== "grunt" && enemy.type !== "tiny") { ctx.fillStyle = "white"; ctx.font = "800 9px ui-monospace, monospace"; ctx.textAlign = "center"; ctx.fillText((({coreHunter:"CORE HUNTER",finalBoss:"OVERLORD",artilleryElite:"ARTILLERY ELITE"})[enemy.type] || enemy.type.toUpperCase()), p.x, p.y + radius + 15); }
         if (isBoss) {
             drawBar(p.x - 44, p.y - radius - 17, 88, 6, clamp(enemy.hp / enemy.maxHp, 0, 1), "#ff5964");
             ctx.fillStyle = "#fff"; ctx.font = "800 10px ui-monospace, monospace"; ctx.textAlign = "center";
@@ -3198,10 +3198,10 @@ function drawPoisonGas() {
         const remaining = Math.max(0, cloud.remaining - elapsed);
         if (!remaining) continue;
         ctx.save(); ctx.globalAlpha = Math.min(1, remaining);
-        ctx.fillStyle = "rgb(180 110 235 / 15%)"; ctx.strokeStyle = "rgb(180 110 235 / 65%)"; ctx.lineWidth = 1.5;
+        ctx.fillStyle = cloud.hostile ? "rgb(150 195 60 / 18%)" : "rgb(180 110 235 / 15%)"; ctx.strokeStyle = cloud.hostile ? "#a6ce46" : "rgb(180 110 235 / 65%)"; ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.arc(cloud.x, cloud.y, cloud.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "rgb(205 160 245 / 14%)";
-        for (let i = 0; i < 10; i++) {
+        ctx.fillStyle = cloud.hostile ? "rgb(175 210 80 / 16%)" : "rgb(205 160 245 / 14%)";
+        for (let i = 0; i < (cloud.hostile ? 4 : 10); i++) {
             const angle = i * 2.4 + now / 3600, distance = cloud.radius * (.25 + (i % 3) * .22);
             ctx.beginPath(); ctx.arc(cloud.x + Math.cos(angle) * distance,
                 cloud.y + Math.sin(angle) * distance, 13 + Math.sin(now / 500 + i) * 4, 0, Math.PI * 2); ctx.fill();

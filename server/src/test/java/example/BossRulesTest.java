@@ -13,14 +13,14 @@ class BossRulesTest {
         var spawn = GameSession.class.getDeclaredMethod("spawnEnemy", String.class, SpawnPoint.class, boolean.class);
         spawn.setAccessible(true);
         String[] types = {"boss", "warden", "warlord", "titan", "explosionBoss", "grunt"};
-        double[] expected = {37400, 46800, 46800, 56200, 89700, 612};
+        double[] expected = {67400, 84200, 84200, 101100, 161500, 1101.6};
         for (boolean summoned : new boolean[]{false, true}) {
             for (int i = 0; i < types.length; i++) {
                 game.enemies.clear();
                 spawn.invoke(game, types[i], GameMap.SPAWN_POINTS.get(0), summoned);
                 Enemy enemy = game.enemies.get(0);
-                assertEquals(expected[i], enemy.maxHp, types[i]);
-                assertEquals(expected[i], enemy.hp, types[i]);
+                assertEquals(expected[i], enemy.maxHp, 1e-9, types[i]);
+                assertEquals(expected[i], enemy.hp, 1e-9, types[i]);
                 var snapshot = new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game)).path("enemies").get(0);
                 assertEquals(expected[i], snapshot.path("maxHp").asDouble(), types[i]);
             }

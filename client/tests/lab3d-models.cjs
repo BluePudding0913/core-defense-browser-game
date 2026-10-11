@@ -136,3 +136,11 @@ const thick=scene.children.find(o=>o.name==='muzzle-tracer');assert(thick.childr
 frame.effects=[];frame.motion.moving=true;player.y-=4;now+=50;renderer.render(frame);assert(Math.abs(camera.rotation.z)>0,'Walking gently sways camera');
 frame.motion.moving=false;now+=2000;for(let i=0;i<60;i++){now+=50;renderer.render(frame);}assert(Math.abs(camera.rotation.z)<1e-8,'Sway settles smoothly after stopping');
 console.log('FPS motion models passed: square heal area, scope, jump height, bat swing, recoil, thicker tracer and settling head bob');
+
+// New enemies share their rendered body dimensions with server FPS hit rules.
+now+=500;frame.effects=[];state.enemies=[{id:501,type:'finalBoss',x:180,y:100,hp:140000,bossAction:'PULSE_WARNING',pulseRadius:260},{id:502,type:'poisoner',x:140,y:100,hp:400},{id:503,type:'artilleryElite',x:220,y:100,hp:900}];
+state.poisonClouds=[{x:140,y:100,radius:55,remaining:4,hostile:true}];frame.radius=e=>({finalBoss:58,poisoner:20,artilleryElite:27})[e.type]||21;renderer.render(frame);
+for(const e of state.enemies){const root=find('enemy:'+e.id),body=root.children[0];assert.equal(body.scale.x,frame.radius(e)*.9);}
+assert.equal(find('boss-warning:501').scale.x,260,'Final boss pulse has a visible 3D warning');
+assert.equal(find('gas:0').scale.x,55);assert(find('gas:0').material.color.equals(new THREE.Color('#a6ce46')),'Small hostile poison uses its own radius and color');
+console.log('FPS new enemies passed: body sizes, final boss warning and hostile poison');

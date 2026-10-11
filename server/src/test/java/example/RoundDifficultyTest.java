@@ -43,7 +43,7 @@ class RoundDifficultyTest {
         }
     }
     @Test void bossHealthScalesWhileOtherStatsAndOrdinaryHealthStayUnchanged() throws Exception {
-        for (String type : List.of("boss", "warden", "warlord", "titan", "explosionBoss", "grunt")) {
+        for (String type : List.of("boss", "warden", "warlord", "titan", "explosionBoss", "finalBoss", "grunt")) {
             var baselineGame = game(4); begin(baselineGame, 40);
             Enemy baseline = spawn(baselineGame, type);
             for (int humans = 1; humans <= 4; humans++) {

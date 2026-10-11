@@ -92,4 +92,14 @@ class FpsCombatTest {
         game.disconnectPlayer(player,true);assertNull(player.aimPitch);assertNull(player.secondaryAimPitch);
     }
 
+    @Test void newEnemiesUseTheirVisibleSizeForFpsBodyHitsAndOverheadMisses() throws Exception {
+        for (String type : List.of("finalBoss", "poisoner", "artilleryElite")) {
+            game.enemies.clear();var e=enemy(9800,type,100);
+            double radius=CombatSystem.enemyRadius(e);
+            player.cooldown=0;player.firing=false;shoot(Math.atan2(radius*.8-26,100));
+            assertEquals(474,e.hp,.001,type+" can be shot in the visible body, including turret-immune final boss");
+            player.cooldown=0;player.firing=false;shoot(.9);
+            assertEquals(474,e.hp,.001,type+" is not hit above its visible body");
+        }
+    }
 }

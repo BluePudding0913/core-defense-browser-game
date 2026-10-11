@@ -22,7 +22,7 @@ final class RoundDifficultyRules {
 
     static double enemyHp(String type, double hp, int humans) {
         return switch (type) {
-            case "boss", "warden", "warlord", "titan", "explosionBoss" -> hp * multiplier(humans);
+            case "boss", "warden", "warlord", "titan", "explosionBoss", "finalBoss" -> hp * multiplier(humans);
             default -> hp;
         };
     }
