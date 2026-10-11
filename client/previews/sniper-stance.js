@@ -7,9 +7,9 @@ window.buildSniperStance = T => {
     mixer.clipAction(soldier.clips.find(c=>c.name==='Aim')).play();mixer.update(0);mixer.stopAllAction();
     const hips=find('Hips'),spine=find('Spine'),rifle=find('Rifle'),head=find('Head');
     hips.position.set(0,.18,0);hips.rotation.set(Math.PI/2,0,0);
-    find('UpperLeg_L').rotation.set(.04,0,-.13);
+    find('UpperLeg_L').rotation.set(.04,0,.16);
     find('LowerLeg_L').rotation.set(-.04,0,0);
-    find('UpperLeg_R').rotation.set(.03,0,.13);
+    find('UpperLeg_R').rotation.set(.03,0,-.16);
     find('LowerLeg_R').rotation.set(-.03,0,0);
     spine.rotation.set(-.06,0,0);
     soldier.root.updateMatrixWorld(true);
