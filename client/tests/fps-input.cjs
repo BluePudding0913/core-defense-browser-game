@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const listeners={},globalListeners={};let lockRequests=0;
-const canvas={addEventListener(t,f){listeners[t]=f;},requestPointerLock(){lockRequests++;}};
+const canvas={classList:{add(){},remove(){}},addEventListener(t,f){listeners[t]=f;},requestPointerLock(){lockRequests++;}};
 const context=vm.createContext({window:{addEventListener(t,f){globalListeners[t]=f;}},innerWidth:1000});
 vm.runInContext(fs.readFileSync('client/fps-input.js','utf8'),context);const input=context.window.FPSInput.create(canvas);
 input.setActive(true);listeners.mousemove({movementX:1000,movementY:-1000});assert.equal(input.view.yaw,0,'Ignore entry cursor jump');
