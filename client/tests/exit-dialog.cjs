@@ -10,7 +10,7 @@ const context = vm.createContext({
     document: { querySelector(selector) { return selector === '#exit-dialog' ? dialog
         : { addEventListener(type, fn) { handlers[type] = fn; } }; } },
     fpsInput: null, endInteractionHold() {}, endJobHold() {}, keys: new Set(['w']), joystick: {}, dashKey: true,
-    setDash() {}, pendingMove: null, firingPointer: null, sendMovement() {},
+    setDash() {}, pendingMove: null, firingPointer: null, secondaryHeld:false, sendMovement() {},
     leaveRoom() { exits++; }, window: { confirm() { throw Error('Blocking confirmation'); } },
     performance: { now: () => 100 }, lastFrameAt: 0, updateLocalPrediction() {},
     draw() { draws++; }, requestAnimationFrame() { frames++; },
@@ -56,3 +56,5 @@ assert(dialog.open, 'Escape also works between rounds');
 assert.match(fs.readFileSync('client/index.html', 'utf8'), /id="leave-game"[^>]*>EXIT<\/button>/);
 assert.match(fs.readFileSync('client/menu-ui.js', 'utf8'), /button\("leave", "戻る"\)/);
 console.log('Exit confirmation passed: drawing, cancel, exit, reopen, input reset, labels');
+
+assert(!source.includes('クリックで視点操作'),'Obsolete unlock text is removed from the system');

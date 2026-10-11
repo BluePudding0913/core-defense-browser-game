@@ -1,0 +1,17 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const THREE=require('../vendor/three.min.js'),source=fs.readFileSync('client/zombie-model.js','utf8'),context={window:{}};
+vm.runInNewContext(source,context);
+const geometry=new THREE.BoxGeometry(1,1,1),sphereGeometry=new THREE.SphereGeometry(1,12,8),materials=new Map();
+const material=color=>{if(!materials.has(color))materials.set(color,new THREE.MeshStandardMaterial({color}));return materials.get(color);};
+const box=(parent,w,h,d,color,x=0,y=h/2,z=0)=>{const m=new THREE.Mesh(geometry,material(color));m.scale.set(w,h,d);m.position.set(x,y,z);parent.add(m);return m;};
+const radius=18,zombie=context.window.buildLabZombie(THREE,{box,sphereGeometry,material},radius);
+zombie.root.updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(zombie.root),headBounds=new THREE.Box3().setFromObject(zombie.head);
+assert(bounds.min.y>=-.01);assert(bounds.max.y<=radius*1.61,'Zombie retains original GRUNT height');
+assert(headBounds.max.y>radius*1.5);assert(headBounds.min.y>=radius*1.1,'Head occupies the existing HS height band');
+let triangles=0,meshes=0;zombie.root.traverse(o=>{if(o.isMesh){meshes++;triangles+=(o.geometry.index?.count??o.geometry.attributes.position.count)/3;}});
+assert(triangles<1200);assert(meshes<36,'Many grunts retain a small model budget');
+zombie.update({x:0,y:0},1000,false);zombie.update({x:2,y:0},1050,false);assert(Math.abs(zombie.legs[0].rotation.x)>0,'Moving zombie shambles');
+for(let i=0;i<100;i++)zombie.update({x:2,y:0},1100+i*50,false);assert(Math.abs(zombie.legs[0].rotation.x)<1e-8,'Idle settles without running in place');
+zombie.update({x:2,y:0},7000,true);assert.equal(zombie.root.getObjectByName('ZombieHead').material.color.getHexString(),'95dded');
+zombie.update({x:2,y:0},7050,false);assert.equal(zombie.root.getObjectByName('ZombieHead').material.color.getHexString(),'a2b09c');
+console.log('Lab zombie passed: head band, humanoid proportions, mesh budget, moving/idle gait and freeze restoration');

@@ -1,9 +1,9 @@
 "use strict";
 window.FPSInput = {
-    create(canvas) {
+    create(canvas, {onEscape} = {}) {
         const view={yaw:0,pitch:0,zoom:false};
         let active=false,touch=null,skipMouseMove=true,lookFrozen=false;
-        let pendingLock=false,lockWanted=false,resumeAfterUI=false;
+        let pendingLock=false,lockWanted=false,resumeAfterUI=false,hadLock=false;
         const locked=()=>document.pointerLockElement===canvas;
         function release(){
             resumeAfterUI=false;lockWanted=false;view.zoom=false;touch=null;skipMouseMove=true;
@@ -25,8 +25,12 @@ window.FPSInput = {
         document.addEventListener('pointerlockchange',()=>{
             pendingLock=false;skipMouseMove=true;
             if(locked()){
+                hadLock=true;
                 if(!active || !lockWanted)document.exitPointerLock();
-            } else {lockWanted=false;view.zoom=false;}
+            } else {
+                const escaped=hadLock && active && lockWanted && document.hasFocus?.()!==false && document.visibilityState!=="hidden";hadLock=false;lockWanted=false;view.zoom=false;
+                if(escaped)onEscape?.();
+            }
         });
         document.addEventListener('pointerlockerror',()=>{pendingLock=false;lockWanted=false;});
         function look(dx,dy,sensitivity=.0024){if(lookFrozen)return;sensitivity*=view.scoped?.35:1;view.yaw+=dx*sensitivity;view.pitch=Math.max(-1.2,Math.min(1.2,view.pitch-dy*sensitivity));}

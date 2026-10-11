@@ -9,7 +9,7 @@ const canvas={classList:{add:c=>classes.add(c),remove:c=>classes.delete(c)},addE
     if(!deferred){document.pointerLockElement=canvas;documentListeners.pointerlockchange();}
 }};
 const context=vm.createContext({document,window:{addEventListener(t,f){globalListeners[t]=f;}},innerWidth:1000});
-vm.runInContext(fs.readFileSync('client/fps-input.js','utf8'),context);const input=context.window.FPSInput.create(canvas);
+vm.runInContext(fs.readFileSync('client/fps-input.js','utf8'),context);let escaped=0;const input=context.window.FPSInput.create(canvas,{onEscape:()=>escaped++});
 const move=(x,y=0)=>listeners.mousemove({movementX:x,movementY:y,clientX:999,clientY:499});
 input.setActive(true);move(1000);assert.equal(input.view.yaw,0,'Uncaptured cursor never changes view');
 assert(input.capture());assert(input.locked());assert(!input.capture(),'Captured click can fire');
@@ -30,7 +30,7 @@ input.view.scoped=false;
 input.setLookFrozen(true);const frozen={...input.view};move(100,100);move(100,100);assert.deepEqual({...input.view},frozen);
 listeners.pointerdown({pointerType:'touch',pointerId:9,clientX:750,clientY:300});listeners.pointermove({pointerType:'touch',pointerId:9,clientX:790,clientY:350});assert.deepEqual({...input.view},frozen);
 input.setLookFrozen(false);move(1000,1000);assert.deepEqual({...input.view},frozen);move(10);assert(input.view.yaw>frozen.yaw);
-document.exitPointerLock();const requests=lockRequests,unlocked={...input.view};
+const beforeEscape=escaped;document.exitPointerLock();assert.equal(escaped,beforeEscape+1,'Native Esc reports one user unlock');const requests=lockRequests,unlocked={...input.view};
 input.setActive(true);assert.equal(lockRequests,requests,'Native Esc never auto recaptures');move(1000);assert.deepEqual({...input.view},unlocked);
 input.setActive(false,true);input.setActive(true);assert.equal(lockRequests,requests,'UI opened after Esc does not recapture');
 listeners.pointerdown({pointerType:'touch',pointerId:5,clientX:750,clientY:300});const yaw=input.view.yaw;
@@ -38,7 +38,10 @@ listeners.pointermove({pointerType:'touch',pointerId:5,clientX:760,clientY:320})
 globalListeners.pointerup({pointerId:5});const stopped=input.view.yaw;listeners.pointermove({pointerType:'touch',pointerId:5,clientX:800,clientY:320});assert.equal(input.view.yaw,stopped);
 input.capture();input.setActive(false,true);input.release();input.setActive(true);assert(!input.locked(),'Blur while UI open cancels resume');
 reject=true;assert(input.capture());assert(!input.locked());reject=false;assert(input.capture());assert(input.locked(),'A rejected capture can be retried by clicking');
-input.release();deferred=true;input.capture();const pending=lockRequests;input.capture();assert.equal(lockRequests,pending,'Only one pending request');
+const beforeRelease=escaped;input.release();assert.equal(escaped,beforeRelease,'UI/blur release never opens exit confirmation');deferred=true;input.capture();const pending=lockRequests;input.capture();assert.equal(lockRequests,pending,'Only one pending request');
 input.release();document.pointerLockElement=canvas;documentListeners.pointerlockchange();assert(!input.locked(),'Late capture after release is immediately relinquished');
 input.setActive(false);assert(!input.capture());assert(!classes.has('fps-looking'));
 console.log('FPS input passed: unbounded relative look, capture/retry, UI restore, Esc/blur, entry warp, scope, touch and railgun freeze');
+
+input.setActive(true);deferred=false;input.capture();document.hasFocus=()=>false;
+const beforeBlur=escaped;document.exitPointerLock();assert.equal(escaped,beforeBlur,'Focus loss is not treated as Escape');

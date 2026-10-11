@@ -70,7 +70,7 @@ class DroneLoadoutTest {
         double droneX = player.drone.x; assertEquals(1161, droneX); assertEquals(1140, player.x);
         player.drone.x = droneX = 1230;
         command("JOB_ABILITY"); assertTrue(player.drone.active); assertFalse(player.drone.controlled);
-        command("MOVE:1:0"); updatePlayers(); assertEquals(1155.5, player.x); assertEquals(droneX, player.drone.x);
+        command("MOVE:1:0"); updatePlayers(); assertEquals(1152.5, player.x); assertEquals(droneX, player.drone.x);
         command("WEAPON:bat"); command("JOB_ABILITY");
         assertTrue(player.drone.controlled, "view switching does not require an item");
         assertTrue(player.drone.controlled); assertEquals(0, player.moveX);

@@ -260,6 +260,10 @@ window.Lab3D = (() => {
         function enemy(entity, point, radius, now) {
             const item = object('enemy:' + entity.id + ':' + entity.type, () => {
                 const root = new T.Group(); root.name='enemy:'+entity.id;
+                if(entity.type==='grunt') {
+                    const zombie=window.buildLabZombie(T,{box,sphereGeometry,material},radius);root.add(zombie.root);
+                    return {root,body:zombie.body,zombie};
+                }
                 const body = new T.Mesh(sphereGeometry, material(enemyColors[entity.type] || '#869095'));
                 body.scale.set(radius * .9, radius * .8, radius * .8); body.position.y = radius * .8;
                 body.castShadow = true; root.add(body);
@@ -274,6 +278,7 @@ window.Lab3D = (() => {
             item.root.position.set(point.x, 0, point.y);
             item.root.userData.entity={x:point.x,y:point.y};
             item.root.rotation.y = Math.atan2(entity.facingX || 0, entity.facingY ?? 1);
+            item.zombie?.update(point,now,entity.frozenRemaining>0);
             item.body.material = material(entity.frozenRemaining > 0 ? '#95dded'
                 : entity.type === 'explosionBoss' && entity.fuse >= 0 && Math.sin(now / Math.max(50, entity.fuse * 15)) > 0 ? '#d64e58'
                 : enemyColors[entity.type] || '#869095');

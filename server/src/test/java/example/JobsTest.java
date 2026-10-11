@@ -102,20 +102,32 @@ class JobsTest {
         assertFalse(target.down);
     }
 
+    @Test void calmerWalkAndSprintShareRulesForHumansAndCpu() throws Exception {
+        for(boolean human:new boolean[]{true,false}) {
+            start("healer");player.human=human;player.x=1140;player.y=1900;
+            player.moveX=1;player.moveY=0;player.dashHeld=false;
+            call("updatePlayers",new Class<?>[]{double.class},.1);
+            assertEquals(1152.5,player.x,1e-6);
+            player.dashHeld=true;
+            call("updatePlayers",new Class<?>[]{double.class},.1);
+            assertEquals(1173,player.x,1e-6);
+        }
+    }
+
     @Test void scoutMovesFasterAndUsesLessStaminaWithCpuAndHumanRules() throws Exception {
         start("scout");
         player.stamina = 100;
         player.moveX = 1; player.dashHeld = true;
         call("updatePlayers", new Class<?>[]{double.class}, .1);
-        assertEquals(1170.5, player.x, 1e-6);
+        assertEquals(1163.5, player.x, 1e-6);
         assertEquals(97.625, player.stamina, 1e-6);
         player.human = false;
         call("updatePlayers", new Class<?>[]{double.class}, .1);
-        assertEquals(1201, player.x, 1e-6);
+        assertEquals(1187, player.x, 1e-6);
         assertEquals(95.25, player.stamina, 1e-6);
         player.job = "healer";
         call("updatePlayers", new Class<?>[]{double.class}, .1);
-        assertEquals(1227.5, player.x, 1e-6);
+        assertEquals(1207.5, player.x, 1e-6);
         assertEquals(91.45, player.stamina, 1e-6);
     }
 
@@ -224,7 +236,8 @@ class JobsTest {
         assertEquals("tp", me.get("job").asText());
         assertEquals(1, me.get("teleportPads").size());
         assertEquals(3, me.get("buildItems").get("teleporter").asInt());
-        assertEquals(265, me.get("dashSpeed").asDouble());
+        assertEquals(125, me.get("walkSpeed").asDouble());
+        assertEquals(205, me.get("dashSpeed").asDouble());
         assertEquals(4, me.get("reviveSeconds").asDouble());
         assertEquals(0, me.get("jobCooldown").asDouble());
     }

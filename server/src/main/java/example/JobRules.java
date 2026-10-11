@@ -104,7 +104,8 @@ final class JobRules {
                 && clearLine.test(target, tank));
     }
 
-    static double dashSpeed(String job) { return job.equals("scout") ? 305 : 265; }
+    static final double WALK_SPEED = 125;
+    static double dashSpeed(String job) { return job.equals("scout") ? 235 : 205; }
     static double staminaDrain(String job) { return job.equals("scout") ? 23.75 : 38; }
     static double staminaRecovery(String job) { return job.equals("scout") ? 60 : 24; }
     static double downSpeed(String job) { return job.equals("scout") ? 60 : 45; }
