@@ -796,6 +796,7 @@ button, input { font: inherit; }
 /* 3D scene underneath the transparent interaction / combat overlay. */
 #lab-scene { position: fixed; inset: 0; width: 100vw; height: 100dvh; pointer-events: none; image-rendering: pixelated; }
 body.lab-3d #game { position: relative; background: transparent; }
+body.lab-3d #game.fps-looking { cursor: none; }
 body.lab-3d .weapon { width: min(17rem, 33vw); height: 6.5rem; grid-template-columns: 5.5rem 1fr; gap: .6rem; padding: .7rem 1rem; background: rgb(20 30 38 / 88%); backdrop-filter: none; border-color: #6a8795; box-shadow: none; }
 body.lab-3d .weapon-icon { transform: scale(1); }
 body.lab-3d #weapon-name { font-size: 1rem; }
