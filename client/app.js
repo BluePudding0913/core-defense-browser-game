@@ -177,6 +177,7 @@ function applyMap(map) {
         tileSize: map.tileMap.tileSize,
         legend: { ...map.tileMap.legend },
         rows: [...map.tileMap.rows],
+        blockMap: map.tileMap.blockMap,
     };
     AREAS = map.areas.map(area => ({ ...area }));
     STARTING_AREA = map.startingArea;
@@ -223,6 +224,7 @@ function validateMap(map) {
                 || [...row].some(symbol => !tiles.legend[symbol]))) {
         throw new Error("タイルマップの行数、列数、または記号が不正です");
     }
+    window.BlockTerrain?.validate(tiles);
     if (map.spawnPoints.length === 0) throw new Error("侵入口がありません");
     requireUniqueIds(map.areas, "areas");
     validateAreaTiles(map.areas, tiles);
@@ -2199,7 +2201,7 @@ window.addEventListener("keydown", event => {
         if (!event.repeat && actionMenu.classList.contains("hidden") && inventoryMenu.classList.contains("hidden")
                 && me && !me.down && !me.movingCore && !me.drone?.controlled && !me.missileControl) {
             send("JUMP");
-            if (predictedLocal) window.JumpMovement.start(predictedLocal, state.slots || []);
+            if (predictedLocal) window.JumpMovement.start(predictedLocal, state.slots || [],TILE_MAP);
         }
         return;
     }
@@ -2478,7 +2480,8 @@ function canPredictOccupy(x, y, radius, includeDefenses = true, feetHeight = 0) 
             if (!symbol || !TILE_MAP.legend[symbol] || TILE_MAP.legend[symbol].solid) return false;
         }
     }
-    if (feetHeight > 0 && window.JumpMovement && feetHeight + 32 > window.JumpMovement.ceiling(TILE_MAP,x,y) + .01) return false;
+    if (globalThis.window?.BlockTerrain && !window.BlockTerrain.compile(TILE_MAP).clearBody(x,y,radius,feetHeight,32)) return false;
+    if (feetHeight > 0 && window.JumpMovement && feetHeight + 32 > window.JumpMovement.ceiling(TILE_MAP,x,y,feetHeight) + .01) return false;
     if (includeDefenses && feetHeight < 23.99 && state.slots.some(slot => slot.defense && ["block", "barricade", "copperBarricade", "silverBarricade"].includes(slot.defense.type)
             && Math.hypot(x - slot.x, y - slot.y) < radius + 18)) return false;
     return true;

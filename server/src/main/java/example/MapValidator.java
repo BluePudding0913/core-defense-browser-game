@@ -34,6 +34,7 @@ final class MapValidator {
             }
         }
         validateTileMap(map);
+        BlockTerrain.validate(map.tileMap());
         validateAreas(map.areas(), map.tileMap());
 
         Set<String> areaIds = uniqueIds(map.areas().stream().map(UnlockArea::id).toList(), "area");

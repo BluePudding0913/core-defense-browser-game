@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const source = fs.readFileSync('client/app.js', 'utf8');
 const map = JSON.parse(fs.readFileSync('shared/map.json', 'utf8'));
 const context = vm.createContext({
-    map, TILE_MAP: map.tileMap, WORLD: map.world, AREAS: map.areas,
+    window: {}, map, TILE_MAP: map.tileMap, WORLD: map.world, AREAS: map.areas,
     ARMORY: map.stations.armory, MED: map.stations.medBay,
     MEDBAYS: [map.stations.medBay, ...map.medBayUnits],
     WOODCUTTER: map.stations.woodcutter, QUARRY: map.stations.quarry,
@@ -24,6 +24,7 @@ for (const name of ['isPoint', 'isPositiveNumber', 'requireUniqueIds', 'validate
     const end = source.indexOf('\nfunction ', start + 1);
     vm.runInContext(source.slice(start, end < 0 ? undefined : end), context);
 }
+vm.runInContext(fs.readFileSync('client/block-terrain.js','utf8'), context);
 const run = code => vm.runInContext(code, context);
 run('validateMap(map)');
 for (let row = 0; row < map.tileMap.rows.length; row++) {

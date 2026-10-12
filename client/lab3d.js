@@ -76,38 +76,22 @@ window.Lab3D = (() => {
             terrain = new T.Group(); scene.add(terrain);
             const floors = [], walls = [], ceilings = [], bulkheads = [], lights = [];
             const size = map.tileSize;
-            const roomHeight = 26 * 5, corridorHeight = 64;
-            // Use the full floor plan so unlocking a sector does not change ceiling height.
-            const isFloor = (r,c) => {
-                const tile = map.rows[r]?.[c];
-                return tile != null && (map.legend ? map.legend[tile]?.solid === false : tile === '.');
-            };
-            const ceilingHeight = (r,c) => {
-                const span = (dr,dc) => {
-                    let count = 1;
-                    for (const sign of [-1,1]) for (let n=1; isFloor(r+dr*n*sign,c+dc*n*sign); n++) count++;
-                    return count;
-                };
-                return Math.min(span(1,0),span(0,1)) <= 2 ? corridorHeight : roomHeight;
-            };
-            for (let r = 0; r < map.rows.length; r++) for (let c = 0; c < map.rows[r].length; c++) {
-                if (reachable.has(r + ':' + c)) {
-                    const x = c * size + size / 2, z = r * size + size / 2;
-                    const height = ceilingHeight(r,c);
-                    floors.push([x, -2, z, size, 4, size]);
-                    ceilings.push([x, height + 3, z, size, 6, size]);
-                    if ((r + c) % 6 === 0) lights.push([x, height - .5, z, size * .6, 1, 4]);
-                    // Seal the height transition above the passage doorway.
-                    if (height === corridorHeight) for (const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]) {
-                        if (reachable.has((r+dz)+':'+(c+dx)) && ceilingHeight(r+dz,c+dx) > height)
-                            bulkheads.push([x+dx*size/2, (height+roomHeight)/2, z+dz*size/2,
-                                dx ? 2 : size, roomHeight-height, dz ? 2 : size]);
-                    }
-                } else if ([[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy]) => reachable.has((r+dy)+':'+(c+dx)))) {
-                    walls.push([c * size + size / 2, roomHeight / 2, r * size + size / 2, size, roomHeight, size]);
-
+            const ground=window.BlockTerrain.compile(map);
+            // Clip cuboid ranges only at visibility/unlock boundaries; never instantiate tiny voxels.
+            for(const box of ground.boxes) {
+                for(let r=Math.floor(box.min[2]/size);r<Math.ceil(box.max[2]/size);r++)for(let c=Math.floor(box.min[0]/size);c<Math.ceil(box.max[0]/size);c++) {
+                    const visible=reachable.has(r+':'+c);
+                    if(!visible && !(box.kind==='wall' && [[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dz])=>reachable.has((r+dz)+':'+(c+dx)))))continue;
+                    const x0=Math.max(box.min[0],c*size),x1=Math.min(box.max[0],(c+1)*size),z0=Math.max(box.min[2],r*size),z1=Math.min(box.max[2],(r+1)*size);
+                    const target=box.kind==='floor'?floors:box.kind==='ceiling'?ceilings:(box.min[1]>0?bulkheads:walls);
+                    target.push([(x0+x1)/2,(box.min[1]+box.max[1])/2,(z0+z1)/2,x1-x0,box.max[1]-box.min[1],z1-z0]);
                 }
             }
+            // Locked ground-floor sectors still close their entrances.
+            for(let r=0;r<map.rows.length;r++)for(let c=0;c<map.rows[r].length;c++)if(!reachable.has(r+':'+c) && ground.support((c+.5)*size,(r+.5)*size)===0 && [[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dz])=>reachable.has((r+dz)+':'+(c+dx)))) {
+                const h=ground.ceiling((c+.5)*size,(r+.5)*size);walls.push([(c+.5)*size,h/2,(r+.5)*size,size,h,size]);
+            }
+            for(const key of reachable){const [r,c]=key.split(':').map(Number);if((r+c)%6===0)lights.push([(c+.5)*size,ground.ceiling((c+.5)*size,(r+.5)*size)-.5,(r+.5)*size,size*.6,1,4]);}
             function instances(items, color, name, glowing = false) {
                 const mesh = new T.InstancedMesh(boxGeometry, material(color, glowing), items.length);
                 const dummy = new T.Object3D();
