@@ -8,11 +8,13 @@ window.EnemyModels = (() => {
     {id:'rasp', name:'RASP', label:'やつれた徘徊者', color:'#444a45'},
     {id:'rush', name:'RUSH', label:'襲いかかる暴徒', color:'#69473b'},
     {id:'hollow', name:'HOLLOW', label:'痩せた異形', color:'#b1aa99'},
-    {id:'researcher', name:'INFECTED', label:'感染研究員', color:'#b3b3a4'}
+    {id:'researcher', name:'INFECTED', label:'感染研究員', color:'#a5a79a'},
+    {id:'lab-assistant', name:'ASSISTANT', label:'感染した検査助手', color:'#a4ada4'},
+    {id:'lab-pathologist', name:'PATHOLOGIST', label:'感染した病理研究員', color:'#b0ab98'}
   ];
   function build(T,id) {
     if(!variants.some(v=>v.id===id))throw new Error('Unknown enemy model: '+id);
-    if(['rasp','rush','hollow','researcher'].includes(id))return window.buildOrganicEnemy(T,id);
+    if(['rasp','rush','hollow','researcher','lab-assistant','lab-pathologist'].includes(id))return window.buildOrganicEnemy(T,id);
     const root=new T.Group();root.name='Enemy_'+id;const owned=new Set(),mats=[];
     const mat=(name,color,roughness,metalness=0)=>{const m=new T.MeshStandardMaterial({name,color,roughness,metalness});m.color.convertSRGBToLinear();m.envMapIntensity=.55;mats.push(m);return m;};
     const under=mat('Graphite textile','#20282a',.94),rubber=mat('Rubber','#161d20',.84),dark=mat('Recess','#0c1417',.54);

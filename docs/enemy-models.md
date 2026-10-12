@@ -12,10 +12,18 @@ Open `client/previews/enemy-models.html` through a local HTTP server. The new D/
 
 `EnemyModels.build(THREE, id)` returns a root group and `pose(seconds, walking)`, `reset()` and `dispose()` methods. Units are metres, +Y up, +Z forward. All parts are original procedural geometry; no downloaded assets or external dependencies are used.
 
-`client/assets/enemies/enemy-{ash,slate,veil,rasp,rush,hollow,researcher}.glb` contains geometry, PBR materials and the articulated rigid node hierarchy in its rest pose. The walking preview is procedural JavaScript; animation clips and skin weights are not included in the GLB. Run `node client/tests/enemy-models.cjs` from the worktree root to validate geometry, dimensions, node export and disposal, and regenerate the GLBs.
+`client/assets/enemies/enemy-{ash,slate,veil,rasp,rush,hollow,researcher,lab-assistant,lab-pathologist}.glb` contains geometry, PBR materials and the articulated rigid node hierarchy in its rest pose. The walking preview is procedural JavaScript; animation clips and skin weights are not included in the GLB. Run `node client/tests/enemy-models.cjs` from the worktree root to validate geometry, dimensions, node export and disposal, and regenerate the GLBs.
 
 These are visual selection candidates. They are not connected to combat, hit volumes, or the live enemy renderer. Before adoption, fit the selected candidate to GRUNT dimensions and head band, verify FPS hit alignment, share/merge suitable materials and geometry, and check crowd rendering cost. The coat uses a reduced stride to keep the rigid cloth clear of the legs.
 
 Organic candidates are built by organic-enemy-models.js through the same factory. Skin, facial recesses and fabric use nonmetallic materials and restrained vertex colors. The GLB writer preserves COLOR_0. They stand in an aggressive resting pose, with exposed faces and individually curved fingers; walking grounds the shoe soles and retains asymmetrical reaching arms. The comparison download writes the visible three models into one GLB; individual view writes one model. Model files contain this resting stance, but no animation clips.
 
-The studio now opens the infected researcher with walking enabled. Its 10,524 triangles include a thin closed coat shell with a real front opening; the skirt is attached at the hips so it does not rotate backward with the hunched upper body. The two strides differ by more than 2x, with restrained panel sway. Tests additionally verify the coat opening by ray intersection, resting hunch, forward neck placement and asymmetric stride. This remains a preview/asset change; adopting it in the live game requires fitting existing GRUNT hit volumes and animation/rendering integration.
+The studio now opens the three lab-coat candidates with walking enabled. Its 10,524 triangles include a thin closed coat shell with a real front opening; the skirt is attached at the hips so it does not rotate backward with the hunched upper body. The two strides differ by more than 2x, with restrained panel sway. Tests additionally verify the coat opening by ray intersection, resting hunch, cervical attachment to shoulders and skull and asymmetric stride. This remains a preview/asset change; adopting it in the live game requires fitting existing GRUNT hit volumes and animation/rendering integration.
+
+The neck correction roots the cervical mesh in Torso and overlaps the upper chest and skull base. The skull pivot is back over the collar instead of projecting 11.5 cm ahead of it. This shared correction applies to all three lab candidates and is checked geometrically in the model tests.
+
+- 01 / researcher: corrected original coat, asymmetrical reaching arm and trailing leg.
+- 02 / lab-assistant: compact broader torso, shorter lightly green coat with rolled cuffs, teal undershirt and shaved scalp.
+- 03 / lab-pathologist: narrow taller silhouette, longer ivory coat and forearms, dropped head and both arms hanging lower.
+
+The 白衣3案 button selects the group; its three adjacent buttons show individual models. All three preserve the chosen plain lab-zombie direction. No live gameplay or hit volumes are changed.
