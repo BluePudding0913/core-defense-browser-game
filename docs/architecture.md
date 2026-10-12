@@ -405,3 +405,5 @@ BlockTerrain（Java/JS）は473個の直方体と水平52×52マスへの3,957�
 ピストルとショットガンは`buildServiceWeapon`が共通の+Z銃身軸・Muzzleノードに接続する。金属の微細な凹凸・粗さ、樹脂のシボ、木目を手続き的に生成し、素材ごとに5〜6メッシュへ結合する。銃口・排莢口・トリガーガードは立体の開口とし、素材とテクスチャは同一兵士内で再利用し、交換時に形状、兵士破棄時にテクスチャを解放する。FPSの補助照明はスナイパーと共用し、停電時の減光を維持する。ピストルの添え手は`posePistolGrip`で実際のグリップに合わせ、手続き的な姿勢はAnimationMixerの更新前に復元する。`service-weapons.cjs`は銃口・排莢口の開口、法線、三角形数、添え手、解放処理を検証する。`client/previews/service-weapons.html`で両武器を回転・拡大して確認できる。
 
 敵外観の比較候補は client/enemy-models.js の EnemyModels に独立させ、client/previews/enemy-models.html で同じ照明・カメラ・歩行位相を比較する。ゲームの敵描画・戦闘判定には接続しない。詳細とGLBの制約は [enemy-models.md](enemy-models.md) を参照。
+
+追加の非装甲候補D/E/Fはorganic-enemy-models.jsで肌・布・非対称な構えを生成する。EnemyModelsの共通APIを使い、比較画面で新旧各3案を切り替える。enemy-model-export.jsは頂点色COLOR_0も書き出し、比較時は表示中3体を1つのGLBに保存する。
