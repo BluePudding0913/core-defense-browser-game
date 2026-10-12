@@ -27,3 +27,5 @@ The neck correction roots the cervical mesh in Torso and overlaps the upper ches
 - 03 / lab-pathologist: narrow taller silhouette, longer ivory coat and forearms, dropped head and both arms hanging lower.
 
 The 白衣3案 button selects the group; its three adjacent buttons show individual models. All three preserve the chosen plain lab-zombie direction. No live gameplay or hit volumes are changed.
+
+Hand correction: each organic hand now places its thumb and index on the radial side, mirrors finger order/spread between left and right, and embeds a tapered thenar base in the palm. Model tests check handedness and palm/thumb overlap; all six organic GLBs are regenerated from the shared builder.

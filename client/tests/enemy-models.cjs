@@ -4,6 +4,13 @@ fs.mkdirSync('client/assets/enemies',{recursive:true});
 for(const {id}of context.window.EnemyModels.variants){
  const m=context.window.EnemyModels.build(T,id);m.root.updateMatrixWorld(true);const b=new T.Box3().setFromObject(m.root);assert(b.min.y>-.015&&b.min.y<.02);assert(b.max.y>1.60&&b.max.y<1.95);let triangles=0,meshes=0;
  m.root.traverse(o=>{if(!o.isMesh)return;meshes++;const p=o.geometry.attributes.position,n=o.geometry.attributes.normal;triangles+=(o.geometry.index?.count??p.count)/3;for(let i=0;i<p.count;i++){assert(Number.isFinite(p.getX(i)+p.getY(i)+p.getZ(i)));assert(Math.abs(Math.hypot(n.getX(i),n.getY(i),n.getZ(i))-1)<.001);}const ix=o.geometry.index?.array;if(ix)for(let i=0;i<ix.length;i++)assert(ix[i]<p.count);});assert(triangles<22000);
+ if(m.root.getObjectByName('Thumb_L')){
+  for(const [name,radial] of [['L',1],['R',-1]]){
+   const thumb=m.root.getObjectByName('Thumb_'+name),index=m.root.getObjectByName('Finger_'+name+'_0'),little=m.root.getObjectByName('Finger_'+name+'_3'),palm=m.root.getObjectByName('Palm_'+name),flesh=m.root.getObjectByName('Thumb flesh_'+name);
+   assert(thumb.position.x*radial>0&&index.position.x*radial>0&&little.position.x*radial<0,'Thumb and index occupy the radial side of each mirrored hand');
+   palm.geometry.computeBoundingBox();flesh.geometry.computeBoundingBox();thumb.updateMatrix();assert(palm.geometry.boundingBox.intersectsBox(flesh.geometry.boundingBox.clone().applyMatrix4(thumb.matrix)),'Thumb base is embedded in the palm');
+  }
+ }
  const rest=m.legs[0].rotation.x;m.pose(0);m.pose(.1);assert(Math.abs(m.legs[0].rotation.x-rest)>0);m.reset();assert.equal(m.legs[0].rotation.x,rest);
  if(['researcher','lab-assistant','lab-pathologist'].includes(id)){
   assert(m.torso.rotation.x>=.30,'Researcher retains a hunched resting pose');assert(m.head.position.z<.025,'Skull pivot stays over the cervical base');const neck=m.root.getObjectByName('Neck');assert.equal(neck.parent,m.torso,'Neck is rooted in the shoulder girdle');assert(new T.Box3().setFromObject(neck).intersectsBox(new T.Box3().setFromObject(m.root.getObjectByName('Chest'))),'Neck overlaps the upper chest');assert(new T.Box3().setFromObject(neck).intersectsBox(new T.Box3().setFromObject(m.root.getObjectByName('Anatomical head'))),'Neck overlaps the skull base');

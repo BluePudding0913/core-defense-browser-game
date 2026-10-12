@@ -66,12 +66,13 @@ window.buildOrganicEnemy = (T,id) => {
   const hand=joint(elbow,'Hand_'+name,0,-.26,.013);hand.rotation.set(id==='rush'?.70:.36,side*.70,side*.075);
   loft(hand,'Palm_'+name,[[-.105,.071*wide,.042,.018],[-.075,.085*wide,.053,.008],[-.025,.080*wide,.057],[.015,.064*wide,.070]],skin,2.5,24);
   for(let f=0;f<4;f++){
-   const x=(f-1.5)*.020*wide,len=[.065,.082,.077,.058][f];
-   const finger=joint(hand,'Finger_'+name+'_'+f,x,-.092,.021);finger.rotation.z=(f-1.5)*.075;
+   const x=side*(f-1.5)*.020*wide,len=[.065,.082,.077,.058][f];
+   const finger=joint(hand,'Finger_'+name+'_'+f,x,-.092,.021);finger.rotation.z=side*(f-1.5)*.075;
    loft(finger,'Curled finger_'+name+'_'+f,[[-len,.012*wide,.014,.029],[-len*.8,.017*wide,.019,.034],[-len*.48,.018*wide,.019,.028],[-len*.2,.019*wide,.020,.008],[.008,.020*wide,.023]],skin,2,12);
   }
-  const thumb=joint(hand,'Thumb_'+name,side*.042,-.035,.022);thumb.rotation.z=side*-.5;
-  loft(thumb,'Thumb flesh_'+name,[[-.055,.016,.018,.028],[-.035,.023,.023,.02],[0,.026,.028]],skin,2,12);
+  // Radial side is toward the index finger, mirrored between left and right hands.
+  const radial=-side,thumb=joint(hand,'Thumb_'+name,radial*.030*wide,-.038,.004);thumb.rotation.z=radial*.62;
+  loft(thumb,'Thumb flesh_'+name,[[-.060,.013*wide,.016,.023],[-.047,.020*wide,.023,.022],[-.026,.025*wide,.028,.013],[0,.034*wide,.034],[.012,.026*wide,.028,-.003]],skin,2.15,16);
  }
 // Closed thin cloth shell with an actual front opening; no painted-on lapel or slit.
 function coatShell(parent,name,rings,opening,material,hem=0){
