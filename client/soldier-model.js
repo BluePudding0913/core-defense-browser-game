@@ -304,7 +304,51 @@ function buildSoldier(THREE) {
       if(value.p)part.position.copy(value.p);if(value.q)part.quaternion.copy(value.q);
     }
   }
-  return { root, clips, materials: mats, setWeapon, poseBat, resetBatPose };
+  // Restore overrides before AnimationMixer runs: unchanged tracks are cached by Three.js.
+  const proceduralParts = [root, hips, spine, head, rifle,
+    ...Object.values(legs).flatMap(leg => [leg.thigh, leg.shin]),
+    ...Object.values(arms).flatMap(arm => [arm.up, arm.lo])]
+    .map(part => ({part, position:part.position.clone(), quaternion:part.quaternion.clone(), scale:part.scale.clone(), visible:part.visible}));
+  let proceduralActive = false;
+  function saveProceduralPose() {
+    for(const saved of proceduralParts) {
+      saved.position.copy(saved.part.position);saved.quaternion.copy(saved.part.quaternion);
+      saved.scale.copy(saved.part.scale);saved.visible=saved.part.visible;
+    }
+    proceduralActive=true;
+  }
+  function resetProceduralPose() {
+    if(!proceduralActive)return;
+    for(const saved of proceduralParts) {
+      saved.part.position.copy(saved.position);saved.part.quaternion.copy(saved.quaternion);
+      saved.part.scale.copy(saved.scale);saved.part.visible=saved.visible;
+    }
+    proceduralActive=false;
+  }
+  function poseDown(phase=0, amount=0) {
+    const stroke=Math.sin(phase)*amount;
+    hips.position.set(0,.18,0);hips.rotation.set(Math.PI/2,0,.025*stroke);
+    spine.rotation.set(-.06,0,.02*stroke);
+    const bodyQ=hips.quaternion.clone().multiply(spine.quaternion),inverse=bodyQ.clone().invert();
+    head.position.x=0;head.quaternion.copy(inverse).multiply(qe(.12,0,0));
+    // Hands and elbows stay near the floor; the weapon is stowed while crawling.
+    rifle.visible=false;
+    for(const [side,sign] of [['L',1],['R',-1]]) {
+      const reach=stroke*sign;
+      const leg=legs[side];
+      leg.thigh.rotation.set(.04,0,sign*(.23+.16*(amount+reach)/2));
+      leg.shin.rotation.set(-.04,0,-sign*.18*(amount+reach)/2);
+      const target=new V(sign*(.33+.025*reach),.09,.64+.12*reach)
+        .sub(hips.position).applyQuaternion(hips.quaternion.clone().invert())
+        .sub(spine.position).applyQuaternion(spine.quaternion.clone().invert());
+      const pole=new V(sign,-.4,-.3).applyQuaternion(inverse);
+      const [up,lo]=solveArm(shoulderPos[side],target,pole,UPPER_ARM,LOWER_ARM);
+      arms[side].up.quaternion.copy(up);arms[side].lo.quaternion.copy(lo);
+    }
+    root.position.y=.023;
+  }
+  return { root, clips, materials: mats, setWeapon, poseBat, resetBatPose,
+    saveProceduralPose, resetProceduralPose, poseDown };
 }
 
 window.buildSoldier = buildSoldier;

@@ -634,25 +634,35 @@ window.Lab3D = (() => {
                         const actions = Object.fromEntries(model.clips.map(c => [c.name, mixer.clipAction(c)]));
                         actions.Idle.play(); return { root, mixer, actions, model, muzzle: model.root.getObjectByName('Muzzle'), materials: model.materials, clip: 'Idle', previous: { ...point } };
                     });
-                    const moving = Math.hypot(point.x-item.previous.x, point.y-item.previous.y) > .12;
+                    const distance = Math.hypot(point.x-item.previous.x, point.y-item.previous.y);
+                    const moving = distance > .12;
                     const aiming = !player.down && !player.drone?.controlled;
                     const prone=!!player.sniper?.fixed && !player.down;
                     const clip = aiming ? moving ? 'AimWalk' : 'Aim' : moving ? 'Walk' : 'Idle';
                     if (clip !== item.clip) { item.actions[item.clip].fadeOut(.15); item.actions[clip].reset().fadeIn(.15).play(); item.clip = clip; }
+                    item.model.resetProceduralPose();
                     item.model.setWeapon(player.weapon || 'rifle');
-                    if(prone)window.applySniperStance(T,item.model,player.sniper.pitch || 0);
-                    else {
-                        item.model.root.position.y=0;item.model.root.getObjectByName('Rifle').scale.setScalar(1);item.model.root.getObjectByName('Head').position.x=0;
-                        item.mixer.update(dt);
+                    item.mixer.update(dt);
+                    if(player.down) {
+                        item.crawlPhase=(item.crawlPhase || 0)+Math.min(distance,8)*Math.PI*2/38;
+                        item.crawlAmount=(item.crawlAmount || 0)+((moving?1:0)-(item.crawlAmount || 0))*(1-Math.exp(-dt/.12));
+                        item.model.saveProceduralPose();
+                        item.model.poseDown(item.crawlPhase,item.crawlAmount);
+                    } else {
+                        item.crawlPhase=0;item.crawlAmount=0;
+                        if(prone) {
+                            item.model.saveProceduralPose();
+                            window.applySniperStance(T,item.model,player.sniper.pitch || 0);
+                        }
                     }
                     item.previous = { ...point };
                     item.materials.Olive.color.set(player.down ? '#a86b70' : player.spyRemaining > 0 ? '#8b8e91' : player.id === localId ? '#63879a' : '#67786a');
-                    item.root.position.set(point.x, player.down ? 4 : (point.jumpHeight || player.jumpHeight || 0), point.y);
+                    item.root.position.set(point.x, (point.jumpHeight || player.jumpHeight || 0), point.y);
                     const shot=effects.filter(e=>e.playerId===player.id && e.effect==='hit' && now-e.started<360 && e.fromX!=null).at(-1);
                     const target=player.id===localId && !player.drone?.controlled ? aim : null;
                     const dx=prone ? player.sniper.facingX : target ? target.x-point.x : shot ? shot.x-shot.fromX : player.facingX || 0;
                     const dz=prone ? player.sniper.facingY : target ? target.y-point.y : shot ? shot.y-shot.fromY : player.facingY ?? -1;
-                    item.root.rotation.set(player.down ? Math.PI/2 : 0, Math.atan2(dx,dz), 0);
+                    item.root.rotation.set(0, Math.atan2(dx,dz), 0);
                     item.root.userData.entity={x:point.x,y:point.y};
                     item.root.visible = player.id!==localId && (!(player.tpInvulnerableRemaining > 0 || player.reviveInvulnerableRemaining > 0) || Math.floor(now/100)%2 === 0);
                 }
