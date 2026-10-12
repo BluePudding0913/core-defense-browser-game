@@ -1,6 +1,6 @@
 "use strict";
 window.AimControl = (() => {
-    const TURN_WEIGHT=1.5,PRONE_TURN_WEIGHT=3,PERIOD=2.8,PIXEL_SLOPE=Math.tan(Math.PI/18)/425,clocks=new Map(),visuals=new Map();
+    const TURN_WEIGHT=1.5,PRONE_TURN_WEIGHT=3,PERIOD=window.SniperAim?.period ?? 2,PIXEL_SLOPE=Math.tan(Math.PI/18)/425,clocks=new Map(),visuals=new Map();
     const weapons=['pistol','smg','rifle','revolver','lmg','shotgun','ricochet','freezeGun','sniper'];
     const supported=(weapon,definitions)=>definitions?.[weapon]?.aimControl ?? weapons.includes(weapon);
     const phase=(clock,now)=>{const age=Math.max(0,(now-clock.at)/1000);return clock.elapsed+age+clock.offset*Math.exp(-age/.2);};
@@ -25,14 +25,16 @@ window.AimControl = (() => {
         }
         return {elapsed,slope:slope*penalty,penalty};
     }
-    // Display filtering never changes the time/radius used in FIRE or server validation.
+    // Display-only filters remove snapshot/shot radius jumps; FIRE keeps authoritative sampling.
     function displaySample(player,now,definitions={},weapon=player?.weapon) {
         const raw=sample(player,now,definitions,weapon);
         if(!raw.penalty)return raw;
-        const previous=visuals.get(player.id),reset=!previous || now<previous.at || now-previous.at>500 || raw.elapsed<previous.elapsed-.2;
+        const previous=visuals.get(player.id),reset=!previous || now<previous.at || now-previous.at>500 || raw.elapsed<previous.elapsed-.2 || previous.weapon!==weapon || previous.fixed!==!!player?.sniper?.fixed;
         const penalty=reset?raw.penalty:previous.penalty+(raw.penalty-previous.penalty)*(1-Math.exp(-(now-previous.at)/75));
-        visuals.set(player.id,{penalty,at:now,elapsed:raw.elapsed});
-        return {...raw,slope:raw.slope/raw.penalty*penalty,penalty};
+        const base=raw.slope/raw.penalty;
+        const baseSlope=reset?base:previous.baseSlope+(base-previous.baseSlope)*(1-Math.exp(-(now-previous.at)/35));
+        visuals.set(player.id,{penalty,baseSlope,at:now,elapsed:raw.elapsed,weapon,fixed:!!player?.sniper?.fixed});
+        return {...raw,slope:baseSlope*penalty,penalty};
     }
     function visible(player,view,definitions) {return supported(player?.weapon,definitions) && !!view.zoom;}
     const scopeFov=weapon=>weapon==='sniper'?16:weapon==='rifle'?32:26;

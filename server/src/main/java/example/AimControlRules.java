@@ -2,7 +2,7 @@ package example;
 
 /** Server-clock aim and movement penalties. No transport, rendering or session dependencies. */
 final class AimControlRules {
-    static final double PERIOD=2.8, MOVE_RECOVERY=.25, TURN_RECOVERY=.22, TURN_WEIGHT=1.5, PRONE_TURN_WEIGHT=3;
+    static final double PERIOD=SniperRules.PERIOD, MOVE_RECOVERY=.25, TURN_RECOVERY=.22, TURN_WEIGHT=1.5, PRONE_TURN_WEIGHT=3;
     private AimControlRules() {}
     static boolean supported(String weapon) {
         return switch(weapon) {

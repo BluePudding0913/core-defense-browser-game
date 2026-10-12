@@ -177,15 +177,17 @@ window.Lab3D = (() => {
             if((kind==='terminal' || kind==='breaker' || kind==='spawn') && lastMap && lastReachable) {
                 const size=lastMap.tileSize,r=Math.floor(point.y/size),c=Math.floor(point.x/size);
                 const directions=[[0,1],[1,0],[0,-1],[-1,0]],depth=kind==='spawn'?.35:kind==='breaker'?4.5:3;
-                if(!lastReachable.has(r+':'+c)) {
-                    const edge=directions.find(([dx,dz])=>lastReachable.has((r+dz)+':'+(c+dx)));
+                // Spawn recesses attach to permanent terrain, never to a locked sector.
+                const floorAt=(r,c)=>kind==='spawn'?(lastMap.legend?lastMap.legend[lastMap.rows[r]?.[c]]?.solid===false:lastMap.rows[r]?.[c]==='.') : lastReachable.has(r+':'+c);
+                if(!floorAt(r,c)) {
+                    const edge=directions.find(([dx,dz])=>floorAt(r+dz,c+dx));
                     if(edge) {
                         const [dx,dz]=edge;
                         anchor={x:(c+.5)*size+dx*(size/2+depth),y:(r+.5)*size+dz*(size/2+depth)};
                         facing=Math.atan2(dx,dz);mounted=true;
                     }
                 } else if(kind==='breaker' || kind==='spawn') {
-                    const walls=directions.filter(([dx,dz])=>!lastReachable.has((r+dz)+':'+(c+dx)));
+                    const walls=directions.filter(([dx,dz])=>!floorAt(r+dz,c+dx));
                     const distance=([dx,dz])=>dx?dx*((c+.5)*size+dx*size/2-point.x):dz*((r+.5)*size+dz*size/2-point.y);
                     walls.sort((a,b)=>distance(a)-distance(b));
                     if(walls.length) {
@@ -194,7 +196,7 @@ window.Lab3D = (() => {
                         facing=Math.atan2(-dx,-dz);mounted=true;
                     } else {
                         // Standalone cabinets face away from the closest wall, on one of four axes.
-                        const exits=directions.map(([dx,dz])=>{let n=1;while(n<lastMap.rows.length+lastMap.rows[0].length && lastReachable.has((r+dz*n)+':'+(c+dx*n)))n++;return {dx,dz,n};});
+                        const exits=directions.map(([dx,dz])=>{let n=1;while(n<lastMap.rows.length+lastMap.rows[0].length && floorAt(r+dz*n,c+dx*n))n++;return {dx,dz,n};});
                         exits.sort((a,b)=>a.n-b.n);
                         facing=Math.atan2(-exits[0].dx,-exits[0].dz);
                     }

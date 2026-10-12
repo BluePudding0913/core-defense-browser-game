@@ -10,19 +10,19 @@ class SniperRulesTest {
         int special=0;boolean expected=s.precision;
         for(int i=0;i<100000;i++) {
             assertEquals(expected,s.precision);
-            s.elapsed=i*SniperRules.PERIOD+.7;
+            s.elapsed=i*SniperRules.PERIOD+SniperRules.PERIOD/4;
             assertEquals((s.precision?69.6:58)*SniperRules.stability(s.elapsed),SniperRules.radius(s,s.elapsed),1e-6);
-            s.elapsed=i*SniperRules.PERIOD+2.1;
+            s.elapsed=i*SniperRules.PERIOD+SniperRules.PERIOD*.75;
             assertEquals((s.precision?3.5:16)*SniperRules.stability(s.elapsed),SniperRules.radius(s,s.elapsed),1e-6);
             if(s.precision)special++;
-            expected=s.nextPrecision;s.advance(.7+1e-7,random::nextDouble);
+            expected=s.nextPrecision;s.advance(SniperRules.PERIOD/4+1e-7,random::nextDouble);
             assertEquals(38*SniperRules.stability(s.elapsed),SniperRules.radius(s,s.elapsed),1e-5);
         }
         assertEquals(.2,special/100000.0,.005);
     }
     @Test void breathingKeepsMovingThroughTheMiddleAndConcentrationShrinksLinearlyWithTime() {
         var s=new SniperRules.State();s.start(()->.1);s.elapsed=100;
-        for(double t:new double[]{1.4,2.8,4.2}) {
+        for(double t:new double[]{1,2,3}) {
             double speed=(SniperRules.radius(s,t+.0001)-SniperRules.radius(s,t-.0001))/.0002;
             assertTrue(Math.abs(speed)>40,"No mid-breath pause");
         }
@@ -45,11 +45,11 @@ class SniperRulesTest {
         assertEquals(.5,sum/50000,.006);assertEquals(0,meanX/50000,.01);assertEquals(0,meanY/50000,.01);
     }
     @Test void timestampsAreBoundedMonotonicAndCanCoverPreviousCycle() {
-        var s=new SniperRules.State();s.start(()->.1);s.elapsed=2.9;s.cycle=1;s.previousPrecision=true;s.precision=false;
-        assertTrue(s.validTime(2.75));assertFalse(s.validTime(2.69));assertFalse(s.validTime(3.0));
+        var s=new SniperRules.State();s.start(()->.1);s.elapsed=2.1;s.cycle=1;s.previousPrecision=true;s.precision=false;
+        assertTrue(s.validTime(1.95));assertFalse(s.validTime(1.89));assertFalse(s.validTime(2.2));
         assertFalse(s.validTime(Double.NaN));assertFalse(s.validTime(Double.POSITIVE_INFINITY));
-        s.inputTime=2.80;assertFalse(s.validTime(2.75));assertTrue(s.validTime(2.85));
-        assertTrue(SniperRules.radius(s,2.75)<SniperRules.radius(s,2.9));
+        s.inputTime=2.0;assertFalse(s.validTime(1.95));assertTrue(s.validTime(2.05));
+        assertTrue(SniperRules.radius(s,1.95)<SniperRules.radius(s,2.1));
     }
     @Test void copiesDoNotShareMutableStateAndChangingStanceCannotClearShotRecovery() {
         var p=new Player(1);p.sniper.start(()->.1);p.sniper.recovery=.9;
