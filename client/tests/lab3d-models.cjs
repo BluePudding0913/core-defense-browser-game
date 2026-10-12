@@ -334,6 +334,7 @@ console.log('Common recoil passed: nine guns, shotgun discharge deduplication an
 // Spawn markers are unlit wall recesses on each of the four cardinal wall faces.
 frame.effects=[];frame.map={tileSize:40,rows:Array(5).fill('.....')};
 for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+ frame.map={tileSize:40,rows:Array(5).fill('.....')};const cells=frame.map.rows[2+dz].split('');cells[2+dx]='#';frame.map.rows[2+dz]=cells.join('');
  frame.reachable=new Set(['2:2','2:3','2:1','1:2','3:2']);frame.reachable.delete((2+dz)+':'+(2+dx));
  frame.stations=[[{id:'entry-'+dx+'-'+dz,x:100,y:100},'','#222b30','spawn']];now+=20;renderer.render(frame);
  const portal=scene.getObjectByName('station:entry-'+dx+'-'+dz+':spawn');assert(portal.userData.wallMounted);
@@ -368,3 +369,11 @@ for(let r=23;r<=29;r++)for(let col=29;col<=36;col++)if(actual.rows[r][col]==='.'
 }
 const terrainInstances=['lab-floors','lab-walls','lab-ceilings','lab-bulkheads','lab-ceiling-lights'].reduce((n,name)=>n+scene.getObjectByName(name).count,0);assert(terrainInstances<5000,'No per-voxel geometry expansion');
 console.log('Shared 3D map render passed: flat transit ceiling, compressed terrain '+terrainInstances+' instances');
+
+frame.effects=[];frame.stations=[[{id:'locked-neighbor-spawn',x:100,y:100},'','#222b30','spawn']];
+frame.map={tileSize:40,rows:['#####','#...#','##..#','#...#','#####']};frame.reachable=new Set(['2:2','2:3','1:2']);renderer.render(frame);
+const stablePortal=scene.getObjectByName('station:locked-neighbor-spawn:spawn'),portalBefore=stablePortal.position.clone(),rotationBefore=stablePortal.rotation.y;
+assert(Math.abs(portalBefore.x-80.35)<1e-8,'Spawn mounts on permanent west wall, not the locked south gate');
+frame.reachable=new Set(['1:1','1:2','1:3','2:2','2:3','3:1','3:2','3:3']);renderer.render(frame);
+const openedPortal=scene.getObjectByName('station:locked-neighbor-spawn:spawn');assert(openedPortal.position.distanceTo(portalBefore)<1e-8);assert.equal(openedPortal.rotation.y,rotationBefore,'Unlock cannot turn or move a spawn recess');
+console.log('Spawn orientation regression passed: same permanent wall before/after unlocking adjacent sector');

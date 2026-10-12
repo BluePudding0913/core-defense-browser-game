@@ -1,7 +1,7 @@
 "use strict";
 // Standalone visual experiment; not connected to gameplay or authoritative shooting.
 window.createBreathingPreview = (random=Math.random) => {
-    const period=2800,maxRadius=58,normalMin=16,precisionMin=3.5;
+    const period=2000,maxRadius=58,normalMin=16,precisionMin=3.5;
     let cycle=0,current=random()<.2,next=random()<.2;
     return {
         period,

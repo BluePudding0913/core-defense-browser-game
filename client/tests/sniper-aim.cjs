@@ -1,18 +1,18 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),T=require('../vendor/three.min.js');
 const c={window:{}};vm.runInNewContext(fs.readFileSync('client/sniper-aim.js','utf8'),c);const api=c.window.SniperAim;
 let serial=0;
-function at(elapsed,precision=false,nextPrecision=false){return {id:'sample-'+serial++,sniperReceivedAt:1000,sniper:{fixed:true,elapsed,cycle:Math.floor(elapsed/2.8),precision,nextPrecision,recovery:0}};}
-const p=at(2.1,true);
-assert(Math.abs(api.sample(at(.7,true,false),1000).radius-69.6*api.stability(.7))<1e-8,'Expansion immediately before special contraction grows by 20%');
-assert(Math.abs(api.sample(p,1000).radius-3.5*api.stability(2.1))<1e-8);
-assert(Math.abs(api.sample(at(2.1),1000).radius-16*api.stability(2.1))<1e-8);
+function at(elapsed,precision=false,nextPrecision=false){return {id:'sample-'+serial++,sniperReceivedAt:1000,sniper:{fixed:true,elapsed,cycle:Math.floor(elapsed/api.period),precision,nextPrecision,recovery:0}};}
+const p=at(1.5,true);
+assert(Math.abs(api.sample(at(.5,true,false),1000).radius-69.6*api.stability(.5))<1e-8,'Expansion immediately before special contraction grows by 20%');
+assert(Math.abs(api.sample(p,1000).radius-3.5*api.stability(1.5))<1e-8);
+assert(Math.abs(api.sample(at(1.5),1000).radius-16*api.stability(1.5))<1e-8);
 assert.equal(api.stability(90),.675);assert(Math.abs(api.stability(180)-.35)<1e-8);
-for(const t of [1.4,2.8,4.2]){const p=at(t,true);const speed=(api.sample(p,1000.1).radius-api.sample(p,999.9).radius)/.0002;assert(Math.abs(speed)>20,'No pause in the middle');}
+for(const t of [1,2,3]){const p=at(t,true);const speed=(api.sample(p,1000.1).radius-api.sample(p,999.9).radius)/.0002;assert(Math.abs(speed)>20,'No pause in the middle');}
 const moving=at(1);api.sync([moving],1000);assert(api.sample(moving,1400).elapsed>api.sample(moving,1300).elapsed,'No freeze after 200ms between snapshots');
 const before=api.sample(moving,1400);const next={...moving,sniper:{...moving.sniper,elapsed:1.38}};api.sync([next],1400);
 assert(Math.abs(api.sample(next,1400).elapsed-before.elapsed)<1e-8,'Snapshot time correction is continuous');assert(Math.abs(api.sample(next,1400).radius-before.radius)<1e-8);
 assert(api.sample(next,1500).elapsed>before.elapsed);
-assert(api.sample(next,10000).elapsed<5.6,'Never guess an unknown breathing cycle');
+assert(api.sample(next,10000).elapsed<4,'Never guess an unknown breathing cycle');
 api.shot(p.id,1000);assert(api.sample(p,1000).radius>50,'Shot opens ring immediately');
 const clean={...p,id:'clean'};assert.equal(api.sample(p,1900).radius,api.sample(clean,1900).radius,'Recovery ends without freezing the breathing clock');
 let drawnRadius;const ctx={save(){},restore(){},beginPath(){},arc(x,y,r){drawnRadius=r;},stroke(){},fill(){this.filled=(this.filled || 0)+1;}};
@@ -28,11 +28,11 @@ const rifle=model.root.getObjectByName('Rifle'),q=rifle.getWorldQuaternion(new T
 assert(Math.abs(Math.asin(direction.y)-.2)<1e-8,'Prone rifle follows look pitch independently of model scale and facing');
 const source=fs.readFileSync('client/app.js','utf8'),start=source.indexOf('function send(message)'),end=source.indexOf('\nfunction ',start+1),sent=[];
 const fire=vm.createContext({window:{SniperAim:api},getMe:()=>p,performance:{now:()=>1000},socket:{readyState:1,send:s=>sent.push(s)},WebSocket:{OPEN:1},DEBUG_MODE:false,fpsInput:{view:{pitch:.1}},nextInputSequence:1,pendingInputs:[]});
-vm.runInContext(source.slice(start,end),fire);vm.runInContext("send('FIRE:100:200:1')",fire);assert(sent[0].endsWith(':0.100000:2.100000'),'Fire sends bounded phase time, not a success boolean');
+vm.runInContext(source.slice(start,end),fire);vm.runInContext("send('FIRE:100:200:1')",fire);assert(sent[0].endsWith(':0.100000:1.500000'),'Fire sends bounded phase time, not a success boolean');
 console.log('Sniper client passed: subtle cue, random-cycle interpolation, angular projection, shot recovery, prone anatomy and timestamp protocol');
 
 vm.runInNewContext(fs.readFileSync('client/previews/sniper-breathing.js','utf8'),c);
-const preview=c.window.createBreathingPreview(()=>.1);assert(Math.abs(preview.sample(700).radius-69.6)<1e-8);assert(Math.abs(preview.sample(1401).radius-preview.sample(1399).radius)>.08,'Preview also passes the middle without pausing');
+const preview=c.window.createBreathingPreview(()=>.1);assert(Math.abs(preview.sample(500).radius-69.6)<1e-8);assert(Math.abs(preview.sample(1001).radius-preview.sample(999).radius)>.08,'Preview also passes the middle without pausing');
 
 const view={zoom:false};api.updateScope(view,'sniper',0);view.zoom=true;
 assert.equal(api.updateScope(view,'sniper',0),0);
@@ -43,12 +43,13 @@ view.zoom=true;assert.equal(api.updateScope(view,'sniper',410),1,'Reversal start
 assert.equal(api.updateScope(view,'sniper',420,false),0,'Menus reset scope motion');
 assert.equal(api.updateScope(view,'pistol',430),0,'Switching weapons clears the animation');
 
-assert(Math.abs(api.sample(at(.7,false,true),1000).radius-58*api.stability(.7))<1e-8,'No warning one cycle early');
-const future=at(2.7,false,true);assert(Math.abs(api.sample(future,1800).radius-69.6*api.stability(3.5))<1e-8,'Known next cycle predicts its own warning');
-const past=at(.7,false,true);past.sniper.cycle=1;past.sniper.previousPrecision=true;
-assert(Math.abs(api.sample(past,1000).radius-69.6*api.stability(.7))<1e-8,'Previous-cycle samples use that cycle special state');
+assert(Math.abs(api.sample(at(.5,false,true),1000).radius-58*api.stability(.5))<1e-8,'No warning one cycle early');
+const future=at(1.9,false,true);assert(Math.abs(api.sample(future,1600).radius-69.6*api.stability(2.5))<1e-8,'Known next cycle predicts its own warning');
+const past=at(.5,false,true);past.sniper.cycle=1;past.sniper.previousPrecision=true;
+assert(Math.abs(api.sample(past,1000).radius-69.6*api.stability(.5))<1e-8,'Previous-cycle samples use that cycle special state');
 const rolls=[.9,.1,.9,.9],timeline=c.window.createBreathingPreview(()=>rolls.shift() ?? .9);
-assert.equal(timeline.sample(700).warning,false);assert(Math.abs(timeline.sample(700).radius-58)<1e-8);
-assert.equal(timeline.sample(3500).warning,true);assert(Math.abs(timeline.sample(3500).radius-69.6)<1e-8);
-assert(Math.abs(timeline.sample(4900).radius-3.5)<1e-8,'Warning is followed directly by special minimum 1.4s later');
-assert.equal(timeline.sample(6300).warning,false);assert(Math.abs(timeline.sample(6300).radius-58)<1e-8);
+assert.equal(timeline.sample(500).warning,false);assert(Math.abs(timeline.sample(500).radius-58)<1e-8);
+assert.equal(timeline.sample(2500).warning,true);assert(Math.abs(timeline.sample(2500).radius-69.6)<1e-8);
+assert(Math.abs(timeline.sample(3500).radius-3.5)<1e-8,'Warning is followed directly by special minimum 1s later');
+assert.equal(timeline.sample(4500).warning,false);assert(Math.abs(timeline.sample(4500).radius-58)<1e-8);
+assert.equal(api.period,2,'All sniper breathing phases use the faster shared period');

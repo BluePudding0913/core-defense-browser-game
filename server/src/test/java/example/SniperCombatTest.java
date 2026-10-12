@@ -17,7 +17,7 @@ class SniperCombatTest {
         messages.clear();
     }
     void prone(){game.handleMessage(player,"SNIPER:1");assertFalse(player.sniper.fixed);game.update(.8);assertTrue(player.sniper.fixed);}
-    void precision() {player.sniper.elapsed=2.1;player.sniper.precision=true;player.sniper.nextPrecision=false;}
+    void precision() {player.sniper.elapsed=1.5;player.sniper.precision=true;player.sniper.nextPrecision=false;}
     void fire(String time,double pitch) {game.handleMessage(player,"FIRE:"+(player.x+200)+":"+player.y+":1:"+pitch+":"+time);}
     @Test void stanceRequiresStationaryGroundedSniperAndNeverRestartsOnRepeatedInput() {
         player.moveX=1;game.handleMessage(player,"SNIPER:1");assertFalse(player.sniper.fixed);
@@ -45,14 +45,14 @@ class SniperCombatTest {
     @Test void shotUsesProneHeightServerScatterAmmoAndRecoveryWithoutChangingManualAim() throws Exception {
         prone();precision();int ammo=player.weapons.ammo("sniper");
         var e=new Enemy(9901,"grunt",GameMap.SPAWN_POINTS.get(0),2000,0,0,0);e.x=player.x+100;e.y=player.y;game.enemies.add(e);
-        double pitch=Math.atan2(26-SniperRules.EYE_HEIGHT,100);fire("2.1",pitch);
+        double pitch=Math.atan2(26-SniperRules.EYE_HEIGHT,100);fire("1.5",pitch);
         assertEquals(ammo-1,player.weapons.ammo("sniper"));assertEquals(3.6,player.cooldown);assertTrue(player.sniper.fixed);
         assertEquals(.9,player.sniper.recovery);assertEquals(pitch,player.aimPitch);
         var mapper=new ObjectMapper();var trace=mapper.readTree(messages.stream().filter(s->s.contains("\"effect\":\"hit\"")&&s.contains("\"damage\":0")).findFirst().orElseThrow());
         assertEquals(6.2,trace.path("fromHeight").asDouble(),.001);assertTrue(e.hp<2000);
         var state=mapper.readTree(SnapshotBuilder.build(game)).path("players").get(player.slot-1).path("sniper");
-        assertTrue(state.path("fixed").asBoolean());assertEquals(2.1,state.path("elapsed").asDouble());assertTrue(state.path("precision").asBoolean());
-        int remaining=player.weapons.ammo("sniper");fire("2.1",pitch);assertEquals(remaining,player.weapons.ammo("sniper"));
+        assertTrue(state.path("fixed").asBoolean());assertEquals(1.5,state.path("elapsed").asDouble());assertTrue(state.path("precision").asBoolean());
+        int remaining=player.weapons.ammo("sniper");fire("1.5",pitch);assertEquals(remaining,player.weapons.ammo("sniper"));
     }
     @Test void fixedStanceBoostsBodyAndHeadDamageAndConsumesOneRoundWithoutResettingConcentration() throws Exception {
         player.job="healer";CombatTestRandom.center(game);
@@ -64,7 +64,7 @@ class SniperCombatTest {
             if(head){y+=e.facingY*21*.085;x+=e.facingX*21*.085;height=21*1.43;}
             double pitch=Math.atan2(height-(fixed?SniperRules.EYE_HEIGHT:26),Math.hypot(x-player.x,y-player.y));
             int ammo=player.weapons.ammo("sniper");double elapsed=player.sniper.elapsed;
-            game.handleMessage(player,"FIRE:"+x+":"+y+":1:"+pitch+(fixed?":2.1":""));
+            game.handleMessage(player,"FIRE:"+x+":"+y+":1:"+pitch+(fixed?":1.5":""));
             double expected=280*(1+100.0/2400)*(fixed?1.25:1)*(head?2:1);
             assertEquals(expected,5000-e.hp,1e-6,"Fixed="+fixed+", head="+head);
             assertEquals(ammo-1,player.weapons.ammo("sniper"));assertEquals(3.6,player.cooldown);
@@ -75,19 +75,19 @@ class SniperCombatTest {
     }
     @Test void falseOldAndFutureTimesCannotBuyPrecisionOrSpendAmmo() {
         prone();precision();int ammo=player.weapons.ammo("sniper");
-        for(String value:List.of("0","1.8","2.17","NaN","Infinity")){fire(value,0);assertEquals(ammo,player.weapons.ammo("sniper"));assertEquals(0,player.cooldown);}
-        fire("2.0",0);assertEquals(ammo-1,player.weapons.ammo("sniper"));
+        for(String value:List.of("0","1.8","1.57","NaN","Infinity")){fire(value,0);assertEquals(ammo,player.weapons.ammo("sniper"));assertEquals(0,player.cooldown);}
+        fire("1.4",0);assertEquals(ammo-1,player.weapons.ammo("sniper"));
     }
     @Test void actualRayHasFloorAndCeilingImpactsRatherThanPassingThroughThem() throws Exception {
-        var mapper=new ObjectMapper();prone();precision();fire("2.1",-.5);
+        var mapper=new ObjectMapper();prone();precision();fire("1.5",-.5);
         var trace=mapper.readTree(messages.stream().filter(s->s.contains("\"effect\":\"hit\"")).findFirst().orElseThrow());
         assertEquals(0,trace.path("hitHeight").asDouble(),.001);
-        messages.clear();player.firing=false;player.cooldown=0;fire("2.1",1.1);
+        messages.clear();player.firing=false;player.cooldown=0;fire("1.5",1.1);
         trace=mapper.readTree(messages.stream().filter(m->m.contains("\"effect\":\"hit\"")).findFirst().orElseThrow());
         assertEquals(GameMap.ceilingHeight(player.x,player.y),trace.path("hitHeight").asDouble(),.001);
     }
     @Test void releasingTheTriggerAlwaysStopsFireEvenWithAStaleBreathTime() {
-        prone();precision();fire("2.1",0);assertTrue(player.firing);
+        prone();precision();fire("1.5",0);assertTrue(player.firing);
         game.handleMessage(player,"FIRE:"+(player.x+200)+":"+player.y+":0:0:0");
         assertFalse(player.firing);assertNull(player.sniper.inputTime);
     }
@@ -117,7 +117,7 @@ class SniperCombatTest {
             for(int i=0;i<3;i++){var e=new Enemy(9960+i,"grunt",GameMap.SPAWN_POINTS.get(0),5000,0,0,0);e.x=player.x+100+i*50;e.y=player.y;victims.add(e);}
             game.enemies.add(victims.get(2));game.enemies.add(victims.get(0));game.enemies.add(victims.get(1));
             double pitch=Math.atan2(16-(mode==1?SniperRules.EYE_HEIGHT:26),100);int ammo=player.weapons.ammo("sniper");
-            game.handleMessage(player,(mode==2?"SECONDARY_FIRE:":"FIRE:")+(player.x+200)+":"+player.y+":1:"+pitch+(mode==1?":2.1":""));
+            game.handleMessage(player,(mode==2?"SECONDARY_FIRE:":"FIRE:")+(player.x+200)+":"+player.y+":1:"+pitch+(mode==1?":1.5":""));
             assertTrue(victims.get(0).hp<5000);assertTrue(victims.get(1).hp<5000);assertEquals(5000,victims.get(2).hp);
             assertEquals(ammo-1,player.weapons.ammo("sniper"));assertEquals(3.6,mode==2?player.secondaryCooldown:player.cooldown);
             var trace=new ObjectMapper().readTree(messages.stream().filter(m->m.contains("\"effect\":\"hit\"")&&m.contains("\"damage\":0")).findFirst().orElseThrow());

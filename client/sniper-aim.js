@@ -1,6 +1,6 @@
 "use strict";
 window.SniperAim = (() => {
-    const PERIOD=2.8,RECOVERY=.9,PIXEL_SLOPE=Math.tan(Math.PI/18)/425;
+    const PERIOD=2,RECOVERY=.9,PIXEL_SLOPE=Math.tan(Math.PI/18)/425;
     const shots=new Map(),clocks=new Map();
     const stability=time=>1-.65*Math.min(1,Math.max(0,time)/180);
     function phase(clock,now){const age=Math.max(0,(now-clock.at)/1000);return clock.elapsed+age+clock.offset*Math.exp(-age/.2); }
@@ -24,7 +24,7 @@ window.SniperAim = (() => {
             const cycle=Math.floor(elapsed/PERIOD),wave=Math.sin(elapsed%PERIOD/PERIOD*Math.PI*2);
             const special=cycle<(s.cycle || 0)?s.previousPrecision:cycle>(s.cycle || 0)?s.nextPrecision:s.precision;
             radius=(38+21*wave-wave*wave-(special && wave<0?12.5*wave*wave:0)+(special && wave>0?11.6*wave*wave:0))*stability(elapsed);
-            radius+=70*Math.max(0,1-elapsed/.7)**2;
+            radius+=70*Math.max(0,1-elapsed/(PERIOD/4))**2;
         }
         radius+=48*(recovery/RECOVERY)**2;
         return {elapsed,radius,slope:radius*PIXEL_SLOPE,fixed:!!s.fixed};
@@ -42,5 +42,5 @@ window.SniperAim = (() => {
         ctx.save();ctx.strokeStyle=color;ctx.lineWidth=1.4;ctx.shadowBlur=0;
         ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);if(fillColor){ctx.fillStyle=fillColor;ctx.fill();}ctx.shadowColor='#0b1418';ctx.shadowBlur=2;ctx.stroke();ctx.restore();return r;
     }
-    return {sample,sync,draw,shot,stability,updateScope};
+    return {period:PERIOD,sample,sync,draw,shot,stability,updateScope};
 })();

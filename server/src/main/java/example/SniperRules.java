@@ -4,7 +4,7 @@ import java.util.function.DoubleSupplier;
 
 /** Sniper timing and cone sampling; independent of transport, rendering and session state. */
 final class SniperRules {
-    static final double PERIOD = 2.8, EYE_HEIGHT = 6.2, RECOVERY = .9;
+    static final double PERIOD = 2, EYE_HEIGHT = 6.2, RECOVERY = .9;
     static final double PIXEL_SLOPE = Math.tan(Math.toRadians(10)) / 425;
     static final double MAX_REWIND = .20, DEPLOY_SECONDS = .8;
     static double stability(double time) { return 1-.65*Math.min(1,Math.max(0,time)/180); }
@@ -56,7 +56,7 @@ final class SniperRules {
         double breath=baseline+21*wave-wave*wave
                 -(special && wave<0?12.5*wave*wave:0)+(special && wave>0?11.6*wave*wave:0);
         return breath*stability(time)
-                +70*Math.pow(Math.max(0,1-time/.7),2)+48*Math.pow(state.recovery/RECOVERY,2);
+                +70*Math.pow(Math.max(0,1-time/(PERIOD/4)),2)+48*Math.pow(state.recovery/RECOVERY,2);
     }
 
     record Direction(double dx, double dy, double pitch) {}
