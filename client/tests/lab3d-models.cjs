@@ -377,3 +377,39 @@ assert(Math.abs(portalBefore.x-80.35)<1e-8,'Spawn mounts on permanent west wall,
 frame.reachable=new Set(['1:1','1:2','1:3','2:2','2:3','3:1','3:2','3:3']);renderer.render(frame);
 const openedPortal=scene.getObjectByName('station:locked-neighbor-spawn:spawn');assert(openedPortal.position.distanceTo(portalBefore)<1e-8);assert.equal(openedPortal.rotation.y,rotationBefore,'Unlock cannot turn or move a spawn recess');
 console.log('Spawn orientation regression passed: same permanent wall before/after unlocking adjacent sector');
+// Downed players crawl on their elbows, stop smoothly, and fully restore after revival.
+{
+frame.effects=[];observer.down=true;observer.sniper={fixed:true,pitch:.2,facingX:1,facingY:0};
+observer.facingX=1;observer.facingY=0;now+=16;renderer.render(frame);
+assert.equal(remote.rotation.x,0,'The actor is not a rotated standing model');
+assert(Math.abs(remote.rotation.y-Math.PI/2)<1e-8,'Down overrides the sniper facing');
+assert.equal(remote.getObjectByName('Rifle').visible,false,'Downed players free both hands');
+const bounds=new THREE.Box3();remote.updateMatrixWorld(true);
+remote.traverseVisible(part=>{if(part.isMesh)bounds.union(new THREE.Box3().setFromObject(part));});
+assert(bounds.min.y>-.5 && bounds.max.y<12,'Crawling body stays low and above the floor');
+const hand=side=>remote.getObjectByName('LowerArm_'+side).localToWorld(new THREE.Vector3(0,-.33,0));
+assert(hand('L').y<3 && hand('R').y<3,'Both hands rest near the floor');
+const crawlModel=context.window.buildSoldier(THREE);
+for(let i=0;i<24;i++) {
+    crawlModel.poseDown(i*Math.PI/12,1);crawlModel.root.updateMatrixWorld(true);
+    const cycleBounds=new THREE.Box3();
+    crawlModel.root.traverseVisible(part=>{if(part.isMesh)cycleBounds.union(new THREE.Box3().setFromObject(part));});
+    assert(cycleBounds.min.y>-.03 && cycleBounds.max.y<.75,'Entire crawl cycle remains grounded and low');
+}
+const firstArm=remote.getObjectByName('UpperArm_L').quaternion.clone();
+for(let i=0;i<20;i++){observer.x+=.75;now+=1000/60;renderer.render(frame);}
+assert(firstArm.angleTo(remote.getObjectByName('UpperArm_L').quaternion)>.1,'Travel drives the crawling stroke');
+for(let i=0;i<100;i++){now+=1000/60;renderer.render(frame);}
+const stopped=remote.getObjectByName('UpperArm_L').quaternion.clone();
+now+=16;renderer.render(frame);assert(stopped.angleTo(remote.getObjectByName('UpperArm_L').quaternion)<.001,'Stopped crawl settles instead of walking in place');
+observer.down=false;observer.sniper={fixed:false};now+=16;renderer.render(frame);
+assert(remote.getObjectByName('Hips').position.y>.8,'Revival immediately restores standing');
+assert.equal(remote.getObjectByName('Rifle').visible,true,'Revival restores the held weapon');
+observer.sniper={fixed:true,pitch:0,facingX:0,facingY:1};now+=16;renderer.render(frame);
+assert.equal(remote.getObjectByName('Rifle').visible,true,'Sniper stance after revival keeps the rifle');
+assert(Math.abs(remote.getObjectByName('Rifle').scale.x-.86)<1e-8);
+observer.sniper={fixed:false};now+=16;renderer.render(frame);
+assert.equal(remote.getObjectByName('Rifle').scale.x,1,'Leaving prone restores the gun scale on the first frame');
+console.log('Down crawl passed: grounded anatomy, facing, traveling strokes, smooth stop, revival and sniper transitions');
+
+}
