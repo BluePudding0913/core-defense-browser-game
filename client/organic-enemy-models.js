@@ -65,14 +65,33 @@ window.buildOrganicEnemy = (T,id) => {
   if(lab)loft(elbow,'Frayed coat cuff_'+name,[[id==='lab-assistant'?-.10:i===0?-.225:-.135,.103,.116],[id==='lab-assistant'?-.05:i===0?-.16:-.08,.12,.14],[-.01,.125,.14],[.03,.106,.13]],cloth,2.1,32,i===0?.008:.02);
   const hand=joint(elbow,'Hand_'+name,0,-.26,.013);hand.rotation.set(id==='rush'?.70:.36,side*.70,side*.075);
   loft(hand,'Palm_'+name,[[-.105,.071*wide,.042,.018],[-.075,.085*wide,.053,.008],[-.025,.080*wide,.057],[.015,.064*wide,.070]],skin,2.5,24);
+  // Local -Z is the palm side: wrist flexion, finger flexion and thumb opposition agree.
+  // Sweep sections perpendicular to the phalanges, including the rounded fingertip.
   for(let f=0;f<4;f++){
    const x=side*(f-1.5)*.020*wide,len=[.065,.082,.077,.058][f];
-   const finger=joint(hand,'Finger_'+name+'_'+f,x,-.092,.021);finger.rotation.z=side*(f-1.5)*.075;
-   loft(finger,'Curled finger_'+name+'_'+f,[[-len,.012*wide,.014,.029],[-len*.8,.017*wide,.019,.034],[-len*.48,.018*wide,.019,.028],[-len*.2,.019*wide,.020,.008],[.008,.020*wide,.023]],skin,2,12);
+   const finger=joint(hand,'Finger_'+name+'_'+f,x,-.090+[0,-.003,0,.006][f],.014);
+   finger.rotation.z=side*(f-1.5)*.035;
+   const steps=12,detail=12,centers=[{y:.006,z:0,angle:0}],vertices=[],colors=[],indices=[];
+   for(let k=1;k<=steps;k++){
+    const t=k/steps,angle=t<.4?.08:t<.75?.08+(t-.4)/.35*.68:.76+(t-.75)/.25*.45;
+    const prev=centers[k-1],mid=(prev.angle+angle)*.5;
+    centers.push({y:prev.y-len/steps*Math.cos(mid),z:prev.z-len/steps*Math.sin(mid),angle});
+   }
+   for(let k=steps;k>=0;k--){
+    const t=k/steps,c=centers[k],radius=(.010-.002*t)*wide*(t>.83?Math.sqrt(Math.max(.025,1-((t-.83)/.17)**2)):1);
+    for(let j=0;j<detail;j++){
+     const a=j/detail*Math.PI*2,v=Math.sin(a)*radius;
+     vertices.push(Math.cos(a)*radius,c.y-v*Math.sin(c.angle),c.z+v*Math.cos(c.angle));colors.push(.96,.96,.96);
+    }
+   }
+   for(let k=0;k<steps;k++)for(let j=0;j<detail;j++){const a=k*detail+j,b=k*detail+(j+1)%detail;indices.push(a,a+detail,b,b,a+detail,b+detail);}
+   for(const k of [0,steps]){const c=centers[steps-k],center=vertices.length/3;vertices.push(0,c.y,c.z);colors.push(.96,.96,.96);for(let j=0;j<detail;j++){const a=k*detail+j,b=k*detail+(j+1)%detail;indices.push(...(k===0?[center,a,b]:[center,b,a]));}}
+   const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(vertices,3));g.setAttribute('color',new T.Float32BufferAttribute(colors,3));g.setIndex(indices);g.computeVertexNormals();owned.add(g);
+   const mesh=new T.Mesh(g,skin);mesh.name='Curled finger_'+name+'_'+f;mesh.castShadow=mesh.receiveShadow=true;finger.add(mesh);
   }
   // Radial side is toward the index finger, mirrored between left and right hands.
   const radial=-side,thumb=joint(hand,'Thumb_'+name,radial*.030*wide,-.038,.004);thumb.rotation.z=radial*.62;
-  loft(thumb,'Thumb flesh_'+name,[[-.060,.013*wide,.016,.023],[-.047,.020*wide,.023,.022],[-.026,.025*wide,.028,.013],[0,.034*wide,.034],[.012,.026*wide,.028,-.003]],skin,2.15,16);
+  loft(thumb,'Thumb flesh_'+name,[[-.060,.013*wide,.016,-.023],[-.047,.020*wide,.023,-.022],[-.026,.025*wide,.028,-.013],[0,.034*wide,.034],[.012,.026*wide,.028,.003]],skin,2.15,16);
  }
 // Closed thin cloth shell with an actual front opening; no painted-on lapel or slit.
 function coatShell(parent,name,rings,opening,material,hem=0){

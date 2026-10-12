@@ -9,6 +9,11 @@ for(const {id}of context.window.EnemyModels.variants){
    const thumb=m.root.getObjectByName('Thumb_'+name),index=m.root.getObjectByName('Finger_'+name+'_0'),little=m.root.getObjectByName('Finger_'+name+'_3'),palm=m.root.getObjectByName('Palm_'+name),flesh=m.root.getObjectByName('Thumb flesh_'+name);
    assert(thumb.position.x*radial>0&&index.position.x*radial>0&&little.position.x*radial<0,'Thumb and index occupy the radial side of each mirrored hand');
    palm.geometry.computeBoundingBox();flesh.geometry.computeBoundingBox();thumb.updateMatrix();assert(palm.geometry.boundingBox.intersectsBox(flesh.geometry.boundingBox.clone().applyMatrix4(thumb.matrix)),'Thumb base is embedded in the palm');
+   for(let f=0;f<4;f++){
+    const finger=m.root.getObjectByName('Finger_'+name+'_'+f),mesh=m.root.getObjectByName('Curled finger_'+name+'_'+f),p=mesh.geometry.attributes.position,tip=p.count-2,base=p.count-1;
+    assert(p.getZ(tip)<p.getZ(base)-.015&&p.getY(tip)<p.getY(base)-.035,'Fingers bend toward the palm and extend beyond their knuckles');
+    mesh.geometry.computeBoundingBox();finger.updateMatrix();assert(palm.geometry.boundingBox.intersectsBox(mesh.geometry.boundingBox.clone().applyMatrix4(finger.matrix)),'Finger roots meet the palm');
+   }
   }
  }
  const rest=m.legs[0].rotation.x;m.pose(0);m.pose(.1);assert(Math.abs(m.legs[0].rotation.x-rest)>0);m.reset();assert.equal(m.legs[0].rotation.x,rest);
