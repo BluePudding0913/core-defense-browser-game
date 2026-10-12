@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Weapon studio</title>
+<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#141a20;color:#e0e5e8;font:14px system-ui}canvas{display:block;touch-action:none}nav{position:absolute;top:24px;left:24px;display:flex;gap:8px}button{font:inherit;color:inherit;background:#252f38;border:1px solid #44525e;border-radius:6px;padding:10px 18px;cursor:pointer}button.active{background:#4b6275;border-color:#91adc2}small{position:absolute;bottom:20px;left:24px;color:#a9b4bd}</style>
+<nav><button data-weapon="pistol" class="active">PISTOL</button><button data-weapon="shotgun">SHOTGUN</button></nav><small>ドラッグで回転 · ホイールで拡大</small>
+<script src="../vendor/three.min.js"></script><script src="../soldier-model.js"></script><script>
+const T=THREE,scene=new T.Scene();scene.background=new T.Color('#141a20');
+const renderer=new T.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputEncoding=T.sRGBEncoding;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;document.body.appendChild(renderer.domElement);
+const camera=new T.PerspectiveCamera(36,1,.001,20),target=new T.Vector3();
+scene.add(new T.HemisphereLight(0xc5d8ee,0x29313b,.85));
+for(const [color,intensity,x,y,z]of [[0xd8eaff,2,-1,2,-1],[0xffe0b7,1.2,2,.5,1],[0xc0d6ff,1.5,0,2,2]]){const l=new T.DirectionalLight(color,intensity);l.position.set(x,y,z);scene.add(l);}
+const soldier=buildSoldier(T),rifle=soldier.root.getObjectByName('Rifle');scene.add(rifle);let yaw=-1.12,pitch=.24,distance=.85;
+function select(weapon){soldier.setWeapon(weapon);rifle.position.set(0,0,0);rifle.quaternion.identity();rifle.scale.setScalar(1);const box=new T.Box3().setFromObject(rifle);box.getCenter(target);distance=weapon==='pistol'?.83:2.1;document.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.weapon===weapon));}
+select('pistol');document.querySelectorAll('button').forEach(b=>b.onclick=()=>select(b.dataset.weapon));
+let drag=null;renderer.domElement.onpointerdown=e=>{drag={x:e.clientX,y:e.clientY};renderer.domElement.setPointerCapture(e.pointerId);};renderer.domElement.onpointerup=()=>drag=null;renderer.domElement.onpointermove=e=>{if(!drag)return;yaw-=(e.clientX-drag.x)*.008;pitch=T.MathUtils.clamp(pitch+(e.clientY-drag.y)*.006,-1.3,1.3);drag={x:e.clientX,y:e.clientY};};renderer.domElement.onwheel=e=>{e.preventDefault();distance=T.MathUtils.clamp(distance*Math.exp(e.deltaY*.001),.35,4);};
+function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}onresize=resize;resize();
+function draw(){requestAnimationFrame(draw);camera.position.set(target.x+Math.sin(yaw)*Math.cos(pitch)*distance,target.y+Math.sin(pitch)*distance,target.z+Math.cos(yaw)*Math.cos(pitch)*distance);camera.lookAt(target);renderer.render(scene,camera);}draw();
+</script></html>

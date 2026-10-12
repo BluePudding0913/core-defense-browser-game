@@ -113,7 +113,8 @@ const stableMuzzle=viewScene.getObjectByName('Muzzle'),gunSignatures=new Set();
 for(const weapon of ['bat','pistol','shotgun','smg','rifle','sniper','ricochet','revolver','railgun','rocket','flamethrower','lmg','hook','laserCannon','poisonGas','repulsor','freezeGun','plasmaBlade']) {
     player.weapon=weapon;renderer.render(frame);const gun=viewScene.getObjectByName('Rifle');assert.equal(gun.userData.weapon,weapon);
     assert.equal(viewScene.getObjectByName('Muzzle'),stableMuzzle,'Weapon swaps keep the tracer muzzle node');
-    gunSignatures.add(JSON.stringify(gun.children.filter(c=>c.isMesh).map(c=>[c.geometry.type,c.geometry.parameters,c.position.toArray(),c.material.color.getHex()])));
+    const signature=[];gun.traverse(c=>{if(c.isMesh)signature.push([c.geometry.type,c.geometry.parameters,c.geometry.attributes.position.count,c.position.toArray(),c.material.color.getHex()]);});
+    gunSignatures.add(JSON.stringify(signature));
 }
 assert.equal(gunSignatures.size,18,'Every weapon has a distinct minimal model');
 state.decoys=[];renderer.render(frame);assert(!scene.getObjectByName('decoy:a'));assert(!scene.getObjectByName('decoy:b'));
@@ -412,4 +413,21 @@ observer.sniper={fixed:false};now+=16;renderer.render(frame);
 assert.equal(remote.getObjectByName('Rifle').scale.x,1,'Leaving prone restores the gun scale on the first frame');
 console.log('Down crawl passed: grounded anatomy, facing, traveling strokes, smooth stop, revival and sniper transitions');
 
+}
+
+// High-detail models preserve world tracer alignment at several aim angles.
+{
+frame.effects=[];frame.scoped=false;frame.motion=undefined;frame.eye=player;
+for(const weapon of ['pistol','shotgun'])for(const angle of [{yaw:0,pitch:0},{yaw:.6,pitch:.35}]) {
+    player.weapon=weapon;frame.view={...angle,zoom:false};now+=100;renderer.render(frame);
+    frame.effects=[{effect:'hit',weapon,playerId:'me',fromX:player.x,fromY:player.y,x:player.x+Math.sin(angle.yaw)*250,y:player.y-Math.cos(angle.yaw)*250,damage:0,started:now}];
+    renderer.render(frame);
+    const shot=scene.children.find(o=>o.name==='muzzle-tracer'),a=shot.geometry.attributes.position;
+    const origin=new THREE.Vector3().fromBufferAttribute(a,0).project(camera);
+    const visibleMuzzle=viewScene.getObjectByName('Muzzle').getWorldPosition(new THREE.Vector3()).project(viewCamera);
+    assert(Math.hypot(origin.x-visibleMuzzle.x,origin.y-visibleMuzzle.y)<1e-5,'Detailed weapon tracer starts at its visible muzzle');
+    const end=new THREE.Vector3().fromBufferAttribute(a,1).project(camera);assert(Math.hypot(end.x,end.y)<1e-5,'Weapon details do not displace the shot aim');
+    frame.effects=[];now+=500;renderer.render(frame);
+}
+console.log('Detailed pistol/shotgun FPS tracer alignment passed');
 }
