@@ -407,3 +407,5 @@ BlockTerrain（Java/JS）は473個の直方体と水平52×52マスへの3,957�
 敵外観の比較候補は client/enemy-models.js の EnemyModels に独立させ、client/previews/enemy-models.html で同じ照明・カメラ・歩行位相を比較する。ゲームの敵描画・戦闘判定には接続しない。詳細とGLBの制約は [enemy-models.md](enemy-models.md) を参照。
 
 追加の非装甲候補D/E/Fはorganic-enemy-models.jsで肌・布・非対称な構えを生成する。EnemyModelsの共通APIを使い、比較画面で新旧各3案を切り替える。enemy-model-export.jsは頂点色COLOR_0も書き出し、比較時は表示中3体を1つのGLBに保存する。
+
+感染研究員researcherは同じOrganicEnemyのファクトリーに追加し、白衣の前開き・厚み・襟を立体化する。上半身の前傾と腰固定の裾を分け、右脚だけ歩幅を小さくする。比較ビューはこの候補と歩行を初期表示し、既存6案も維持する。ゲーム側のGRUNT描画・命中判定・性能は変更しない。
