@@ -31,6 +31,7 @@ final class GameMap {
     static final double WORKBENCH_Y = DEFINITION.stations().workbench().y();
     static final int TILE_SIZE = DEFINITION.tileMap().tileSize();
     static final TileMapDefinition TILE_MAP = DEFINITION.tileMap();
+    static final BlockTerrain TERRAIN = new BlockTerrain(TILE_MAP);
     static final List<UnlockArea> AREAS = List.copyOf(DEFINITION.areas());
     static final List<SpawnPoint> SPAWN_POINTS = buildSpawnPoints();
     static final List<ShopUnit> SHOP_UNITS = List.copyOf(DEFINITION.shopUnits());
@@ -50,20 +51,12 @@ final class GameMap {
 
     private GameMap() { }
 
-    static double ceilingHeight(double x, double y) {
-        AreaTile cell = TILE_MAP.cellAt(x, y);
-        int shortest = Integer.MAX_VALUE;
-        for (int[] direction : new int[][]{{1, 0}, {0, 1}}) {
-            int count = 1;
-            for (int sign : new int[]{-1, 1}) for (int n = 1; ; n++) {
-                TileType tile = TILE_MAP.typeAt(cell.column() + direction[0] * n * sign,
-                        cell.row() + direction[1] * n * sign);
-                if (tile == null || tile.solid()) break;
-                count++;
-            }
-            shortest = Math.min(shortest, count);
-        }
-        return shortest <= 2 ? 64 : 130;
+    static double ceilingHeight(double x,double y) { return TERRAIN.ceiling(x,y,0); }
+    static double ceilingHeight(double x,double y,double feet) { return TERRAIN.ceiling(x,y,feet); }
+    static double terrainSupport(double x,double y,double feet) { return Math.max(0,TERRAIN.support(x,y,feet)); }
+    static boolean clearBody(double x,double y,double radius,double feet,double height) { return TERRAIN.clearBody(x,y,radius,feet,height); }
+    static double terrainDistance(double x,double y,double height,double dx,double dy,double slope,double range) {
+        return TERRAIN.trace(x,y,height,dx,dy,slope,range);
     }
 
     private static List<Station> buildMedbays() {
@@ -131,7 +124,7 @@ final class GameMap {
                 if (type == null || type.solid()) return false;
             }
         }
-        return true;
+        return TERRAIN.clearBody(x,y,radius,0,JumpRules.BODY_HEIGHT);
     }
 
     static MapPoint snapToTile(double x, double y) {

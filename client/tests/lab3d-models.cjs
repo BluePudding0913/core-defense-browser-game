@@ -10,7 +10,7 @@ THREE.WebGLRenderer = class {
     render(s,c) { if(c.near===.01){viewScene=s;viewCamera=c;viewScene.updateMatrixWorld(true);viewCamera.updateMatrixWorld(true);return;}scene=s;camera=c;scene.updateMatrixWorld(true);camera.updateMatrixWorld(true); }
 };
 const context=vm.createContext({window:{THREE},document:{body:{classList:{add(){}}}},performance:{now:()=>now},console});
-for (const file of ['aim-control.js','soldier-model.js','sniper-stance.js','zombie-model.js','wall-impacts.js','lab3d.js']) vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
+for (const file of ['aim-control.js','soldier-model.js','sniper-stance.js','zombie-model.js','wall-impacts.js','block-terrain.js','lab3d.js']) vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
 const renderer=context.window.Lab3D.create({width:900,height:500,before(){}});
 const player={id:'me',x:100,y:100,facingX:0,facingY:-1};
 const state={core:{x:60,y:60},players:[player],enemies:[{id:1,type:'shield',x:180,y:100,hp:100,facingX:1,facingY:0}],slots:[
@@ -357,3 +357,14 @@ const midEye=viewCamera.position.clone();frame.view.sniperAds=0;renderer.render(
 assert(midEye.distanceTo(viewCamera.position)>.1,'Eye moves toward physical scope');
 frame.view.sniperAds=1;renderer.render(frame);assert.equal(camera.fov,16);
 console.log('Eye-to-scope transition passed');
+
+const actual=JSON.parse(fs.readFileSync('shared/map.json','utf8')).tileMap;frame.map=actual;frame.reachable=new Set();
+for(let r=0;r<actual.rows.length;r++)for(let col=0;col<actual.rows[r].length;col++)if(actual.rows[r][col]==='.')frame.reachable.add(r+':'+col);
+frame.scoped=false;frame.view={yaw:0,pitch:.3};frame.eye={x:1260,y:1100};renderer.render(frame);
+const actualRoof=scene.getObjectByName('lab-ceilings');
+for(let r=23;r<=29;r++)for(let col=29;col<=36;col++)if(actual.rows[r][col]==='.') {
+ let found=false;for(let i=0;i<actualRoof.count;i++){actualRoof.getMatrixAt(i,m);m.decompose(pos,q,scale);if(Math.abs(pos.x-(col+.5)*40)<.01&&Math.abs(pos.z-(r+.5)*40)<.01){assert.equal(pos.y-scale.y/2,130);found=true;}}
+ assert(found,'Explicit ceiling is rendered in transit hall');
+}
+const terrainInstances=['lab-floors','lab-walls','lab-ceilings','lab-bulkheads','lab-ceiling-lights'].reduce((n,name)=>n+scene.getObjectByName(name).count,0);assert(terrainInstances<5000,'No per-voxel geometry expansion');
+console.log('Shared 3D map render passed: flat transit ceiling, compressed terrain '+terrainInstances+' instances');

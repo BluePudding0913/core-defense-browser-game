@@ -635,7 +635,7 @@ final class GameSession {
         return trapSlots.stream().anyMatch(slot -> slot.defense != null
                 && BuildingRules.blocksMovement(slot.defense.type)
                 && distance(player.x, player.y, slot.x, slot.y) < 23)
-                && player.jumpHeight >= JumpRules.OBSTACLE_HEIGHT - .01 ? JumpRules.OBSTACLE_HEIGHT : 0;
+                && player.jumpHeight >= JumpRules.OBSTACLE_HEIGHT - .01 ? Math.max(JumpRules.OBSTACLE_HEIGHT,GameMap.terrainSupport(player.x,player.y,player.jumpHeight)) : GameMap.terrainSupport(player.x,player.y,player.jumpHeight);
     }
 
     private void sniperStance(Player player, boolean active) {
@@ -663,7 +663,8 @@ final class GameSession {
 
     private boolean canPlayerOccupy(Player player, double x, double y) {
         if (!GameMap.canOccupy(x, y, 5, unlockedAreas)
-                || player.jumpHeight + JumpRules.BODY_HEIGHT > GameMap.ceilingHeight(x, y) + .01) return false;
+                || player.jumpHeight + JumpRules.BODY_HEIGHT > GameMap.ceilingHeight(x, y,player.jumpHeight) + .01
+                || !GameMap.clearBody(x,y,5,player.jumpHeight,JumpRules.BODY_HEIGHT)) return false;
         return player.jumpHeight >= JumpRules.OBSTACLE_HEIGHT - .01 || canOccupy(x, y, 5);
     }
 
@@ -1275,7 +1276,7 @@ final class GameSession {
             if (player.down || player.movingCore) { player.jumpHeight = 0; player.jumpVelocity = 0; }
             else {
                 JumpRules.Motion motion = JumpRules.advance(player.jumpHeight, player.jumpVelocity, dt,
-                        jumpSupport(player), GameMap.ceilingHeight(player.x, player.y));
+                        jumpSupport(player), GameMap.ceilingHeight(player.x, player.y,player.jumpHeight));
                 player.jumpHeight = motion.height(); player.jumpVelocity = motion.velocity();
             }
             if (player.missileControl) continue;

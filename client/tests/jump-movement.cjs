@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const context=vm.createContext({window:{}});vm.runInContext(fs.readFileSync('client/jump-movement.js','utf8'),context);
+const context=vm.createContext({window:{}});for(const file of ['block-terrain.js','jump-movement.js'])vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
 const jump=context.window.JumpMovement,map={tileSize:40,legend:{'#':{solid:true},'.':{solid:false}},rows:['#######','#.....#','#.....#','#.....#','#.....#','#.....#','#######']};
 let p={x:100,y:100,jumpHeight:0,jumpVelocity:0};assert(jump.start(p,[]));jump.advance(p,.2,[],map);assert(Math.abs(p.jumpHeight-26.656)<1e-10);assert(!jump.start(p,[]),'No double jump');
 for(let n=0;n<40;n++)jump.advance(p,.02,[],map);assert.equal(p.jumpHeight,0);assert.equal(p.jumpVelocity,0);

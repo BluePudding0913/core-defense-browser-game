@@ -474,8 +474,7 @@ final class CombatSystem {
                 double range=Math.min(12, budget);
                 double impactDistance = GameMap.distanceToWall(flight.x, flight.y, dx, dy, range, world.unlockedAreas());
                 var ray=flight.fps?new FpsHitRules.Ray(flight.x,flight.y,flight.height,dx,dy,flight.slope,range):null;
-                if(flight.fps && flight.slope<0)impactDistance=Math.min(impactDistance,flight.height/-flight.slope);
-                else if(flight.fps && flight.slope>0)impactDistance=Math.min(impactDistance,(GameMap.ceilingHeight(flight.x,flight.y)-flight.height)/flight.slope);
+                if(flight.fps)impactDistance=GameMap.terrainDistance(flight.x,flight.y,flight.height,dx,dy,flight.slope,impactDistance);
                 for (var shot : world.enemyProjectiles()) {
                     if(ray!=null && FpsHitRules.projectile(ray,shot.x,shot.y,flight.weapon.width())==null)continue;
                     impactDistance = Math.min(impactDistance, EnemyProjectileSystem.rayEntry(shot,
@@ -559,7 +558,7 @@ final class CombatSystem {
             GameMap.WallImpact wall = GameMap.rayWall(x, y, dx, dy, remaining, world.unlockedAreas());
             double length = Math.max(0, wall.distance() - .001);
             double height=shotHeight(player)+(player.aimPitch==null?0:Math.tan(player.aimPitch)*(weapon.range()-remaining));
-            if(player.aimPitch!=null){double slope=Math.tan(player.aimPitch);if(slope<0)length=Math.min(length,height/-slope);else if(slope>0)length=Math.min(length,(GameMap.ceilingHeight(x,y)-height)/slope);}
+            if(player.aimPitch!=null)length=GameMap.terrainDistance(x,y,height,dx,dy,Math.tan(player.aimPitch),length);
             if (fireSegment(player,weapon,x,y,dx,dy,Math.max(0,length),height)) return;
             if(length<wall.distance()-.001-1e-8)return;
             remaining -= wall.distance();
@@ -591,8 +590,7 @@ final class CombatSystem {
                 directionX, directionY, weapon.range(), world.unlockedAreas());
         if(ShotSpreadRules.radius(shotWeapon(player))>0 && player.aimPitch!=null) {
             double slope=Math.tan(player.aimPitch),height=shotHeight(player);
-            if(slope<0)shotDistance=Math.min(shotDistance,height/-slope);
-            else if(slope>0)shotDistance=Math.min(shotDistance,(GameMap.ceilingHeight(shotX(player),shotY(player))-height)/slope);
+            shotDistance=GameMap.terrainDistance(shotX(player),shotY(player),height,directionX,directionY,slope,shotDistance);
         }
         fireSegment(player, weapon, shotX(player), shotY(player), directionX, directionY, Math.max(0,shotDistance));
         } finally { player.aimPitch=previousPitch; if(sniper)player.sniper.recovery=SniperRules.RECOVERY; }

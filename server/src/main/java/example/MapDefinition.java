@@ -15,7 +15,7 @@ record Stations(Station armory, Station medBay, Station woodcutter, Station quar
 record TileType(String name, boolean solid, boolean buildable, String color) { }
 
 /** Full rectangular grid: every symbol, including floor, occupies one cell. */
-record TileMapDefinition(int tileSize, Map<String, TileType> legend, List<String> rows) {
+record TileMapDefinition(int tileSize, Map<String, TileType> legend, List<String> rows, BlockMapDefinition blockMap) {
     AreaTile cellAt(double x, double y) {
         return new AreaTile((int) Math.floor(x / tileSize), (int) Math.floor(y / tileSize));
     }
