@@ -594,11 +594,13 @@ window.Lab3D = (() => {
             viewCamera.position.y+=Math.sin(walkPhase*2)*.01*bob*(1-ads);
             viewCamera.position.z-=recoil*.035+sniperRecoil*.13;
             viewCamera.rotation.x=-recoil*.035-sniperRecoil*.12;
-            sniperKey.visible=sniperFill.visible=me?.weapon==='sniper';
+            sniperKey.visible=sniperFill.visible=['sniper','pistol','shotgun'].includes(me?.weapon);
             // Restore procedural overrides before the mixer, which skips unchanged animation tracks.
+            viewModel.resetProceduralPose();
             viewModel.resetBatPose();
             viewModel.setWeapon(me?.weapon || 'pistol');viewMixer.update(dt);
             viewModel.root.rotation.z=0;
+            if(me?.weapon==='pistol'){viewModel.saveProceduralPose();viewModel.posePistolGrip();}
             if(me?.weapon==='bat')viewModel.poseBat((now-batSwingAt)/1000);
             else batSwingAt=-Infinity;
             if(holdingSniper && ads>0){
@@ -653,6 +655,8 @@ window.Lab3D = (() => {
                         if(prone) {
                             item.model.saveProceduralPose();
                             window.applySniperStance(T,item.model,player.sniper.pitch || 0);
+                        } else if(player.weapon==='pistol') {
+                            item.model.saveProceduralPose();item.model.posePistolGrip();
                         }
                     }
                     item.previous = { ...point };
