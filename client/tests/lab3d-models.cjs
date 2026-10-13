@@ -520,3 +520,16 @@ frame.effects=frame.effects.map(e=>({...e,started:now}));renderer.render(frame);
 const laser=context.window.buildWeaponModel(THREE,'laserCannon');let blue=false,red=false;laser.root.traverse(o=>{if(o.isMesh){blue ||= o.material.name==='Cyan';red ||= o.material.name==='Red';}});assert(blue && !red);laser.dispose();
 const css=fs.readFileSync('client/style.css','utf8');assert(!css.includes('.weapon .weapon-icon.plasmaBlade'));assert(css.includes('.weapon-icon.plasmaBlade::before { background-image:'));
 console.log('Blade, bottle, shared icons, blue laser and pressure budget passed');
+
+// Every reflected segment starts at its authoritative wall point, never the gun muzzle.
+state.enemies=[];frame.effects=[];player.weapon='ricochet';player.down=false;player.drone=null;frame.view={yaw:0,pitch:0};frame.motion={moving:false};frame.scoped=false;now+=1000;renderer.render(frame);
+const bounce={effect:'hit',weapon:'ricochet',playerId:'me',damage:0,reflected:true,fromX:player.x+100,fromY:player.y,fromHeight:31,x:player.x-60,y:player.y,hitHeight:37,started:now};
+renderer.captureEffect(bounce);frame.effects=[bounce];renderer.render(frame);
+const reflectedTrace=scene.children.find(o=>o.name==='muzzle-tracer'),reflectedPoints=reflectedTrace.geometry.attributes.position;
+assert.deepEqual([reflectedPoints.getX(0),reflectedPoints.getY(0),reflectedPoints.getZ(0)],[bounce.fromX,31,bounce.fromY]);
+assert.deepEqual([reflectedPoints.getX(1),reflectedPoints.getY(1),reflectedPoints.getZ(1)],[bounce.x,37,bounce.y]);
+assert.equal(frame.view.pitch,0,'A reflection does not apply another firing recoil');
+const fixedStart=[reflectedPoints.getX(0),reflectedPoints.getY(0),reflectedPoints.getZ(0)];frame.view.yaw=.8;now+=30;renderer.render(frame);
+assert.deepEqual([reflectedPoints.getX(0),reflectedPoints.getY(0),reflectedPoints.getZ(0)],fixedStart,'Turning does not move the rebound point');
+frame.effects=[];now+=250;renderer.render(frame);assert(!scene.children.some(o=>o.name==='muzzle-tracer'),'Reflected paths expire normally');
+console.log('Ricochet trail passed: wall-origin segment, server heights/endpoints, stationary path, single firing recoil and expiry');

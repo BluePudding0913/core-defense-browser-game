@@ -357,6 +357,7 @@ window.Lab3D = (() => {
         const shotOrigins=new WeakMap();
         function captureEffect(effect) {
             if(shotOrigins.has(effect) || !latestFrame || !Number.isFinite(effect.fromX) || !Number.isFinite(effect.fromY))return;
+            if(effect.reflected===true){shotOrigins.set(effect,new T.Vector3(effect.fromX,Number.isFinite(effect.fromHeight)?effect.fromHeight:22,effect.fromY));return;}
             const local=effect.playerId===latestFrame.localId && effect.weapon!=='turret' && (viewVisible || latestFrame.scoped);
             let muzzle;
             if(effect.weapon==='turret') {
@@ -401,7 +402,7 @@ window.Lab3D = (() => {
                 const start=shotOrigins.has(effect) ? shotOrigin(effect) : localShot ? shotOrigin(effect) : muzzle ? muzzle.getWorldPosition(new T.Vector3()) : shotOrigin(effect);
                 const target=state.enemies.find(e=>e.id===effect.enemyId);
                 let height=target ? Math.max(6,radius(target)*.8) : start.y;
-                if(localShot && !target) {
+                if(localShot && !target && !effect.reflected) {
                     const distance=Math.hypot(effect.x-effect.fromX,effect.y-effect.fromY);
                     height=camera.position.y+Math.tan(latestFrame.view?.pitch || 0)*distance;
                 }
@@ -653,7 +654,7 @@ window.Lab3D = (() => {
             lastWalkPoint={x:walkPoint.x,y:walkPoint.y};
             walkBlend+=((walking?1:0)-walkBlend)*(1-Math.exp(-12*dt));
             recoil*=Math.exp(-18*dt);sniperRecoil*=Math.exp(-7*dt);
-            if(frame.motion) for(const effect of effects) if(effect.playerId===localId && effect.effect==='hit' && effect.damage===0 && now-effect.started<120 && !kickedEffects.has(effect)) {
+            if(frame.motion) for(const effect of effects) if(effect.playerId===localId && effect.effect==='hit' && effect.damage===0 && !effect.reflected && now-effect.started<120 && !kickedEffects.has(effect)) {
                 kickedEffects.add(effect);
                 const kick=window.AimControl?.recoilPitch(effect.weapon) || 0;
                 if(kick>0) {

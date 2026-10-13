@@ -622,7 +622,10 @@ final class CombatSystem {
 
     private void rayHit(Player player, double fromX, double fromY, double x, double y, double damage,
             boolean defeated, int credits, boolean headshot, Integer enemyId, FpsHitRules.Ray ray) {
-        if (ray == null) events.hit(player.id, shotWeapon(player), fromX, fromY, x, y, damage, defeated, credits, headshot, enemyId);
+        boolean reflected=shotWeapon(player).equals("ricochet") && Math.hypot(fromX-shotX(player),fromY-shotY(player))>1e-6;
+        if(reflected)events.hitAtHeight(player.id,shotWeapon(player),fromX,fromY,x,y,damage,defeated,credits,headshot,enemyId,
+                ray==null?Double.NaN:ray.height(),ray==null?Double.NaN:ray.heightAt(Math.hypot(x-fromX,y-fromY)),true);
+        else if (ray == null) events.hit(player.id, shotWeapon(player), fromX, fromY, x, y, damage, defeated, credits, headshot, enemyId);
         else events.hitAtHeight(player.id, shotWeapon(player), fromX, fromY, x, y, damage, defeated, credits, headshot, enemyId,
                 ray.height(), ray.heightAt(Math.hypot(x-fromX, y-fromY)));
     }
