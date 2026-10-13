@@ -11,19 +11,31 @@ function update(effects,now){kept.clear();for(const i of items.values())fx.resto
 update([hit(0,{playerId:'ally'})],100);const ally=items.get(0).body.material.color.r;
 assert(ally>shared.color.r);assert.equal(items.get(1).body.material,shared,'Unhit enemy shares unchanged material');
 update([hit(0,{started:110})],110);assert(items.get(0).body.material.color.r>ally,'Own hit is stronger');assert.equal(blood.count,0,'Body hits do not emit blood');
-const hs=hit(1,{headshot:true,started:120});update([hs],120);assert.equal(blood.count,9);
+const hs=hit(1,{headshot:true,started:120});update([hs],120);assert.equal(blood.count,24);
 const m=new T.Matrix4(),position=new T.Vector3();blood.getMatrixAt(0,m);position.setFromMatrixPosition(m);assert.equal(position.y,27,'HS particles originate at actual head');
-update([hs],130);assert.equal(blood.count,9,'Repeated frames do not re-emit');
-update([hit(1,{headshot:true,started:140})],140);assert.equal(blood.count,9,'Rapid pellet impacts are throttled per target');
+update([hs],130);assert.equal(blood.count,24,'Repeated frames do not re-emit');
+update([hit(1,{headshot:true,started:140})],140);assert.equal(blood.count,24,'Rapid pellet impacts are throttled per target');
 update([],400);assert.equal(items.get(0).body.material,shared,'Tint restores original material');
 fx.reset();
 const kills=Array.from({length:60},(_,id)=>hit(id,{headshot:true,defeated:true,started:500}));update(kills,500);
 assert.equal(blood.count,384,'Particle count is capped');assert.equal(kept.size,8,'Death count is capped');
-update(kills,800);assert.equal(kept.size,8,'Deaths survive event/snapshot removal');assert([...kept].every(i=>i.root.userData.presentationOnly),'Corpses are tagged for aim exclusion');
-assert([...kept].some(i=>Math.abs(i.root.quaternion.x)>.1),'Bodies fall without physics');
+update([],560);assert.equal(kept.size,8,'Fades survive event/snapshot removal');assert([...kept].every(i=>i.root.userData.presentationOnly),'Fading models are tagged for aim exclusion');
+assert([...kept].every(i=>i.root.quaternion.equals(new T.Quaternion())),'Fading never tips the model');
+assert([...kept].every(i=>i.body.material.opacity>0 && i.body.material.opacity<1),'Models fade in place');
+update([],640);assert.equal(kept.size,0,'Fades expire after 130ms');
 update([],1250);assert.equal(kept.size,0);assert.equal(blood.count,0,'Particles and corpses expire');
 let disposed=0;for(const i of items.values())for(const mat of i.hitTints?.values() || [])mat.addEventListener('dispose',()=>disposed++);
 for(const i of items.values())fx.release(i);assert(disposed>0,'Per-enemy tint materials are released');
 assert([...items.values()].every(i=>i.body.material===shared),'Disposal never changes shared materials');
 fx.reset();assert.equal(blood.count,0);
-console.log('Hit presentation passed: ownership, original materials, head origin, throttle, deduplication, particle/death caps, falling, expiry and material disposal');
+// HS bursts are identical for either shooter and either lethal/nonlethal result.
+let reference;
+for(const playerId of ['me','ally'])for(const defeated of [false,true]) {
+ fx.reset();items.get(0).root.visible=true;update([hit(0,{playerId,defeated,headshot:true,started:2000})],2000);update([],2050);
+ const matrices=Array.from(blood.instanceMatrix.array.slice(0,blood.count*16));
+ assert.equal(blood.count,24);if(reference)assert.deepEqual(matrices,reference);else reference=matrices;
+}
+for(const playerId of ['me','ally']) {
+ fx.reset();update([hit(0,{playerId,defeated:true,headshot:false,started:3000})],3000);assert.equal(blood.count,0,'Body kills never emit blood');
+}
+console.log('Hit presentation passed: tint ownership, common HS burst regardless of shooter/lethality, no body blood, throttle, caps, stationary fade and disposal');

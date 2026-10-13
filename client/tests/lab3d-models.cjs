@@ -493,13 +493,15 @@ const lethal={effect:'hit',weapon:'rifle',enemyId:3001,playerId:'me',damage:100,
 state.enemies=[];frame.effects=[lethal];renderer.render(frame);
 assert.equal(scene.getObjectByName('enemy:3001'),victim,'Death retains the actual model after snapshot removal');
 assert(victim.userData.presentationOnly,'Death is excluded from the aiming ray');
-const blood=scene.getObjectByName('hit-blood-particles'),particleMatrix=new THREE.Matrix4();assert.equal(blood.count,28);blood.getMatrixAt(0,particleMatrix);
+const blood=scene.getObjectByName('hit-blood-particles'),particleMatrix=new THREE.Matrix4();assert.equal(blood.count,24);blood.getMatrixAt(0,particleMatrix);
 assert(Math.abs(new THREE.Vector3().setFromMatrixPosition(particleMatrix).y-headBounds.getCenter(new THREE.Vector3()).y)<1e-5,'HS burst starts at the visible head, not the neck joint');
-frame.effects=[];now+=300;renderer.render(frame);assert.equal(scene.getObjectByName('enemy:3001'),victim,'Death survives removal of the notification');
-victim.updateMatrixWorld(true);assert(Math.abs(new THREE.Box3().setFromObject(victim).min.y)<1e-5,'Falling model stays grounded');
-assert(Math.abs(victim.quaternion.x)>.05 || Math.abs(victim.quaternion.z)>.05,'Enemy tips away from the final shot');
-now+=410;renderer.render(frame);assert(!scene.getObjectByName('enemy:3001'));assert.equal(blood.count,0,'Death and blood fully expire');
-console.log('Death integration passed: snapshot removal, actual head origin, no aim targeting, grounded falling, notification removal and cleanup');
+const deathPose=victim.quaternion.clone(),deathPosition=victim.position.clone();
+frame.effects=[];now+=65;renderer.render(frame);assert.equal(scene.getObjectByName('enemy:3001'),victim,'Fade survives removal of the notification');
+assert(victim.quaternion.equals(deathPose) && victim.position.equals(deathPosition),'Enemy fades in place without falling');
+assert(Math.abs(victim.getObjectByName('Open lab coat').material.opacity-.5)<1e-6,'Enemy fades halfway at 65ms');
+now+=70;renderer.render(frame);assert(!scene.getObjectByName('enemy:3001'),'Enemy is removed after its quick fade');
+now+=300;renderer.render(frame);assert.equal(blood.count,0,'Blood expires independently');
+console.log('Death integration passed: snapshot removal, actual head origin, no aim targeting, stationary fade, notification removal and cleanup');
 // Plasma uses a handle-driven swing, poison has a real airborne bottle, and pressure is bounded.
 now+=1000;frame.effects=[];frame.motion={moving:false};player.weapon='plasmaBlade';renderer.render(frame);
 const plasmaReady=viewScene.getObjectByName('Rifle').quaternion.clone();
