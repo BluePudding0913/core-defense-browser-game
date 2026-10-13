@@ -61,7 +61,7 @@ class SniperCombatTest {
             game.enemies.clear();messages.clear();
             var e=new Enemy(9950,"grunt",GameMap.SPAWN_POINTS.get(0),5000,0,0,0);e.x=player.x+100;e.y=player.y;game.enemies.add(e);
             double x=e.x,y=e.y,height=16;
-            if(head){y+=e.facingY*21*.085;x+=e.facingX*21*.085;height=21*1.43;}
+            if(head){y+=e.facingY*21*.25;x+=e.facingX*21*.25;height=21*1.39;}
             double pitch=Math.atan2(height-(fixed?SniperRules.EYE_HEIGHT:26),Math.hypot(x-player.x,y-player.y));
             int ammo=player.weapons.ammo("sniper");double elapsed=player.sniper.elapsed;
             game.handleMessage(player,"FIRE:"+x+":"+y+":1:"+pitch+(fixed?":1.5":""));

@@ -1,5 +1,15 @@
 # Enemy form studies
 
+The live renderer now uses `lab-enemy-models.js`: GRUNT → researcher, RUNNER → lab-runner, BRUTE → lab-brute, POISONER → lab-poisoner. The studio opens the new three enemy roles; 白衣3案 retains all three coat variations. Earlier preview-only notes below describe the preceding iterations.
+
+- RUNNER: narrow teal scrubs, bare forearms, a low forward posture and faster, longer strides.
+- BRUTE: broad shoulders and forearms, shaved head, a pale canvas apron and slow heavy steps.
+- POISONER: muted ochre workwear, a compact respirator, harness and two dorsal reagent cylinders.
+
+All use matte skin/cloth, corrected mirrored hands and the attached cervical base. Individual GLBs are under `client/assets/enemies/`. Geometry is about 10–11k triangles per new model; many-enemy frame time has not been benchmarked. The live adapter shares geometry/materials but keeps animation and tint per actor, normalizes height to 1.55 × radius and releases shared resources when the last actor disappears. GRUNT's head volume is refit to the visible skull; other enemies retain their existing coarse body volumes. Enemy stats and attacks are unchanged.
+
+Validation: `node client/tests/enemy-models.cjs`, `node client/tests/lab-enemy-models.cjs`, `node client/tests/lab3d-models.cjs`, and the server Maven test suite. These cover GLB geometry, four assignments, animation/freeze independence, material isolation, last-owner disposal, renderer integration and headshot rules.
+
 Open `client/previews/enemy-models.html` through a local HTTP server. The new D/E/F and previous A/B/C groups use the same camera, light rig and animation time. Switch groups with 新3案 / 前3案. Drag to rotate, scroll to zoom, select one candidate for close inspection, or toggle the walking study.
 
 - A / ASH: warm ceramic, narrow face recess, continuous chest shell.

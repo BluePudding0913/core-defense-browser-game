@@ -1,8 +1,16 @@
 'use strict';
 // Unarmored candidates: visible flesh, fabric, anatomy and hostile asymmetrical poses.
 window.buildOrganicEnemy = (T,id) => {
- const lab=['researcher','lab-assistant','lab-pathologist'].includes(id);
- const settings={'lab-assistant':{skin:'#969b85',cloth:'#a4ada4',pants:'#304342',width:1.15,lean:.32,arm:[-.50,-.68],elbow:[-.38,-.26],head:[.15,.06,-.10]},'lab-pathologist':{skin:'#99a08c',cloth:'#b0ab98',pants:'#3a3b35',width:.82,lean:.49,arm:[-.38,-.54],elbow:[-.14,-.31],head:[.26,-.09,-.18]},researcher:{skin:'#8f9a87',cloth:'#a5a79a',pants:'#353e3c',width:.96,lean:.43,arm:[-.38,-.95],elbow:[-.16,-.55],head:[.21,-.06,.16]},rasp:{skin:'#978f7d',cloth:'#444a45',pants:'#2e3432',width:1,lean:.20,arm:[-.30,-1.05],elbow:[-.22,-.40],head:[.18,0,-.10]},rush:{skin:'#a18a77',cloth:'#69473b',pants:'#333635',width:1.19,lean:.30,arm:[-1.15,-1.40],elbow:[-.45,-.35],head:[.15,.08,.04]},hollow:{skin:'#b1aa99',cloth:'#575954',pants:'#383b3a',width:.83,lean:.23,arm:[-.20,-1.10],elbow:[-.18,-.34],head:[.22,-.12,.16]}}[id];
+ const specialist=['lab-runner','lab-brute','lab-poisoner'].includes(id);
+ const lab=['researcher','lab-assistant','lab-pathologist'].includes(id)||specialist;
+ let settings={'lab-assistant':{skin:'#969b85',cloth:'#a4ada4',pants:'#304342',width:1.15,lean:.32,arm:[-.50,-.68],elbow:[-.38,-.26],head:[.15,.06,-.10]},'lab-pathologist':{skin:'#99a08c',cloth:'#b0ab98',pants:'#3a3b35',width:.82,lean:.49,arm:[-.38,-.54],elbow:[-.14,-.31],head:[.26,-.09,-.18]},researcher:{skin:'#8f9a87',cloth:'#a5a79a',pants:'#353e3c',width:.96,lean:.43,arm:[-.38,-.95],elbow:[-.16,-.55],head:[.21,-.06,.16]},rasp:{skin:'#978f7d',cloth:'#444a45',pants:'#2e3432',width:1,lean:.20,arm:[-.30,-1.05],elbow:[-.22,-.40],head:[.18,0,-.10]},rush:{skin:'#a18a77',cloth:'#69473b',pants:'#333635',width:1.19,lean:.30,arm:[-1.15,-1.40],elbow:[-.45,-.35],head:[.15,.08,.04]},hollow:{skin:'#b1aa99',cloth:'#575954',pants:'#383b3a',width:.83,lean:.23,arm:[-.20,-1.10],elbow:[-.18,-.34],head:[.22,-.12,.16]}}[id];
+
+ const extra={
+  'lab-runner':{skin:'#9b9f8d',cloth:'#6b8781',pants:'#344945',width:.85,lean:.53,arm:[-.55,-1.20],elbow:[-.95,-.68],head:[.12,-.12,.08]},
+  'lab-brute':{skin:'#a39e8c',cloth:'#686d65',pants:'#3d403a',width:1.65,lean:.22,arm:[-.38,-.47],elbow:[-.24,-.32],head:[.21,.06,-.06]},
+  'lab-poisoner':{skin:'#9a9b80',cloth:'#928b63',pants:'#4d5145',width:1.02,lean:.38,arm:[-.66,-.43],elbow:[-.46,-.22],head:[.22,.09,-.10]}
+ }[id];
+ settings=settings||extra;
  if(!settings)throw new Error('Unknown organic enemy: '+id);
  const root=new T.Group();root.name='Enemy_'+id;const owned=new Set(),materials=[];
  function mat(name,color,roughness){const m=new T.MeshStandardMaterial({name,color,roughness,metalness:0,vertexColors:true});m.color.convertSRGBToLinear();m.envMapIntensity=.28;materials.push(m);return m;}
@@ -23,7 +31,7 @@ window.buildOrganicEnemy = (T,id) => {
  }
  const wide=settings.width,torso=joint(root,'Torso',0,.88,-.025);
  const bodyRings=[[0,.26*wide,.18],[.08,.27*wide,.185],[.19,.31*wide,.205,-.005],[.30,.38*wide,.225,-.012],[.38,.40*wide,.215,-.016],[.43,.31*wide,.18,-.018],[.47,.155*wide,.125,-.005]];
- if(id==='rasp')bodyRings.unshift([-.09,.29,.20],[-.04,.285,.20]);if(id==='hollow'){bodyRings[0][1]=.19;bodyRings[1][1]=.20;bodyRings[2][1]=.245;bodyRings.splice(3,0,[.235,.28,.205,-.01],[.255,.29,.211,-.01],[.272,.30,.205,-.01]);}if(lab){bodyRings[3][3]=-.035;bodyRings[4][3]=-.055;}loft(torso,'Chest',bodyRings,id==='hollow'?skin:lab?pants:cloth);
+ if(id==='rasp')bodyRings.unshift([-.09,.29,.20],[-.04,.285,.20]);if(id==='hollow'){bodyRings[0][1]=.19;bodyRings[1][1]=.20;bodyRings[2][1]=.245;bodyRings.splice(3,0,[.235,.28,.205,-.01],[.255,.29,.211,-.01],[.272,.30,.205,-.01]);}if(lab){bodyRings[3][3]=-.035;bodyRings[4][3]=-.055;}loft(torso,'Chest',bodyRings,id==='hollow'?skin:lab&&!specialist?pants:cloth);
  loft(root,'Waist',[[.715,.265*wide,.18],[.77,.31*wide,.21],[.85,.30*wide,.21],[.92,.265*wide,.19]],pants);
  const head=joint(torso,'Head',0,.475,.01);
  loft(head,'Neck',[[-.055,.12*wide,.12],[.015,.11*wide,.12,.01],[.07,.105*wide,.12,.01]],skin);
@@ -54,7 +62,7 @@ window.buildOrganicEnemy = (T,id) => {
   const foot=loft(shin,'Shoe_'+name,[[-.43,.123*wide,.245,.055],[-.405,.13*wide,.25,.055],[-.36,.12*wide,.22,.045],[-.32,.09*wide,.13]],shoe,2.6);feet.push(foot);
   const arm=joint(torso,'UpperArm_'+name,side*.205*wide,.385,.006);arms.push(arm);
   loft(arm,'Upper arm_'+name,[[-.30,.086*wide,.100,.008],[-.24,.095*wide,.12,.01],[-.15,.125*wide,.145,-.005],[-.06,.15*wide,.16,-.008],[.018,.13*wide,.145],[.06,.07*wide,.10]],skin);
-  if(lab){
+  if(lab&&!specialist){
    loft(arm,'Coat upper sleeve_'+name,[[-.305,.108,.13],[-.24,.12,.14],[-.09,.15,.17,-.008],[.025,.145,.155],[.065,.08,.11]],cloth,2.1,32,.006);
   }else if(id!=='hollow'){
    loft(arm,'Short sleeve_'+name,[[-.16,.138*wide,.158,-.003],[-.08,.16*wide,.18,-.006],[.02,.145*wide,.16],[.065,.085*wide,.11]],cloth,2.1,32,id==='rasp'?.012:.005);
@@ -62,7 +70,7 @@ window.buildOrganicEnemy = (T,id) => {
   }
   const elbow=joint(arm,'Forearm_'+name,0,-.29,.006);elbows.push(elbow);if(id==='hollow')elbow.scale.y=1.17;
   loft(elbow,'Forearm anatomy_'+name,[[-.26,.064*wide,.076,.01],[-.21,.074*wide,.09,.008],[-.12,.10*wide,.12,.005],[-.045,.105*wide,.123],[.025,.085*wide,.10]],skin);
-  if(lab)loft(elbow,'Frayed coat cuff_'+name,[[id==='lab-assistant'?-.10:i===0?-.225:-.135,.103,.116],[id==='lab-assistant'?-.05:i===0?-.16:-.08,.12,.14],[-.01,.125,.14],[.03,.106,.13]],cloth,2.1,32,i===0?.008:.02);
+  if(lab&&!specialist)loft(elbow,'Frayed coat cuff_'+name,[[id==='lab-assistant'?-.10:i===0?-.225:-.135,.103,.116],[id==='lab-assistant'?-.05:i===0?-.16:-.08,.12,.14],[-.01,.125,.14],[.03,.106,.13]],cloth,2.1,32,i===0?.008:.02);
   const hand=joint(elbow,'Hand_'+name,0,-.26,.013);hand.rotation.set(id==='rush'?.70:.36,side*.70,side*.075);
   loft(hand,'Palm_'+name,[[-.105,.071*wide,.042,.018],[-.075,.085*wide,.053,.008],[-.025,.080*wide,.057],[.015,.064*wide,.070]],skin,2.5,24);
   // Local -Z is the palm side: wrist flexion, finger flexion and thumb opposition agree.
@@ -119,6 +127,7 @@ function lapel(side){
  const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(vertices,3));g.setAttribute('color',new T.Float32BufferAttribute(Array(18).fill(.97),3));g.setIndex([0,1,2,5,4,3,0,3,1,1,3,4,1,4,2,2,4,5,2,5,0,0,5,3]);g.computeVertexNormals();owned.add(g);const mesh=new T.Mesh(g,cloth);mesh.name='Folded lapel_'+side;mesh.castShadow=mesh.receiveShadow=true;torso.add(mesh);
 }
 if(lab){
+ if(!specialist){
  const coatWidth=wide/.96;
  coatShell(torso,'Open lab coat',[[0,.30*coatWidth,.23],[.15,.32*coatWidth,.245],[.28,.38*coatWidth,.265,-.025],[.38,.415*coatWidth,.28,-.05],[.44,.32*coatWidth,.24,-.04],[.47,.16,.14]], id==='lab-assistant'?[.13,.13,.20,.36,.60,.75]:[.28,.28,.32,.46,.65,.75],cloth);
  const hemY=id==='lab-assistant'?.55:id==='lab-pathologist'?.31:.43;
@@ -126,6 +135,31 @@ if(lab){
  lapel(-1);lapel(1);
  if(id==='lab-assistant')for(const y of [.10,.19,.28])loft(torso,'Coat button_'+y,[[y,.008,.005,.127],[y+.008,.008,.005,.127]],pants,2.2,12);
  const badge=loft(torso,'Research ID',[[.26,.033,.006,.117,-.115],[.31,.033,.006,.112,-.115]],mat('Faded ID card','#adb4aa',.94),3.5,12);badge.rotation.z=-.07;
+ }
+ if(id==='lab-runner'){
+  coatShell(torso,'Scrub collar',[[.38,.30,.22,-.035],[.44,.24,.19,-.025],[.47,.14,.13]], [.58,.72,.85],cloth);
+  loft(torso,'Scrub pocket',[[.22,.055,.008,.103,-.080],[.28,.055,.008,.105,-.080]],cloth,3,16);
+  loft(arms[0],'Torn scrub sleeve',[[-.18,.12,.14],[-.12,.14,.16],[.025,.14,.15]],cloth,2.1,24,.009);
+  loft(head,'Disordered cropped hair',[[.22,.159,.182,-.008],[.26,.146,.163,-.012],[.29,.05,.06,-.016]],hair,2.1,24);
+ }
+ if(id==='lab-brute'){
+  const apron=mat('Heavy canvas apron','#a5a28e',.99);
+  loft(torso,'Apron bib',[[.02,.43,.022,.181],[.18,.44,.024,.183],[.36,.34,.023,.171]],apron,3,24);
+  loft(root,'Apron skirt',[[.36,.48,.045,.160],[.49,.51,.045,.165],[.78,.46,.04,.17],[.94,.43,.03,.16]],apron,3,24,.012);
+  for(const side of [-1,1])loft(torso,'Apron strap_'+side,[[.32,.035,.025,.16,side*.16],[.43,.035,.03,.12,side*.18],[.47,.035,.03,.04,side*.16]],apron,2.5,12);
+  elbows.forEach(e=>{e.scale.x=1.18;e.scale.z=1.13;});
+ }
+ if(id==='lab-poisoner'){
+  const equipment=mat('Contamination equipment','#444d43',.87),tank=mat('Worn reagent cylinders','#74795c',.89);
+  for(const side of [-1,1]){
+   loft(torso,'Reagent tank_'+side,[[.06,.095,.095,-.20,side*.067],[.09,.116,.116,-.20,side*.067],[.33,.116,.116,-.20,side*.067],[.36,.09,.09,-.20,side*.067]],tank,2,24);
+   loft(torso,'Tank harness_'+side,[[.03,.025,.025,.105,side*.13],[.24,.025,.025,.13,side*.13],[.42,.025,.025,.10,side*.15],[.47,.025,.025,-.03,side*.13]],equipment,2,12);
+   loft(head,'Respirator filter_'+side,[[.08,.035,.04,.101,side*.049],[.115,.035,.04,.101,side*.049]],equipment,2,16);
+  }
+  loft(head,'Respirator cup',[[.075,.055,.032,.100],[.10,.08,.05,.112],[.13,.055,.032,.103]],equipment,2.3,24);
+  loft(torso,'Coverall zipper',[[.02,.008,.005,.108],[.33,.008,.005,.117],[.40,.008,.005,.09]],equipment,2,12);
+  for(const arm of arms)loft(arm,'Coverall sleeve_'+arm.name,[[-.30,.10,.12],[-.15,.13,.15],[.02,.14,.15]],cloth,2.1,24);
+ }
  const mouth=root.getObjectByName('Mouth crease');mouth.scale.y=2.6;mouth.position.y=-.162;root.getObjectByName('Lower lip').position.y=-.008;mouth.rotation.z=.09;
  head.position.set(0,.475,.006);
  // Cervical base stays in the shoulder girdle; only the skull pivots with the head.
@@ -133,10 +167,10 @@ if(lab){
  loft(torso,'Neck',[[.355,.25*wide,.17,-.035],[.405,.18*wide,.145,-.025],[.45,.125,.125,-.008],[.495,.103,.105,-.005],[.53,.092,.095,-.012],[.55,.085,.085,-.015]],skin);
  if(id==='lab-pathologist')elbows.forEach(elbow=>elbow.scale.y=1.1);
  root.getObjectByName('Anatomical head').scale.set(1.025,.97,1);
- if(id!=='lab-assistant')coatShell(head,'Receding hair',[[.205,.159,.181,-.006],[.239,.153,.176,-.011],[.267,.126,.147,-.014],[.287,.060,.076,-.016]],[1.18,1.28,1.65,2.1],hair);
+ if(!specialist&&id!=='lab-assistant')coatShell(head,'Receding hair',[[.205,.159,.181,-.006],[.239,.153,.176,-.011],[.267,.126,.147,-.014],[.287,.060,.076,-.016]],[1.18,1.28,1.65,2.1],hair);
  for(const arm of arms)arm.position.z=-.015;
  // Only the loose lower panels sway; the shoulders stay bound to the hunched torso.
- tails.userData.coatTails=true;
+ const tails=root.getObjectByName('Split coat tails');if(tails)tails.userData.coatTails=true;
 }
 
  const restLeg=lab?[-.14,.19]:[-.12,.13],restShin=lab?[.22,.31]:[.18,.20];
@@ -146,7 +180,7 @@ if(lab){
  function stance(){torso.position.y=lab?.925:.88;torso.rotation.set(settings.lean,0,id==='hollow'?.045:lab?.055:-.025);head.rotation.set(...settings.head);legs.forEach((l,i)=>{l.rotation.set(restLeg[i],0,i===0?-.10:.10);shins[i].rotation.x=restShin[i];arms[i].rotation.set(settings.arm[i],i===0?-.08:.10,i===0?-.10:.12);elbows[i].rotation.x=settings.elbow[i];});ground();}
  let previous=null,phase=0,blend=0;
  function reset(){previous=null;phase=blend=0;stance();const tails=root.getObjectByName('Split coat tails');if(tails)tails.rotation.z=0;}
- function pose(seconds,walking=true){const dt=previous===null?0:T.MathUtils.clamp(seconds-previous,0,.1);previous=seconds;blend+=((walking?1:0)-blend)*(1-Math.exp(-dt*9));phase+=dt*(id==='rush'?6:lab?2.7:3.6)*blend;stance();legs.forEach((l,i)=>{const s=Math.sin(phase+i*Math.PI);l.rotation.x=restLeg[i]+s*(lab?(i===0?.17:.055):.25)*blend;shins[i].rotation.x=restShin[i]+Math.max(0,-s)*(lab?(i===0?.23:.035):.38)*blend;arms[i].rotation.x=settings.arm[i]-s*.12*blend;});torso.rotation.z+=Math.sin(phase)*.025*blend;head.rotation.z+=Math.sin(phase*.5)*.018*blend;if(lab){torso.rotation.x+=Math.cos(phase)*.025*blend;root.getObjectByName('Split coat tails').rotation.z=Math.sin(phase)*.015*blend;}ground();}
+ function pose(seconds,walking=true){const dt=previous===null?0:T.MathUtils.clamp(seconds-previous,0,.1);previous=seconds;blend+=((walking?1:0)-blend)*(1-Math.exp(-dt*9));phase+=dt*(id==='lab-runner'?7:id==='lab-brute'?2.2:id==='rush'?6:lab?2.7:3.6)*blend;stance();legs.forEach((l,i)=>{const s=Math.sin(phase+i*Math.PI);l.rotation.x=restLeg[i]+s*(id==='lab-runner'?.42:lab?(i===0?.17:.055):.25)*blend;shins[i].rotation.x=restShin[i]+Math.max(0,-s)*(lab?(i===0?.23:.035):.38)*blend;arms[i].rotation.x=settings.arm[i]-s*.12*blend;});torso.rotation.z+=Math.sin(phase)*.025*blend;head.rotation.z+=Math.sin(phase*.5)*.018*blend;if(lab){torso.rotation.x+=Math.cos(phase)*.025*blend;const tails=root.getObjectByName('Split coat tails');if(tails)tails.rotation.z=Math.sin(phase)*.015*blend;}ground();}
  function dispose(){owned.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());}
- if(id==='hollow')root.scale.y=1.055;if(id==='lab-assistant')root.scale.y=.95;if(id==='lab-pathologist')root.scale.y=1.065;reset();return {root,head,torso,arms,legs,pose,reset,dispose,id};
+ if(id==='hollow')root.scale.y=1.055;if(id==='lab-assistant')root.scale.y=.95;if(id==='lab-pathologist')root.scale.y=1.065;reset();return {root,head,torso,arms,legs,pose,reset,dispose,id,getMotion:()=>[previous,phase,blend],setMotion:state=>{[previous,phase,blend]=state;}};
 };
