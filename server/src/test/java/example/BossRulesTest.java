@@ -17,10 +17,22 @@ class BossRulesTest {
             double expected=6100*RoundDifficultyRules.multiplier(humans);
             assertEquals(expected,boss.hp,1e-8);assertEquals(expected,boss.maxHp,1e-8);
         }
-        assertEquals(15000,EnemyTierRules.hp("boss",23040,8),1e-8,"Later bosses retain their health");
+        assertEquals(12800,EnemyTierRules.hp("boss",23040,8),1e-8,"Round eight boss is about fifteen percent lighter");
+        assertEquals(BossRules.spawnHp("boss",23040*EnemyTierRules.multiplier(12)),EnemyTierRules.hp("boss",23040,12),1e-8,"Later bosses retain their health");
         assertEquals(BossRules.spawnHp("warden",10000),EnemyTierRules.hp("warden",10000,4),1e-8);
     }
 
+    @Test void roundEightBossReductionAppliesToNormalDebugAndSnapshotHealth() throws Exception {
+        GameSession game=new GameSession(new GameEventSink(){public void broadcast(String s){} public void send(Player p,String s){}});
+        var spawn=GameSession.class.getDeclaredMethod("spawnEnemy",String.class,SpawnPoint.class,boolean.class);spawn.setAccessible(true);
+        for(int humans=1;humans<=4;humans++)for(boolean debug:new boolean[]{false,true}){
+            game.round=8;game.roundHumanCount=humans;game.enemies.clear();spawn.invoke(game,"boss",GameMap.SPAWN_POINTS.get(0),debug);
+            double expected=14100*RoundDifficultyRules.multiplier(humans);Enemy boss=game.enemies.get(0);
+            assertEquals(expected,boss.hp,1e-8);assertEquals(expected,boss.maxHp,1e-8);
+            var snapshot=new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game)).path("enemies").get(0);
+            assertEquals(expected,snapshot.path("maxHp").asDouble(),1e-8);
+        }
+    }
     @Test void bossSpawnHpIsReducedAndRoundedForNormalAndDebugSpawns() throws Exception {
         GameSession game = new GameSession(new GameEventSink() {
             public void broadcast(String s) {}
