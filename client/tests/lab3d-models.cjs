@@ -10,7 +10,7 @@ THREE.WebGLRenderer = class {
     render(s,c) { if(c.near===.01){viewScene=s;viewCamera=c;viewScene.updateMatrixWorld(true);viewCamera.updateMatrixWorld(true);return;}scene=s;camera=c;scene.updateMatrixWorld(true);camera.updateMatrixWorld(true); }
 };
 const context=vm.createContext({window:{THREE},document:{body:{classList:{add(){}}}},performance:{now:()=>now},console});
-for (const file of ['aim-control.js','soldier-model.js','sniper-stance.js','zombie-model.js','wall-impacts.js','block-terrain.js','map-object-models.js','lab3d.js']) vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
+for (const file of ['aim-control.js','soldier-model.js','sniper-stance.js','organic-enemy-models.js','lab-enemy-models.js','wall-impacts.js','block-terrain.js','map-object-models.js','lab3d.js']) vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
 const renderer=context.window.Lab3D.create({width:900,height:500,before(){}});
 const player={id:'me',x:100,y:100,facingX:0,facingY:-1};
 const state={core:{x:60,y:60},players:[player],enemies:[{id:1,type:'shield',x:180,y:100,hp:100,facingX:1,facingY:0}],slots:[
@@ -81,9 +81,11 @@ for(const view of [{yaw:0,pitch:0,zoom:false},{yaw:.7,pitch:.4,zoom:false},{yaw:
     frame.view={yaw:view.yaw+.5,pitch:view.pitch-.2,zoom:view.zoom};renderer.render(frame);
     assert.deepEqual(Array.from(attribute.array),fixed,'Camera turns cannot drag an existing shot into a fan');
 }
-for(const [i,type] of ['grunt','runner','carrier','shield','warden','ghost'].entries()) {
+for(const [i,type] of ['grunt','runner','carrier','shield','bomber','hunter','armored','artillery','coreHunter','seeker','blackout','warden','ghost'].entries()) {
     state.enemies=[{id:200+i,type,x:180,y:100,hp:100,facingX:-.6,facingY:-.8}];frame.effects=[];renderer.render(frame);
     assert(Math.abs(scene.getObjectByName('enemy:'+(200+i)).rotation.y-Math.atan2(-.6,-.8))<1e-8,'All enemy models use transmitted facing');
+    const gear={shield:'Containment shield',bomber:'Demolition charge_-1',carrier:'Specimen backpack',hunter:'Torn patient gown',armored:'Protective vest',artillery:'Open launcher tube',coreHunter:'Recovery vest',seeker:'Seeker long coat',blackout:'Looped power cable'}[type];
+    if(gear)assert(scene.getObjectByName('enemy:'+(200+i)).getObjectByName(gear),'Live enemy uses its assigned lab equipment');
 }
 console.log('FPS trajectory regressions passed: muzzle screen alignment, pitch, zoom, fixed fired segments, aim excludes red lines, all enemy facing');
 
@@ -162,7 +164,7 @@ console.log('FPS requested fixes passed: captured special shot origins, movement
 // New enemies share their rendered body dimensions with server FPS hit rules.
 now+=500;frame.effects=[];state.enemies=[{id:501,type:'finalBoss',x:180,y:100,hp:140000,bossAction:'PULSE_WARNING',pulseRadius:260},{id:502,type:'poisoner',x:140,y:100,hp:400},{id:503,type:'artilleryElite',x:220,y:100,hp:900}];
 state.poisonClouds=[{x:140,y:100,radius:55,remaining:4,hostile:true}];frame.radius=e=>({finalBoss:58,poisoner:20,artilleryElite:27})[e.type]||21;renderer.render(frame);
-for(const e of state.enemies){const root=find('enemy:'+e.id),body=root.children[0];assert.equal(body.scale.x,frame.radius(e)*.9);}
+for(const e of state.enemies){const root=find('enemy:'+e.id);if(e.type==='poisoner'){assert(root.getObjectByName('Reagent tank_-1'));assert(Math.abs(new THREE.Box3().setFromObject(root).max.y-frame.radius(e)*1.55)<.01);}else assert.equal(root.children[0].scale.x,frame.radius(e)*.9);}
 assert.equal(find('boss-warning:501').scale.x,260,'Final boss pulse has a visible 3D warning');
 assert.equal(find('gas:0').scale.x,55);assert(find('gas:0').material.color.equals(new THREE.Color('#a6ce46')),'Small hostile poison uses its own radius and color');
 console.log('FPS new enemies passed: body sizes, final boss warning and hostile poison');
@@ -318,11 +320,11 @@ console.log('Bat-to-gun regression passed: first-frame restore, repeated switche
 
 // Confirmed local hits tint only that enemy, then restore frozen/original materials.
 frame.effects=[];state.enemies=[{id:901,type:'grunt',x:100,y:120,hp:100},{id:902,type:'grunt',x:140,y:120,hp:100}];now+=500;renderer.render(frame);
-const hitZombie=scene.getObjectByName('enemy:901'),otherZombie=scene.getObjectByName('enemy:902'),normalCoat=hitZombie.getObjectByName('ZombieCoat').material;
-frame.effects=[{effect:'hit',enemyId:901,playerId:'other',damage:20,started:now}];renderer.render(frame);assert.equal(hitZombie.getObjectByName('ZombieCoat').material,normalCoat,'Other players do not trigger local flash');
-frame.effects=[{effect:'hit',enemyId:901,playerId:'me',damage:0,started:now}];renderer.render(frame);assert.equal(hitZombie.getObjectByName('ZombieCoat').material,normalCoat,'Misses do not flash');
-frame.effects=[{effect:'hit',enemyId:901,playerId:'me',damage:20,started:now}];renderer.render(frame);assert.equal(hitZombie.getObjectByName('ZombieCoat').material.color.getHexString(),'ef4250');assert.equal(otherZombie.getObjectByName('ZombieCoat').material,normalCoat,'Shared materials never tint another enemy');
-now+=180;state.enemies[0].frozenRemaining=1;renderer.render(frame);assert.equal(hitZombie.getObjectByName('ZombieCoat').material.color.getHexString(),'95dded','Freeze state wins after flash expiry');state.enemies[0].frozenRemaining=0;renderer.render(frame);assert.equal(hitZombie.getObjectByName('ZombieCoat').material,normalCoat);assert(hitZombie.children.length>0);
+const hitZombie=scene.getObjectByName('enemy:901'),otherZombie=scene.getObjectByName('enemy:902'),normalCoat=hitZombie.getObjectByName('Open lab coat').material;
+frame.effects=[{effect:'hit',enemyId:901,playerId:'other',damage:20,started:now}];renderer.render(frame);assert.equal(hitZombie.getObjectByName('Open lab coat').material,normalCoat,'Other players do not trigger local flash');
+frame.effects=[{effect:'hit',enemyId:901,playerId:'me',damage:0,started:now}];renderer.render(frame);assert.equal(hitZombie.getObjectByName('Open lab coat').material,normalCoat,'Misses do not flash');
+frame.effects=[{effect:'hit',enemyId:901,playerId:'me',damage:20,started:now}];renderer.render(frame);assert.equal(hitZombie.getObjectByName('Open lab coat').material.color.getHexString(),'ef4250');assert.equal(otherZombie.getObjectByName('Open lab coat').material,normalCoat,'Shared materials never tint another enemy');
+now+=180;state.enemies[0].frozenRemaining=1;renderer.render(frame);assert.equal(hitZombie.getObjectByName('Open lab coat').material.color.getHexString(),'95dded','Freeze state wins after flash expiry');state.enemies[0].frozenRemaining=0;renderer.render(frame);assert.equal(hitZombie.getObjectByName('Open lab coat').material,normalCoat);assert(hitZombie.children.length>0);
 console.log('Local hit flash passed: confirmed damage, individual enemy, shared material isolation and expiry');
 
 // Every ordinary gun displaces actual aim, once per discharge, including scatter pellets.

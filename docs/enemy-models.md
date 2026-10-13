@@ -1,0 +1,47 @@
+# Enemy form studies
+
+The live renderer now uses `lab-enemy-models.js`: GRUNT → researcher, RUNNER → lab-runner, BRUTE → lab-brute, POISONER → lab-poisoner. The studio opens the new three enemy roles; 白衣3案 retains all three coat variations. Earlier preview-only notes below describe the preceding iterations.
+
+- RUNNER: narrow teal scrubs, bare forearms, a low forward posture and faster, longer strides.
+- BRUTE: broad shoulders and forearms, shaved head, a pale canvas apron and slow heavy steps.
+- POISONER: muted ochre workwear, a compact respirator, harness and two dorsal reagent cylinders.
+
+All use matte skin/cloth, corrected mirrored hands and the attached cervical base. Individual GLBs are under `client/assets/enemies/`. Geometry is about 10–11k triangles per new model; many-enemy frame time has not been benchmarked. The live adapter shares geometry/materials but keeps animation and tint per actor, normalizes height to 1.55 × radius and releases shared resources when the last actor disappears. GRUNT's head volume is refit to the visible skull; other enemies retain their existing coarse body volumes. Enemy stats and attacks are unchanged.
+
+Validation: `node client/tests/enemy-models.cjs`, `node client/tests/lab-enemy-models.cjs`, `node client/tests/lab3d-models.cjs`, and the server Maven test suite. These cover GLB geometry, four assignments, animation/freeze independence, material isolation, last-owner disposal, renderer integration and headshot rules.
+
+Open `client/previews/enemy-models.html` through a local HTTP server. The new D/E/F and previous A/B/C groups use the same camera, light rig and animation time. Switch groups with 新3案 / 前3案. Drag to rotate, scroll to zoom, select one candidate for close inspection, or toggle the walking study.
+
+- A / ASH: warm ceramic, narrow face recess, continuous chest shell.
+- B / SLATE: graphite armor, wider chest, smoked visor.
+- C / VEIL: open hood, matte fabric, long coat.
+- D / RASP: gaunt civilian, charcoal shirt, exposed forearms and asymmetrical reach.
+- E / RUSH: broader unarmored attacker, rust shirt, both hands reaching forward.
+- F / HOLLOW: bare pale torso, narrow silhouette, elongated forearms and tilted head.
+- INFECTED / researcher: selected lab direction. A faded open white coat with folded lapels and an ID, rounded upper back, forward/downward head, uneven sleeves, an open slack mouth and a trailing right leg.
+
+`EnemyModels.build(THREE, id)` returns a root group and `pose(seconds, walking)`, `reset()` and `dispose()` methods. Units are metres, +Y up, +Z forward. All parts are original procedural geometry; no downloaded assets or external dependencies are used.
+
+`client/assets/enemies/enemy-{ash,slate,veil,rasp,rush,hollow,researcher,lab-assistant,lab-pathologist}.glb` contains geometry, PBR materials and the articulated rigid node hierarchy in its rest pose. The walking preview is procedural JavaScript; animation clips and skin weights are not included in the GLB. Run `node client/tests/enemy-models.cjs` from the worktree root to validate geometry, dimensions, node export and disposal, and regenerate the GLBs.
+
+These are visual selection candidates. They are not connected to combat, hit volumes, or the live enemy renderer. Before adoption, fit the selected candidate to GRUNT dimensions and head band, verify FPS hit alignment, share/merge suitable materials and geometry, and check crowd rendering cost. The coat uses a reduced stride to keep the rigid cloth clear of the legs.
+
+Organic candidates are built by organic-enemy-models.js through the same factory. Skin, facial recesses and fabric use nonmetallic materials and restrained vertex colors. The GLB writer preserves COLOR_0. They stand in an aggressive resting pose, with exposed faces and individually curved fingers; walking grounds the shoe soles and retains asymmetrical reaching arms. The comparison download writes the visible three models into one GLB; individual view writes one model. Model files contain this resting stance, but no animation clips.
+
+The studio now opens the three lab-coat candidates with walking enabled. Its 10,524 triangles include a thin closed coat shell with a real front opening; the skirt is attached at the hips so it does not rotate backward with the hunched upper body. The two strides differ by more than 2x, with restrained panel sway. Tests additionally verify the coat opening by ray intersection, resting hunch, cervical attachment to shoulders and skull and asymmetric stride. This remains a preview/asset change; adopting it in the live game requires fitting existing GRUNT hit volumes and animation/rendering integration.
+
+The neck correction roots the cervical mesh in Torso and overlaps the upper chest and skull base. The skull pivot is back over the collar instead of projecting 11.5 cm ahead of it. This shared correction applies to all three lab candidates and is checked geometrically in the model tests.
+
+- 01 / researcher: corrected original coat, asymmetrical reaching arm and trailing leg.
+- 02 / lab-assistant: compact broader torso, shorter lightly green coat with rolled cuffs, teal undershirt and shaved scalp.
+- 03 / lab-pathologist: narrow taller silhouette, longer ivory coat and forearms, dropped head and both arms hanging lower.
+
+The 白衣3案 button selects the group; its three adjacent buttons show individual models. All three preserve the chosen plain lab-zombie direction. No live gameplay or hit volumes are changed.
+
+Hand correction: each organic hand now places its thumb and index on the radial side, mirrors finger order/spread between left and right, and embeds a tapered thenar base in the palm. Model tests check handedness and palm/thumb overlap; all six organic GLBs are regenerated from the shared builder.
+
+Additional adopted roles: SHIELD → lab-shield (blue-gray security uniform and a forearm-mounted containment shield), BOMBER → lab-bomber (rust maintenance clothing and compact demolition packs), CARRIER → lab-carrier (pale workwear, a large canvas specimen pack and side pouches). The studio starts on 追加3体; previous groups remain selectable. SHIELD limits its left arm swing to keep the shield steady, BOMBER has a quicker cadence, and CARRIER has a slow gait with restrained arms. Shield tests verify hand clearance behind the panel throughout the gait. Renderer tests verify all three assigned equipment sets. Combat rules and stats remain unchanged. Shared-asset, freeze and disposal tests now cover seven adopted enemy types. Individual GLBs include the new three resting poses, with runtime procedural walking rather than animation clips.
+
+Third adopted trio: HUNTER → lab-hunter (narrow escaped patient, torn gown, bare arm, wrist band and quicker strides), ARMORED → lab-armored (broad protective vest, open-face helmet and slower steps), ARTILLERY → lab-artillery (a shoulder launcher, harness and spare canister). The launcher has an actual hollow bore and rim; its open muzzle is checked by ray intersection. The latest 追加3体 view starts with these three, while 盾・爆破・運搬 retains the preceding trio. Exported GLBs contain resting poses; procedural gait runs in the studio and live adapter. Asset lifetime, independent gait/freeze/tint, grounding and renderer equipment checks cover ten adopted types. New meshes use about 10–11k triangles each. Performance under large crowds remains unbenchmarked; existing combat and hit volumes are unchanged.
+
+Fourth adopted trio: CORE HUNTER → lab-corehunter, SEEKER → lab-seeker, BLACKOUT → lab-blackout. Differentiation includes proportions and motion: CORE HUNTER has a broad recovery vest, enlarged gloves/gauntlets and forward-reaching arms with faster strides; SEEKER is narrow and tall with a long split coat, restrained steps and a scanning head turn; BLACKOUT hunches deeply under a power case and a loop of thick electrical cable. The studio starts with this trio and retains previous groups. All thirteen assigned types share the renderer-scoped resource pool with independent motion, freeze and tint. Their exported GLBs contain resting poses; procedural motion runs in the client. Server combat rules are unchanged by this trio. The complete enemy adoption is validated by model/runtime/renderer tests and the full server package/test run.

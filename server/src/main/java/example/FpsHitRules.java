@@ -27,8 +27,8 @@ final class FpsHitRules {
         double fy = length > 1e-9 ? facingY / length : 1;
         Hit torso = body(ray, x, y, radius * .66, radius * .4, radius * .66, radius * .25,
                 fx, fy, width);
-        Hit head = body(ray, x + fx * radius * .085, y + fy * radius * .085,
-                radius * 1.43, radius * .12, radius * .125, radius * .13, fx, fy, 0);
+        Hit head = body(ray, x + fx * radius * .25, y + fy * radius * .25,
+                radius * 1.39, radius * .14, radius * .16, radius * .15, fx, fy, 0);
         if (head != null && (torso == null || head.distance() < torso.distance()))
             return new Hit(head.distance(), head.height(), true);
         return torso;

@@ -23,8 +23,8 @@ class FpsCombatTest {
     }
     void shoot(double pitch) {game.handleMessage(player,"FIRE:"+(player.x+150)+":"+player.y+":1:"+pitch);}
     void shootHead(Enemy e) {
-        double r=CombatSystem.enemyRadius(e),x=e.x+e.facingX*r*.085,y=e.y+e.facingY*r*.085;
-        game.handleMessage(player,"FIRE:"+x+":"+y+":1:"+Math.atan2(r*1.43-26,Math.hypot(x-player.x,y-player.y)));
+        double r=CombatSystem.enemyRadius(e),x=e.x+e.facingX*r*.25,y=e.y+e.facingY*r*.25;
+        game.handleMessage(player,"FIRE:"+x+":"+y+":1:"+Math.atan2(r*1.39-26,Math.hypot(x-player.x,y-player.y)));
     }
     JsonNode impact(int id) throws Exception {
         return new ObjectMapper().readTree(messages.stream().filter(s->s.contains("\"enemyId\":"+id)).findFirst().orElseThrow());
@@ -33,7 +33,7 @@ class FpsCombatTest {
         var e=enemy(9100,"grunt",100);int gold=player.credits;shootHead(e);
         assertEquals(448,e.hp,.001);assertEquals(gold+3,player.credits);assertEquals(.38,player.cooldown,.001);
         var hit=impact(e.id);assertTrue(hit.path("headshot").asBoolean());assertTrue(hit.path("hitHeight").asDouble()>27.4);
-        assertTrue(hit.path("x").asDouble()<e.x);assertEquals(player.y+(hit.path("x").asDouble()-player.x)/100*e.facingY*21*.085,hit.path("y").asDouble(),.06);
+        assertTrue(hit.path("x").asDouble()<e.x);assertEquals(player.y+(hit.path("x").asDouble()-player.x)/100*e.facingY*21*.25,hit.path("y").asDouble(),.06);
         assertEquals(26,hit.path("fromHeight").asDouble());
     }
     @Test void oldHeightBandIsNowTorsoAndAHeadSideMissDoesNotAwardHs() throws Exception {
@@ -70,7 +70,7 @@ class FpsCombatTest {
     @Test void secondaryHandHasIndependentHeightAmmoAndCooldownState() throws Exception {
         player.job="attacker";player.weapons.grant("smg");player.secondaryWeapon="smg";player.aimPitch=-.3;
         var e=enemy(9500,"grunt",100);int ammo=player.weapons.ammo("smg");
-        game.handleMessage(player,"SECONDARY_FIRE:"+(player.x+150)+":"+player.y+":1:0.04");
+        game.handleMessage(player,"SECONDARY_FIRE:"+(e.x+e.facingX*21*.25)+":"+(e.y+e.facingY*21*.25)+":1:0.04");
         assertEquals(446,e.hp,.001);assertTrue(impact(e.id).path("headshot").asBoolean());
         assertEquals(ammo-1,player.weapons.ammo("smg"));assertEquals(0,player.cooldown);assertEquals(.14,player.secondaryCooldown,.001);
         assertEquals(-.3,player.aimPitch);assertEquals(.04,player.secondaryAimPitch);
@@ -103,7 +103,7 @@ class FpsCombatTest {
     }
     @Test void sequencedInputCarriesPitchAndCpuTakeoverClearsIt() {
         var e=enemy(9900,"grunt",100);
-        game.handleMessage(player,"INPUT:7:FIRE:"+(player.x+150)+":"+player.y+":1:0.04");
+        game.handleMessage(player,"INPUT:7:FIRE:"+(e.x+e.facingX*21*.25)+":"+(e.y+e.facingY*21*.25)+":1:0.04");
         assertEquals(448,e.hp);assertEquals(7,player.lastProcessedInput);assertEquals(.04,player.aimPitch);
         game.disconnectPlayer(player,true);assertNull(player.aimPitch);assertNull(player.secondaryAimPitch);
     }
