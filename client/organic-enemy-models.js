@@ -1,7 +1,7 @@
 'use strict';
 // Unarmored candidates: visible flesh, fabric, anatomy and hostile asymmetrical poses.
 window.buildOrganicEnemy = (T,id) => {
- const specialist=['lab-runner','lab-brute','lab-poisoner','lab-shield','lab-bomber','lab-carrier','lab-hunter','lab-armored','lab-artillery','lab-corehunter','lab-seeker','lab-blackout'].includes(id);
+ const specialist=['lab-runner','lab-brute','lab-poisoner','lab-shield','lab-bomber','lab-carrier','lab-hunter','lab-armored','lab-artillery','lab-corehunter','lab-seeker','lab-blackout','lab-siege','lab-champion','lab-warden'].includes(id);
  const lab=['researcher','lab-assistant','lab-pathologist'].includes(id)||specialist;
  let settings={'lab-assistant':{skin:'#969b85',cloth:'#a4ada4',pants:'#304342',width:1.15,lean:.32,arm:[-.50,-.68],elbow:[-.38,-.26],head:[.15,.06,-.10]},'lab-pathologist':{skin:'#99a08c',cloth:'#b0ab98',pants:'#3a3b35',width:.82,lean:.49,arm:[-.38,-.54],elbow:[-.14,-.31],head:[.26,-.09,-.18]},researcher:{skin:'#8f9a87',cloth:'#a5a79a',pants:'#353e3c',width:.96,lean:.43,arm:[-.38,-.95],elbow:[-.16,-.55],head:[.21,-.06,.16]},rasp:{skin:'#978f7d',cloth:'#444a45',pants:'#2e3432',width:1,lean:.20,arm:[-.30,-1.05],elbow:[-.22,-.40],head:[.18,0,-.10]},rush:{skin:'#a18a77',cloth:'#69473b',pants:'#333635',width:1.19,lean:.30,arm:[-1.15,-1.40],elbow:[-.45,-.35],head:[.15,.08,.04]},hollow:{skin:'#b1aa99',cloth:'#575954',pants:'#383b3a',width:.83,lean:.23,arm:[-.20,-1.10],elbow:[-.18,-.34],head:[.22,-.12,.16]}}[id];
 
@@ -17,7 +17,10 @@ window.buildOrganicEnemy = (T,id) => {
   'lab-artillery':{skin:'#9d9f8a',cloth:'#74735a',pants:'#41483d',width:1.06,lean:.29,arm:[-.36,-.70],elbow:[-.26,-.58],head:[.20,-.11,.10]},
   'lab-corehunter':{skin:'#9c9e85',cloth:'#97815a',pants:'#444639',width:1.43,lean:.40,arm:[-.96,-1.01],elbow:[-.50,-.55],head:[.15,.02,-.05]},
   'lab-seeker':{skin:'#a4a497',cloth:'#8b7777',pants:'#3e4043',width:.79,lean:.25,arm:[-.72,-.32],elbow:[-.43,-.16],head:[.17,-.20,.14]},
-  'lab-blackout':{skin:'#a2ab97',cloth:'#425f59',pants:'#323e3b',width:1.10,lean:.56,arm:[-.43,-.65],elbow:[-.23,-.35],head:[.26,.06,-.10]}
+  'lab-blackout':{skin:'#a2ab97',cloth:'#425f59',pants:'#323e3b',width:1.10,lean:.56,arm:[-.43,-.65],elbow:[-.23,-.35],head:[.26,.06,-.10]},
+  'lab-siege':{skin:'#a2a08b',cloth:'#80745b',pants:'#41443a',width:1.83,lean:.34,arm:[-.45,-.68],elbow:[-.28,-.34],head:[.19,.06,-.08]},
+  'lab-champion':{skin:'#a0a38e',cloth:'#4a4652',pants:'#353c3d',width:1.10,lean:.10,arm:[-.35,-.60],elbow:[-.20,-.60],head:[.26,-.08,.08]},
+  'lab-warden':{skin:'#a4a793',cloth:'#657379',pants:'#394447',width:1.45,lean:.24,arm:[-.20,-.50],elbow:[-.14,-.26],head:[.24,-.09,-.13]}
  }[id];
  settings=settings||extra;
  if(!settings)throw new Error('Unknown organic enemy: '+id);
@@ -263,6 +266,41 @@ if(lab){
   }
   for(const elbow of elbows){const hand=elbow.children.find(o=>o.name.startsWith('Hand_'));hand.traverse(o=>{if(o.isMesh)o.material=equipment;});}
  }
+ if(id==='lab-siege'){
+  const ram=mat('Worn crushing gauntlet','#63695a',.89),webbing=mat('Heavy work harness','#4b4d3f',.98);
+  loft(elbows[1],'Crushing gauntlet',[[-.47,.17,.18,.02],[-.43,.23,.23,.02],[-.12,.23,.22,.02],[-.045,.17,.16,.01]],ram,2.8,28);
+  loft(elbows[1],'Crushing face',[[-.49,.20,.20,.02],[-.455,.23,.23,.02]],ram,3,24);
+  for(const side of [-1,1])loft(elbows[1],'Ram guide_'+side,[[-.41,.027,.035,.02,side*.13],[-.10,.027,.035,.02,side*.13]],webbing,2.2,16);
+  loft(torso,'Diagonal work harness',[[.03,.06,.025,.103,-.18],[.20,.06,.025,.123,0],[.41,.06,.025,.08,.20]],webbing,2.3,16);
+  loft(torso,'Reinforced waist',[[.015,.49,.25],[.075,.52,.26]],webbing,2.6,24);
+ }
+ if(id==='lab-champion'){
+  const trim=mat('Supervisor coat trim','#4b424e',.99);
+  coatShell(torso,'Supervisor coat',[[.005,.345,.24],[.19,.37,.25],[.34,.45,.27,-.03],[.43,.345,.22,-.025],[.47,.15,.13]], [.24,.27,.40,.67,.8],cloth);
+  coatShell(root,'Supervisor coat tails',[[.34,.45,.30],[.47,.46,.31],[.77,.38,.27],[.94,.345,.24]], [.36,.33,.26,.24],cloth,.012);
+  lapel(-1);lapel(1);
+  for(const arm of arms){
+   const old=arm.children.find(o=>o.name.startsWith('Short sleeve_'));arm.remove(old);owned.delete(old.geometry);old.geometry.dispose();
+   loft(arm,'Supervisor sleeve_'+arm.name,[[-.305,.11*wide,.13,.008],[-.24,.12*wide,.15,.01],[-.15,.15*wide,.175,-.005],[-.06,.175*wide,.19,-.008],[.018,.155*wide,.175],[.065,.10*wide,.13]],cloth,2.1,24);
+  }
+  loft(torso,'Supervisor collar',[[.43,.17,.145],[.48,.14,.125],[.51,.115,.115]],trim,2.4,24);
+  loft(arms[0],'Supervisor cuff',[[-.30,.12*wide,.135,.008],[-.27,.125*wide,.14,.008]],trim,2.3,20);
+ }
+ if(id==='lab-warden'){
+  const restraint=mat('Worn restraint webbing','#414f50',.97),iron=mat('Dark shackle','#545e5b',.88);
+  const jacketSection=y=>{
+   const index=bodyRings.findIndex(r=>r[0]>=y),a=bodyRings[index-1],b=bodyRings[index],t=(y-a[0])/(b[0]-a[0]);
+   return [y,T.MathUtils.lerp(a[1],b[1],t)+.012,T.MathUtils.lerp(a[2],b[2],t)+.010,T.MathUtils.lerp(a[3]||0,b[3]||0,t)];
+  };
+  for(const y of [.06,.19,.32])loft(torso,'Restraint strap_'+y,[jacketSection(y),jacketSection(y+.03)],restraint,2.15,32);
+  loft(elbows[0],'Wrist restraint',[[-.26,.12,.12,.01],[-.205,.12,.12,.01]],iron,2.6,24);
+  const chain=joint(elbows[0],'Hanging restraint chain',.075,-.24,.015);
+  for(let i=0;i<6;i++){
+   const g=new T.TorusGeometry(.026,.006,8,20);g.setAttribute('color',new T.Float32BufferAttribute(Array(g.attributes.position.count*3).fill(.96),3));owned.add(g);
+   const link=new T.Mesh(g,iron);link.name='Chain link_'+i;link.position.y=-i*.070;link.scale.y=1.35;link.rotation.y=i%2?Math.PI/2:0;link.castShadow=link.receiveShadow=true;chain.add(link);
+  }
+  loft(torso,'Restraint jacket collar',[[.40,.27,.19,-.02],[.46,.18,.14],[.49,.13,.12]],cloth,2.4,24);
+ }
  const mouth=root.getObjectByName('Mouth crease');mouth.scale.y=2.6;mouth.position.y=-.162;root.getObjectByName('Lower lip').position.y=-.008;mouth.rotation.z=.09;
  head.position.set(0,.475,.006);
  // Cervical base stays in the shoulder girdle; only the skull pivots with the head.
@@ -282,8 +320,8 @@ if(lab){
  function ground(){root.position.y=0;root.updateMatrixWorld(true);inverse.copy(root.matrixWorld).invert();let min=Infinity;for(const foot of feet)for(const x of [-.0615*wide,.0615*wide])for(const z of [-.0675,.1775]){point.set(x,-.43,z).applyMatrix4(foot.matrixWorld).applyMatrix4(inverse);min=Math.min(min,point.y);}root.position.y=-min*root.scale.y;}
  function stance(){torso.position.y=lab?.925:.88;torso.rotation.set(settings.lean,0,id==='hollow'?.045:lab?.055:-.025);head.rotation.set(...settings.head);legs.forEach((l,i)=>{l.rotation.set(restLeg[i],0,i===0?-.10:.10);shins[i].rotation.x=restShin[i];arms[i].rotation.set(settings.arm[i],i===0?-.08:.10,i===0?-.10:.12);elbows[i].rotation.x=settings.elbow[i];});ground();}
  let previous=null,phase=0,blend=0;
- function reset(){previous=null;phase=blend=0;stance();const tails=root.getObjectByName('Split coat tails');if(tails)tails.rotation.z=0;const seekerTails=root.getObjectByName('Seeker coat tails');if(seekerTails)seekerTails.rotation.z=0;}
- function pose(seconds,walking=true){const dt=previous===null?0:T.MathUtils.clamp(seconds-previous,0,.1);previous=seconds;blend+=((walking?1:0)-blend)*(1-Math.exp(-dt*9));phase+=dt*(id==='lab-runner'?7:id==='lab-brute'?2.2:id==='lab-shield'?2.3:id==='lab-bomber'?4.4:id==='lab-carrier'?2.5:id==='lab-hunter'?5.3:id==='lab-armored'?2.4:id==='lab-artillery'?2.6:id==='lab-corehunter'?4.1:id==='lab-seeker'?2.5:id==='lab-blackout'?2.2:id==='rush'?6:lab?2.7:3.6)*blend;stance();legs.forEach((l,i)=>{const s=Math.sin(phase+i*Math.PI);l.rotation.x=restLeg[i]+s*(id==='lab-runner'?.42:id==='lab-hunter'?.31:id==='lab-corehunter'?.30:lab?(i===0?.17:.055):.25)*blend;shins[i].rotation.x=restShin[i]+Math.max(0,-s)*(lab?(i===0?.23:.035):.38)*blend;arms[i].rotation.x=settings.arm[i]-s*(id==='lab-shield'&&i===0?.025:id==='lab-carrier'?.06:.12)*blend;});torso.rotation.z+=Math.sin(phase)*.025*blend;head.rotation.z+=Math.sin(phase*.5)*.018*blend;if(id==='lab-seeker'){head.rotation.y+=Math.sin(phase*.55)*.18*blend;root.getObjectByName('Seeker coat tails').rotation.z=Math.sin(phase)*.025*blend;}if(lab){torso.rotation.x+=Math.cos(phase)*.025*blend;const tails=root.getObjectByName('Split coat tails');if(tails)tails.rotation.z=Math.sin(phase)*.015*blend;}ground();}
+ function reset(){previous=null;phase=blend=0;stance();const tails=root.getObjectByName('Split coat tails');if(tails)tails.rotation.z=0;for(const name of ['Seeker coat tails','Supervisor coat tails','Hanging restraint chain']){const part=root.getObjectByName(name);if(part)part.rotation.z=0;}}
+ function pose(seconds,walking=true){const dt=previous===null?0:T.MathUtils.clamp(seconds-previous,0,.1);previous=seconds;blend+=((walking?1:0)-blend)*(1-Math.exp(-dt*9));phase+=dt*(id==='lab-runner'?7:id==='lab-brute'?2.2:id==='lab-shield'?2.3:id==='lab-bomber'?4.4:id==='lab-carrier'?2.5:id==='lab-hunter'?5.3:id==='lab-armored'?2.4:id==='lab-artillery'?2.6:id==='lab-corehunter'?4.1:id==='lab-seeker'?2.5:id==='lab-blackout'?2.2:id==='lab-siege'?1.9:id==='lab-champion'?3.1:id==='lab-warden'?2.1:id==='rush'?6:lab?2.7:3.6)*blend;stance();legs.forEach((l,i)=>{const s=Math.sin(phase+i*Math.PI);l.rotation.x=restLeg[i]+s*(id==='lab-runner'?.42:id==='lab-hunter'?.31:id==='lab-corehunter'?.30:lab?(i===0?.17:.055):.25)*blend;shins[i].rotation.x=restShin[i]+Math.max(0,-s)*(lab?(i===0?.23:.035):.38)*blend;arms[i].rotation.x=settings.arm[i]-s*(id==='lab-shield'&&i===0?.025:id==='lab-carrier'?.06:.12)*blend;});torso.rotation.z+=Math.sin(phase)*.025*blend;head.rotation.z+=Math.sin(phase*.5)*.018*blend;if(id==='lab-champion')root.getObjectByName('Supervisor coat tails').rotation.z=Math.sin(phase)*.012*blend;if(id==='lab-warden')root.getObjectByName('Hanging restraint chain').rotation.z=Math.sin(phase)*.06*blend;if(id==='lab-seeker'){head.rotation.y+=Math.sin(phase*.55)*.18*blend;root.getObjectByName('Seeker coat tails').rotation.z=Math.sin(phase)*.025*blend;}if(lab){torso.rotation.x+=Math.cos(phase)*.025*blend;const tails=root.getObjectByName('Split coat tails');if(tails)tails.rotation.z=Math.sin(phase)*.015*blend;}ground();}
  function dispose(){owned.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());}
- if(id==='hollow')root.scale.y=1.055;if(id==='lab-seeker')root.scale.y=1.065;if(id==='lab-assistant')root.scale.y=.95;if(id==='lab-pathologist')root.scale.y=1.065;reset();return {root,head,torso,arms,legs,pose,reset,dispose,id,getMotion:()=>[previous,phase,blend],setMotion:state=>{[previous,phase,blend]=state;}};
+ if(id==='hollow')root.scale.y=1.055;if(id==='lab-seeker')root.scale.y=1.065;if(id==='lab-champion')root.scale.y=1.045;if(id==='lab-assistant')root.scale.y=.95;if(id==='lab-pathologist')root.scale.y=1.065;reset();return {root,head,torso,arms,legs,pose,reset,dispose,id,getMotion:()=>[previous,phase,blend],setMotion:state=>{[previous,phase,blend]=state;}};
 };

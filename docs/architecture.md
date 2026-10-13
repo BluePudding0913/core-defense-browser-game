@@ -419,3 +419,5 @@ SHIELD / BOMBER / CARRIERにはlab-shield / lab-bomber / lab-carrierを追加割
 HUNTER / ARMORED / ARTILLERYにはlab-hunter / lab-armored / lab-artilleryを追加割り当てする。細身の被験者・防護ベストと露出した顔・肩越しの射出筒で役割を分け、歩行速度と歩幅もタイプ別にする。射出筒は薄肉の中空形状で、軸方向のレイが筒口ではなく底に届くことを検証する。共有形状・個体別の歩行・凍結・素材の復元と解放は採用済み10タイプの共通処理を使う。攻撃・装甲軽減・命中判定のルールは変更しない。
 
 CORE HUNTER / SEEKER / BLACKOUTにはlab-corehunter / lab-seeker / lab-blackoutを割り当てる。CORE HUNTERは幅広い体・拡大した手袋と前腕・両手を出した速い歩行、SEEKERは長身・細身の長い裾と歩行中の首振り、BLACKOUTは強い前傾・背面電源ケースと立体ケーブルで、体格と動きも差別化する。13タイプで形状共有と個体別歩行・凍結・被弾色・最終個体の解放を検証する。戦闘ルールは変更しない。比較ビューは新3体を初期表示する。
+
+SIEGE / CHAMPION / WARDENにはlab-siege / lab-champion / lab-wardenを割り当てる。SIEGEは幅広い体と片腕の破砕具、CHAMPIONは直立した暗色の長い上着、WARDENは胴体に沿う拘束帯・手枷・交互に向きを変えた立体の鎖で差別化する。破砕具は前腕、鎖は手枷へ固定し、主任の裾と鎖だけに控えめな揺れを加える。16タイプが共通の個体別歩行・凍結・被弾色と形状共有を使い、比較画面の追加3体で確認できる。ボス能力と戦闘判定は変更しない。
