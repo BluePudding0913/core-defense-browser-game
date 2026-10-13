@@ -304,7 +304,6 @@ window.Lab3D = (() => {
             item.objectKey='enemy:'+entity.id+':'+entity.type;
             if(item.root.userData.presentationOnly)return;
             hitPresentation.restore(item);
-            item.root.scale.setScalar(1);
             item.root.position.set(point.x, 0, point.y);
             item.root.userData.entity={x:point.x,y:point.y};
             item.root.rotation.y = Math.atan2(entity.facingX || 0, entity.facingY ?? 1);
