@@ -397,6 +397,8 @@ ROUND 4の初回BOSSだけ、EnemyTierRulesで従来のボスHPへ0.5倍を適�
 
 スナイパーはWeaponCatalogで発射間隔3.6秒・maxTargets=2を定義し、人間・CPU・SUB・ドローンと配信値を共有する。CombatSystemは2体目の命中点で射線を止め、奥へのダメージを防ぐ。ミニマップの9 TILES距離ラベルは表示しない。
 
+ミニマップは地形・自分の向き・半径9マス以内の生存敵を基本表示とし、侵入口はwave中のactiveSpawnsだけ、ブレーカーは停電中の解放済み復旧対象だけを描く。範囲外の復旧対象は縁へ寄せた黄色の「!」と方向線で示す。通常のB表示とRESET補足文は省き、地形・防壁の明度と敵の点の大きさを抑える。選別はclient/minimap.jsのsampleで行い、client/tests/fpsui.cjsで距離・エリア解放・wave切替・復旧後の非表示を確認する。
+
 SniperAim.updateScopeはクライアントの構え演出だけを220ms/160msで更新する。AimControl.viewFovをLab3Dと呼吸円で共有し、スコープの接眼部へビューカメラを近づけ、終盤にスコープ枠をフェード表示する。メニュー・ダウン・武器交換時は演出をリセットする。
 
 
