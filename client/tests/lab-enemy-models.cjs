@@ -2,8 +2,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 const context=vm.createContext({window:{}});
 for(const file of ['organic-enemy-models.js','lab-enemy-models.js'])vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
 const pool=context.window.createLabEnemyModels(T);
-assert.equal(pool.create('shield',21),null);
-for(const type of ['grunt','runner','brute','poisoner']){
+assert.equal(pool.create('hunter',21),null);
+for(const type of ['grunt','runner','brute','poisoner','shield','bomber','carrier']){
  const a=pool.create(type,21),b=pool.create(type,21);
  const meshes=[];a.rig.traverse(o=>{if(o.isMesh)meshes.push(o);});
  let count=0;b.rig.traverse(o=>{if(o.isMesh){assert.equal(o.geometry,meshes[count].geometry);assert.equal(o.material,meshes[count++].material);}});
@@ -20,4 +20,4 @@ for(const type of ['grunt','runner','brute','poisoner']){
  let disposed=0;meshes[0].geometry.addEventListener('dispose',()=>disposed++);a.dispose();assert.equal(disposed,0,'A surviving actor keeps shared geometry');b.dispose();assert.equal(disposed,1);b.dispose();assert.equal(disposed,1);
  const replacement=pool.create(type,21);assert.notEqual(replacement.rig.getObjectByName(meshes[0].name).geometry,meshes[0].geometry);replacement.dispose();tint.dispose();
 }
-console.log('Lab enemy assignments passed: four types, shared assets, individual gait, freeze, tint, head alignment and final-owner disposal');
+console.log('Lab enemy assignments passed: seven types, shared assets, individual gait, freeze, tint, head alignment and final-owner disposal');
