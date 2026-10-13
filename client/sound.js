@@ -7,6 +7,7 @@
         "system-online": { notes: [330, 660, 990], duration: .6, amplitude: .14 },
         pistol: { pitch: 720, end: 90, duration: .12, noise: .45 },
         ricochet: { pitch: 1600, end: 380, duration: .18, noise: .15 },
+        "enemy-hit": { pitch: 1150, end: 420, duration: .055, noise: .3, amplitude: .12 },
         shotgun: { pitch: 180, end: 35, duration: .25, noise: .85 },
         smg: { pitch: 520, end: 100, duration: .065, noise: .55 },
         rifle: { pitch: 400, end: 65, duration: .11, noise: .65 },

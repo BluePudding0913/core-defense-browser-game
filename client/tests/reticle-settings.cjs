@@ -62,3 +62,19 @@ console.log('Reticle settings passed: geometry, live preview, persistence, valid
 
 for(const weapon of ['rifle','railgun']) {player.weapon=weapon;player.sniper.fixed=false;context.fpsInput.view.zoom=true;const before=reticles;context.drawFirstPerson();assert.equal(reticles,before+1,weapon+' scope preserves the configured reticle');}
 const before=reticles;player.down=true;context.drawFirstPerson();assert.equal(reticles,before,'Downed player has no reticle');player.down=false;player.selectedBuild='turret';context.drawFirstPerson();assert.equal(reticles,before,'Placement has no weapon reticle');player.selectedBuild=null;player.drone={controlled:true};context.drawFirstPerson();assert.equal(reticles,before,'Drone retains its own UI');
+
+player.drone=null;player.weapon='pistol';
+const prompts=[],texts=[];
+context.clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
+context.drawKeyPrompt=(...args)=>prompts.push(args);
+context.ctx.fillText=(...args)=>texts.push(args);
+context.findNearestInteraction=()=>({target:{x:100,y:120}});
+context.labRenderer.stationPosition=p=>p;
+context.labRenderer.project=()=>({visible:true,x:200,y:160});
+context.drawFirstPerson();assert.deepEqual(prompts.splice(0),[['R',200,160]],'R is anchored only to the device');
+context.labRenderer.project=()=>({visible:false});
+context.drawFirstPerson();assert.equal(prompts.length,0,'Offscreen device does not put R beside the reticle');
+context.placementSelection=()=>({type:'turret'});context.frontPlacementTile=()=>({x:100,y:120});context.canBuildAt=()=>true;
+context.labRenderer.project=()=>({visible:true,x:200,y:160});
+context.drawFirstPerson();assert.deepEqual(prompts,[['R',200,160]]);
+assert(!texts.some(([text])=>text==='R PLACE'),'Valid placement does not duplicate R at the reticle');

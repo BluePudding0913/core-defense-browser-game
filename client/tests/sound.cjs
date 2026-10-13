@@ -26,6 +26,7 @@ listeners.pointerdown(); assert.equal(contexts, 1);
 const names = ['pistol', 'ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket', 'missile-launch', 'missile-impact', 'bat', 'medkit', 'heal', 'build', 'pickup', 'item', 'damage', 'railgun', 'railgun-charge', 'refill', 'round-start'];
 const demo = [];
 names.push('flamethrower', 'drone-self-destruct', 'system-restore', 'system-online');
+names.push('enemy-hit');
 for (const name of names) {
     window.coreAudio.play(name);
     const source = sources.at(-1), data = source.buffer.getChannelData(0);
@@ -105,6 +106,14 @@ assert.equal(shakes.length,1); assert.equal(shakes[0].options.duration,220);
 assert(shakes[0].frames.some(f=>f.transform.includes('2px')));
 effect({ effect: 'player-hit', playerId: 'me' });
 assert.deepEqual(played.pop(), ['damage', 0]);
+effect({effect:'hit',playerId:'me',enemyId:1,damage:10});
+assert.deepEqual(played.pop(),['enemy-hit',0]);
+for(const message of [
+    {effect:'hit',playerId:'other',enemyId:1,damage:10},
+    {effect:'hit',playerId:'me',enemyId:1,damage:0},
+    {effect:'hit',playerId:'me',damage:10}
+])effect(message);
+assert.equal(played.length,0,'Only confirmed damaging local enemy hits play the cue');
 effect({ effect: 'drone-self-destruct', playerId: 'me', x: 300, y: 0 });
 assert.deepEqual(played.pop(), ['drone-self-destruct', 0]);
 effect({ effect: 'drone-self-destruct', playerId: 'other', x: 200, y: 0 });
