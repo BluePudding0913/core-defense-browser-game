@@ -171,6 +171,7 @@ window.Lab3D = (() => {
             return objects.get(key);
         }
         const stationAnchors = new Map();
+        const displayAssets = new Map();
         const stationPosition = point => stationAnchors.get(point.x+':'+point.y) || point;
         function station(key, point, color, kind = 'terminal') {
             let anchor=point,facing=0,mounted=false;
@@ -207,7 +208,7 @@ window.Lab3D = (() => {
                 const root = new T.Group();
                 let turretHead, muzzle;
                 root.name = key + ':' + kind;
-                const model=window.MapObjectModels?.build(T,kind,{material,boxGeometry,cylinderGeometry,item:point.item});
+                const model=window.MapObjectModels?.build(T,kind,{material,boxGeometry,cylinderGeometry,item:point.item,displayAssets});
                 if(model) {
                     root.add(model);
                 } else if (kind === 'core') {
@@ -323,16 +324,12 @@ window.Lab3D = (() => {
                     }
                     box(root, 3, 11, 15, '#475968');
                 } else if (node.type==='medkit') {
-                    box(root, 20, 12, 14, '#e2e8e9');box(root,4,1,10,'#df6366',0,12.6);box(root,12,1,3,'#df6366',0,12.7);
-                    box(root,10,3,3,'#70848e',0,14,-5);
+                    root.add(window.MapObjectModels.buildKit(T,{boxGeometry,material}));
                 } else {
                     const color={ore:'#6d7c86',copper:'#b98455',silver:'#d4e5ee'}[node.type] || '#91b9ca';
                     for (const [x,z,r] of [[-4,0,8],[5,3,6],[1,-5,5]]) {
-                        const rock=new T.Mesh(node.type==='silver'?cylinderGeometry:sphereGeometry,material(node.type==='ore'?'#56636b':color));
-                        rock.scale.set(node.type==='silver'?r*.45:r,node.type==='silver'?r*1.8:r*.7,node.type==='silver'?r*.45:r*.8);rock.position.set(x,node.type==='silver'?r*.9:r*.6,z);rock.rotation.z=node.type==='silver'?x*.045:0;rock.castShadow=true;root.add(rock);
+                        const rock=new T.Mesh(sphereGeometry,material(color));rock.scale.set(r,r*.7,r*.8);rock.position.set(x,r*.6,z);rock.castShadow=true;root.add(rock);
                     }
-                    if(node.type==='ore')for(const x of [-5,2,7])box(root,4,3,3,'#a2aeb4',x,7,2);
-                    if(node.type==='copper')for(const x of [-5,4])box(root,5,2,7,'#e0a16c',x,7,1).rotation.y=.4;
                 }
                 return {root};
             });
