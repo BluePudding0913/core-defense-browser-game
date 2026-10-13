@@ -137,6 +137,16 @@ window.Lab3D = (() => {
         const viewMuzzle = viewModel.root.getObjectByName('Muzzle');
         let latestFrame, viewVisible=false;
         const raycaster = new T.Raycaster();
+        const animationFrustum=new T.Frustum(),animationProjection=new T.Matrix4(),animationSphere=new T.Sphere();
+        let fullEnemyAnimation=false;
+        function enemyAnimationInterval(point,radius) {
+            if(fullEnemyAnimation)return 0;
+            // Conservative whole-body bounds keep partially visible enemies at full detail.
+            animationSphere.center.set(point.x,radius*.8,point.y);animationSphere.radius=radius*1.5;
+            if(!animationFrustum.intersectsSphere(animationSphere))return 250;
+            const dx=point.x-camera.position.x,dz=point.y-camera.position.z;
+            return dx*dx+dz*dz>480*480?100:0;
+        }
         let cachedAim=null;
         function aimPoint() {
             if (!latestFrame) return null;
@@ -313,7 +323,7 @@ window.Lab3D = (() => {
             item.root.userData.entity={x:point.x,y:point.y};
             item.root.rotation.y = Math.atan2(entity.facingX || 0, entity.facingY ?? 1);
             if(item.model){
-                item.model.update(point,now,entity.frozenRemaining>0);
+                item.model.update(point,now,entity.frozenRemaining>0,enemyAnimationInterval(point,radius));
                 item.model.tint(entity.frozenRemaining>0?material('#95dded'):null);
                 return;
             }
@@ -663,6 +673,8 @@ window.Lab3D = (() => {
             view.recoilPitch=firingRail || window.AimControl?.supported(me?.weapon) ? 0 : recoil*(frame.scoped ? .006 : .003);
             camera.rotation.set(Math.max(-1.2,Math.min(1.2,view.pitch+view.recoilPitch)),-view.yaw,me?.down ? .2 : Math.sin(walkPhase)*.0025*bob,'YXZ');
             camera.updateMatrixWorld(true);
+            fullEnemyAnimation=me?.weapon==='sniper' || me?.job==='attacker' && me.secondaryWeapon==='sniper';
+            if(!fullEnemyAnimation)animationFrustum.setFromProjectionMatrix(animationProjection.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse));
             darkened=!!state?.blackoutActive && !me?.drone?.controlled && !frame.nightVision;
             scene.fog=darkened?blackoutFog:null;scene.background.set(darkened?'#010205':'#141e26');
             ambient.intensity=darkened?.07:.75;sun.intensity=darkened?.08:1;
