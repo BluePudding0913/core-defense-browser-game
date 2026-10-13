@@ -363,12 +363,14 @@ if(lab){
   'lab-champion':[4.2,.36,.36,.48,.48],'lab-warden':[3.2,.31,.31,.42,.42],
   'lab-tiny':[8.8,.48,.48,.65,.65],'lab-gilded':[4.8,.36,.36,.50,.50],'lab-blueace':[9.5,.57,.57,.80,.80]
  }[id]||[id==='rush'?7:4.5,.34,.34,.50,.50];
- function pose(seconds,walking=true,travel){
+ function advance(seconds,walking=true,travel){
   const dt=previous===null?0:T.MathUtils.clamp(seconds-previous,0,.1);previous=seconds;
   blend+=((walking?1:0)-blend)*(1-Math.exp(-dt*9));
   // In game, cadence follows ground travel; limit catch-up on teleports or sparse frames.
   const cycleDistance=1.5*(gait[1]+gait[2]);
   phase+=(travel===undefined?dt*gait[0]:Math.min(Math.max(0,travel)/cycleDistance*Math.PI*2,dt*18))*blend;
+ }
+ function applyPose(){
   stance();
   legs.forEach((leg,i)=>{
    const s=Math.sin(phase+i*Math.PI);
@@ -386,6 +388,7 @@ if(lab){
   if(lab){torso.rotation.x+=Math.cos(phase)*.025*blend;const tails=root.getObjectByName('Split coat tails');if(tails)tails.rotation.z=Math.sin(phase)*.015*blend;}
   ground();
  }
+ function pose(seconds,walking=true,travel){advance(seconds,walking,travel);applyPose();}
  function dispose(){owned.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());}
- if(id==='hollow')root.scale.y=1.055;if(id==='lab-seeker')root.scale.y=1.065;if(id==='lab-champion')root.scale.y=1.045;if(id==='lab-assistant')root.scale.y=.95;if(id==='lab-pathologist')root.scale.y=1.065;reset();return {root,head,torso,arms,legs,pose,reset,dispose,id,getMotion:()=>[previous,phase,blend],setMotion:state=>{[previous,phase,blend]=state;}};
+ if(id==='hollow')root.scale.y=1.055;if(id==='lab-seeker')root.scale.y=1.065;if(id==='lab-champion')root.scale.y=1.045;if(id==='lab-assistant')root.scale.y=.95;if(id==='lab-pathologist')root.scale.y=1.065;reset();return {root,head,torso,arms,legs,pose,advance,applyPose,reset,dispose,id,getMotion:()=>[previous,phase,blend],setMotion:state=>{[previous,phase,blend]=state;}};
 };
