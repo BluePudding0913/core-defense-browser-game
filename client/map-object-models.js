@@ -87,7 +87,7 @@ window.MapObjectModels = (() => {
             part('healing-base',32,4,30,dark);part('healing-chassis',28,23,26,pale,0,15);
             part('healing-core',28,3,26,accent,0,28,0,true);
             part('medical-panel',16,15,1,accent,0,15,13.5);cross(0,15,14.3,.85);
-        } else if(kind==='weapon' || kind==='medkit' || kind==='factoryShop') {
+        } else if(kind==='weapon' || kind==='medkit' || kind==='factoryShop' || kind==='ammo') {
             part('case-base',34,16,26,dark);part('case-trim',34,2,26,metal,0,17);part('case-top',34,2,26,metal,0,45);
             for(const x of [-16,16])for(const z of [-12,12])part('case-post',1.5,27,1.5,metal,x,31,z);
             part('case-display-bed',30,1,22,'#425966',0,19);
@@ -99,6 +99,18 @@ window.MapObjectModels = (() => {
             if(kind==='medkit') {
                 const kit=buildKit(T,{boxGeometry,material});kit.position.y=22;kit.scale.setScalar(.9);root.add(kit);
                 part('kit-display-plinth',22,3,17,pale,0,20.5);
+            } else if(kind==='ammo') {
+                const display=new T.Group();display.name='ShowcaseAmmo';root.add(display);
+                const add=mesh=>{display.add(mesh);return mesh;};
+                part('ammo-display-plinth',27,2,19,pale,0,20.5);
+                add(part('ammo-case',25,6,16,'#53695c',0,24));
+                add(part('ammo-lid',25,10,2,'#53695c',0,32,-7));
+                add(part('ammo-lid-inset',21,7,.5,dark,0,32,-5.8));
+                for(const x of [-8,8])add(part('ammo-clasp',2,3,1,metal,x,24,8.3));
+                for(const x of [-8,-4,0,4,8]) {
+                    add(cylinder('ammo-cartridge',1.25,7,'#c5a05a',x,30.5,0));
+                    add(cylinder('ammo-tip',.8,2,pale,x,35,0));
+                }
             } else {
                 const factory=kind==='factoryShop',item=style.item || (factory?'oreFactory':'rifle'),key=(factory?'machine:':'weapon:')+item;
                 if(!assets.has(key))assets.set(key,factory?{root:build(T,'factory',{...style,item})}:window.buildWeaponModel(T,item));
@@ -134,10 +146,6 @@ window.MapObjectModels = (() => {
                     }
                 }
             }
-        } else if(kind==='ammo') {
-            part('ammo-crate',31,17,26,'#53695c');for(const x of [-12,12])part('crate-band',3,18,27,accent,x,9);
-            part('open-lid',31,17,3,dark,0,25,-12).rotation.x=-.15;
-            for(const x of [-8,0,8]){cylinder('cartridge',2.5,11,'#c9a765',x,22,2);cylinder('cartridge-tip',1.7,3,pale,x,29,2);}
         } else if(kind==='workbench' || kind==='advanced') {
             feet();part('worktop',34,4,28,'#b58a61',0,18);
             part('hammer-handle',12,1.5,2,'#795737',-5,21,-4);part('hammer-head',3,3,7,metal,-11,21.5,-4);

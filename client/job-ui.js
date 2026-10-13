@@ -41,15 +41,14 @@ window.JobUI = (() => {
         pendingDialog?.close();
         pendingDialog?.remove();
         const dialog = document.createElement("dialog");
-        dialog.className = "job-confirm";
+        dialog.className = "job-confirm action-menu single-action";
         const owned = Object.entries(weapons).filter(([id, definition]) =>
             !definition.meleeSlot && id !== "bat" && WeaponUI.owns(player, definition));
         const discard = owned.length > limit && job !== "attacker";
-        dialog.innerHTML = `<form method="dialog"><p>${escape(catalog[job].name)} に転職しますか？</p>
-            ${discard ? `<label>捨てる武器<select name="discard" required><option value="">選択</option>${owned.map(([id]) =>
+        dialog.innerHTML = `<form method="dialog" class="action-card"><div class="action-heading"><strong>${escape(catalog[job].name)}</strong><button type="button" data-cancel aria-label="閉じる">×</button></div>
+            ${discard ? `<label class="job-discard">捨てる武器<select name="discard" required><option value="">選択</option>${owned.map(([id]) =>
                 `<option value="${escape(id)}">${escape(WeaponUI.name(id, weapons, player))}</option>`).join("")}</select></label>` : ""}
-            <div class="job-confirm-actions"><button type="submit" value="yes" ${discard ? "disabled" : ""}>Yes</button>
-            <button type="button" data-cancel>No</button></div></form>`;
+            <div class="action-options"><button type="submit" value="yes" ${discard ? "disabled" : ""}>CHANGE</button></div></form>`;
         const yes = dialog.querySelector('[value="yes"]');
         const select = dialog.querySelector("select");
         if (select) select.onchange = () => { yes.disabled = !select.value; };

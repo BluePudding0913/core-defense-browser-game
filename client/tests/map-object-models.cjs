@@ -4,9 +4,9 @@ const models=context.window.MapObjectModels,map=require('../../shared/map.json')
 const displayAssets=new Map();
 for(const shop of map.shopUnits){
  const kind=models.stationKind(shop),root=models.build(T,kind,{item:shop.item,displayAssets});assert(root,'Every shop has a dedicated model: '+shop.id);
- if(['weapon','medkit','factoryShop'].includes(kind)) {
+ if(['weapon','medkit','factoryShop','ammo'].includes(kind)) {
   assert.equal(root.children.filter(o=>o.name==='showcase-glass').length,5,'Five transparent showcase faces: '+shop.id);
-  const display=root.getObjectByName(kind==='weapon'?'ShowcaseWeapon':kind==='factoryShop'?'ShowcaseFactory':'MedicalKit');assert(display);
+  const display=root.getObjectByName(kind==='weapon'?'ShowcaseWeapon':kind==='factoryShop'?'ShowcaseFactory':kind==='ammo'?'ShowcaseAmmo':'MedicalKit');assert(display);
   const bounds=new T.Box3().setFromObject(display);assert(bounds.min.x>=-14 && bounds.max.x<=14 && bounds.min.z>=-10 && bounds.max.z<=10 && bounds.min.y>=21 && bounds.max.y<43,'Displayed product fits inside glass: '+shop.id);
   assert(bounds.min.y<=33 && bounds.max.y>=26,'Display is near standing eye height: '+shop.id);
   if(kind==='weapon')assert.equal(display.userData.item,shop.item,'Display matches the sold weapon');

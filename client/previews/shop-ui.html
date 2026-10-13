@@ -1,0 +1,16 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shop UI</title><link rel="stylesheet" href="../style.css"><link rel="stylesheet" href="../job-ui.css">
+<style>body{background:linear-gradient(#20333f,#101c25)}nav{position:fixed;bottom:24px;left:24px;z-index:20;display:flex;gap:10px}nav button{padding:10px 16px;background:#24343b;color:white;border:1px solid #658391;border-radius:4px}</style>
+<section id="action-menu" class="action-menu hidden"><div class="action-card"><div class="action-heading"><strong id="action-title"></strong><button id="close">×</button></div><p id="workbench-materials" hidden></p><div id="action-options" class="action-options"></div></div></section><nav><button id="kit">MEDKIT</button><button id="job">JOB</button></nav>
+<script src="../weapon-ui.js"></script><script src="../job-ui.js"></script><script>
+const actionMenu=document.querySelector('#action-menu'),actionOptions=document.querySelector('#action-options'),actionTitle=document.querySelector('#action-title'),fpsInput=null;
+const player={job:'attacker',medkits:1,credits:500},state={rules:{medkitCapacity:3}},WEAPON_FIELDS={},INTERACTION_RANGE={shop:70};let activeMenuAccess;
+function getMe(){return player;}function canUseNearby(){return true;}function updateWorkbenchMaterials(){}function resumeGameLook(){}
+function send(){player.medkits=Math.min(3,player.medkits+1);activeMenuAccess?.refresh();}
+fetch('../app.js').then(r=>r.text()).then(source=>{
+ for(const name of ['escapeHtml','openActionMenu','openNearbyActionMenu','closeActionMenu','openShopPurchase']){const a=source.indexOf('function '+name+'('),b=source.indexOf(name==='escapeHtml'?'\n':'\nfunction ',a+1);window[name]=new Function(source.slice(a,b<0?undefined:b)+';return '+name)();}
+ document.querySelector('#kit').onclick=()=>openShopPurchase({label:'MEDKIT',item:'medkit',cost:50,x:0,y:0});
+ document.querySelector('#close').onclick=()=>closeActionMenu();
+ document.querySelector('#job').onclick=()=>{closeActionMenu();JobUI.confirmChange(player,'healer',WEAPON_FIELDS,3,()=>{});};
+ document.querySelector('#kit').click();
+});
+</script></html>
