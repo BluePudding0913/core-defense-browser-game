@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
+(async()=>{
 const handlers = {}, fields = new Map(), calls = [];
 const field = selector => {
     if (!fields.has(selector)) fields.set(selector, { textContent: '', focus() {}, setAttribute(name, value) { this[name] = value; } });
@@ -372,8 +373,18 @@ assert(!root.hidden, 'snapshots leave game settings open');
 assert.equal(renderCount, playingRenders, 'settings input remains stable during gameplay');
 handlers.input({ target: {name:'volume',value:'42'} });
 assert.equal(previewed.length, 0, 'dragging the slider does not repeatedly play audio');
-handlers.change({ target: {name:'volume',value:'42'} });
+await handlers.change({ target: {name:'volume',value:'42'} });
 assert.deepEqual(previewed.pop(), ['pistol', .42], 'release previews the selected volume');
+const preloadSamples=context.window.coreAudio.preloadSamples;
+let finishPreview;const delayedSample=new Promise(resolve=>finishPreview=resolve);
+context.window.coreAudio.preloadSamples=()=>delayedSample;
+const pendingPreview=handlers.change({target:{name:'volume',value:'42'}});
+assert.equal(previewed.length,0,'Settings do not play the old synth before sample decode completes');
+finishPreview();await pendingPreview;assert.deepEqual(previewed.pop(),['pistol',.42]);
+let finishLatest;context.window.coreAudio.preloadSamples=()=>new Promise(resolve=>finishLatest=resolve);
+const removedSlider={name:'volume',isConnected:true};const obsolete=handlers.change({target:removedSlider});removedSlider.isConnected=false;
+finishLatest();await obsolete;assert.equal(previewed.length,0,'Closing or rerendering settings cancels a pending preview');
+context.window.coreAudio.preloadSamples=preloadSamples;
 handlers.change({ target: {name:'reticle-size',value:'8'} });
 assert.equal(previewed.length, 0);
 const preservedName = saved.get('core-defense-guest-name');
@@ -396,3 +407,4 @@ console.log('In-game settings passed: no name edit, snapshot persistence, slider
 const backupState={...state,phase:"lost",backupAvailable:true,rewindRemaining:3.5,backupRound:15,backupOwnerId:"p1"};
 context.window.coreMenu.snapshot(backupState,"p1");assert.doesNotMatch(root.innerHTML,/restore-backup/);
 console.log("Backup results UI passed: automatic restore needs no manual action");
+})().catch(error=>{console.error(error);process.exitCode=1;});

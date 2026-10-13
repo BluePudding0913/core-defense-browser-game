@@ -159,8 +159,13 @@ function mountMenu() {
         root.hidden = true;
         onClose?.();
     }
-    root.addEventListener("change", event => {
-        if (view === "settings" && event.target.name === "volume") window.coreAudio.play("pistol");
+    let volumePreview=0;
+    root.addEventListener("change", async event => {
+        if (view !== "settings" || event.target.name !== "volume") return;
+        const request=++volumePreview;
+        await window.coreAudio.preloadSamples?.();
+        if(request===volumePreview && view==="settings" && !root.hidden && event.target.isConnected!==false)
+            window.coreAudio.play("pistol");
     });
     root.addEventListener("keydown", event => {
         const key = window.coreKeySettings.gameKey(event);
