@@ -12,3 +12,8 @@ console.log('3D block terrain passed: explicit heights, flat transit ceiling, st
 
 assert(upper.clearBody(20,20,5,0,32));assert(!upper.clearBody(20,20,5,70,32),'Body cannot pass through ceiling');assert(upper.clearBody(20,20,5,136,32),'Upper-floor body has independent clearance');
 const raised={x:20,y:20,jumpHeight:136,jumpVelocity:0};assert(c.window.JumpMovement.start(raised,[],custom),'Can jump from a stacked floor');c.window.JumpMovement.advance(raised,.8,[],custom);assert.equal(raised.jumpHeight,136,'Lands on stacked floor');
+
+for(const [x,z] of [[1100,1140],[1140,1180],[1020,1220],[1060,1260]]) {
+ assert.equal(t.ceiling(x,z),130,'Entry approach has the normal ceiling height');
+ assert(t.clearBody(x,z,10,64,32),'No leftover bulkheads across the raised ceiling');
+}
