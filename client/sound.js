@@ -1,7 +1,19 @@
 "use strict";
 
-// Synthesized locally: no downloads or sound files are required.
+// Pistol uses the bundled WAV; other effects and the loading fallback are synthesized locally.
 (() => {
+    const scriptUrl=typeof document!=="undefined"?document.currentScript?.src:null;
+    const pistolUrl=scriptUrl?new URL("assets/sounds/pistol_shot.wav",scriptUrl).href:"assets/sounds/pistol_shot.wav";
+    const pistolBytes=typeof fetch==="function"
+        ? fetch(pistolUrl).then(response=>response.ok?response.arrayBuffer():null).catch(()=>null)
+        : Promise.resolve(null);
+    let pistolSample=null,pistolLoad=null;
+    function preloadPistol(audio) {
+        if(!audio || typeof audio.decodeAudioData!=="function")return Promise.resolve();
+        if(!pistolLoad)pistolLoad=pistolBytes.then(bytes=>bytes?audio.decodeAudioData(bytes):null)
+            .then(buffer=>{pistolSample=buffer;}).catch(()=>{});
+        return pistolLoad;
+    }
     const effects = {
         "system-restore": { pitch: 95, end: 1000, duration: 6, noise: .82, glitch: true, amplitude: .14 },
         "system-online": { notes: [330, 660, 990], duration: .6, amplitude: .14 },
@@ -68,6 +80,7 @@
         unlocked = true;
         const audio = context();
         if (audio?.state === "suspended") audio.resume().catch(() => {});
+        preloadPistol(audio);
     }
     // Retry on later gestures if the browser suspended audio again.
     window.addEventListener("pointerdown", unlock);
@@ -118,6 +131,7 @@
         return buffer;
     }
     window.coreAudio = {
+        preloadSamples() { return preloadPistol(context()); },
         syncRewind(remaining, version) {
             const pending = remaining > 0;
             if (pending && !rewindPending) {
@@ -179,9 +193,11 @@
             }
             const source = audio.createBufferSource();
             source.effectName = name;
+            const sample=name==="pistol"?pistolSample:null;
+            const sampleGain=sample ? .35 : 1;
             const gain = audio.createGain();
-            gain.gain.value = volume;
-            source.buffer = bufferFor(name, audio);
+            gain.gain.value = volume*sampleGain;
+            source.buffer = sample || bufferFor(name, audio);
             source.loop = loop;
             source.connect(gain);
             gain.connect(masterGain);
@@ -189,7 +205,7 @@
             let stopped = false;
             const voice = {
                 stop() { if (stopped) return; stopped = true; source.stop(); },
-                setDistance(value) { gain.gain.value = Math.pow(Math.max(0, 1 - value / 600), 2); }
+                setDistance(value) { gain.gain.value = Math.pow(Math.max(0, 1 - value / 600), 2)*sampleGain; }
             };
             source.onended = () => {
                 stopped = true;

@@ -1,6 +1,6 @@
 # 機能変更に合わせた責務分離
 
-敵命中SEは削除し、playSoundEffectはhitを音へ変換しない。ピストルは160msのフィルタ差分ノイズによる破裂音と低いサイン波の胴鳴りで合成する。リコチェットの控えめな乾いた音、マスター音量・距離減衰・バッファ共有は維持する。Headshotは即時にレティクル中心より22px下から始まり、1.3秒で62px上昇し、減衰する跳ねを加える。全体の表示は3秒のままとする。
+敵命中SEは削除し、playSoundEffectはhitを音へ変換しない。ピストルはreference/pistol_shot.wavをそのままコピーしたassets/sounds/pistol_shot.wav（460ms・48kHz・16bitモノラル）を使う。sound.jsの場所を基準に1回取得し、初回操作で1回デコードして各発砲のAudioBufferSourceへ共有する。サンプルゲイン0.35を既存のマスター音量と距離減衰へ掛け、同時再生上限も共用する。読み込み中・HTTP/通信/デコード失敗時は160msの合成音で即時再生し、過去の発砲を遅れて再生しない。pistol-sample.cjsで実素材・共有・失敗・音量等を検証し、previews/pistol-audio.htmlで試聴できる。リコチェットの控えめな乾いた音は維持する。Headshotは即時にレティクル中心より22px下から始まり、1.3秒で62px上昇し、減衰する跳ねを加える。全体の表示は3秒のままとする。
 
 リコチェットはCombatSystem.rayHitで射撃開始点と異なる区間へreflected表示情報を付ける。CombatEventsの互換オーバーロードを通してGameEffectsがJSONへ渡し、反射・命中・射程・弾薬のルールは維持する。Lab3Dは反射区間をfromX/fromY/fromHeightから描き、銃口へ戻さず、追加の発射反動も出さない。最初の区間は従来の銃口演出を使う。
 
