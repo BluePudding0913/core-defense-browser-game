@@ -474,6 +474,8 @@ function enterRoom(roomId, options = {}) {
     setMenuView("lobby");
     hitEffects = [];
     if (typeof CombatFeedback !== "undefined") CombatFeedback.reset();
+    if (typeof CoreFeedback !== "undefined") CoreFeedback.reset();
+    lastCoreHp=undefined;lastCoreShield=0;
     state = undefined;
     myPlayerId = undefined;
     roomBrowser.classList.add("hidden");
@@ -613,7 +615,10 @@ function receiveState(next) {
     const endsDefense = ["won", "lost"].includes(next.phase) && previousPhase !== next.phase;
     const resetCoreAlerts = next.phase === "lobby"
             || state && (next.rewindVersion !== state.rewindVersion || next.phase === "preparing" && state.phase !== "preparing");
-    if (resetCoreAlerts && typeof CoreFeedback !== "undefined") CoreFeedback.reset();
+    if (resetCoreAlerts && typeof CoreFeedback !== "undefined") {
+        const keepCoreHud=next.phase==='preparing' && state?.phase==='wave' && (next.rewindVersion || 0)===(state.rewindVersion || 0);
+        CoreFeedback.reset(keepCoreHud);
+    }
     if (lastCoreHp !== undefined && (next.core.hp < lastCoreHp || (next.core.shield || 0) < lastCoreShield)) {
         coreHitStarted = performance.now();
         if (!resetCoreAlerts && typeof CoreFeedback !== "undefined") CoreFeedback.add(next.core, coreHitStarted);
@@ -2515,6 +2520,7 @@ function droneCameraView() {
 }
 
 function draw() {
+    if(typeof CoreFeedback!=='undefined')CoreFeedback.updateHud?.(document.querySelector('#core-damage-hud'),state?.core,performance.now());
     if (fpsInput) { drawFirstPerson(); return; }
     renderPositions = labRenderer ? new Map() : null;
     ctx.setTransform(1, 0, 0, 1, 0, 0);

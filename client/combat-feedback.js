@@ -1,8 +1,12 @@
 /* Each local hit keeps its own reward label, independently from hit animations. */
 const CombatFeedback = (() => {
-    let popups = [],headshotAt=-Infinity;
+    const hsDuration=2600,hsReplaceFade=80;
+    let popups = [],headshots=[];
     function add(effect, now, playerId, debugMode = false) {
-        if(effect.effect==='hit' && effect.playerId===playerId && effect.enemyId!=null && effect.damage>0 && effect.headshot===true)headshotAt=now;
+        if(effect.effect==='hit' && effect.playerId===playerId && effect.enemyId!=null && effect.damage>0 && effect.headshot===true) {
+            const previous=headshots.at(-1);
+            headshots=previous && now-previous.at<hsDuration?[{...previous,fadeAt:now,fadeAlpha:Math.min(1,(hsDuration-(now-previous.at))/250)},{at:now}]:[{at:now}];
+        }
         const damage = debugMode && Number.isFinite(effect.damage) && effect.damage > 0 ? effect.damage : 0;
         if (effect.effect !== "hit" || effect.playerId !== playerId
                 || !(effect.credits > 0 || damage > 0)) return;
@@ -61,11 +65,14 @@ const CombatFeedback = (() => {
         }
     }
     function drawHeadShot(ctx,now,x,y) {
-        const age=now-headshotAt;if(age<0 || age>=650)return;
-        ctx.save();ctx.globalAlpha=Math.min(1,(650-age)/250);ctx.fillStyle='#79d8ff';
-        const rise=18*(1-Math.pow(1-age/650,2));
-        ctx.font='900 18px ui-monospace, monospace';ctx.textAlign='right';ctx.fillText('HeadShot',x-12,y-18-rise);ctx.restore();
+        headshots=headshots.filter(h=>now-h.at<hsDuration && (h.fadeAt==null || now-h.fadeAt<hsReplaceFade));
+        for(const h of headshots) {
+            const age=now-h.at;if(age<0)continue;
+            ctx.save();ctx.globalAlpha=h.fadeAt==null?Math.min(1,(hsDuration-age)/250):h.fadeAlpha*Math.max(0,1-(now-h.fadeAt)/hsReplaceFade);ctx.fillStyle='#79d8ff';
+            const rise=18*(1-Math.pow(1-Math.min(1,age/650),2));
+            ctx.font='900 18px ui-monospace, monospace';ctx.textAlign='right';ctx.fillText('HeadShot',x-12,y-18-rise);ctx.restore();
+        }
     }
-    return {add, layout, draw, drawHeadShot, reset() {popups = [];headshotAt=-Infinity;} };
+    return {add, layout, draw, drawHeadShot, reset() {popups = [];headshots=[];} };
 })();
 if (typeof module !== "undefined") module.exports = CombatFeedback;
