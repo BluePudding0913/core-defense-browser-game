@@ -10,7 +10,7 @@ THREE.WebGLRenderer = class {
     render(s,c) { if(c.near===.01){viewScene=s;viewCamera=c;viewScene.updateMatrixWorld(true);viewCamera.updateMatrixWorld(true);return;}scene=s;camera=c;scene.updateMatrixWorld(true);camera.updateMatrixWorld(true); }
 };
 const context=vm.createContext({window:{THREE},document:{body:{classList:{add(){}}}},performance:{now:()=>now},console});
-for (const file of ['aim-control.js','soldier-model.js','sniper-stance.js','zombie-model.js','wall-impacts.js','block-terrain.js','lab3d.js']) vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
+for (const file of ['aim-control.js','soldier-model.js','sniper-stance.js','zombie-model.js','wall-impacts.js','block-terrain.js','map-object-models.js','lab3d.js']) vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
 const renderer=context.window.Lab3D.create({width:900,height:500,before(){}});
 const player={id:'me',x:100,y:100,facingX:0,facingY:-1};
 const state={core:{x:60,y:60},players:[player],enemies:[{id:1,type:'shield',x:180,y:100,hp:100,facingX:1,facingY:0}],slots:[
@@ -31,7 +31,11 @@ const muzzle=head.children.find(o=>o.type==='Object3D');assert(muzzle.position.z
 const wire=find('defense:wire:wire');assert(wire.children.some(o=>o.geometry?.type==='TubeGeometry'),'Wire has a barbed coil');
 assert(!wire.children.some(o=>o.geometry?.type==='CylinderGeometry'),'Wire does not reuse mine disk');
 assert(find('defense:mine:mine').children.some(o=>o.geometry?.type==='CylinderGeometry'));
-for (const type of ['barricade','copperBarricade','silverBarricade']) { const block=find('defense:'+type+':'+type).children[0];assert.deepEqual(block.scale.toArray(),[36,24,36],'Barricades are low solid blocks'); }
+for (const type of ['barricade','copperBarricade','silverBarricade']) {
+    const block=find('defense:'+type+':'+type),size=new THREE.Box3().setFromObject(block).getSize(new THREE.Vector3());
+    assert(size.x<=36 && size.z<=36 && size.y<=30,'Detailed barricades stay inside one tile and below the eye line');
+    assert(block.children.length>=7,'Barricades have separate slats and supports');
+}
 find('station:breaker:breaker'); find('station:unlock:terminal');find('resource:ore:ore');find('drop:1:medkit');
 assert(!scene.getObjectByName('resource:empty:wood'));
 const terrain=scene.children.find(o=>o.children.some(c=>c.isInstancedMesh));
