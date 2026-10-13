@@ -2648,7 +2648,7 @@ function drawFirstPerson() {
     const placement=point ? {...point,valid:canBuildAt(point,selection.forCore)} : null;
     labRenderer.render({map:TILE_MAP,reachable:reachableFloorTiles(),center:camera,eye,scale,state,localId:myPlayerId,predicted:predictedLocal,smooth:smoothEntity,radius:enemyRadius,stations:labStations(),effects:hitEffects,aim:worldFromScreen(0,0),view:fpsInput.view,placement,scoped,nightVision:!!droneCameraView(),motion:{moving:Math.hypot(localMove.x,localMove.y)>.12,dashing:predictedLocal?.dashing}});
     if(firingPointer)updateFiringAim(firingPointer.clientX,firingPointer.clientY);
-    if(secondaryHeld){const p=worldFromScreen(0,0);const now=performance.now();if(now-(drawFirstPerson.secondaryAt || 0)>70){send(`SECONDARY_FIRE:${p.x.toFixed(1)}:${p.y.toFixed(1)}:1`);drawFirstPerson.secondaryAt=now;}}
+    if(secondaryHeld){const now=performance.now();if(now-(drawFirstPerson.secondaryAt || 0)>70){const p=worldFromScreen(0,0);send(`SECONDARY_FIRE:${p.x.toFixed(1)}:${p.y.toFixed(1)}:1`);drawFirstPerson.secondaryAt=now;}}
     ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);
     if(!state)return;
     const now=performance.now();hitEffects=hitEffects.filter(e=>now-e.started<1200);
