@@ -36,7 +36,8 @@ window.MapObjectModels = (() => {
             const mesh=new T.Mesh(cylinderGeometry,material(color));mesh.name=name;mesh.scale.set(r,h,r);mesh.position.set(x,y,z);mesh.castShadow=mesh.receiveShadow=true;root.add(mesh);return mesh;
         }
         function cross(x,y,z,size=1) {part('medical-cross-v',3*size,11*size,1,pale,x,y,z,true);part('medical-cross-h',9*size,3*size,1,pale,x,y,z+.1,true);}
-        function feet(w=26,d=22) {for(const x of [-w/2,w/2])for(const z of [-d/2,d/2])part('foot',3,15,3,metal,x,7.5,z);}
+        // Table undersides are at 14.5–16: embed each leg slightly into the slab.
+        function feet(w=26,d=22) {for(const x of [-w/2,w/2])for(const z of [-d/2,d/2])part('foot',3,16.5,3,metal,x,8.25,z);}
         function screen(x=0,y=27,z=3,w=20,h=12) {part('screen-frame',w+3,h+3,2,dark,x,y,z);part('screen',w,h,.6,accent,x,y,z+1.3,true);for(let i=0;i<3;i++)part('screen-line',w*(.65-i*.13),.7,.3,pale,x-w*.08,y+3-i*3,z+1.7);}
         if(kind==='medical') {
             part('healing-base',34,5,34,dark);part('healing-chassis',28,17,28,metal,0,13);
@@ -64,8 +65,32 @@ window.MapObjectModels = (() => {
                 if(!factory)display.rotation.y=Math.PI/2;display.updateMatrixWorld(true);
                 const bounds=new T.Box3().setFromObject(display),size=bounds.getSize(new T.Vector3()),center=bounds.getCenter(new T.Vector3());
                 const scale=Math.min(27/size.x,17/size.y,17/size.z);display.scale.setScalar(scale);display.position.set(-center.x*scale,31-center.y*scale,-center.z*scale);root.add(display);
-                if(factory)part('machine-plinth',23,2,17,pale,0,21);
-                else for(const x of [-8,8]){part('weapon-rest',3,4,8,dark,x,21);part('weapon-support',1,7,1,metal,x,25,-2);}
+                if(factory) {
+                    display.position.y=22-bounds.min.y*scale;
+                    part('machine-plinth',23,2,17,pale,0,21);
+                } else {
+                    // Find the real underside, rather than assuming equal barrel/stock heights.
+                    display.updateMatrixWorld(true);
+                    const actual=new T.Box3().setFromObject(display),ray=new T.Raycaster(),up=new T.Vector3(0,1,0);
+                    for(const side of [-1,1]) {
+                        const target=side*(actual.max.x-actual.min.x)*.28;
+                        let contact;
+                        for(const dx of [0,-.5,.5,-1,1,-2,2]) {
+                            for(const fraction of [0,.125,-.125,.25,-.25,.375,-.375,.49,-.49]) {
+                                const z=(actual.min.z+actual.max.z)/2+fraction*(actual.max.z-actual.min.z);
+                                ray.set(new T.Vector3(target+dx,19.5,z),up);
+                                const hit=ray.intersectObject(display,true)[0];
+                                if(hit){contact=new T.Vector3(target+dx,hit.point.y,z);break;}
+                            }
+                            if(contact)break;
+                        }
+                        if(!contact)throw new Error('No showcase support contact for '+item);
+                        const height=contact.y-19.4+.2;
+                        part('weapon-rest',3,1,5,dark,contact.x,20,contact.z);
+                        part('weapon-support',1.2,height,1.2,metal,contact.x,19.4+height/2,contact.z);
+                        part('weapon-saddle',2,.6,3,dark,contact.x,contact.y-.1,contact.z);
+                    }
+                }
             }
         } else if(kind==='ammo') {
             part('ammo-crate',31,17,26,'#53695c');for(const x of [-12,12])part('crate-band',3,18,27,accent,x,9);
@@ -74,8 +99,8 @@ window.MapObjectModels = (() => {
         } else if(kind==='workbench' || kind==='advanced') {
             feet();part('worktop',34,4,28,'#b58a61',0,18);
             part('hammer-handle',12,1.5,2,'#795737',-5,21,-4);part('hammer-head',3,3,7,metal,-11,21.5,-4);
-            part('wrench-handle',11,1.5,2,pale,3,21,5);part('wrench-neck',3,1.5,6,metal,9,21,5);
-            for(const z of [2,8])part('wrench-jaw',4,1.5,2,pale,11,21,z);
+            part('wrench-handle',11,1.5,2,pale,3,20.75,5);part('wrench-neck',3,1.5,6,metal,9,20.75,5);
+            for(const z of [2,8])part('wrench-jaw',4,1.5,2,pale,11,20.75,z);
             if(kind==='advanced') {for(const x of [-12,12])part('press-column',3,28,4,metal,x,32,5);part('press-beam',28,5,8,accent,0,46,5);cylinder('press-piston',3,16,pale,0,37,5);part('press-head',13,4,10,accent,0,28,5);}
         } else if(kind==='woodcutter' || kind==='factory' && style.item==='woodFactory') {
             feet();part('saw-table',34,4,28,metal,0,18);const saw=cylinder('saw-blade',10,1.3,pale,0,23,0);saw.rotation.z=Math.PI/2;
