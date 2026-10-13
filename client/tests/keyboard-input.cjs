@@ -8,7 +8,7 @@ class HTMLTextAreaElement {}
 const context = vm.createContext({
     window: { addEventListener: (type, handler) => { handlers[type] = handler; } },
     HTMLInputElement, HTMLTextAreaElement,
-    exitDialog: { open: false }, howToMenu: { classList: { contains: () => true } },
+    exitDialog: { open: false }, actionMenu:{classList:{contains:()=>true}},inventoryMenu:{classList:{contains:()=>true}},menu:{classList:{contains:()=>true}}, howToMenu: { classList: { contains: () => true } },
     state: { phase: 'wave' }, keys: new Set(), joystick: null, predictedLocal: null,
     localMove: {}, localFacing: 0, quantizeFacing: () => 0, getMe: () => null,
     send: command => commands.push(command),
@@ -105,3 +105,27 @@ context.getMe=()=>({down:false});context.actionMenu={classList:{contains:()=>tru
 key('keydown',{code:'Space',key:'Process',repeat:false});assert.equal(commands.at(-1),'JUMP');
 const beforeJumpRepeat=commands.length;key('keydown',{code:'Space',key:' ',repeat:true});assert.equal(commands.length,beforeJumpRepeat,'Holding Space does not restart jump');
 context.actionMenu.classList.contains=()=>false;key('keydown',{code:'Space',key:' ',repeat:false});assert.equal(commands.length,beforeJumpRepeat,'Menus block jumps');
+// Every gameplay key stays blocked, including key repeats and an already-held move.
+context.dashKey=false;context.dashRequested=false;context.pendingMove=null;context.setDash=active=>{context.dashRequested=active;commands.push('DASH:'+(active?1:0));};
+context.clearTimeout=()=>{};
+for(const panel of ['actionMenu','inventoryMenu','howToMenu','menu']) {
+ for(const name of ['actionMenu','inventoryMenu','howToMenu','menu'])context[name]={classList:{contains:()=>name!==panel}};
+ commands.length=0;context.keys.clear();
+ for(const code of ['KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','Digit1','KeyJ','KeyR'])key('keydown',{code,repeat:false});
+ assert.equal(commands.length,0,panel+' blocks all gameplay commands');assert.equal(context.keys.size,0);
+ context.keys.add('w');context.sendMovement(true);assert.equal(commands.at(-1),'MOVE:0.00:0.00','Held movement cannot leak through '+panel);
+}
+for(const name of ['actionMenu','inventoryMenu','howToMenu','menu'])context[name]={classList:{contains:()=>true}};
+context.keys.add('w');context.dashRequested=true;context.dashKey=true;context.joystick={x:40,y:0,originX:0,originY:0};
+context.sendMovement(true);context.stopGameplayMovement();assert.equal(context.keys.size,0);assert.equal(context.joystick,null);assert.equal(context.dashRequested,false);assert.equal(commands.at(-1),'MOVE:0.00:0.00','UI opening immediately cancels held movement and dash');
+console.log('UI input isolation passed: inventory, shops, instructions, menus, jump/dash/abilities, held movement and immediate stop');
+let inventoryOpen=false;
+Object.assign(context,{fpsInput:null,firingPointer:null,secondaryHeld:false,closeInventoryPopover(){},endInteractionHold(){},closeActionMenu(){},closeInventory(){inventoryOpen=false;}});
+context.inventoryMenu={classList:{contains:()=>!inventoryOpen,remove:()=>{inventoryOpen=true;}}};
+const inventoryStart=source.indexOf('function toggleInventory(');
+vm.runInContext(source.slice(inventoryStart,source.indexOf('\nfunction ',inventoryStart+1)),context);
+context.keys.add('w');context.sendMovement(true);assert.equal(commands.at(-1),'MOVE:0.00:-1.00');
+context.toggleInventory();assert(inventoryOpen);assert.equal(commands.at(-1),'MOVE:0.00:0.00','Inventory stops movement immediately, before the next frame');
+const blockedCount=commands.length;key('keydown',{code:'KeyW'});key('keydown',{code:'Space'});assert.equal(commands.length,blockedCount);
+context.toggleInventory();assert(!inventoryOpen);assert.equal(context.keys.size,0,'Closing inventory does not replay the blocked keys');
+console.log('Inventory integration passed: immediate stop on opening, blocked movement/jump and no held-key replay');

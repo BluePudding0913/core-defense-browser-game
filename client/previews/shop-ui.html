@@ -4,7 +4,7 @@
 <script src="../weapon-ui.js"></script><script src="../job-ui.js"></script><script>
 const actionMenu=document.querySelector('#action-menu'),actionOptions=document.querySelector('#action-options'),actionTitle=document.querySelector('#action-title'),fpsInput=null;
 const player={job:'attacker',medkits:1,credits:500},state={rules:{medkitCapacity:3}},WEAPON_FIELDS={},INTERACTION_RANGE={shop:70};let activeMenuAccess;
-function getMe(){return player;}function canUseNearby(){return true;}function updateWorkbenchMaterials(){}function resumeGameLook(){}
+function getMe(){return player;}function canUseNearby(){return true;}function updateWorkbenchMaterials(){}function resumeGameLook(){}function stopGameplayMovement(){}
 function send(){player.medkits=Math.min(3,player.medkits+1);activeMenuAccess?.refresh();}
 fetch('../app.js').then(r=>r.text()).then(source=>{
  for(const name of ['escapeHtml','openActionMenu','openNearbyActionMenu','closeActionMenu','openShopPurchase']){const a=source.indexOf('function '+name+'('),b=source.indexOf(name==='escapeHtml'?'\n':'\nfunction ',a+1);window[name]=new Function(source.slice(a,b<0?undefined:b)+';return '+name)();}

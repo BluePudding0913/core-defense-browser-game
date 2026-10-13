@@ -1001,6 +1001,7 @@ howToMenu.addEventListener("pointerdown", event => {
 function openHowTo() {
     endInteractionHold(true);
     howToMenu.classList.remove("hidden");
+    stopGameplayMovement();
 }
 
 function closeHowTo() {
@@ -1344,6 +1345,7 @@ function toggleInventory() {
     }
     closeActionMenu(false);
     inventoryMenu.classList.remove("hidden");
+    stopGameplayMovement();
     fpsInput?.setActive(false,true);
 }
 
@@ -1530,6 +1532,7 @@ function openActionMenu(title, options, layout = "default") {
         }
     });
     actionMenu.classList.remove("hidden");
+    stopGameplayMovement();
     fpsInput?.setActive(false,true);
 }
 
@@ -1585,6 +1588,7 @@ function requestJobChange(job) {
     if (!me || me.down || me.job === job) return;
     window.JobUI.confirmChange(me, job, WEAPON_FIELDS, state.rules.weaponLimit, discard =>
         send("JOB:" + job + (discard ? ":" + discard : "")));
+    stopGameplayMovement();
 }
 
 function openJobStation() {
@@ -1593,6 +1597,7 @@ function openJobStation() {
     actionTitle.textContent = "JOB";
     document.querySelector("#workbench-materials").hidden = true;
     actionMenu.classList.remove("single-action", "hidden");
+    stopGameplayMovement();
     refreshJobStation();
 }
 
@@ -2102,6 +2107,17 @@ function updateJoystick(clientX, clientY) {
 }
 
 let lastMove = "";
+function gameplayUiOpen() {
+    return exitDialog.open || !actionMenu.classList.contains('hidden') || !inventoryMenu.classList.contains('hidden')
+        || !howToMenu.classList.contains('hidden') || !menu.classList.contains('hidden')
+        || window.coreMenu?.settingsOpen?.() || window.JobUI?.isConfirming?.() || getMe()?.missileControl;
+}
+function stopGameplayMovement() {
+    keys.clear();joystick=null;
+    if(dashKey || dashRequested){dashKey=false;setDash(false);}
+    if(pendingMove)clearTimeout(pendingMove.timer);pendingMove=null;
+    sendMovement();
+}
 function sendMovement(force = false) {
     let x = 0, y = 0;
     if (joystick) { x = (joystick.x - joystick.originX) / 58; y = (joystick.y - joystick.originY) / 58; }
@@ -2113,7 +2129,7 @@ function sendMovement(force = false) {
     const length = Math.hypot(x, y);
     if (length > 1) { x /= length; y /= length; }
     if (typeof fpsInput !== "undefined" && fpsInput) ({x,y}=fpsInput.movement(x,y));
-    if(getMe()?.sniper?.fixed)x=y=0;
+    if(getMe()?.sniper?.fixed || gameplayUiOpen())x=y=0;
     localMove.x = Number(x.toFixed(2));
     localMove.y = Number(y.toFixed(2));
     if (Math.hypot(localMove.x,localMove.y) > .12) localFacing = quantizeFacing(localMove.x, localMove.y);
@@ -2150,6 +2166,7 @@ window.addEventListener("keydown", event => {
         if (!event.repeat) openExitDialog();
         return;
     }
+    if(key!=="e" && gameplayUiOpen())return;
     if (/^[1-9]$/.test(key) && state && ["preparing", "wave"].includes(state.phase)) {
         event.preventDefault();
         if (!event.repeat) {
@@ -2220,6 +2237,11 @@ window.addEventListener("keydown", event => {
 });
 window.addEventListener("keyup", event => {
     const key = window.coreKeySettings.gameKey(event);
+    if(gameplayUiOpen()){
+        keys.delete(key);
+        if(key==='shift'){dashKey=false;if(dashRequested)setDash(false);}
+        sendMovement();return;
+    }
     if (key === window.coreKeySettings.getSniperStance?.()) {send("SNIPER_CANCEL");return;}
     if (key === window.coreKeySettings.getJobEffect()) return;
     if (key === "r") { endInteractionHold(); return; }
@@ -3534,15 +3556,17 @@ function drawInteractionPrompt() {
 
 function drawKeyPrompt(key, x, y) {
     ctx.save();
-    ctx.fillStyle = "white";
-    ctx.strokeStyle = "#111";
-    ctx.lineWidth = 2;
+    ctx.fillStyle = "rgba(8,14,20,.82)";
+    ctx.strokeStyle = "rgba(255,255,255,.65)";
+    ctx.lineWidth = 1;
+    ctx.shadowColor = "rgba(0,0,0,.45)";ctx.shadowBlur=4;ctx.shadowOffsetY=1;
     ctx.beginPath();
-    ctx.arc(x, y, 10, 0, Math.PI * 2);
+    const width=Math.max(24,10+String(key).length*7);
+    ctx.roundRect(x-width/2,y-12,width,24,4);
     ctx.fill();
     ctx.stroke();
-    ctx.fillStyle = "#111";
-    ctx.font = "900 10px ui-monospace, monospace";
+    ctx.fillStyle = "#fff";
+    ctx.font = "900 12px ui-monospace, monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(key, x, y + 1);

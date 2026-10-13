@@ -14,6 +14,7 @@ for(const shop of map.shopUnits){
 }
 const first=models.build(T,'weapon',{item:'shotgun',displayAssets}),second=models.build(T,'weapon',{item:'shotgun',displayAssets});
 const a=first.getObjectByName('ShowcaseWeapon'),b=second.getObjectByName('ShowcaseWeapon');
+assert.equal(a.rotation.y,Math.PI,'Shotgun display is rotated a further 90 degrees');
 assert.notEqual(a,b);assert.equal(a.children[0].children[0].geometry,b.children[0].children[0].geometry,'Repeated displays reuse weapon geometry');
 assert.equal(first.getObjectByName('showcase-glass').material,second.getObjectByName('showcase-glass').material,'Repeated displays reuse glass material');
 for(const weapon of ['bat','pistol','shotgun','smg','rifle','sniper','ricochet','revolver','railgun','rocket','flamethrower','lmg','hook','laserCannon','poisonGas','repulsor','freezeGun','plasmaBlade']) {

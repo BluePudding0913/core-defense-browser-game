@@ -116,7 +116,7 @@ window.MapObjectModels = (() => {
                 if(!assets.has(key))assets.set(key,factory?{root:build(T,'factory',{...style,item})}:window.buildWeaponModel(T,item));
                 const display=assets.get(key).root.clone(true);display.name=factory?'ShowcaseFactory':'ShowcaseWeapon';display.userData.item=item;
                 display.traverse(o=>{if(o.isMesh)o.castShadow=true;});
-                if(!factory)display.rotation.y=Math.PI/2;display.updateMatrixWorld(true);
+                if(!factory)display.rotation.y=item==='shotgun'?Math.PI:Math.PI/2;display.updateMatrixWorld(true);
                 const bounds=new T.Box3().setFromObject(display),size=bounds.getSize(new T.Vector3()),center=bounds.getCenter(new T.Vector3());
                 const scale=Math.min(27/size.x,17/size.y,17/size.z);display.scale.setScalar(scale);display.position.set(-center.x*scale,31-center.y*scale,-center.z*scale);root.add(display);
                 if(factory) {

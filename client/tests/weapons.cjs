@@ -125,7 +125,7 @@ const sent = [];
 let buttons = [], closed = 0;
 const classes = new Set(['hidden']);
 Object.assign(context, {
-    actionTitle: {}, actionOptions: {
+    stopGameplayMovement(){}, actionTitle: {}, actionOptions: {
         get children() { return buttons; },
         replaceChildren() { buttons = []; }, append(button) { buttons.push(button); },
     },
