@@ -72,7 +72,7 @@ const CombatFeedback = (() => {
         for(const h of headshots) {
             const age=now-h.at;if(age<0)continue;
             ctx.save();ctx.globalAlpha=h.fadeAt==null?Math.min(1,(hsDuration-age)/250):h.fadeAlpha*Math.max(0,1-(now-h.fadeAt)/hsReplaceFade);ctx.fillStyle='#79d8ff';
-            const rise=18*(1-Math.pow(1-Math.min(1,age/650),2));
+            const rise=18*(1-Math.pow(1-Math.min(1,age/1300),2));
             ctx.shadowColor='rgba(0,0,0,.4)';ctx.shadowBlur=3;ctx.shadowOffsetY=1;
             ctx.font='900 18px ui-monospace, monospace';ctx.textAlign='right';ctx.fillText('Headshot',x-12,y-18-rise);ctx.restore();
         }
