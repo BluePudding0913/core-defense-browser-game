@@ -1,5 +1,4 @@
 # Build outputs
-/artifacts/map-objects/
 server/target/
 *.class
 *.jar
