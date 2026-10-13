@@ -1,7 +1,24 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),T=require('../vendor/three.min.js');
-const context=vm.createContext({window:{}});vm.runInContext(fs.readFileSync('client/map-object-models.js','utf8'),context);
+const context=vm.createContext({window:{}});for(const file of ['soldier-model.js','map-object-models.js'])vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
 const models=context.window.MapObjectModels,map=require('../../shared/map.json');
-for(const shop of map.shopUnits){const kind=models.stationKind(shop);assert(models.build(T,kind,{item:shop.item}),'Every shop has a dedicated model: '+shop.id);}
+const displayAssets=new Map();
+for(const shop of map.shopUnits){
+ const kind=models.stationKind(shop),root=models.build(T,kind,{item:shop.item,displayAssets});assert(root,'Every shop has a dedicated model: '+shop.id);
+ if(['weapon','medkit','factoryShop'].includes(kind)) {
+  assert.equal(root.children.filter(o=>o.name==='showcase-glass').length,5,'Five transparent showcase faces: '+shop.id);
+  const display=root.getObjectByName(kind==='weapon'?'ShowcaseWeapon':kind==='factoryShop'?'ShowcaseFactory':'MedicalKit');assert(display);
+  const bounds=new T.Box3().setFromObject(display);assert(bounds.min.x>=-14 && bounds.max.x<=14 && bounds.min.z>=-10 && bounds.max.z<=10 && bounds.min.y>=21 && bounds.max.y<43,'Displayed product fits inside glass: '+shop.id);
+  assert(bounds.min.y<=33 && bounds.max.y>=26,'Display is near standing eye height: '+shop.id);
+  if(kind==='weapon')assert.equal(display.userData.item,shop.item,'Display matches the sold weapon');
+ }
+}
+const first=models.build(T,'weapon',{item:'shotgun',displayAssets}),second=models.build(T,'weapon',{item:'shotgun',displayAssets});
+const a=first.getObjectByName('ShowcaseWeapon'),b=second.getObjectByName('ShowcaseWeapon');
+assert.notEqual(a,b);assert.equal(a.children[0].children[0].geometry,b.children[0].children[0].geometry,'Repeated displays reuse weapon geometry');
+assert.equal(first.getObjectByName('showcase-glass').material,second.getObjectByName('showcase-glass').material,'Repeated displays reuse glass material');
+assert.equal(models.stationKind({item:'medkit'}),'medkit');assert.equal(models.stationKind({item:'oreFactory'}),'factoryShop');
+assert(models.build(T,'medical').getObjectByName('healing-core'));assert(!models.build(T,'medical').getObjectByName('bed-frame'));
+assert(!models.build(T,'workbench').getObjectByName('tool-board'));assert(models.build(T,'workbench').getObjectByName('hammer-handle'));assert(models.build(T,'workbench').getObjectByName('wrench-handle'));
 const silhouettes=new Set();
 for(const kind of Object.keys(models.colors)){
  const root=models.build(T,kind),bounds=new T.Box3().setFromObject(root),size=bounds.getSize(new T.Vector3());
