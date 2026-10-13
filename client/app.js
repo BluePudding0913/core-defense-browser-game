@@ -3804,11 +3804,13 @@ function projectCombatPopup(popup) {
 
 function labStations() {
     if (!state) return [];
-    const stations = SHOP_UNITS.filter(isUnlockedPoint).map(p => [p, p.label, '#80cee1']);
-    for (const p of MEDBAYS.filter(isUnlockedPoint)) stations.push([p, 'MED BAY', '#88d7b1']);
-    for (const p of [WOODCUTTER, QUARRY].filter(isUnlockedPoint)) stations.push([p, '', '#d3b78c']);
-    for (const p of [...WORKBENCHES, PREP_CONSOLE, MISSILE_COMPUTER, JOB_STATION].filter(Boolean))
-        if (!p.requiredArea || state.areas[p.requiredArea]) stations.push([p, '', '#89cbd8']);
+    const models=window.MapObjectModels;
+    const stations = SHOP_UNITS.filter(isUnlockedPoint).map(p => {
+        const kind=models.stationKind(p);return [p,p.label,models.colors[kind],kind];
+    });
+    for (const p of MEDBAYS.filter(isUnlockedPoint)) stations.push([p, 'MED BAY', models.colors.medical, 'medical']);
+    for (const [p,kind] of [[WOODCUTTER,'woodcutter'],[QUARRY,'quarry'],...WORKBENCHES.map(p=>[p,p.id==='backup-terminal'?'command':'workbench']),[PREP_CONSOLE,'time'],[MISSILE_COMPUTER,'missile'],[JOB_STATION,'job']])
+        if (p && (!p.requiredArea || state.areas[p.requiredArea])) stations.push([p, '', models.colors[kind],kind]);
     const tripped = new Set(state.trippedBreakers || []);
     for (const p of BREAKER_TERMINALS) if (!p.requiredArea || state.areas[p.requiredArea])
         stations.push([p, state.blackoutActive && tripped.has(p.id) ? 'RESET' : 'POWER', state.blackoutActive && tripped.has(p.id) ? '#ff5964' : '#89cbd8', 'breaker']);
@@ -3822,6 +3824,6 @@ function labStations() {
         if (!state.areas[area.id] && [[0,0],[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy]) => reachable.has((r+dy)+':'+(c+dx))))
             stations.push([{id:'unlock:'+area.id, x:area.terminalX, y:area.terminalY}, 'UNLOCK', '#79d8ff', 'terminal']);
     }
-    for (const p of state.factories || []) stations.push([p, '', '#80cee1']);
+    for (const p of state.factories || []) stations.push([p, '', models.colors.factory, 'factory']);
     return stations;
 }
