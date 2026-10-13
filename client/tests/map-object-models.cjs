@@ -16,9 +16,25 @@ const first=models.build(T,'weapon',{item:'shotgun',displayAssets}),second=model
 const a=first.getObjectByName('ShowcaseWeapon'),b=second.getObjectByName('ShowcaseWeapon');
 assert.notEqual(a,b);assert.equal(a.children[0].children[0].geometry,b.children[0].children[0].geometry,'Repeated displays reuse weapon geometry');
 assert.equal(first.getObjectByName('showcase-glass').material,second.getObjectByName('showcase-glass').material,'Repeated displays reuse glass material');
+for(const weapon of ['bat','pistol','shotgun','smg','rifle','sniper','ricochet','revolver','railgun','rocket','flamethrower','lmg','hook','laserCannon','poisonGas','repulsor','freezeGun','plasmaBlade']) {
+ const showcase=models.build(T,'weapon',{item:weapon,displayAssets}),gun=showcase.getObjectByName('ShowcaseWeapon');showcase.updateMatrixWorld(true);
+ const supports=showcase.children.filter(o=>o.name==='weapon-support');assert.equal(supports.length,2);
+ const floor=new T.Box3().setFromObject(showcase.getObjectByName('case-display-bed'));
+ for(const support of supports) {
+  const box=new T.Box3().setFromObject(support),ray=new T.Raycaster(new T.Vector3(support.position.x,floor.max.y,support.position.z),new T.Vector3(0,1,0));
+  const hit=ray.intersectObject(gun,true)[0];assert(hit,'Support is directly below real weapon geometry: '+weapon);
+  assert(box.min.y<=floor.max.y && box.max.y>=hit.point.y && box.max.y-hit.point.y<.3,'Support connects the display floor and weapon underside: '+weapon);
+ }
+}
+console.log('All 18 weapons: both supports contact actual geometry and the display floor');
 assert.equal(models.stationKind({item:'medkit'}),'medkit');assert.equal(models.stationKind({item:'oreFactory'}),'factoryShop');
 assert(models.build(T,'medical').getObjectByName('healing-core'));assert(!models.build(T,'medical').getObjectByName('bed-frame'));
 assert(!models.build(T,'workbench').getObjectByName('tool-board'));assert(models.build(T,'workbench').getObjectByName('hammer-handle'));assert(models.build(T,'workbench').getObjectByName('wrench-handle'));
+for(const [kind,topName] of [['workbench','worktop'],['advanced','worktop'],['woodcutter','saw-table'],['command','console-desk'],['missile','launch-desk']]) {
+ const table=models.build(T,kind),top=new T.Box3().setFromObject(table.getObjectByName(topName)),legs=table.children.filter(o=>o.name==='foot');
+ assert.equal(legs.length,4);
+ for(const leg of legs){const box=new T.Box3().setFromObject(leg);assert.equal(box.min.y,0,'Leg rests on the ground');assert(box.max.y>top.min.y && box.max.y<top.max.y,'Leg joins inside the tabletop: '+kind);assert(box.min.x>=top.min.x && box.max.x<=top.max.x && box.min.z>=top.min.z && box.max.z<=top.max.z,'Leg remains underneath the tabletop: '+kind);}
+}
 const silhouettes=new Set();
 for(const kind of Object.keys(models.colors)){
  const root=models.build(T,kind),bounds=new T.Box3().setFromObject(root),size=bounds.getSize(new T.Vector3());
