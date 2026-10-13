@@ -17,7 +17,7 @@ class EnemyWaveRulesTest {
     @Test void waveBudgetsHaveOneBossAndKeepSpecialSchedules() {
         for (int round=1;round<=50;round++) {
             assertTrue(EnemyWaveRules.regularCount(round)>0);
-            assertEquals(round==50 || round%4==0 || Set.of(25,35,45).contains(round) ? 1 : 0,EnemyWaveRules.bossCount(round));
+            assertEquals(round==50 || round>=8 && round%4==0 || Set.of(25,35,45).contains(round) ? 1 : 0,EnemyWaveRules.bossCount(round));
         }
         assertEquals(141,EnemyWaveRules.regularCount(40)); assertEquals(274,EnemyWaveRules.regularCount(50));
     }
