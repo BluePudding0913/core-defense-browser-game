@@ -1,11 +1,10 @@
 /* Each local hit keeps its own reward label, independently from hit animations. */
 const CombatFeedback = (() => {
-    const hsDuration=2600,hsReplaceFade=80;
-    let popups = [],headshots=[];
+    const hsDuration=2600,hsReplaceFade=80,hsDelay=500;
+    let popups = [],headshots=[],pendingHeadshots=[];
     function add(effect, now, playerId, debugMode = false) {
         if(effect.effect==='hit' && effect.playerId===playerId && effect.enemyId!=null && effect.damage>0 && effect.headshot===true) {
-            const previous=headshots.at(-1);
-            headshots=previous && now-previous.at<hsDuration?[{...previous,fadeAt:now,fadeAlpha:Math.min(1,(hsDuration-(now-previous.at))/250)},{at:now}]:[{at:now}];
+            pendingHeadshots.push(now+hsDelay);
         }
         const damage = debugMode && Number.isFinite(effect.damage) && effect.damage > 0 ? effect.damage : 0;
         if (effect.effect !== "hit" || effect.playerId !== playerId
@@ -65,6 +64,10 @@ const CombatFeedback = (() => {
         }
     }
     function drawHeadShot(ctx,now,x,y) {
+        while(pendingHeadshots.length && pendingHeadshots[0]<=now) {
+            const at=pendingHeadshots.shift(),previous=headshots.at(-1);
+            headshots=previous && at-previous.at<hsDuration?[{...previous,fadeAt:at,fadeAlpha:Math.min(1,(hsDuration-(at-previous.at))/250)},{at}]:[{at}];
+        }
         headshots=headshots.filter(h=>now-h.at<hsDuration && (h.fadeAt==null || now-h.fadeAt<hsReplaceFade));
         for(const h of headshots) {
             const age=now-h.at;if(age<0)continue;
@@ -74,6 +77,6 @@ const CombatFeedback = (() => {
             ctx.font='900 18px ui-monospace, monospace';ctx.textAlign='right';ctx.fillText('Headshot',x-12,y-18-rise);ctx.restore();
         }
     }
-    return {add, layout, draw, drawHeadShot, reset() {popups = [];headshots=[];} };
+    return {add, layout, draw, drawHeadShot, reset() {popups = [];headshots=[];pendingHeadshots=[];} };
 })();
 if (typeof module !== "undefined") module.exports = CombatFeedback;

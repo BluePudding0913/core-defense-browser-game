@@ -20,6 +20,10 @@ assert.equal(first.getObjectByName('showcase-glass').material,second.getObjectBy
 for(const weapon of ['bat','pistol','shotgun','smg','rifle','sniper','ricochet','revolver','railgun','rocket','flamethrower','lmg','hook','laserCannon','poisonGas','repulsor','freezeGun','plasmaBlade']) {
  const showcase=models.build(T,'weapon',{item:weapon,displayAssets}),gun=showcase.getObjectByName('ShowcaseWeapon');showcase.updateMatrixWorld(true);
  const supports=showcase.children.filter(o=>o.name==='weapon-support');assert.equal(supports.length,2);
+ for(const name of ['weapon-rest','weapon-support','weapon-saddle']) {
+  const pair=showcase.children.filter(o=>o.name===name);
+  assert(!new T.Box3().setFromObject(pair[0]).intersectsBox(new T.Box3().setFromObject(pair[1])),'Support pair must not overlap: '+weapon+' '+name);
+ }
  const floor=new T.Box3().setFromObject(showcase.getObjectByName('case-display-bed'));
  for(const support of supports) {
   const box=new T.Box3().setFromObject(support),ray=new T.Raycaster(new T.Vector3(support.position.x,floor.max.y,support.position.z),new T.Vector3(0,1,0));

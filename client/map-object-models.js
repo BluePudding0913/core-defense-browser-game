@@ -126,15 +126,18 @@ window.MapObjectModels = (() => {
                     // Find the real underside, rather than assuming equal barrel/stock heights.
                     display.updateMatrixWorld(true);
                     const actual=new T.Box3().setFromObject(display),ray=new T.Raycaster(),up=new T.Vector3(0,1,0);
+                    const alongZ=actual.max.z-actual.min.z>actual.max.x-actual.min.x;
+                    const along=alongZ?'z':'x',across=alongZ?'x':'z';
                     for(const side of [-1,1]) {
-                        const target=side*(actual.max.x-actual.min.x)*.28;
+                        const target=(actual.min[along]+actual.max[along])/2+side*(actual.max[along]-actual.min[along])*.28;
                         let contact;
                         for(const dx of [0,-.5,.5,-1,1,-2,2]) {
                             for(const fraction of [0,.125,-.125,.25,-.25,.375,-.375,.49,-.49]) {
-                                const z=(actual.min.z+actual.max.z)/2+fraction*(actual.max.z-actual.min.z);
-                                ray.set(new T.Vector3(target+dx,19.5,z),up);
+                                const cross=(actual.min[across]+actual.max[across])/2+fraction*(actual.max[across]-actual.min[across]);
+                                const x=alongZ?cross:target+dx,z=alongZ?target+dx:cross;
+                                ray.set(new T.Vector3(x,19.5,z),up);
                                 const hit=ray.intersectObject(display,true)[0];
-                                if(hit){contact=new T.Vector3(target+dx,hit.point.y,z);break;}
+                                if(hit){contact=new T.Vector3(x,hit.point.y,z);break;}
                             }
                             if(contact)break;
                         }

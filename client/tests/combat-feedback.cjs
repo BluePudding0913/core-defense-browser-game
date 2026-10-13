@@ -123,18 +123,26 @@ console.log('Hit marker removal passed: reward labels remain, no hit/HS reticle 
 {
 const texts=[],labelCtx={save(){},restore(){},fillText(text,x,y){texts.push({text,x,y,alpha:this.globalAlpha});}};
 feedback.reset();for(const effect of [{...hit(0),damage:20},{...hit(0),damage:0,headshot:true},{...hit(0),damage:20,headshot:true,playerId:'other'},{...hit(0),damage:20,headshot:true,enemyId:null}])feedback.add(effect,100,'me');
-feedback.drawHeadShot(labelCtx,100,400,300);assert.equal(texts.length,0);
-feedback.add({...hit(0),damage:20,headshot:true},200,'me');feedback.drawHeadShot(labelCtx,200,400,300);assert.deepEqual(texts.at(-1),{text:'Headshot',x:388,y:282,alpha:1});assert.equal(labelCtx.shadowColor,'rgba(0,0,0,.4)');assert.equal(labelCtx.shadowBlur,3);assert.equal(labelCtx.font,'900 18px ui-monospace, monospace');assert.equal(labelCtx.fillStyle,'#79d8ff','HS uses the former gold label color');
-feedback.add({...hit(0),damage:20},500,'me');feedback.drawHeadShot(labelCtx,500,400,300);assert.equal(texts.at(-1).alpha,1);assert.equal(texts.at(-1).x,388);assert(texts.at(-1).y<282 && texts.at(-1).y>264,'HS label floats upward');
-feedback.drawHeadShot(labelCtx,2500,400,300);assert.equal(texts.at(-1).alpha,1,'HS stays fully visible until its final 250ms');
-feedback.drawHeadShot(labelCtx,2700,400,300);assert(texts.at(-1).alpha>0 && texts.at(-1).alpha<1);let count=texts.length;
-feedback.drawHeadShot(labelCtx,2800,400,300);assert.equal(texts.length,count,'HS lifetime is four times the original 650ms');
-feedback.add({...hit(0),damage:20,headshot:true},3000,'me');feedback.drawHeadShot(labelCtx,3200,400,300);
-feedback.add({...hit(0),damage:20,headshot:true},3200,'me');count=texts.length;feedback.drawHeadShot(labelCtx,3240,400,300);
+feedback.drawHeadShot(labelCtx,600,400,300);assert.equal(texts.length,0);
+feedback.add({...hit(0),damage:20,headshot:true},200,'me');feedback.drawHeadShot(labelCtx,700,400,300);assert.deepEqual(texts.at(-1),{text:'Headshot',x:388,y:282,alpha:1});assert.equal(labelCtx.shadowColor,'rgba(0,0,0,.4)');assert.equal(labelCtx.shadowBlur,3);assert.equal(labelCtx.font,'900 18px ui-monospace, monospace');assert.equal(labelCtx.fillStyle,'#79d8ff','HS uses the former gold label color');
+feedback.add({...hit(0),damage:20},500,'me');feedback.drawHeadShot(labelCtx,1000,400,300);assert.equal(texts.at(-1).alpha,1);assert.equal(texts.at(-1).x,388);assert(texts.at(-1).y<282 && texts.at(-1).y>264,'HS label floats upward');
+feedback.drawHeadShot(labelCtx,3000,400,300);assert.equal(texts.at(-1).alpha,1,'HS stays fully visible until its final 250ms');
+feedback.drawHeadShot(labelCtx,3200,400,300);assert(texts.at(-1).alpha>0 && texts.at(-1).alpha<1);let count=texts.length;
+feedback.drawHeadShot(labelCtx,3300,400,300);assert.equal(texts.length,count,'HS lifetime is four times the original 650ms');
+feedback.add({...hit(0),damage:20,headshot:true},3000,'me');feedback.drawHeadShot(labelCtx,3700,400,300);
+feedback.add({...hit(0),damage:20,headshot:true},3200,'me');count=texts.length;feedback.drawHeadShot(labelCtx,3740,400,300);
 assert.equal(texts.length-count,2,'New HS is shown while the old notification fades');assert.equal(texts.at(-2).alpha,.5);assert.equal(texts.at(-1).alpha,1);
-count=texts.length;feedback.drawHeadShot(labelCtx,3280,400,300);assert.equal(texts.length-count,1,'Previous HS disappears after 80ms');
-feedback.add({...hit(0),damage:20},5500,'me');count=texts.length;feedback.drawHeadShot(labelCtx,5800,400,300);assert.equal(texts.length,count,'Body hits do not extend the HS label');
-feedback.reset();feedback.drawHeadShot(labelCtx,200,400,300);assert.equal(texts.length,count,'Reset clears the label');
-console.log('HeadShot label passed: confirmed local HS, 2.6s lifetime, 80ms replacement fade, immediate new label and reset');
+count=texts.length;feedback.drawHeadShot(labelCtx,3780,400,300);assert.equal(texts.length-count,1,'Previous HS disappears after 80ms');
+feedback.add({...hit(0),damage:20},5500,'me');count=texts.length;feedback.drawHeadShot(labelCtx,6300,400,300);assert.equal(texts.length,count,'Body hits do not extend the HS label');
+feedback.reset();feedback.drawHeadShot(labelCtx,700,400,300);assert.equal(texts.length,count,'Reset clears the label');
+console.log('HeadShot label passed: confirmed local HS, 2.6s lifetime, 80ms replacement fade, delayed new label and reset');
+
+feedback.reset();texts.length=0;
+feedback.add({...hit(0),damage:20,headshot:true},100,'me');
+feedback.drawHeadShot(labelCtx,599,400,300);assert.equal(texts.length,0,'HS stays hidden during the first 499ms');
+feedback.drawHeadShot(labelCtx,600,400,300);assert.equal(texts.length,1,'HS starts exactly 500ms after the hit');
+feedback.add({...hit(0),damage:20,headshot:true},650,'me');
+texts.length=0;feedback.drawHeadShot(labelCtx,1149,400,300);assert.equal(texts.length,1);assert.equal(texts[0].alpha,1,'Existing HS does not fade before the delayed replacement starts');
+feedback.reset();texts.length=0;feedback.drawHeadShot(labelCtx,1150,400,300);assert.equal(texts.length,0,'Reset also cancels pending HS');
 
 }
