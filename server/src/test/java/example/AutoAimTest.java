@@ -44,6 +44,7 @@ class AutoAimTest {
             int ammo = player.weapons.ammo(weapon);
             game.combat.attackAt(player, 1020, 1980);
             if (weapon.equals("rocket")) game.combat.updateRockets(1);
+            if (weapon.equals("poisonGas")) game.combat.updatePoisonGas(PoisonGasRules.THROW_DELAY + .5);
             assertTrue(target.hp < target.maxHp, weapon);
             if (WeaponCatalog.capacity(weapon) > 0) assertEquals(ammo - 1, player.weapons.ammo(weapon), weapon);
             assertEquals(WeaponCatalog.stats(weapon).cooldown(), player.cooldown, 1e-9, weapon);
