@@ -5,9 +5,8 @@
     const effects = {
         "system-restore": { pitch: 95, end: 1000, duration: 6, noise: .82, glitch: true, amplitude: .14 },
         "system-online": { notes: [330, 660, 990], duration: .6, amplitude: .14 },
-        pistol: { pitch: 720, end: 90, duration: .12, noise: .45 },
+        pistol: { pitch: 210, end: 75, duration: .16, pistolShot: true, amplitude: .22 },
         ricochet: { pitch: 260, end: 110, duration: .095, softImpact: true, amplitude: .14 },
-        "enemy-hit": { pitch: 1900, end: 1550, duration: .1, hitChime: true, amplitude: .32 },
         shotgun: { pitch: 180, end: 35, duration: .25, noise: .85 },
         smg: { pitch: 520, end: 100, duration: .065, noise: .55 },
         rifle: { pitch: 400, end: 65, duration: .11, noise: .65 },
@@ -106,10 +105,10 @@
                 const tone = Math.sin(phase * Math.PI * 2) * (packet % 4 === 0 ? .5 : .12);
                 const fade = Math.min(1, t / .15, (effect.duration - t) / .25);
                 samples[i] = (noise * gate * .65 + tone) * Math.max(0, fade) * effect.amplitude;
-            } else if (effect.hitChime) {
-                const metal = Math.sin(phase * Math.PI * 2) * .62 + Math.sin(phase * Math.PI * 2 * 1.47) * .25;
-                const click = filteredNoise * Math.exp(-t * 180) * .13;
-                samples[i] = (metal + click) * attack * release * Math.exp(-progress * 2.5) * effect.amplitude;
+            } else if (effect.pistolShot) {
+                const crack=(noise-filteredNoise)*.65*Math.exp(-t*45);
+                const body=Math.sin(phase*Math.PI*2)*.35*Math.exp(-t*22);
+                samples[i]=(crack+body)*attack*release*effect.amplitude;
             } else if (effect.softImpact) {
                 const body = Math.sin(phase * Math.PI * 2) * .35 + filteredNoise * .65;
                 samples[i] = body * attack * release * envelope * effect.amplitude;
@@ -171,15 +170,10 @@
             if (volume === 0) return;
             const audio = context();
             if (!audio || audio.state !== "running") return;
-            // A pellet burst is one readable cue, not a stack of identical chimes.
-            if (name === "enemy-hit" && [...active].some(source => source.effectName === name)) return;
             if (active.size >= 8) {
-                if (!important.has(name) && name !== "enemy-hit") return;
+                if (!important.has(name)) return;
                 // Make room for important cues, preferring a one-shot over a sustained beam.
-                const oldest = name === "enemy-hit"
-                    ? [...active].find(source => !source.loop && !important.has(source.effectName))
-                    : [...active].find(source => !source.loop) || active.values().next().value;
-                if (!oldest) return;
+                const oldest = [...active].find(source => !source.loop) || active.values().next().value;
                 active.delete(oldest);
                 oldest.stop();
             }

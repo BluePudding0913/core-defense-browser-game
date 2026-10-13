@@ -124,8 +124,8 @@ console.log('Hit marker removal passed: reward labels remain, no hit/HS reticle 
 const texts=[],labelCtx={save(){},restore(){},fillText(text,x,y){texts.push({text,x,y,alpha:this.globalAlpha});}};
 feedback.reset();for(const effect of [{...hit(0),damage:20},{...hit(0),damage:0,headshot:true},{...hit(0),damage:20,headshot:true,playerId:'other'},{...hit(0),damage:20,headshot:true,enemyId:null}])feedback.add(effect,100,'me');
 feedback.drawHeadShot(labelCtx,100,400,300);assert.equal(texts.length,0);
-feedback.add({...hit(0),damage:20,headshot:true},200,'me');feedback.drawHeadShot(labelCtx,200,400,300);assert.deepEqual(texts.at(-1),{text:'Headshot',x:388,y:282,alpha:1});assert.equal(labelCtx.shadowColor,'rgba(0,0,0,.4)');assert.equal(labelCtx.shadowBlur,3);assert.equal(labelCtx.font,'900 18px ui-monospace, monospace');assert.equal(labelCtx.fillStyle,'#79d8ff','HS uses the former gold label color');
-feedback.add({...hit(0),damage:20},500,'me');feedback.drawHeadShot(labelCtx,500,400,300);assert.equal(texts.at(-1).alpha,1);assert.equal(texts.at(-1).x,388);assert(texts.at(-1).y<282 && texts.at(-1).y>264,'HS label floats upward');
+feedback.add({...hit(0),damage:20,headshot:true},200,'me');feedback.drawHeadShot(labelCtx,200,400,300);assert.deepEqual(texts.at(-1),{text:'Headshot',x:388,y:322,alpha:1});assert.equal(labelCtx.shadowColor,'rgba(0,0,0,.4)');assert.equal(labelCtx.shadowBlur,3);assert.equal(labelCtx.font,'900 18px ui-monospace, monospace');assert.equal(labelCtx.fillStyle,'#79d8ff','HS uses the former gold label color');
+feedback.add({...hit(0),damage:20},500,'me');feedback.drawHeadShot(labelCtx,500,400,300);assert.equal(texts.at(-1).alpha,1);assert.equal(texts.at(-1).x,388);assert(texts.at(-1).y<300 && texts.at(-1).y>250,'HS label floats upward');
 feedback.drawHeadShot(labelCtx,2900,400,300);assert.equal(texts.at(-1).alpha,1,'HS stays fully visible until its final 250ms');
 feedback.drawHeadShot(labelCtx,3100,400,300);assert(texts.at(-1).alpha>0 && texts.at(-1).alpha<1);let count=texts.length;
 feedback.drawHeadShot(labelCtx,3200,400,300);assert.equal(texts.length,count,'HS lifetime is three seconds');
@@ -136,5 +136,9 @@ count=texts.length;feedback.drawHeadShot(labelCtx,3280,400,300);assert.equal(tex
 feedback.add({...hit(0),damage:20},5500,'me');count=texts.length;feedback.drawHeadShot(labelCtx,6200,400,300);assert.equal(texts.length,count,'Body hits do not extend the HS label');
 feedback.reset();feedback.drawHeadShot(labelCtx,200,400,300);assert.equal(texts.length,count,'Reset clears the label');
 console.log('HeadShot label passed: confirmed local HS, 3s lifetime, 80ms replacement fade, immediate new label and reset');
+feedback.reset();texts.length=0;feedback.add({...hit(0),damage:20,headshot:true},100,'me');
+feedback.drawHeadShot(labelCtx,100,400,300);assert.equal(texts.at(-1).y,322,'Headshot begins below the reticle');
+feedback.drawHeadShot(labelCtx,750,400,300);assert(texts.at(-1).y<280,'Headshot moves more than 42px by half time');
+feedback.drawHeadShot(labelCtx,1400,400,300);assert(Math.abs(texts.at(-1).y-260)<1e-8,'Headshot settles 62px above its starting point');
 
 }
