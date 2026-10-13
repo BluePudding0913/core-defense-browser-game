@@ -1435,6 +1435,7 @@ function playSoundEffect(message) {
     if (message.effect === "shot") name = message.item === "railgun-charge" ? message.item : message.weapon;
     else if (message.effect === "item-use") name = BUILD_INFO[message.item] ? "build" : message.item || "item";
     else if (message.effect === "pickup") name = "pickup";
+    else if (message.effect === "hit" && own && message.enemyId != null && message.damage > 0) name = "enemy-hit";
     else if (message.effect === "player-hit" && own) name = "damage";
     else if (message.effect === "drone-self-destruct") name = "drone-self-destruct";
     else return;
@@ -1716,7 +1717,7 @@ function openShopPurchase(shop, chooseExchange = false) {
         openNearbyActionMenu(shop.label, [{
             label: "BUY",
             detail: `${shop.cost}G`,
-            titleAmmo: `所持 ${me.medkits} / ${state.rules.medkitCapacity}`,
+            titleAmmo: `${me.medkits} / ${state.rules.medkitCapacity}`,
             command: "BUY:medkit",
             disabled: me.medkits >= state.rules.medkitCapacity || me.credits < shop.cost,
         }], shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
@@ -2164,6 +2165,15 @@ window.addEventListener("keydown", event => {
     if (key === "escape" && state && ["preparing", "wave"].includes(state.phase)) {
         event.preventDefault();
         if (!event.repeat) openExitDialog();
+        return;
+    }
+    if (key === "r" && (!inventoryMenu.classList.contains("hidden") || !actionMenu.classList.contains("hidden"))) {
+        event.preventDefault();
+        if (!event.repeat) {
+            endInteractionHold(true);
+            if (!actionMenu.classList.contains("hidden")) closeActionMenu();
+            else closeInventory();
+        }
         return;
     }
     if(key!=="e" && gameplayUiOpen())return;
@@ -2660,10 +2670,10 @@ function drawFirstPerson() {
         const target=placement ? (placement.valid ? placement : null) : interaction?.target;
         if(target) {
             const anchor=labRenderer.stationPosition(target);const prompt=labRenderer.project(anchor.x,anchor.y,40);
-            drawKeyPrompt('R',prompt.visible ? prompt.x/dpr : x,prompt.visible ? prompt.y/dpr : y+50);
+            if(prompt.visible)drawKeyPrompt('R',prompt.x/dpr,prompt.y/dpr);
         }
         if(scoped && me?.weapon==='sniper')ctx.fillText('5×',x,innerHeight-130);
-        if(placement)ctx.fillText(placement.valid?'R PLACE':'BLOCKED',x,y+70);
+        if(placement && !placement.valid)ctx.fillText('BLOCKED',x,y+70);
         if(me?.weapon==='sniper' && !me.down && !me.selectedBuild && !me.drone?.controlled)
             ctx.fillText(window.coreKeySettings.getSniperStance().toUpperCase()+(me.sniper?.fixed?'  STAND':'  HOLD PRONE'),x,innerHeight-105);
     }

@@ -92,7 +92,7 @@ context.shop = { label: 'KIT', item: 'medkit', cost: 50, x: 0, y: 0 };
 run('openShopPurchase(shop)');
 assert.equal(actionOptions.children[0].innerHTML,
     'BUY<small>50G</small>');
-assert(context.actionTitle.innerHTML.includes('所持 0 / 3'),'Kit stock is beside the shop title');
+assert(context.actionTitle.innerHTML.includes('0 / 3'),'Kit stock is beside the shop title');
 click();
 assert(!classes.has('hidden'));
 me.medkits = 3;
@@ -100,10 +100,10 @@ snapshot();
 assert(actionOptions.children[0].disabled, 'kit capacity updates while the menu stays open');
 assert.equal(actionOptions.children[0].innerHTML,
     'BUY<small>50G</small>');
-assert(context.actionTitle.innerHTML.includes('所持 3 / 3'));
+assert(context.actionTitle.innerHTML.includes('3 / 3'));
 me.medkits = 2;
 snapshot();
-assert(context.actionTitle.innerHTML.includes('所持 2 / 3'), 'using a kit updates title stock');
+assert(context.actionTitle.innerHTML.includes('2 / 3'), 'using a kit updates title stock');
 Object.assign(context.WEAPON_FIELDS, {
     smg: { name: 'SMG', capacity: 300, owned: 'ownsSmg', ammo: 'smgAmmo' },
     pistol: { name: 'Pistol', capacity: 0, owned: 'ownsPistol' },

@@ -108,6 +108,7 @@ context.actionMenu.classList.contains=()=>false;key('keydown',{code:'Space',key:
 // Every gameplay key stays blocked, including key repeats and an already-held move.
 context.dashKey=false;context.dashRequested=false;context.pendingMove=null;context.setDash=active=>{context.dashRequested=active;commands.push('DASH:'+(active?1:0));};
 context.clearTimeout=()=>{};
+context.endInteractionHold=()=>{};context.closeActionMenu=()=>{};context.closeInventory=()=>{};
 for(const panel of ['actionMenu','inventoryMenu','howToMenu','menu']) {
  for(const name of ['actionMenu','inventoryMenu','howToMenu','menu'])context[name]={classList:{contains:()=>name!==panel}};
  commands.length=0;context.keys.clear();
@@ -129,3 +130,8 @@ context.toggleInventory();assert(inventoryOpen);assert.equal(commands.at(-1),'MO
 const blockedCount=commands.length;key('keydown',{code:'KeyW'});key('keydown',{code:'Space'});assert.equal(commands.length,blockedCount);
 context.toggleInventory();assert(!inventoryOpen);assert.equal(context.keys.size,0,'Closing inventory does not replay the blocked keys');
 console.log('Inventory integration passed: immediate stop on opening, blocked movement/jump and no held-key replay');
+inventoryOpen=true;
+key('keydown',{code:'KeyR',repeat:true});assert(inventoryOpen,'Repeated R does not close the inventory');
+key('keydown',{code:'KeyR'});assert(!inventoryOpen,'R closes the inventory before gameplay input is blocked');
+let interactions=0;context.beginInteractionHold=()=>interactions++;
+key('keyup',{code:'KeyR'});assert.equal(interactions,0,'Closing the inventory does not start a facility interaction');
