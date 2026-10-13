@@ -6,6 +6,7 @@ final class EnemyTierRules {
     static double hp(String type, double baseHp, int round) {
         double value = BossRules.spawnHp(type, baseHp * multiplier(round));
         if (type.equals("boss") && round == 4) value *= .5;
+        if (type.equals("boss") && round == 8) value = Math.round(value * .85 / 100) * 100.0;
         return type.equals("finalBoss") ? Math.round(value / 100) * 100.0 : value;
     }
     private EnemyTierRules() {}
