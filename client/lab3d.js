@@ -171,6 +171,7 @@ window.Lab3D = (() => {
             return objects.get(key);
         }
         const stationAnchors = new Map();
+        const displayAssets = new Map();
         const stationPosition = point => stationAnchors.get(point.x+':'+point.y) || point;
         function station(key, point, color, kind = 'terminal') {
             let anchor=point,facing=0,mounted=false;
@@ -207,7 +208,10 @@ window.Lab3D = (() => {
                 const root = new T.Group();
                 let turretHead, muzzle;
                 root.name = key + ':' + kind;
-                if (kind === 'core') {
+                const model=window.MapObjectModels?.build(T,kind,{material,boxGeometry,cylinderGeometry,item:point.item,displayAssets});
+                if(model) {
+                    root.add(model);
+                } else if (kind === 'core') {
                     box(root, 34, 7, 34, '#354858');
                     box(root, 22, 30, 22, '#87e7ed', 0, 22, 0, true);
                     box(root, 30, 4, 30, '#e7f0f2', 0, 39);
@@ -229,7 +233,16 @@ window.Lab3D = (() => {
                         const barb=box(root, .9, 9, .9, '#d3dde1', x, 14, 5); barb.rotation.z=angle;
                     }
                 } else if (kind.includes('Barricade') || kind === 'barricade') {
-                    box(root, 36, 24, 36, kind === 'barricade' ? '#92745a' : color);
+                    const timber=kind==='barricade';
+                    for(const x of [-14,14])box(root,4,25,25,timber?'#594b3c':'#384c59',x);
+                    if(timber)for(const y of [6,14,22])box(root,34,6,24,'#92745a',0,y);
+                    else box(root,34,24,24,color,0,13);
+                    if(timber) {
+                        for(const angle of [-.55,.55])box(root,3,27,2,'#bd9c73',0,14,13).rotation.z=angle;
+                    } else {
+                        for(const x of [-11,0,11])box(root,2,23,2,'#526b7a',x,14,13);
+                        for(const x of [-12,12])for(const y of [6,22])box(root,2,2,1,'#e3e9e9',x,y,14.5);
+                    }
                 } else if (kind === 'block') {
                     box(root, 36, 24, 36, color);
                 } else if (kind === 'terminal' && mounted) {
@@ -311,8 +324,7 @@ window.Lab3D = (() => {
                     }
                     box(root, 3, 11, 15, '#475968');
                 } else if (node.type==='medkit') {
-                    box(root, 20, 12, 14, '#e2e8e9');box(root,4,1,10,'#df6366',0,12.6);box(root,12,1,3,'#df6366',0,12.7);
-                    box(root,10,3,3,'#70848e',0,14,-5);
+                    root.add(window.MapObjectModels.buildKit(T,{boxGeometry,material}));
                 } else {
                     const color={ore:'#6d7c86',copper:'#b98455',silver:'#d4e5ee'}[node.type] || '#91b9ca';
                     for (const [x,z,r] of [[-4,0,8],[5,3,6],[1,-5,5]]) {

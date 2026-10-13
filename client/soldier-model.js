@@ -1,11 +1,12 @@
 "use strict";
-function buildSoldier(THREE) {
-  const V = THREE.Vector3, Q = THREE.Quaternion, E = THREE.Euler;
-
-  const COLORS = {
+const SOLDIER_COLORS = {
     Olive: 0x4c5030, OliveDark: 0x343722, OliveLight: 0x62673d, Skin: 0xd99a72,
     Purple: 0x974be0, PurpleLight: 0xd5b2fa, Wood: 0x967352, Cyan: 0x66dfff, Green: 0x86d85e, Red: 0xed655f, Boot: 0x2b2a24, Gun: 0x26282a, GunLight: 0x3e4245, Eye: 0x1c1a16,
   };
+function buildSoldier(THREE) {
+  const V = THREE.Vector3, Q = THREE.Quaternion, E = THREE.Euler;
+
+  const COLORS = SOLDIER_COLORS;
   const mats = {};
   const mat = (k) => mats[k] || (mats[k] = new THREE.MeshStandardMaterial({
     name: k, color: COLORS[k], roughness: k.startsWith('Gun') ? 0.55 : 0.9,
@@ -91,58 +92,9 @@ function buildSoldier(THREE) {
     resetBatPose();
     currentWeapon=weapon;rifle.userData.weapon=weapon;
     for(const child of [...rifle.children])if(child!==muzzle){child.traverse(o=>o.geometry?.dispose());rifle.remove(child);}
-    const part=(w,h,d,m='Gun',x=0,y=0,z=0)=>box(rifle,w,h,d,m,x,y,z);
-    const tube=(r,length,m='Gun',x=0,y=0,z=0)=>cyl(rifle,r,r,length,10,m,x,y,z,Math.PI/2);
-    let tip=.76;
-    if(weapon==='bat' || weapon==='plasmaBlade') {
-      tip=.9;part(.055,.055,.25,'Gun',0,0,.05);
-      if(weapon==='bat'){tube(.055,.65,'Wood',0,0,.54);part(.12,.025,.025,'GunLight',0,0,.18);}
-      else {part(.2,.035,.04,'GunLight',0,0,.18);part(.07,.025,.66,'Cyan',0,0,.55);}
-    } else if(weapon==='pistol' || weapon==='shotgun') {
-      tip=buildServiceWeapon(THREE,rifle,mats,weapon);
-    } else if(weapon==='revolver') {
-      tip=.44;
-      part(.075,.09,tip,'GunLight',0,0,tip/2);part(.06,.16,.08,'Gun',0,-.1,.02);
-      tube(.07,.1,'GunLight',0,-.03,.13);
-      tube(.025,.06,'Gun',0,0,tip-.015);
-    } else if(weapon==='poisonGas') {
-      tip=.12;
-      cyl(rifle,.10,.10,.28,12,'Purple',0,-.01,.12).name='BottleBody';
-      cyl(rifle,.045,.10,.08,12,'Purple',0,.17,.12);
-      cyl(rifle,.045,.045,.10,12,'PurpleLight',0,.25,.12);
-      cyl(rifle,.055,.055,.05,12,'Gun',0,.325,.12).name='BottleCap';
-      part(.11,.08,.015,'PurpleLight',0,-.01,.018);
-    } else if(weapon==='repulsor') {
-      tip=.32;
-      part(.16,.075,.34,'GunLight',0,0,.12).name='RemoteBody';
-      part(.11,.012,.10,'Cyan',0,.044,.21).name='RemoteScreen';
-      cyl(rifle,.03,.03,.015,10,'Red',0,.05,.07);
-      for(const x of [-.04,.04])part(.03,.012,.03,'Gun',x,.045,-.005);
-      cyl(rifle,.012,.012,.18,8,'Gun',.055,.12,.27).name='RemoteAntenna';
-    } else if(weapon==='sniper') {
-      tip=buildPrecisionSniper(THREE,rifle,mats);
-    } else if(weapon==='rocket') {
-      tip=.82;tube(.085,.8,'GunLight',0,.03,.4);tube(.1,.055,'Olive',0,.03,.78);
-      part(.06,.18,.08,'Gun',0,-.12,.08);part(.04,.1,.08,'Gun',0,.14,.4);
-    } else {
-      const compact=['smg','hook','repulsor','freezeGun'].includes(weapon);
-      const heavy=['lmg','railgun','laserCannon','flamethrower','poisonGas'].includes(weapon);
-      tip=compact?.55:.78;
-      part(heavy?.13:.08,.12,compact?.3:.42,'GunLight',0,0,.12);
-      part(.06,.14,.07,'Gun',0,-.1,-.02);
-      if(!compact) {part(.07,.09,.22,'Gun',0,-.01,-.21);part(.1,.15,.035,'GunLight',0,-.02,-.33);}
-      const accent={railgun:'Cyan',laserCannon:'Red',freezeGun:'Cyan',poisonGas:'Green',repulsor:'Cyan'}[weapon] || 'GunLight';
-      part(heavy?.14:.075,.08,tip-.3,accent,0,0,(tip+.2)/2);
-      tube(heavy?.04:.022,.14,'Gun',0,.01,tip-.07);
-      part(weapon==='lmg'?.2:.055,weapon==='lmg'?.18:.16,.09,'Gun',0,-.13,.14);
-      if(weapon==='rifle'){tube(.035,.13,'Gun',0,.12,.15);part(.04,.06,.04,'Gun',0,.065,.15);}
-      if(weapon==='railgun')for(const x of [-.09,.09])part(.035,.055,.58,'Gun',x,0,.48);
-      if(weapon==='flamethrower' || weapon==='poisonGas')tube(.09,.22,weapon==='poisonGas'?'Green':'Red',.13,-.08,.12);
-      if(weapon==='hook')for(const x of [-.09,.09])part(.035,.035,.18,'GunLight',x,0,.48);
-      if(weapon==='ricochet')part(.08,.035,.17,'Wood',0,.08,.17);
-      if(weapon==='freezeGun')part(.15,.055,.14,'Cyan',0,.09,.2);
-    }
-    muzzle.position.set(0,.01,tip+.025);
+    const display=buildWeaponModel(THREE,weapon,mats);
+    for(const child of [...display.root.children])rifle.add(child);
+    muzzle.position.copy(display.muzzle);
     rifle.traverse(o=>{if(o.isMesh)o.castShadow=false;});
   }
   setWeapon('rifle');
@@ -359,6 +311,71 @@ function buildSoldier(THREE) {
 }
 
 window.buildSoldier = buildSoldier;
+
+// The equipped weapon and shop display share the same geometry and materials.
+function buildWeaponModel(THREE,weapon,mats={}) {
+  const ownsMaterials=arguments.length<3;
+  const rifle=new THREE.Group();rifle.name='WeaponModel';rifle.userData.weapon=weapon;
+  const mat=k=>mats[k] || (mats[k]=new THREE.MeshStandardMaterial({name:k,color:SOLDIER_COLORS[k],roughness:k.startsWith('Gun')?.55:.9,metalness:k.startsWith('Gun')?.35:0,flatShading:true}));
+  const box=(parent,w,h,d,m,x=0,y=0,z=0)=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat(m));mesh.position.set(x,y,z);parent.add(mesh);return mesh;};
+  const cyl=(parent,rt,rb,h,seg,m,x=0,y=0,z=0,rx=0,ry=0,rz=0)=>{const mesh=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg),mat(m));mesh.position.set(x,y,z);mesh.rotation.set(rx,ry,rz);parent.add(mesh);return mesh;};
+    const part=(w,h,d,m='Gun',x=0,y=0,z=0)=>box(rifle,w,h,d,m,x,y,z);
+    const tube=(r,length,m='Gun',x=0,y=0,z=0)=>cyl(rifle,r,r,length,10,m,x,y,z,Math.PI/2);
+    let tip=.76;
+    if(weapon==='bat' || weapon==='plasmaBlade') {
+      tip=.9;part(.055,.055,.25,'Gun',0,0,.05);
+      if(weapon==='bat'){tube(.055,.65,'Wood',0,0,.54);part(.12,.025,.025,'GunLight',0,0,.18);}
+      else {part(.2,.035,.04,'GunLight',0,0,.18);part(.07,.025,.66,'Cyan',0,0,.55);}
+    } else if(weapon==='pistol' || weapon==='shotgun') {
+      tip=buildServiceWeapon(THREE,rifle,mats,weapon);
+    } else if(weapon==='revolver') {
+      tip=.44;
+      part(.075,.09,tip,'GunLight',0,0,tip/2);part(.06,.16,.08,'Gun',0,-.1,.02);
+      tube(.07,.1,'GunLight',0,-.03,.13);
+      tube(.025,.06,'Gun',0,0,tip-.015);
+    } else if(weapon==='poisonGas') {
+      tip=.12;
+      cyl(rifle,.10,.10,.28,12,'Purple',0,-.01,.12).name='BottleBody';
+      cyl(rifle,.045,.10,.08,12,'Purple',0,.17,.12);
+      cyl(rifle,.045,.045,.10,12,'PurpleLight',0,.25,.12);
+      cyl(rifle,.055,.055,.05,12,'Gun',0,.325,.12).name='BottleCap';
+      part(.11,.08,.015,'PurpleLight',0,-.01,.018);
+    } else if(weapon==='repulsor') {
+      tip=.32;
+      part(.16,.075,.34,'GunLight',0,0,.12).name='RemoteBody';
+      part(.11,.012,.10,'Cyan',0,.044,.21).name='RemoteScreen';
+      cyl(rifle,.03,.03,.015,10,'Red',0,.05,.07);
+      for(const x of [-.04,.04])part(.03,.012,.03,'Gun',x,.045,-.005);
+      cyl(rifle,.012,.012,.18,8,'Gun',.055,.12,.27).name='RemoteAntenna';
+    } else if(weapon==='sniper') {
+      tip=buildPrecisionSniper(THREE,rifle,mats);
+    } else if(weapon==='rocket') {
+      tip=.82;tube(.085,.8,'GunLight',0,.03,.4);tube(.1,.055,'Olive',0,.03,.78);
+      part(.06,.18,.08,'Gun',0,-.12,.08);part(.04,.1,.08,'Gun',0,.14,.4);
+    } else {
+      const compact=['smg','hook','repulsor','freezeGun'].includes(weapon);
+      const heavy=['lmg','railgun','laserCannon','flamethrower','poisonGas'].includes(weapon);
+      tip=compact?.55:.78;
+      part(heavy?.13:.08,.12,compact?.3:.42,'GunLight',0,0,.12);
+      part(.06,.14,.07,'Gun',0,-.1,-.02);
+      if(!compact) {part(.07,.09,.22,'Gun',0,-.01,-.21);part(.1,.15,.035,'GunLight',0,-.02,-.33);}
+      const accent={railgun:'Cyan',laserCannon:'Red',freezeGun:'Cyan',poisonGas:'Green',repulsor:'Cyan'}[weapon] || 'GunLight';
+      part(heavy?.14:.075,.08,tip-.3,accent,0,0,(tip+.2)/2);
+      tube(heavy?.04:.022,.14,'Gun',0,.01,tip-.07);
+      part(weapon==='lmg'?.2:.055,weapon==='lmg'?.18:.16,.09,'Gun',0,-.13,.14);
+      if(weapon==='rifle'){tube(.035,.13,'Gun',0,.12,.15);part(.04,.06,.04,'Gun',0,.065,.15);}
+      if(weapon==='railgun')for(const x of [-.09,.09])part(.035,.055,.58,'Gun',x,0,.48);
+      if(weapon==='flamethrower' || weapon==='poisonGas')tube(.09,.22,weapon==='poisonGas'?'Green':'Red',.13,-.08,.12);
+      if(weapon==='hook')for(const x of [-.09,.09])part(.035,.035,.18,'GunLight',x,0,.48);
+      if(weapon==='ricochet')part(.08,.035,.17,'Wood',0,.08,.17);
+      if(weapon==='freezeGun')part(.15,.055,.14,'Cyan',0,.09,.2);
+    }
+
+
+  return {root:rifle,muzzle:new THREE.Vector3(0,.01,tip+.025),dispose(){rifle.traverse(o=>o.geometry?.dispose());if(ownsMaterials)for(const material of new Set(Object.values(mats)))material.dispose();}};
+}
+window.buildWeaponModel=buildWeaponModel;
+
 
 // A purpose-built precision rifle. Units and +Z bore axis match the shared grip rig.
 function buildPrecisionSniper(T, parent, materials) {
