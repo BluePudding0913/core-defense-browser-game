@@ -199,9 +199,10 @@ final class CombatSystem {
         double travel = Math.max(0, GameMap.distanceToWall(player.x, player.y, dx, dy, range, world.unlockedAreas()) - .01);
         var cloud = new PoisonGasRules.Cloud(player.id, player.x + dx * travel, player.y + dy * travel, weapon.damage());
         if (world.poisonClouds().size() >= PoisonGasRules.MAX_CLOUDS) world.poisonClouds().remove(0);
+        cloud.activationDelay = PoisonGasRules.THROW_DELAY;
         world.poisonClouds().add(cloud);
         events.hit(player.id, "poisonGas", player.x, player.y, cloud.x, cloud.y, 0, false, 0, false, null);
-        poisonTick(cloud, player);
+
     }
 
     void updatePoisonGas(double dt) {

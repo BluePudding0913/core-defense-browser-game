@@ -80,7 +80,7 @@ function buildSoldier(THREE) {
     const lo = node('LowerArm_' + side, up, 0, -UPPER_ARM, 0);
     box(lo, 0.13, LOWER_ARM - 0.06, 0.14, 'Olive', 0, -(LOWER_ARM - 0.06) / 2, 0);
     box(lo, 0.14, 0.05, 0.15, 'OliveDark', 0, -0.2, 0); // sleeve cuff
-    box(lo, 0.1, 0.11, 0.11, 'Skin', 0, -LOWER_ARM, 0); // hand
+    const hand=box(lo, 0.1, 0.11, 0.11, 'Skin', 0, -LOWER_ARM, 0);hand.name='Hand_'+side; // hand
     arms[side] = { up, lo };
   }
 
@@ -91,7 +91,7 @@ function buildSoldier(THREE) {
     if(currentWeapon===weapon)return;
     resetBatPose();
     currentWeapon=weapon;rifle.userData.weapon=weapon;
-    for(const child of [...rifle.children])if(child!==muzzle){child.traverse(o=>o.geometry?.dispose());rifle.remove(child);}
+    for(const child of [...rifle.children])if(child!==muzzle && child.name!=='BottleGrip'){child.traverse(o=>o.geometry?.dispose());rifle.remove(child);}
     const display=buildWeaponModel(THREE,weapon,mats);
     for(const child of [...display.root.children])rifle.add(child);
     muzzle.position.copy(display.muzzle);
@@ -131,7 +131,7 @@ function buildSoldier(THREE) {
     out.Rifle = { p: rp, q: rq };
     out.Head = { q: qe(u.headPitch || 0, u.headYaw || 0, 0) };
     const gR = GRIP_R.clone().applyQuaternion(rq).add(rp);
-    const gL = (currentWeapon==='bat' ? new V(0,-.055,.09) : GRIP_L).clone().applyQuaternion(rq).add(rp);
+    const gL = (['bat','plasmaBlade'].includes(currentWeapon) ? new V(0,-.055,.09) : GRIP_L).clone().applyQuaternion(rq).add(rp);
     const [rU, rL] = solveArm(shoulderPos.R, gR, u.poleR, UPPER_ARM, LOWER_ARM);
     const [lU, lL] = solveArm(shoulderPos.L, gL, u.poleL, UPPER_ARM, LOWER_ARM);
     out.UpperArm_R = { q: rU }; out.LowerArm_R = { q: rL };
@@ -241,7 +241,7 @@ function buildSoldier(THREE) {
   function poseBat(age=Infinity) {
     resetBatPose();
     // Both hands follow the handle; a short wind-up, strike and recovery replace whole-body rolling.
-    const frames=[[0,0],[.07,-.25],[.18,1],[.48,0]];
+    const frames=currentWeapon==='plasmaBlade' ? [[0,0],[.09,-.3],[.23,1],[.58,0]] : [[0,0],[.07,-.25],[.18,1],[.48,0]];
     let amount=0;
     for(let i=1;i<frames.length;i++)if(age>=frames[i-1][0] && age<frames[i][0]) {
       const t=(age-frames[i-1][0])/(frames[i][0]-frames[i-1][0]);
@@ -259,6 +259,7 @@ function buildSoldier(THREE) {
   }
   // Restore overrides before AnimationMixer runs: unchanged tracks are cached by Three.js.
   const proceduralParts = [root, hips, spine, head, rifle,
+    root.getObjectByName('Hand_R'),
     ...Object.values(legs).flatMap(leg => [leg.thigh, leg.shin]),
     ...Object.values(arms).flatMap(arm => [arm.up, arm.lo])]
     .map(part => ({part, position:part.position.clone(), quaternion:part.quaternion.clone(), scale:part.scale.clone(), visible:part.visible}));
@@ -277,6 +278,7 @@ function buildSoldier(THREE) {
       saved.part.scale.copy(saved.scale);saved.part.visible=saved.visible;
     }
     proceduralActive=false;
+    bottleGrip.visible=false;
   }
   function posePistolGrip() {
     // The support hand wraps the shooting hand instead of floating at the long-gun fore-end.
@@ -284,6 +286,32 @@ function buildSoldier(THREE) {
     const [up,lo]=solveArm(shoulderPos.L,target,new V(.4,-1,0),UPPER_ARM,LOWER_ARM);
     arms.L.up.quaternion.copy(up);arms.L.lo.quaternion.copy(lo);
   }
+  function poseBottle(age=Infinity) {
+    const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
+    const wind=age<.16?smooth(age/.16):1;
+    const cast=smooth((age-.16)/.14),recover=smooth((age-.38)/.42);
+    const throwing=age>=0 && age<.8;
+    const u=aimed();u.riflePos.set(-.25,.38,.38);u.riflePitch=0;u.rifleYaw=0;u.rifleRoll=.08;
+    if(throwing){u.riflePos.add(new V(-.07*wind+.12*cast,.20*wind-.24*cast,-.23*wind+.42*cast).multiplyScalar(1-recover));u.riflePitch=(-.7*wind+1.3*cast)*(1-recover);}
+    const pose={};upperBody(pose,-.25,u);
+    for(const [name,value] of Object.entries(pose)){const part=root.getObjectByName(name);if(value.p)part.position.copy(value.p);if(value.q)part.quaternion.copy(value.q);}
+    // Rest the free arm at the side, with the right palm behind the bottle.
+    const target=new V(-.01,-.02,.015).applyQuaternion(rifle.quaternion).add(rifle.position);
+    const [up,lo]=solveArm(shoulderPos.R,target,new V(-1,-.7,-.3),UPPER_ARM,LOWER_ARM);
+    arms.R.up.quaternion.copy(up);arms.R.lo.quaternion.copy(lo);
+    arms.L.up.rotation.set(.12,0,.12);arms.L.lo.rotation.set(-.18,0,0);
+    root.getObjectByName('Hand_R').visible=false;
+    bottleGrip.visible=true;
+    for(const child of rifle.children)if(child!==muzzle && child!==bottleGrip)child.visible=!(throwing && age>=.22 && age<.7);
+  }
+  const bottleGrip=node('BottleGrip',rifle);
+  box(bottleGrip,.12,.13,.055,'Skin',0,-.015,.005);
+  for(let i=0;i<4;i++){
+    box(bottleGrip,.035,.025,.11,'Skin',-.093,-.064+i*.033,.07);
+    box(bottleGrip,.075,.025,.035,'Skin',-.055,-.064+i*.033,.133);
+  }
+  box(bottleGrip,.035,.09,.08,'Skin',.09,.015,.07,0,0,-.35);
+  bottleGrip.visible=false;
   function poseDown(phase=0, amount=0) {
     const stroke=Math.sin(phase)*amount;
     hips.position.set(0,.18,0);hips.rotation.set(Math.PI/2,0,.025*stroke);
@@ -307,7 +335,7 @@ function buildSoldier(THREE) {
     root.position.y=.023;
   }
   return { root, clips, materials: mats, setWeapon, poseBat, resetBatPose,
-    saveProceduralPose, resetProceduralPose, poseDown, posePistolGrip };
+    saveProceduralPose, resetProceduralPose, poseDown, posePistolGrip, poseBottle };
 }
 
 window.buildSoldier = buildSoldier;
@@ -346,7 +374,6 @@ function buildWeaponModel(THREE,weapon,mats={}) {
       part(.11,.012,.10,'Cyan',0,.044,.21).name='RemoteScreen';
       cyl(rifle,.03,.03,.015,10,'Red',0,.05,.07);
       for(const x of [-.04,.04])part(.03,.012,.03,'Gun',x,.045,-.005);
-      cyl(rifle,.012,.012,.18,8,'Gun',.055,.12,.27).name='RemoteAntenna';
     } else if(weapon==='sniper') {
       tip=buildPrecisionSniper(THREE,rifle,mats);
     } else if(weapon==='rocket') {
@@ -359,7 +386,7 @@ function buildWeaponModel(THREE,weapon,mats={}) {
       part(heavy?.13:.08,.12,compact?.3:.42,'GunLight',0,0,.12);
       part(.06,.14,.07,'Gun',0,-.1,-.02);
       if(!compact) {part(.07,.09,.22,'Gun',0,-.01,-.21);part(.1,.15,.035,'GunLight',0,-.02,-.33);}
-      const accent={railgun:'Cyan',laserCannon:'Red',freezeGun:'Cyan',poisonGas:'Green',repulsor:'Cyan'}[weapon] || 'GunLight';
+      const accent={railgun:'Cyan',laserCannon:'Cyan',freezeGun:'Cyan',poisonGas:'Green',repulsor:'Cyan'}[weapon] || 'GunLight';
       part(heavy?.14:.075,.08,tip-.3,accent,0,0,(tip+.2)/2);
       tube(heavy?.04:.022,.14,'Gun',0,.01,tip-.07);
       part(weapon==='lmg'?.2:.055,weapon==='lmg'?.18:.16,.09,'Gun',0,-.13,.14);

@@ -79,7 +79,7 @@ class CombatSystemTest {
             for (int hand = 0; hand < 2; hand++) {
                 var world = new World(); world.active = true;
                 var combat = new CombatSystem(world, new Events(), () -> 0);
-                var player = shooter(weapon, true);
+                var player = shooter(weapon, true);world.owners.add(player);
                 var enemy = target(world, 1, 1100);
                 int ammo = player.weapons.ammo(weapon);
                 if (hand == 0) {
@@ -97,6 +97,7 @@ class CombatSystemTest {
                     if (!weapon.equals("railgun")) assertEquals(definition.stats().cooldown(), player.secondaryCooldown, weapon);
                 }
                 if (weapon.equals("rocket")) combat.updateRockets(1);
+                if (weapon.equals("poisonGas")) combat.updatePoisonGas(PoisonGasRules.THROW_DELAY + .5);
                 damage[hand] = enemy.maxHp - enemy.hp;
                 assertEquals(ammo - (definition.capacity() > 0 ? 1 : 0), player.weapons.ammo(weapon), weapon);
                 assertEquals(SilverAmmoRules.eligible(weapon) ? 19 : 20, player.weapons.silverAmmo(), weapon);
@@ -228,7 +229,8 @@ class CombatSystemTest {
         public List<Enemy> enemies() { return enemies; }
         final List<PoisonGasRules.Cloud> clouds = new ArrayList<>();
         public List<PoisonGasRules.Cloud> poisonClouds() { return clouds; }
-        public List<Player> players() { return List.of(); }
+        final List<Player> owners = new ArrayList<>();
+        public List<Player> players() { return owners; }
         public void damagePlayer(Player player, double damage) { fail("No player targets in this fixture"); }
         public boolean canOccupy(double x, double y, double radius) { return true; }
         public void onEnemyDefeated(Enemy enemy) { deaths++; }
