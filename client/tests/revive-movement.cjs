@@ -3,7 +3,7 @@ const source=fs.readFileSync('client/app.js','utf8');
 const extract=name=>{const start=source.indexOf(`function ${name}(`);return source.slice(start,source.indexOf('\nfunction ',start+1));};
 let now=1000; const commands=[];
 const me={id:'me',x:100,y:100,stamina:100,down:true};
-const context=vm.createContext({state:{phase:'wave',players:[me]},myPlayerId:'me',getMe:()=>me,
+const context=vm.createContext({state:{phase:'wave',players:[me]},myPlayerId:'me',getMe:()=>me,gameplayUiOpen:()=>false,
     predictedLocal:{x:120,y:100,stamina:100,down:true},localMove:{x:1,y:0},localFacing:{x:1,y:0},
     pendingInputs:[],acknowledgeInputs(){},keys:new Set(['d']),joystick:null,lastMove:'MOVE:1.00:0.00',
     performance:{now:()=>now},send:message=>commands.push(message),dashRequested:false,

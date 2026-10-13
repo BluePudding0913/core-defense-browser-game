@@ -130,7 +130,7 @@ class LateRoundEnemiesTest {
     }
 
     @Test void scheduledBossesUpgradeAndStayWithinTheQueuedBudget() throws Exception {
-        for (int round : new int[]{4, 20, 24, 36, 40, 48}) {
+        for (int round : new int[]{8, 20, 24, 36, 40, 48}) {
             game.round = round - 1; game.enemies.clear();
             invoke("beginRound", new Class<?>[]{});
             game.queuedEnemies = 0; int queued = game.queuedBosses;

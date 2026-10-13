@@ -18,7 +18,7 @@ const commands = [];
 const materials = { hidden: true, textContent: '' };
 let nearby = true;
 const context = vm.createContext({
-    actionMenu, actionOptions, actionTitle: {}, activeMenuAccess: null, fpsInput:null,resumeGameLook(){},closeInventory(){},
+    actionMenu, actionOptions, actionTitle: {}, activeMenuAccess: null, fpsInput:null,stopGameplayMovement(){},resumeGameLook(){},closeInventory(){},
     document: { querySelector: () => materials, createElement: () => ({
         dataset: {}, innerHTML: '', click() { this.onclick?.(); },
     }) },

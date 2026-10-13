@@ -30,10 +30,10 @@ const CoreFeedback = (() => {
         if(element.hidden!==(alpha<=0))element.hidden=alpha<=0;
         if(alpha<=0)return;
         if(element.style.opacity!==String(alpha))element.style.opacity=String(alpha);
+        const transform=`scale(${Number((1+.14*Math.max(0,1-age/220)**2).toFixed(3))})`;
+        if(element.style.transform!==transform)element.style.transform=transform;
         const maximum=Math.max(1,core.maxHp || 1),hp=Math.max(0,core.hp || 0);
-        const label=element.querySelector('.core-hud-value'),fill=element.querySelector('.core-hud-fill');
-        const text=`${Math.ceil(hp)} / ${Math.ceil(maximum)}`;
-        if(label.textContent!==text)label.textContent=text;
+        const fill=element.querySelector('.core-hud-fill');
         const width=`${Math.max(0,Math.min(100,hp/maximum*100))}%`;
         if(fill.style.width!==width)fill.style.width=width;
     }

@@ -18,7 +18,7 @@ final class EnemyWaveRules {
         return count;
     }
     static boolean explosionRound(int round) { return round >= 25 && (round - 25) % 10 == 0; }
-    static int bossCount(int round) { return round == 50 || explosionRound(round) || round % 4 == 0 ? 1 : 0; }
+    static int bossCount(int round) { return round == 50 || explosionRound(round) || round >= 8 && round % 4 == 0 ? 1 : 0; }
     static int relief(int round) {
         int opening = switch(round) { case 1 -> 3; case 2 -> 4; case 3 -> 5; case 4,5 -> 6; case 6 -> 5;
             default -> Math.max(0, Math.min(4, 11-round)); };
