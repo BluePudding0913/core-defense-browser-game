@@ -1,22 +1,25 @@
 <!doctype html>
 <html lang="ja"><meta charset="utf-8"><title>Hit feedback</title>
-<style>body{margin:0;background:#141e26;color:#e5edef;font:14px system-ui}#lab-scene{position:fixed;inset:0;width:100%;height:100%}header{position:fixed;inset:20px 24px auto;z-index:1;display:flex;gap:8px;align-items:center;flex-wrap:wrap}button{padding:9px 14px;background:#24343b;color:inherit;border:1px solid #67818b;border-radius:4px;cursor:pointer}#status{margin-left:12px}#overlay{display:none}</style>
+<style>body{margin:0;background:#141e26;color:#e5edef;font:14px system-ui}#lab-scene,#feedback{position:fixed;inset:0;width:100%;height:100%}#feedback{pointer-events:none}header{position:fixed;inset:20px 24px auto;z-index:1;display:flex;gap:8px;align-items:center;flex-wrap:wrap}button{padding:9px 14px;background:#24343b;color:inherit;border:1px solid #67818b;border-radius:4px;cursor:pointer}#status{margin-left:12px}#overlay{display:none}</style>
 <header><button data-mode="ally">ALLY HIT</button><button data-mode="own">OWN HIT</button><button data-mode="hs">HEADSHOT</button><button data-mode="kill">KILL</button><button data-mode="hskill">HS KILL</button><button data-mode="stress">60 TARGETS</button><label><input id="pause" type="checkbox">PAUSE</label><label><input id="hold" type="checkbox" checked>AUTO PAUSE</label><span id="status">OWN HIT</span></header><canvas id="overlay"></canvas>
 <script src="../vendor/three.min.js"></script><script src="../aim-control.js"></script><script src="../soldier-model.js"></script><script src="../sniper-stance.js"></script><script src="../organic-enemy-models.js"></script><script src="../lab-enemy-models.js"></script><script src="../wall-impacts.js"></script><script src="../block-terrain.js"></script><script src="../map-object-models.js"></script><script src="../hit-presentation.js"></script><script src="../lab3d.js"></script>
-<script>
-const overlay=document.querySelector('#overlay'),lab=Lab3D.create(overlay),reachable=new Set();
+<canvas id="feedback"></canvas><script src="../combat-feedback.js"></script><script>
+const overlay=document.querySelector('#overlay'),lab=Lab3D.create(overlay),reachable=new Set(),feedbackCanvas=document.querySelector('#feedback'),feedbackContext=feedbackCanvas.getContext('2d');
 for(let r=1;r<15;r++)for(let c=1;c<15;c++)reachable.add(r+':'+c);
 let mode='own',map,state,effects=[],start=0,shot=false;
-function reset(now){map={tileSize:40,rows:['################',...Array(14).fill('#..............#'),'################']};state={core:{x:60,y:60},players:[],enemies:Array.from({length:mode==='stress'?60:3},(_,i)=>({id:i,type:['grunt','runner','brute'][i%3],x:mode==='stress'?100+i%10*40:200+i*40,y:mode==='stress'?100+Math.floor(i/10)*45:190,hp:100,facingX:0,facingY:1})),slots:[],resources:[],drops:[]};effects=[];start=now;shot=false;}
+function reset(now){CombatFeedback.reset();map={tileSize:40,rows:['################',...Array(14).fill('#..............#'),'################']};state={core:{x:60,y:60},players:[],enemies:Array.from({length:mode==='stress'?60:3},(_,i)=>({id:i,type:['grunt','runner','brute'][i%3],x:mode==='stress'?100+i%10*40:200+i*40,y:mode==='stress'?100+Math.floor(i/10)*45:190,hp:100,facingX:0,facingY:1})),slots:[],resources:[],drops:[]};effects=[];start=now;shot=false;}
 document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;document.querySelector('#status').textContent=b.textContent;document.querySelector('#pause').checked=false;reset(performance.now());});
 function draw(now){requestAnimationFrame(draw);if(document.querySelector('#pause').checked)return;if(!state || now-start>1900)reset(now);
  const age=now-start;
  if(age>500 && !shot){shot=true;const targets=mode==='stress'?state.enemies:[state.enemies[1]],kill=['kill','hskill','stress'].includes(mode),hs=['hs','hskill','stress'].includes(mode);
  effects=targets.map(e=>({effect:'hit',weapon:'rifle',playerId:mode==='ally'?'ally':'me',enemyId:e.id,damage:20,headshot:hs,defeated:kill,x:e.x,y:e.y,hitHeight:16,fromX:240,fromY:300,started:now}));if(kill)targets.forEach(e=>e.hp=0);
+ effects.forEach(e=>CombatFeedback.add({...e,credits:e.headshot?3:1},now,'me'));
  }
  overlay.width=innerWidth;overlay.height=innerHeight;
  const eye=mode==='stress'?{x:280,y:480}:{x:240,y:300};
  lab.render({map,reachable,center:eye,eye,view:{yaw:0,pitch:mode==='stress'?-.2:-.09},scale:1,state,localId:'me',smooth:(_,p)=>p,radius:()=>21,stations:[],effects});
+ feedbackCanvas.width=innerWidth;feedbackCanvas.height=innerHeight;
+ CombatFeedback.draw(feedbackContext,now,p=>lab.project(p.x,p.y,36));CombatFeedback.drawHeadShot(feedbackContext,now,innerWidth/2,innerHeight/2);
  if(shot && document.querySelector('#hold').checked && now-effects[0].started>(['kill','hskill','stress'].includes(mode)?220:60))document.querySelector('#pause').checked=true;
 }
 requestAnimationFrame(draw);
