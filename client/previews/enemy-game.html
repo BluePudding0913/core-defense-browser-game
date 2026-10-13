@@ -2,13 +2,13 @@
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Enemy / Game lighting</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#141e26;color:#e3e9e5;font:13px system-ui,sans-serif;overflow:hidden}#lab-scene{position:fixed;inset:0;width:100%;height:100%}header,footer{position:fixed;left:30px;right:30px;z-index:1;display:flex;justify-content:space-between;align-items:center}header{top:25px}h1{font-size:20px;font-weight:450}button,a{font:inherit;color:#d8e1dd;background:#243033;border:1px solid #65726e;border-radius:3px;padding:9px 14px;text-decoration:none;cursor:pointer}footer{bottom:25px;color:#b3c1ba;font-size:11px}#overlay{display:none}.labels{position:fixed;left:0;right:0;bottom:20%;z-index:1;display:flex;justify-content:space-evenly;pointer-events:none;letter-spacing:.15em}
-</style></head><body><header><h1>ゲーム内の見え方</h1><div><button id="walk">停止</button> <button id="light">停電</button></div></header><div class="labels"><span>GRUNT</span><span>RUNNER</span><span>BRUTE</span></div><footer><span id="status">通常照明</span><a href="enemy-models.html">モデル比較</a></footer><canvas id="overlay"></canvas>
+</style></head><body><header><h1>ゲーム内の見え方</h1><div><button id="walk">停止</button> <button id="light">停電</button></div></header><div class="labels"><span>TINY</span><span>GILDED</span><span>BLUE ACE</span></div><footer><span id="status">通常照明</span><a href="enemy-models.html">モデル比較</a></footer><canvas id="overlay"></canvas>
 <script src="../vendor/three.min.js"></script><script src="../aim-control.js"></script><script src="../soldier-model.js"></script><script src="../sniper-stance.js"></script><script src="../organic-enemy-models.js"></script><script src="../lab-enemy-models.js"></script><script src="../wall-impacts.js"></script><script src="../block-terrain.js"></script><script src="../map-object-models.js"></script><script src="../hit-presentation.js"></script><script src="../lab3d.js"></script>
 <script>
 'use strict';
 const overlay=document.querySelector('#overlay'),lab=Lab3D.create(overlay),rows=['#########',...Array(7).fill('#.......#'),'#########'],reachable=new Set();
 for(let y=1;y<8;y++)for(let x=1;x<8;x++)reachable.add(y+':'+x);
-const state={core:{x:60,y:60},players:[],enemies:['grunt','runner','brute'].map((type,i)=>({id:i,type,x:140+i*40,y:145,hp:100,maxHp:100,facingX:0,facingY:1})),slots:[],resources:[],drops:[],blackoutActive:false};
+const state={core:{x:60,y:60},players:[],enemies:['tiny','gilded','blueAce'].map((type,i)=>({id:i,type,x:140+i*40,y:145,hp:100,maxHp:100,facingX:0,facingY:1})),slots:[],resources:[],drops:[],blackoutActive:false};
 let walking=true,last=null,travel=0;
 document.querySelector('#walk').onclick=e=>{walking=!walking;e.target.textContent=walking?'停止':'歩行';};
 document.querySelector('#light').onclick=e=>{state.blackoutActive=!state.blackoutActive;e.target.textContent=state.blackoutActive?'通常照明':'停電';document.querySelector('#status').textContent=state.blackoutActive?'停電中':'通常照明';};
@@ -16,7 +16,7 @@ function draw(ms){
  requestAnimationFrame(draw);const dt=last===null?0:Math.min(.1,(ms-last)/1000);last=ms;if(walking)travel+=dt*28;
  overlay.width=innerWidth;overlay.height=innerHeight;
  state.enemies.forEach(e=>e.y=125+travel%45);
- lab.render({map:{tileSize:40,rows},reachable,center:{x:180,y:240},eye:{x:180,y:240},view:{yaw:0,pitch:-.12},scale:1,state,localId:null,smooth:(_,p)=>p,radius:()=>21,stations:[],effects:[]});
+ lab.render({map:{tileSize:40,rows},reachable,center:{x:180,y:240},eye:{x:180,y:240},view:{yaw:0,pitch:-.12},scale:1,state,localId:null,smooth:(_,p)=>p,radius:e=>e.type==='tiny'?10:21,stations:[],effects:[]});
 }
 requestAnimationFrame(draw);
 </script></body></html>

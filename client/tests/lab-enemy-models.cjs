@@ -13,7 +13,10 @@ try{
  assert(Math.abs(actual.r-new T.Color('#8f9a87').r)<1e-10,'Game skin retains its intended brightness');studio.dispose();game.dispose();
 }finally{T.ColorManagement.legacyMode=legacy;}
 assert.equal(pool.create('ghost',21),null);
-for(const type of ['grunt','runner','brute','poisoner','shield','bomber','carrier','hunter','armored','artillery','coreHunter','seeker','blackout','siege','champion','warden']){
+for(const [type,detail] of [['tiny','Broken wrist restraint'],['gilded','Gold specimen canister_-1'],['blueAce','Blue response helmet']]) {
+ const actor=pool.create(type,type==='tiny'?10:21);assert(actor.rig.getObjectByName(detail),'New role has its own equipment: '+type);assert(actor.rig.getObjectByName('Anatomical head'));actor.dispose();
+}
+for(const type of ['grunt','runner','brute','poisoner','shield','bomber','carrier','hunter','armored','artillery','coreHunter','seeker','blackout','siege','champion','warden','tiny','gilded','blueAce']){
  const a=pool.create(type,21),b=pool.create(type,21);
  const meshes=[];a.rig.traverse(o=>{if(o.isMesh)meshes.push(o);});
  let count=0;b.rig.traverse(o=>{if(o.isMesh){assert.equal(o.geometry,meshes[count].geometry);assert.equal(o.material,meshes[count++].material);}});
@@ -42,4 +45,4 @@ for(let i=0;i<=140;i++)for(const [j,actor]of [slow,fast].entries()){
  if(i>10&&value*previous[j]<0)crossings[j]++;previous[j]=value;
 }
 assert(crossings[1]>crossings[0]*1.5&&crossings[1]>5,'Faster ground travel produces more steps');slow.dispose();fast.dispose();
-console.log('Lab enemy assignments passed: sixteen types, shared assets, individual gait, freeze, tint, head alignment and final-owner disposal');
+console.log('Lab enemy assignments passed: nineteen types, shared assets, individual gait, freeze, tint, head alignment and final-owner disposal');
