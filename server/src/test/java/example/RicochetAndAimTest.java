@@ -57,13 +57,17 @@ class RicochetAndAimTest {
         assertEquals(1, trajectories);
     }
 
-    @Test void reflectedBulletHitsEnemyBehindPlayerAndSpendsOneRound() {
+    @Test void reflectedBulletHitsEnemyBehindPlayerAndSpendsOneRound() throws Exception {
         player.weapon = "ricochet"; player.weapons.setAmmo("ricochet", 1);
         Enemy behind = enemy(950, 1900);
         game.handleMessage(player, "FIRE:1200:1900:1");
         assertEquals(1970, behind.hp);
         assertEquals(0, player.weapons.ammo("ricochet"));
         assertEquals(2, effects.stream().filter(m -> m.contains("\"effect\":\"hit\"") && m.contains("\"damage\":0.0")).count());
+        var mapper=new com.fasterxml.jackson.databind.ObjectMapper();int index=0;
+        for(String effect:effects){var json=mapper.readTree(effect);if(!json.path("effect").asText().equals("hit") || json.path("damage").asDouble()!=0)continue;
+            assertEquals(index++>0,json.path("reflected").asBoolean(false));}
+        assertEquals(2,index);
     }
 
     @Test void reflectionStopsAtEnemyAndNeverCrossesWall() {
