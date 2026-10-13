@@ -1711,7 +1711,7 @@ function openShopPurchase(shop, chooseExchange = false) {
         openNearbyActionMenu(shop.label, [{
             label: "BUY",
             detail: `${shop.cost}G`,
-            stock: `所持 ${me.medkits} / ${state.rules.medkitCapacity}`,
+            titleAmmo: `所持 ${me.medkits} / ${state.rules.medkitCapacity}`,
             command: "BUY:medkit",
             disabled: me.medkits >= state.rules.medkitCapacity || me.credits < shop.cost,
         }], shop, INTERACTION_RANGE.shop, "single", () => openShopPurchase(shop));
