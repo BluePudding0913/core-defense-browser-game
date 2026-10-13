@@ -2,7 +2,8 @@
 <html lang="ja"><meta charset="utf-8"><title>Pistol sound</title>
 <style>body{background:#142027;color:#eef5f4;font:16px system-ui;display:grid;place-content:center;gap:20px;min-height:90vh}button{padding:16px 42px;font:700 18px system-ui;cursor:pointer}label{display:flex;gap:14px;align-items:center}</style>
 <button id="play">PISTOL</button><label>VOLUME <input id="volume" type="range" min="0" max="1" step=".01"></label>
+<output id="status"></output>
 <script src="../sound.js"></script><script>
 const volume=document.querySelector('#volume');volume.value=coreAudio.getVolume();volume.oninput=()=>coreAudio.setVolume(Number(volume.value));
-document.querySelector('#play').onclick=async()=>{await coreAudio.preloadSamples();coreAudio.play('pistol');};
+document.querySelector('#play').onclick=async()=>{const ready=await coreAudio.preloadSamples();document.querySelector('#status').textContent=ready?'WAV':'音声を読み込めません';if(ready)coreAudio.play('pistol');};
 </script></html>

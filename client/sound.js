@@ -4,14 +4,27 @@
 (() => {
     const scriptUrl=typeof document!=="undefined"?document.currentScript?.src:null;
     const pistolUrl=scriptUrl?new URL("assets/sounds/pistol_shot.wav",scriptUrl).href:"assets/sounds/pistol_shot.wav";
-    const pistolBytes=typeof fetch==="function"
+    function embeddedPistol() {
+        try {return typeof window.coreAudioPistolWav==="string"
+            ? Uint8Array.from(atob(window.coreAudioPistolWav),char=>char.charCodeAt(0)).buffer:null;}
+        catch {return null;}
+    }
+    // HTTP uses the WAV directly. Only file pages need a script carrying identical bytes.
+    const localFile=scriptUrl && new URL(scriptUrl).protocol==="file:";
+    const pistolBytes=localFile?new Promise(resolve=>{
+        const bytes=embeddedPistol();if(bytes){resolve(bytes);return;}
+        const script=document.createElement("script");
+        script.src=new URL("assets/sounds/pistol_shot.js",scriptUrl).href;
+        script.onload=()=>resolve(embeddedPistol());script.onerror=()=>resolve(null);
+        document.head.append(script);
+    }):typeof fetch==="function"
         ? fetch(pistolUrl).then(response=>response.ok?response.arrayBuffer():null).catch(()=>null)
         : Promise.resolve(null);
     let pistolSample=null,pistolLoad=null;
     function preloadPistol(audio) {
-        if(!audio || typeof audio.decodeAudioData!=="function")return Promise.resolve();
+        if(!audio || typeof audio.decodeAudioData!=="function")return Promise.resolve(false);
         if(!pistolLoad)pistolLoad=pistolBytes.then(bytes=>bytes?audio.decodeAudioData(bytes):null)
-            .then(buffer=>{pistolSample=buffer;}).catch(()=>{});
+            .then(buffer=>{pistolSample=buffer;return !!buffer;}).catch(()=>false);
         return pistolLoad;
     }
     const effects = {
