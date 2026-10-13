@@ -1,7 +1,7 @@
 'use strict';
 // Renderer-scoped pool: geometry/materials are shared, transforms and gait are per actor.
 window.createLabEnemyModels = T => {
- const assignments={grunt:'researcher',runner:'lab-runner',brute:'lab-brute',poisoner:'lab-poisoner',shield:'lab-shield',bomber:'lab-bomber',carrier:'lab-carrier'},pool=new Map();
+ const assignments={grunt:'researcher',runner:'lab-runner',brute:'lab-brute',poisoner:'lab-poisoner',shield:'lab-shield',bomber:'lab-bomber',carrier:'lab-carrier',hunter:'lab-hunter',armored:'lab-armored',artillery:'lab-artillery'},pool=new Map();
  function create(type,radius){
   const id=assignments[type];if(!id)return null;
   let entry=pool.get(id);

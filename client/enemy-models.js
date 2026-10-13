@@ -16,11 +16,14 @@ window.EnemyModels = (() => {
     {id:'lab-poisoner', name:'POISONER', label:'汚染処理員', color:'#928b63'},
     {id:'lab-shield', name:'SHIELD', label:'封鎖警備員', color:'#526469'},
     {id:'lab-bomber', name:'BOMBER', label:'解体作業員', color:'#8c604a'},
-    {id:'lab-carrier', name:'CARRIER', label:'検体運搬員', color:'#868876'}
+    {id:'lab-carrier', name:'CARRIER', label:'検体運搬員', color:'#868876'},
+    {id:'lab-hunter', name:'HUNTER', label:'逃走した被験者', color:'#8b9290'},
+    {id:'lab-armored', name:'ARMORED', label:'防護警備員', color:'#69746e'},
+    {id:'lab-artillery', name:'ARTILLERY', label:'射出装置の作業員', color:'#74735a'}
   ];
   function build(T,id) {
     if(!variants.some(v=>v.id===id))throw new Error('Unknown enemy model: '+id);
-    if(['rasp','rush','hollow','researcher','lab-assistant','lab-pathologist','lab-runner','lab-brute','lab-poisoner','lab-shield','lab-bomber','lab-carrier'].includes(id))return window.buildOrganicEnemy(T,id);
+    if(['rasp','rush','hollow','researcher','lab-assistant','lab-pathologist','lab-runner','lab-brute','lab-poisoner','lab-shield','lab-bomber','lab-carrier','lab-hunter','lab-armored','lab-artillery'].includes(id))return window.buildOrganicEnemy(T,id);
     const root=new T.Group();root.name='Enemy_'+id;const owned=new Set(),mats=[];
     const mat=(name,color,roughness,metalness=0)=>{const m=new T.MeshStandardMaterial({name,color,roughness,metalness});m.color.convertSRGBToLinear();m.envMapIntensity=.55;mats.push(m);return m;};
     const under=mat('Graphite textile','#20282a',.94),rubber=mat('Rubber','#161d20',.84),dark=mat('Recess','#0c1417',.54);
