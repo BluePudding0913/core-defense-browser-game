@@ -3,7 +3,14 @@ const saved={};const ctx=vm.createContext({window:{},localStorage:{getItem:k=>sa
 const load=f=>vm.runInContext(fs.readFileSync('client/'+f,'utf8'),ctx);
 load('mouse-settings.js');const mouse=ctx.window.coreMouseSettings;assert.equal(mouse.get(),1);assert.equal(mouse.set(.05),.2);assert.equal(mouse.set(99),3);mouse.set(.65);load('mouse-settings.js');assert.equal(ctx.window.coreMouseSettings.get(),.65);assert.equal(mouse.set(NaN),1);
 load('minimap.js');const frame={map:{tileSize:40},player:{x:400,y:400},state:{enemies:[{id:'edge',x:760,y:400,hp:10},{id:'outside',x:761,y:400,hp:10},{id:'diagonal',x:700,y:700,hp:10},{id:'dead',x:400,y:400,hp:0}],blackoutActive:true,trippedBreakers:['far','locked'],areas:{open:true}},spawns:[{id:'main',x:400,y:400},{id:'area-open:1',x:420,y:400},{id:'area-locked:1',x:420,y:400},{id:'farspawn',x:800,y:400}],breakers:[{id:'far',x:1200,y:400},{id:'locked',x:400,y:400,requiredArea:'closed'},{id:'ok',x:440,y:400}]};
-const data=ctx.window.MiniMap.sample(frame);assert.equal(data.range,360);assert.deepEqual(Array.from(data.enemies,e=>e.id),['edge']);assert.deepEqual(Array.from(data.spawns,e=>e.id),['main','area-open:1']);assert.deepEqual(Array.from(data.breakers,e=>e.id),['far','ok']);
+frame.state.phase='wave';frame.state.activeSpawns=['main','area-open:1','area-locked:1','farspawn'];
+const data=ctx.window.MiniMap.sample(frame);assert.equal(data.range,360);assert.deepEqual(Array.from(data.enemies,e=>e.id),['edge']);assert.deepEqual(Array.from(data.spawns,e=>e.id),['main','area-open:1']);assert.deepEqual(Array.from(data.breakers,e=>e.id),['far']);
+const sample=state=>ctx.window.MiniMap.sample({...frame,state:{...frame.state,...state}});
+assert.equal(sample({phase:'preparing'}).spawns.length,0,'Preparation hides inactive entry markers');
+assert.equal(sample({activeSpawns:['main']}).spawns.length,1,'Only active entries are shown');
+assert.equal(sample({blackoutActive:false}).breakers.length,0,'Normal breakers stay hidden');
+assert.equal(sample({trippedBreakers:[]}).breakers.length,0,'Restored breakers disappear');
+assert.deepEqual(Array.from(sample({trippedBreakers:['ok']}).breakers,e=>e.id),['ok'],'Nearby repair targets remain visible');
 // Closing either menu (including the asynchronous purchase-complete path) activates look immediately.
 const src=fs.readFileSync('client/app.js','utf8');const extract=name=>{const a=src.indexOf('function '+name+'(');return src.slice(a,src.indexOf('\nfunction ',a+1));};
 let captures=0,active=false;const menu=()=>({hidden:true,classList:{contains(){return this.owner.hidden},add(name){if(name==='hidden')this.owner.hidden=true},remove(name){if(name==='hidden')this.owner.hidden=false}}});const inv=menu(),action=menu(),how=menu();for(const m of [inv,action,how])m.classList.owner=m;
