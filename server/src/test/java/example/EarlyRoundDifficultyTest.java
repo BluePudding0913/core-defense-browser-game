@@ -42,11 +42,13 @@ class EarlyRoundDifficultyTest {
         game.round=3;
         invoke("beginRound",new Class<?>[]{});
         assertEquals(4,game.round);assertEquals(0,game.queuedBosses);
+        assertEquals("none", game.roundEvent);
         assertEquals(10,game.queuedEnemies);assertEquals(10,game.roundEnemyTotal);
         for(int i=0;i<20;i++)invoke("updateSpawning",new Class<?>[]{double.class},20.);
         assertEquals(10,game.enemies.size());assertTrue(game.enemies.stream().noneMatch(Enemy::isBoss));
         game.enemies.clear();game.round=7;invoke("beginRound",new Class<?>[]{});
         assertEquals(1,game.queuedBosses);assertEquals(1,EnemyWaveRules.bossCount(25));assertEquals(1,EnemyWaveRules.bossCount(50));
+        assertEquals("boss_assault", game.roundEvent);
     }
 
     @Test void openingPressureRisesGraduallyWithTwentyPercentFewerEnemies() throws Exception {

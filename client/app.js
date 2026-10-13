@@ -1017,7 +1017,7 @@ function updateHud() {
     const blackoutStatus = state.enemyBlackout ? " / BLACKOUT" : state.blackoutActive
         ? ` / BREAKER:${(state.trippedBreakers || []).length}` : "";
     phaseDetail.textContent = state.phase === "preparing"
-        ? `next round in ${Math.floor(prepSeconds / 60)}:${String(prepSeconds % 60).padStart(2, "0")}${blackoutStatus}`
+        ? `NEXT ROUND IN ${Math.floor(prepSeconds / 60)}:${String(prepSeconds % 60).padStart(2, "0")}${blackoutStatus}`
         : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}`
             : "";
     const me = getMe();

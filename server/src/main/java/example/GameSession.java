@@ -1172,9 +1172,9 @@ final class GameSession {
         queuedTinyEnemies = round >= 40 && (round - 40) % 3 == 0
                 ? Math.min(queuedEnemies, RoundDifficultyRules.population(
                         (int) Math.round((48 + (round - 40) * 4) * 0.8), roundHumanCount)) : 0;
-        roundEvent = round == 50 || isExplosionBossRound() ? "boss_assault" : round % 4 == 3 ? "blackout"
+        roundEvent = queuedBosses > 0 ? "boss_assault" : round % 4 == 3 ? "blackout"
                 : round >= 5 && round % 4 == 1 ? "door_failure"
-                : round % 4 == 0 ? "boss_assault" : "none";
+                : "none";
         failedSpawnId = roundEvent.equals("door_failure")
                 ? activeSpawnIds.get(random.nextInt(activeSpawnIds.size())) : null;
         if (roundEvent.equals("blackout") && !blackoutActive) startBlackout();
