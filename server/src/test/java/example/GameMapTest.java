@@ -14,6 +14,15 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class GameMapTest {
+    @Test void relayBreakerIsSeparatedFromActualGeneratedEntrances() {
+        var terminal = GameMap.breakerById("breaker-relay");
+        assertTrue(GameMap.areaById("relay-gallery").contains(terminal.x(), terminal.y()));
+        for (var spawn : GameMap.SPAWN_POINTS) {
+            assertTrue(Math.hypot(terminal.x() - spawn.x(), terminal.y() - spawn.y()) >= 80,
+                    "Breaker overlaps entrance: " + spawn.id());
+        }
+    }
+
     @Test void sniperRoomExpansionOpensWithItsRoomAndKeepsTheHeavyArmsCorridorSeparate() {
         UnlockArea sniper = GameMap.areaById("sniper-room");
         assertEquals(32, sniper.tiles().size());

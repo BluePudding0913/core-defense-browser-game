@@ -40,15 +40,13 @@ window.MapObjectModels = (() => {
         function feet(w=26,d=22) {for(const x of [-w/2,w/2])for(const z of [-d/2,d/2])part('foot',3,16.5,3,metal,x,8.25,z);}
         function screen(x=0,y=27,z=3,w=20,h=12) {part('screen-frame',w+3,h+3,2,dark,x,y,z);part('screen',w,h,.6,accent,x,y,z+1.3,true);for(let i=0;i<3;i++)part('screen-line',w*(.65-i*.13),.7,.3,pale,x-w*.08,y+3-i*3,z+1.7);}
         if(kind==='medical') {
-            part('healing-base',34,5,34,dark);part('healing-chassis',28,17,28,metal,0,13);
-            for(const x of [-14,14])for(const z of [-14,14]){part('emitter-housing',5,25,5,dark,x,16,z);part('emitter-light',2,17,5.4,accent,x,18,z,true);part('emitter-cap',6,3,6,pale,x,30,z);}
-            cylinder('healing-core',8,12,accent,0,25,0).material=material(accent,true);cylinder('healing-collar',11,3,pale,0,32);cylinder('healing-aperture',8,1,accent,0,34,0).material=material(accent,true);
-            part('medical-panel',16,15,1,dark,0,14,14.5);cross(0,14,15.3,.85);
-            for(const x of [-9,9])part('healing-top-strip',3,1,22,accent,x,23,0,true);
+            part('healing-base',32,4,30,dark);part('healing-chassis',28,23,26,pale,0,15);
+            part('healing-core',28,3,26,accent,0,28,0,true);
+            part('medical-panel',16,15,1,accent,0,15,13.5);cross(0,15,14.3,.85);
         } else if(kind==='weapon' || kind==='medkit' || kind==='factoryShop') {
             part('case-base',34,16,26,dark);part('case-trim',34,2,26,metal,0,17);part('case-top',34,2,26,metal,0,45);
             for(const x of [-16,16])for(const z of [-12,12])part('case-post',1.5,27,1.5,metal,x,31,z);
-            part('case-display-bed',30,1,22,'#425966',0,19);part('case-light-strip',27,1,1,accent,0,43,-10,true);
+            part('case-display-bed',30,1,22,'#425966',0,19);
             const assets=style.displayAssets || new Map();
             if(!assets.has('glass'))assets.set('glass',new T.MeshStandardMaterial({color:'#b9e3ed',transparent:true,opacity:.12,roughness:.08,metalness:.15,depthWrite:false,side:T.DoubleSide}));
             for(const [w,h,d,x,y,z] of [[31,25,.3,0,31,12],[31,25,.3,0,31,-12],[.3,25,23,-16,31,0],[.3,25,23,16,31,0],[31,.3,23,0,44,0]]){
