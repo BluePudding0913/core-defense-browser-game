@@ -4,9 +4,10 @@
 <header><h1>MAP OBJECTS</h1><p>施設・資源・防衛設備 / ゲームと共通の3Dモデル</p></header><main></main>
 <script src="../vendor/three.min.js"></script><script src="../aim-control.js"></script><script src="../soldier-model.js"></script><script src="../sniper-stance.js"></script><script src="../organic-enemy-models.js"></script><script src="../lab-enemy-models.js"></script><script src="../wall-impacts.js"></script><script src="../block-terrain.js"></script><script src="../map-object-models.js"></script><script src="../lab3d.js"></script><script>
 const T=THREE, definitions=[
- ['medical','MED BAY / 医療ベッド'],['weapon','WEAPON / 武器ラック','rifle'],['sniper','SNIPER / 長銃ラック','sniper','weapon'],['heavy','HEAVY / 重火器ラック','rocket','weapon'],
+ ['medical','MED BAY / 回復装置'],['medkit-case','MEDKIT / キットショーケース','medkit','medkit'],['weapon','RIFLE / ショーケース','rifle'],['sniper','SNIPER / ショーケース','sniper','weapon'],['heavy','ROCKET / ショーケース','rocket','weapon'],['shotgun-case','SHOTGUN / ショーケース','shotgun','weapon'],
  ['ammo','AMMO / 弾薬箱'],['workbench','WORKBENCH / 工具台'],['advanced','ADVANCED / 圧縮プレス'],['woodcutter','WOODCUTTER / 丸鋸'],
  ['quarry','QUARRY / 採掘ドリル'],['wood-factory','WOOD FACTORY / 木材製造','woodFactory','factory'],['ore-factory','ORE FACTORY / 鉄製造','oreFactory','factory'],['copper-factory','COPPER FACTORY / 銅製造','copperFactory','factory'],['silver-factory','SILVER FACTORY / 銀製造','silverFactory','factory'],
+ ['wood-shop','QUARRY W / ショーケース','woodFactory','factoryShop'],['ore-shop','QUARRY I / ショーケース','oreFactory','factoryShop'],['copper-shop','QUARRY C / ショーケース','copperFactory','factoryShop'],['silver-shop','QUARRY S / ショーケース','silverFactory','factoryShop'],
  ['command','SYSTEM / 操作卓'],['time','TIME / 時間制御'],['missile','MISSILE / 発射卓'],['job','JOB / 装備ロッカー'],['enchant','ULTIMATE / 武器強化'],['armor','ARMOR / 防具展示'],['gacha','GACHA / カプセル装置'],['team','TEAM / 通信ブースター'],
  ['wood','WOOD / 木材',null,'resource'],['ore','ORE / 鉄鉱石',null,'resource'],['copper','COPPER / 銅鉱石',null,'resource'],['silver','SILVER / 銀結晶',null,'resource'],['medkit','MEDKIT / 回復キット',null,'resource'],
  ['barricade','WOOD BARRICADE / 木材防壁',null,'defense'],['copperBarricade','COPPER BARRICADE / 銅防壁',null,'defense'],['silverBarricade','SILVER BARRICADE / 銀防壁',null,'defense']
