@@ -78,3 +78,16 @@ context.placementSelection=()=>({type:'turret'});context.frontPlacementTile=()=>
 context.labRenderer.project=()=>({visible:true,x:200,y:160});
 context.drawFirstPerson();assert.deepEqual(prompts,[['R',200,160]]);
 assert(!texts.some(([text])=>text==='R PLACE'),'Valid placement does not duplicate R at the reticle');
+
+// Secondary fire must not request aim on frames where its send interval has not elapsed.
+let tick=1000,aimReads=0;const sent=[];
+context.performance.now=()=>tick;
+context.worldFromScreen=()=>{aimReads++;return {x:123,y:456};};
+context.send=message=>sent.push(message);
+context.findNearestInteraction=()=>null;context.placementSelection=()=>null;
+context.secondaryHeld=true;context.drawFirstPerson.secondaryAt=1000;
+context.drawFirstPerson();assert.equal(aimReads,1,'Only render pose asks for aim before secondary send is due');
+tick=1070;context.drawFirstPerson();assert.equal(aimReads,2,'Exactly 70ms retains the previous send behavior');
+tick=1071;context.drawFirstPerson();assert.equal(aimReads,4,'Due secondary fire requests aim once in addition to render pose');
+assert.deepEqual(sent.filter(m=>m.startsWith('SECONDARY_FIRE:')),['SECONDARY_FIRE:123.0:456.0:1']);
+tick=1080;context.drawFirstPerson();assert.equal(aimReads,5,'Held right fire does not keep querying between sends');

@@ -137,8 +137,12 @@ window.Lab3D = (() => {
         const viewMuzzle = viewModel.root.getObjectByName('Muzzle');
         let latestFrame, viewVisible=false;
         const raycaster = new T.Raycaster();
+        let cachedAim=null;
         function aimPoint() {
             if (!latestFrame) return null;
+            // All callers aim at the last rendered camera and scene. A new render
+            // invalidates this result even when the camera itself has not moved.
+            if(cachedAim)return {...cachedAim};
             raycaster.setFromCamera(new T.Vector2(0,0), camera);
             const origin=raycaster.ray.origin, direction=raycaster.ray.direction;
             let distance=2400, result=null;
@@ -153,9 +157,10 @@ window.Lab3D = (() => {
                 result={x:hit.point.x,y:hit.point.z};
                 distance=hit.distance; break;
             }
-            if (result) return result;
+            if (result) {cachedAim=result;return {...cachedAim};}
             const horizontal=Math.hypot(direction.x,direction.z)||1;
-            return {x:origin.x+direction.x/horizontal*2400,y:origin.z+direction.z/horizontal*2400};
+            cachedAim={x:origin.x+direction.x/horizontal*2400,y:origin.z+direction.z/horizontal*2400};
+            return {...cachedAim};
         }
         function fpsMuzzleWorld() {
             viewScene.updateMatrixWorld(true); viewCamera.updateMatrixWorld(true);
@@ -619,6 +624,7 @@ window.Lab3D = (() => {
         let lastFrame = performance.now(), walkPhase=0, walkBlend=0, recoil=0, sniperRecoil=0, batSwingAt=-Infinity, bottleThrowAt=-Infinity, lastKickAt=-Infinity, lastWalkPoint=null;
         const kickedEffects=new WeakSet(),lastGunKick=new Map();
         function render(frame) {
+            cachedAim=null;
             const { map, reachable, center, scale, state, localId, predicted, smooth, radius, stations, aim, effects = [] } = frame;
             const now = performance.now(), dt = Math.min(.1, (now - lastFrame) / 1000); lastFrame = now;
             if (renderer.domElement.width !== overlay.width || renderer.domElement.height !== overlay.height)
