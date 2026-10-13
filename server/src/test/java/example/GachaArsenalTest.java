@@ -68,7 +68,9 @@ class GachaArsenalTest {
     }
     @Test void poisonRemainsAfterWeaponSwitchAndExpiresWithoutExtraTicks() {
         equip("poisonGas");Enemy e=enemy(1,1140,1900);player.credits=0;
-        fire(1140,1900);assertEquals(9910,e.hp);assertEquals(11,player.weapons.ammo("poisonGas"));
+        fire(1140,1900);assertEquals(10000,e.hp);
+        game.combat.updatePoisonGas(PoisonGasRules.THROW_DELAY - .01);assertEquals(10000,e.hp);
+        game.combat.updatePoisonGas(.01);assertEquals(9910,e.hp);assertEquals(11,player.weapons.ammo("poisonGas"));
         assertEquals(1,game.poisonClouds.size());
         game.combat.updatePoisonGas(.24);assertEquals(9910,e.hp);
         game.combat.updatePoisonGas(.26);assertEquals(9820,e.hp);
@@ -82,7 +84,8 @@ class GachaArsenalTest {
         equip("poisonGas");Enemy blocked=enemy(1,1300,1900),near=enemy(2,1220,1900);
         fire(1400,1900);var cloud=game.poisonClouds.get(0);
         assertTrue(GameMap.canOccupy(cloud.x,cloud.y,0,game.unlockedAreas));
-        assertEquals(10000,blocked.hp);assertTrue(near.hp<10000);
+        assertEquals(10000,blocked.hp);assertEquals(10000,near.hp);
+        game.combat.updatePoisonGas(PoisonGasRules.THROW_DELAY+.5);assertTrue(near.hp<10000);
         game.combat.updatePoisonGas(1);assertEquals(10000,blocked.hp);
     }
     @Test void poisonBoundaryAndOverlappingCloudsAndUpgradeUseCommonDamageRules() {
@@ -129,6 +132,9 @@ class GachaArsenalTest {
     }
     @Test void gasStatePublishesAndRestartClearsItAndRefillUsesExclusivePrices() throws Exception {
         equip("poisonGas");fire(1140,1900);
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        assertEquals(0,mapper.readTree(SnapshotBuilder.build(game)).path("poisonClouds").size());
+        game.combat.updatePoisonGas(PoisonGasRules.THROW_DELAY);
         var state=new com.fasterxml.jackson.databind.ObjectMapper().readTree(SnapshotBuilder.build(game));
         assertEquals(120,state.path("poisonClouds").get(0).path("radius").asInt());
         assertTrue(state.path("rules").path("weapons").path("poisonGas").path("gachaOnly").asBoolean());

@@ -172,10 +172,10 @@ console.log('FPS new enemies passed: body sizes, final boss warning and hostile 
 // Handheld devices use their actual silhouette, not a recolored rifle.
 frame.motion={moving:false};frame.effects=[];player.weapon='poisonGas';renderer.render(frame);
 const bottle=viewScene.getObjectByName('BottleBody');assert(bottle);assert.equal(bottle.material.color.getHex(),0x974be0);assert.equal(bottle.geometry.type,'CylinderGeometry');assert(viewScene.getObjectByName('BottleCap'));
-player.weapon='repulsor';renderer.render(frame);assert(viewScene.getObjectByName('RemoteBody'));assert(viewScene.getObjectByName('RemoteScreen'));assert(viewScene.getObjectByName('RemoteAntenna'));assert(!viewScene.getObjectByName('BottleBody'));
+player.weapon='repulsor';renderer.render(frame);assert(viewScene.getObjectByName('RemoteBody'));assert(viewScene.getObjectByName('RemoteScreen'));assert(!viewScene.getObjectByName('RemoteAntenna'));assert(!viewScene.getObjectByName('BottleBody'));
 now+=1000;const pressure={effect:'hit',weapon:'repulsor',playerId:'me',fromX:100,fromY:100,x:260,y:100,damage:0,started:now-350};frame.effects=[pressure];renderer.render(frame);
-const wave=find('repulsor-longitudinal-wave'),positions=wave.geometry.attributes.position,beforePressure=Array.from(positions.array);assert.equal(wave.geometry.drawRange.count,450);assert(!scene.children.some(o=>o.name.startsWith('blast:')),'Repulsor creates no ground impact ring');
-now+=25;renderer.render(frame);assert.notEqual(positions.getX(20),beforePressure[60],'Pressure particles oscillate along propagation');for(let i=0;i<450;i++){assert.equal(positions.getY(i),beforePressure[i*3+1]);assert.equal(positions.getZ(i),beforePressure[i*3+2],'No transverse oscillation');}
+const wave=find('repulsor-longitudinal-wave'),positions=wave.geometry.attributes.position,beforePressure=Array.from(positions.array);assert.equal(wave.geometry.drawRange.count,90);assert(!scene.children.some(o=>o.name.startsWith('blast:')),'Repulsor creates no ground impact ring');
+now+=25;renderer.render(frame);assert.notEqual(positions.getX(20),beforePressure[60],'Pressure particles oscillate along propagation');for(let i=0;i<90;i++){assert.equal(positions.getY(i),beforePressure[i*3+1]);assert.equal(positions.getZ(i),beforePressure[i*3+2],'No transverse oscillation');}
 state.missiles=[{x:100,y:60,radius:100,remaining:1}];renderer.render(frame);assert.equal(find('missile-beacon:0').scale.y,98);assert(find('missile-inner:0'));
 state.missiles=[];now+=100;frame.effects=[{effect:'missile-impact',x:100,y:60,started:now}];renderer.render(frame);assert(find('missile-impact-flash').material.opacity>0);assert(scene.children.some(o=>o.name.startsWith('missile-flash-column:')));assert(!scene.getObjectByName('repulsor-longitudinal-wave'),'Expired pressure wave removed');
 now+=700;renderer.render(frame);assert(!scene.getObjectByName('missile-impact-flash'),'Impact fades and is disposed');
@@ -484,3 +484,22 @@ assert(find('rail:rail-remotemain:charge-core').position.distanceTo(remoteMuzzle
 state.players.pop();renderer.render(frame);assert(!scene.getObjectByName('rail:rail-remotemain:charge-core'),'Disconnect clears charge');
 console.log('Railgun light passed: blue-white beam, muzzle alignment, converging charge, range/pitch, secondary hand and lifecycle');
 }
+
+// Plasma uses a handle-driven swing, poison has a real airborne bottle, and pressure is bounded.
+now+=1000;frame.effects=[];frame.motion={moving:false};player.weapon='plasmaBlade';renderer.render(frame);
+const plasmaReady=viewScene.getObjectByName('Rifle').quaternion.clone();
+const slash={effect:'hit',weapon:'plasmaBlade',playerId:'me',fromX:player.x,fromY:player.y,x:player.x,y:player.y-120,damage:0,started:now};frame.effects=[slash];renderer.render(frame);now+=230;renderer.render(frame);
+assert(viewScene.getObjectByName('Rifle').quaternion.angleTo(plasmaReady)>.5);assert(!scene.getObjectByName('fired-special-beam'));assert(!scene.getObjectByName('muzzle-tracer'));
+now+=600;renderer.render(frame);assert(viewScene.getObjectByName('Rifle').quaternion.angleTo(plasmaReady)<1e-6);
+player.weapon='poisonGas';frame.effects=[];renderer.render(frame);assert(viewScene.getObjectByName('BottleGrip').visible);assert(!viewScene.getObjectByName('Hand_R').visible);
+const toss={effect:'hit',weapon:'poisonGas',playerId:'me',fromX:player.x,fromY:player.y,x:player.x,y:player.y-160,damage:0,started:now};frame.effects=[toss];renderer.render(frame);now+=300;renderer.render(frame);
+const flying=find('thrown-poison-bottle'),air=flying.position.clone();assert(air.y>0);assert(!viewScene.getObjectByName('BottleBody').visible);assert(viewScene.getObjectByName('BottleGrip').visible);
+now+=200;renderer.render(frame);assert(flying.position.distanceTo(air)>10);now+=310;renderer.render(frame);assert(!scene.getObjectByName('thrown-poison-bottle'));assert(viewScene.getObjectByName('BottleBody').visible);
+player.weapon='pistol';frame.effects=[];renderer.render(frame);assert(viewScene.getObjectByName('Hand_R').visible);assert(!viewScene.getObjectByName('BottleGrip').visible);
+frame.effects=Array.from({length:30},(_,i)=>({effect:'hit',weapon:'repulsor',playerId:'owner'+i%10,fromX:100,fromY:100,x:260,y:100,damage:0,started:now-i}));renderer.render(frame);
+const pressureMeshes=scene.children.filter(o=>o.name==='repulsor-longitudinal-wave');assert.equal(pressureMeshes.length,4);assert(pressureMeshes.reduce((n,o)=>n+o.geometry.attributes.position.count,0)<=360);
+const pressureReuse=pressureMeshes[0].geometry;
+frame.effects=frame.effects.map(e=>({...e,started:now}));renderer.render(frame);assert(scene.children.some(o=>o.name==='repulsor-longitudinal-wave' && o.geometry===pressureReuse),'Continuous fire reuses owner buffers');
+const laser=context.window.buildWeaponModel(THREE,'laserCannon');let blue=false,red=false;laser.root.traverse(o=>{if(o.isMesh){blue ||= o.material.name==='Cyan';red ||= o.material.name==='Red';}});assert(blue && !red);laser.dispose();
+const css=fs.readFileSync('client/style.css','utf8');assert(!css.includes('.weapon .weapon-icon.plasmaBlade'));assert(css.includes('.weapon-icon.plasmaBlade::before { background-image:'));
+console.log('Blade, bottle, shared icons, blue laser and pressure budget passed');

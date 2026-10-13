@@ -89,16 +89,17 @@ final class SnapshotBuilder {
         appendProjectiles(json, game);
         appendArtilleryShells(json, game);
         json.append(",\"poisonClouds\":[");
-        for (int i = 0; i < game.poisonClouds.size(); i++) {
+        var activeClouds = game.poisonClouds.stream().filter(cloud -> cloud.activationDelay <= 0).toList();
+        for (int i = 0; i < activeClouds.size(); i++) {
             if (i > 0) json.append(',');
-            var cloud = game.poisonClouds.get(i);
+            var cloud = activeClouds.get(i);
             json.append("{\"x\":").append(roundOne(cloud.x)).append(",\"y\":").append(roundOne(cloud.y))
                 .append(",\"remaining\":").append(roundOne(cloud.remaining))
                 .append(",\"radius\":").append(PoisonGasRules.RADIUS).append('}');
         }
         for (int i = 0; i < game.enemyPoisonClouds.size(); i++) {
             var cloud = game.enemyPoisonClouds.get(i);
-            if (!game.poisonClouds.isEmpty() || i > 0) json.append(',');
+            if (!activeClouds.isEmpty() || i > 0) json.append(',');
             json.append("{\"x\":").append(roundOne(cloud.x)).append(",\"y\":").append(roundOne(cloud.y))
                 .append(",\"remaining\":").append(roundOne(cloud.remaining))
                 .append(",\"radius\":").append(EnemyPoisonSystem.RADIUS).append(",\"hostile\":true}");

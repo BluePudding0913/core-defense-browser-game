@@ -476,24 +476,38 @@ window.Lab3D = (() => {
         let missileRadius=120;
         function repulsorWave(effect,age) {
             if(!effectIds.has(effect))effectIds.set(effect,++nextEffectId);
-            const item=object('pressure:'+effectIds.get(effect),()=>{
-                const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(new Float32Array(18*25*3),3));
+            const item=object('pressure-owner:'+effect.playerId,()=>{
+                const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(new Float32Array(10*9*3),3));
                 const mat=new T.PointsMaterial({color:'#9adff5',size:3,sizeAttenuation:false,transparent:true,depthWrite:false});
                 const root=new T.Points(geometry,mat);root.name='repulsor-longitudinal-wave';root.frustumCulled=false;
                 const length=Math.hypot(effect.x-effect.fromX,effect.y-effect.fromY),dx=(effect.x-effect.fromX)/Math.max(1,length),dz=(effect.y-effect.fromY)/Math.max(1,length);
                 return {root,start:shotOrigin(effect),length,dx,dz,dispose(){geometry.dispose();mat.dispose();}};
             });
+            if(item.effect!==effect){
+                item.effect=effect;item.start=shotOrigin(effect);item.length=Math.hypot(effect.x-effect.fromX,effect.y-effect.fromY);
+                item.dx=(effect.x-effect.fromX)/Math.max(1,item.length);item.dz=(effect.y-effect.fromY)/Math.max(1,item.length);
+            }
             const positions=item.root.geometry.attributes.position,front=item.length*Math.min(1,age/320);
             let count=0;
-            for(let layer=0;layer<18;layer++) {
-                const rest=layer*item.length/17;if(rest>front)break;
+            for(let layer=0;layer<10;layer++) {
+                const rest=layer*item.length/9;if(rest>front)break;
                 // Every particle oscillates ALONG propagation; transverse coordinates stay fixed.
                 const distance=Math.max(0,rest+5*Math.sin(rest*.18-age*.035));
-                for(let row=-2;row<=2;row++)for(let col=-2;col<=2;col++) {
+                for(let row=-1;row<=1;row++)for(let col=-1;col<=1;col++) {
                     positions.setXYZ(count++,item.start.x+item.dx*distance-item.dz*col*5,item.start.y+row*5,item.start.z+item.dz*distance+item.dx*col*5);
                 }
             }
             positions.needsUpdate=true;item.root.geometry.setDrawRange(0,count);item.root.material.opacity=.85*(1-age/520);
+        }
+        function thrownBottle(effect,age) {
+            if(!effectIds.has(effect))effectIds.set(effect,++nextEffectId);
+            const item=object('bottle:'+effectIds.get(effect),()=>{
+                const model=window.buildWeaponModel(T,'poisonGas');const root=model.root;root.name='thrown-poison-bottle';root.scale.setScalar(16);
+                return {root,start:shotOrigin(effect),dispose:()=>model.dispose()};
+            });
+            const t=Math.max(0,Math.min(1,(age-220)/580));
+            item.root.position.set(item.start.x+(effect.x-item.start.x)*t,item.start.y*(1-t)+2*t+Math.sin(t*Math.PI)*42,item.start.z+(effect.y-item.start.z)*t);
+            item.root.rotation.set(t*Math.PI*2,0,t*1.2);
         }
         function missileFlash(effect,age) {
             if(!effectIds.has(effect))effectIds.set(effect,++nextEffectId);
@@ -571,12 +585,16 @@ window.Lab3D = (() => {
                 item.root.position.set(decoy.x,0,decoy.y);item.root.rotation.y=Math.atan2(decoy.facingX || 0,decoy.facingY ?? 1);item.mixer.update(.016);
             }
             let flameRemaining=48;const flameEmitters=new Map();
+            // Keep at most one wave per owner and four visible waves for the whole scene.
+            const pressureEffects=(frame.effects || []).filter(e=>e.effect==='hit' && e.weapon==='repulsor' && e.damage===0 && now>=e.started && now-e.started<520).sort((a,b)=>b.started-a.started);
+            const pressureOwners=new Set();let pressureCount=0;
+            for(const effect of pressureEffects){if(pressureCount>=4)break;if(pressureOwners.has(effect.playerId))continue;pressureOwners.add(effect.playerId);repulsorWave(effect,now-effect.started);pressureCount++;}
             for(const effect of frame.effects || []) {
                 const age=now-effect.started;
                 if(effect.effect==='missile-impact' && age>=0 && age<650)missileFlash(effect,age);
-                if(effect.effect==='hit' && effect.weapon==='repulsor' && effect.damage===0 && age>=0 && age<520)repulsorWave(effect,age);
-                if(effect.effect==='hit' && age>=0 && age<360 && ['rocket','mine','droneExplosion','freezeGun','poisonGas'].includes(effect.weapon)) ring('blast:'+effectIds.get(effect)+':'+effect.started,effect.x,effect.y,Math.max(4,(effect.radius || 35)*age/360),effect.weapon==='freezeGun'?'#95dded':'#ffae62',1-age/360);
-                if(effect.effect==='hit' && age>=0 && age<220 && effect.damage===0 && ['laserCannon','freezeGun','plasmaBlade'].includes(effect.weapon)) {
+                if(effect.effect==='hit' && effect.weapon==='poisonGas' && effect.damage===0 && effect.enemyId==null && age>=220 && age<800)thrownBottle(effect,age);
+                if(effect.effect==='hit' && age>=0 && age<360 && ['rocket','mine','droneExplosion','freezeGun'].includes(effect.weapon)) ring('blast:'+effectIds.get(effect)+':'+effect.started,effect.x,effect.y,Math.max(4,(effect.radius || 35)*age/360),effect.weapon==='freezeGun'?'#95dded':'#ffae62',1-age/360);
+                if(effect.effect==='hit' && age>=0 && age<220 && effect.damage===0 && ['laserCannon','freezeGun'].includes(effect.weapon)) {
                     firedBeam(effect,effect.weapon==='freezeGun'?'#b8efff':'#50d7ff',effect.weapon==='laserCannon'?3:1.5);
                 }
                 if(effect.effect==='hit' && age>=0 && age<180 && effect.weapon==='flamethrower' && effect.damage===0 && effect.enemyId==null) {
@@ -596,7 +614,7 @@ window.Lab3D = (() => {
                 objects.delete(key);
             }
         }
-        let lastFrame = performance.now(), walkPhase=0, walkBlend=0, recoil=0, sniperRecoil=0, batSwingAt=-Infinity, lastKickAt=-Infinity, lastWalkPoint=null;
+        let lastFrame = performance.now(), walkPhase=0, walkBlend=0, recoil=0, sniperRecoil=0, batSwingAt=-Infinity, bottleThrowAt=-Infinity, lastKickAt=-Infinity, lastWalkPoint=null;
         const kickedEffects=new WeakSet(),lastGunKick=new Map();
         function render(frame) {
             const { map, reachable, center, scale, state, localId, predicted, smooth, radius, stations, aim, effects = [] } = frame;
@@ -625,7 +643,8 @@ window.Lab3D = (() => {
                     if(!(me?.railgunRemaining>0 || me?.secondaryRailgunRemaining>0))view.pitch=Math.min(1.2,view.pitch+kick);
                 }
                 if(effect.weapon==='sniper'){sniperRecoil=Math.min(1.35,sniperRecoil+1);view.yaw+=(Math.sin(effect.started*1.7)>=0?1:-1)*.008;}
-                else if(effect.weapon==='bat')batSwingAt=now;
+                else if(['bat','plasmaBlade'].includes(effect.weapon))batSwingAt=effect.started;
+                else if(effect.weapon==='poisonGas')bottleThrowAt=effect.started;
                 else if(now-lastKickAt>25){recoil=Math.min(1,recoil+.65);lastKickAt=now;}
             }
             const firingRail=me?.railgunRemaining>0 || me?.secondaryRailgunRemaining>0;
@@ -657,7 +676,8 @@ window.Lab3D = (() => {
             viewModel.setWeapon(me?.weapon || 'pistol');viewMixer.update(dt);
             viewModel.root.rotation.z=0;
             if(me?.weapon==='pistol'){viewModel.saveProceduralPose();viewModel.posePistolGrip();}
-            if(me?.weapon==='bat')viewModel.poseBat((now-batSwingAt)/1000);
+            if(me?.weapon==='poisonGas'){viewModel.saveProceduralPose();viewModel.poseBottle((now-bottleThrowAt)/1000);}else bottleThrowAt=-Infinity;
+            if(['bat','plasmaBlade'].includes(me?.weapon))viewModel.poseBat((now-batSwingAt)/1000);
             else batSwingAt=-Infinity;
             if(holdingSniper && ads>0){
                 viewModel.root.updateMatrixWorld(true);
@@ -699,6 +719,7 @@ window.Lab3D = (() => {
                     const clip = aiming ? moving ? 'AimWalk' : 'Aim' : moving ? 'Walk' : 'Idle';
                     if (clip !== item.clip) { item.actions[item.clip].fadeOut(.15); item.actions[clip].reset().fadeIn(.15).play(); item.clip = clip; }
                     item.model.resetProceduralPose();
+                    item.model.resetBatPose();
                     item.model.setWeapon(player.weapon || 'rifle');
                     item.mixer.update(dt);
                     if(player.down) {
@@ -711,6 +732,10 @@ window.Lab3D = (() => {
                         if(prone) {
                             item.model.saveProceduralPose();
                             window.applySniperStance(T,item.model,player.sniper.pitch || 0);
+                        } else if(['bat','plasmaBlade','poisonGas'].includes(player.weapon)) {
+                            const attack=effects.filter(e=>e.playerId===player.id && e.weapon===player.weapon && e.damage===0 && e.effect==='hit' && now>=e.started && now-e.started<900).at(-1);
+                            const age=attack?(now-attack.started)/1000:Infinity;
+                            if(player.weapon==='poisonGas'){item.model.saveProceduralPose();item.model.poseBottle(age);}else item.model.poseBat(age);
                         } else if(player.weapon==='pistol') {
                             item.model.saveProceduralPose();item.model.posePistolGrip();
                         }
