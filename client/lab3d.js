@@ -144,7 +144,7 @@ window.Lab3D = (() => {
             let distance=2400, result=null;
             // Pick the visible 3D body under the reticle; the server verifies the actual hit.
             // Trajectories and warning meshes must never become aiming targets.
-            const hits=raycaster.intersectObjects([...objects.values()].filter(o=>o.root.visible && o.root.isGroup).map(o=>o.root),true);
+            const hits=raycaster.intersectObjects([...objects.values()].filter(o=>o.root.visible && o.root.isGroup && !o.root.userData.presentationOnly).map(o=>o.root),true);
             const wallHits=raycaster.intersectObject(terrain,true);
             for (const hit of [...hits,...wallHits].sort((a,b)=>a.distance-b.distance)) {
                 if (hit.distance<2 || hit.distance>distance) continue;
@@ -283,7 +283,7 @@ window.Lab3D = (() => {
             finalBoss: '#57223e', poisoner: '#84982f', artilleryElite: '#345b2b', boss: '#39363d', warden: '#526679', warlord: '#75434a', titan: '#6b496f',
             tiny: '#a9bd75', shield: '#4c8ca4', bomber: '#e38d47', artillery: '#749749',
             gilded: '#e8b94f', blueAce: '#358dff', carrier: '#9b7655', blackout: '#27584d', seeker: '#a35e70', explosionBoss: '#171b20' };
-        function enemy(entity, point, radius, now, hitFlash=false) {
+        function enemy(entity, point, radius, now) {
             const item = object('enemy:' + entity.id + ':' + entity.type, () => {
                 const root = new T.Group(); root.name='enemy:'+entity.id;
                 const model=labEnemyModels.create(entity.type,radius);
@@ -299,24 +299,26 @@ window.Lab3D = (() => {
                 if (entity.type === 'poisoner') box(root, 12, 16, 12, '#b4cf48', 0, radius, -radius);
                 return { root, body };
             });
-            for(const [mesh,original] of item.flashMaterials || [])mesh.material=original;
-            item.flashMaterials=null;
+            enemyItems.set(entity.id,item);
+            item.enemyId=entity.id;
+            item.objectKey='enemy:'+entity.id+':'+entity.type;
+            if(item.root.userData.presentationOnly)return;
+            hitPresentation.restore(item);
+            item.root.scale.setScalar(1);
             item.root.position.set(point.x, 0, point.y);
             item.root.userData.entity={x:point.x,y:point.y};
             item.root.rotation.y = Math.atan2(entity.facingX || 0, entity.facingY ?? 1);
             if(item.model){
                 item.model.update(point,now,entity.frozenRemaining>0);
-                item.model.tint(hitFlash?material('#ef4250',true):entity.frozenRemaining>0?material('#95dded'):null);
+                item.model.tint(entity.frozenRemaining>0?material('#95dded'):null);
                 return;
             }
             item.body.material = material(entity.frozenRemaining > 0 ? '#95dded'
                 : entity.type === 'explosionBoss' && entity.fuse >= 0 && Math.sin(now / Math.max(50, entity.fuse * 15)) > 0 ? '#d64e58'
                 : enemyColors[entity.type] || '#869095');
-            if(hitFlash) {
-                item.flashMaterials=new Map();
-                item.root.traverse(mesh=>{if(mesh.isMesh){item.flashMaterials.set(mesh,mesh.material);mesh.material=material('#ef4250',true);}});
-            }
         }
+
+        const enemyItems=new Map(),hitPresentation=window.createHitPresentation(T,scene);
 
         function resource(key, node, now) {
             const item=object(key+':'+node.type,()=>{
@@ -605,6 +607,7 @@ window.Lab3D = (() => {
         }
         function collect() {
             for (const [key,item] of objects) if (!seen.has(key)) {
+                if(item.enemyId!=null){hitPresentation.release(item);enemyItems.delete(item.enemyId);}
                 scene.remove(item.root);
                 item.dispose?.();
                 if (item.mixer) { item.mixer.stopAllAction(); item.mixer.uncacheRoot(item.mixer.getRoot());
@@ -622,6 +625,8 @@ window.Lab3D = (() => {
             if (renderer.domElement.width !== overlay.width || renderer.domElement.height !== overlay.height)
                 renderer.setSize(overlay.width, overlay.height, false);
             latestFrame=frame;stationAnchors.clear();
+            for(const item of enemyItems.values())hitPresentation.restore(item);
+            if(!state || map!==lastMap)hitPresentation.reset();
             const me=state?.players.find(p=>p.id===localId), view=frame.view || {yaw:0,pitch:0};
             const eye=frame.eye || predicted || me || center;
             camera.aspect=overlay.width/overlay.height; camera.fov=window.AimControl.viewFov(me?.weapon,view,frame.scoped); camera.updateProjectionMatrix();
@@ -751,9 +756,8 @@ window.Lab3D = (() => {
                     item.root.userData.entity={x:point.x,y:point.y};
                     item.root.visible = player.id!==localId && (!(player.tpInvulnerableRemaining > 0 || player.reviveInvulnerableRemaining > 0) || Math.floor(now/100)%2 === 0);
                 }
-                const hitEnemies=new Set(effects.filter(e=>e.effect==='hit' && e.playerId===localId && e.enemyId!=null && e.damage>0 && now>=e.started && now-e.started<180).map(e=>e.enemyId));
                 for (const entity of state.enemies) if (entity.hp > 0)
-                    enemy(entity, smooth('enemy', entity), radius(entity), now,hitEnemies.has(entity.id));
+                    enemy(entity, smooth('enemy', entity), radius(entity), now);
                 for (const owner of state.players) if (owner.drone?.active) {
                     const point = smooth('drone', { ...owner.drone, id: owner.id });
                     const item = object('drone:' + owner.id, () => {
@@ -774,6 +778,7 @@ window.Lab3D = (() => {
             if (state) {
                 renderCombat(frame,now);
                 renderWallImpacts(effects,now);
+                hitPresentation.update(effects,now,localId,id=>enemyItems.get(id),item=>seen.add(item.objectKey));
             }
             // Transient objects are collected after resources and tracers have marked themselves live.
             collect();

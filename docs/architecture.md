@@ -1,5 +1,7 @@
 # 機能変更に合わせた責務分離
 
+`client/hit-presentation.js`は既存のhit通知（playerId・enemyId・headshot・defeated）から赤み・HSの血・撃破時の血と倒れ動作を表示する。自分の命中は濃く、味方は薄くし、元の材質を個体別の複製へ混ぜて180msで復元する。血は単一InstancedMeshで最大384粒、同じ敵のHSは90ms間隔、倒れる敵は最大8体・700msで打ち切る。死亡モデルはサーバーの敵一覧から消えても表示だけ保持し、照準用レイから除外する。粒子の物理衝突・死体の物理演算・追加通信は行わない。`hit-presentation.cjs`で上限・重複・発生位置・寿命・材質解放、`lab3d-models.cjs`で実モデルの連携を検証し、`previews/hit-feedback.html`で見た目を比較する。
+
 SYSTEM・MISSILEの端末は机に接するモニター台座・支柱、40キーの共有形状によるキーボード、左右ボタンとホイール付きマウスを持つ。MISSILEの立体模型は置かず、画面内の設計図と状態バーで用途を示す。MEDKITの購入ラベルはBUYに統一する。ショットガンの呼吸円はAimControl.displaySampleだけで半径を35%にし、発射用sampleとサーバーの散弾範囲は維持する。
 
 ## マップ設備のモデル
@@ -379,14 +381,14 @@ client/minimap.jsはプレイヤー中心の半径9マスだけ生存敵を抽�
 
 ## 共通照準の安定度
 
-最新仕様は[aim-control.md](aim-control.md)を参照。AimControlRulesが呼吸・実移動・上下を含む照準変更の状態と半径を担当する。Player.aimControlをGameSessionがサーバー時刻で更新し、LOOK・FIRE・SECONDARY_FIREと連携する。CombatSystemは通常銃・散弾・反射・冷凍・スナイパーに共通半径を適用する。特殊武器とドローンは既存判定を維持する。SnapshotBuilderが対象武器と精度状態を配信し、client/aim-control.jsが滑らかな時刻を予測する。構え中は立ちスナイパーも通常レティクルと半透明の青白い呼吸円を重ねる。Lab3Dはローカルプレイヤーの確定命中だけ180ms赤く描き、共有材質を書き換えず凍結・通常色へ復帰させる。
+最新仕様は[aim-control.md](aim-control.md)を参照。AimControlRulesが呼吸・実移動・上下を含む照準変更の状態と半径を担当する。Player.aimControlをGameSessionがサーバー時刻で更新し、LOOK・FIRE・SECONDARY_FIREと連携する。CombatSystemは通常銃・散弾・反射・冷凍・スナイパーに共通半径を適用する。特殊武器とドローンは既存判定を維持する。SnapshotBuilderが対象武器と精度状態を配信し、client/aim-control.jsが滑らかな時刻を予測する。構え中は立ちスナイパーも通常レティクルと半透明の青白い呼吸円を重ねる。Lab3Dはhit-presentationを通して確定命中を180ms赤く描く。自分と味方で濃淡を変え、共有材質を書き換えず凍結・通常色へ復帰させる。
 
 
 ## 簡略化した侵入口と着弾跡
 
 Lab3Dの侵入口は隣接する壁の4方向へ合わせ、暗い開口と細い縁だけを描く。床装飾・発光・文字は持たせない。実際の湧き位置・地形の通行判定は変更しない。
 AimControl.displaySampleは表示倍率だけを75msの指数補間で滑らかにする。sampleは射撃時刻・生の散布角を提供し、表示の遅れを戦闘判定へ持ち込まない。サーバーの更新・通信を増やさない。
-WallImpacts.surfaceは既存発射通知のXYZと近傍のマスから壁・床の面を特定する純粋な描画用計算。Lab3Dは最大32個・2秒の跡を1つの共有InstancedMeshへ反映する。全地形のレイキャストはしない。敵の赤い命中パーティクルと命中レティクルは削除し、確定命中時の敵の赤い色を維持し、確定HS時だけレティクル左上へHeadShot文字を表示する。
+WallImpacts.surfaceは既存発射通知のXYZと近傍のマスから壁・床の面を特定する純粋な描画用計算。Lab3Dは最大32個・2秒の跡を1つの共有InstancedMeshへ反映する。全地形のレイキャストはしない。通常命中の粒子と命中レティクルは使わず、HS・自分の撃破だけhit-presentationが赤い粒子を表示する。確定HS時はレティクル左上へHeadShot文字も表示する。
 
 ## ゾンビの頭部判定
 

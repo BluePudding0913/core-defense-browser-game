@@ -54,7 +54,7 @@ const CombatFeedback = (() => {
             }
             if (popup.text) {
                 ctx.font = "900 11px ui-monospace, monospace";
-                ctx.fillStyle = "#79d8ff";
+                ctx.fillStyle = "#ffffff";
                 ctx.fillText(popup.text, popup.x + (popup.damageText ? popup.damageText.length * 7 / 2 + 4 : 0), popup.y);
             }
             ctx.restore();
@@ -62,9 +62,9 @@ const CombatFeedback = (() => {
     }
     function drawHeadShot(ctx,now,x,y) {
         const age=now-headshotAt;if(age<0 || age>=650)return;
-        ctx.save();ctx.globalAlpha=Math.min(1,(650-age)/250);ctx.fillStyle='#58b9ff';
+        ctx.save();ctx.globalAlpha=Math.min(1,(650-age)/250);ctx.fillStyle='#79d8ff';
         const rise=18*(1-Math.pow(1-age/650,2));
-        ctx.font='700 15px ui-monospace, monospace';ctx.textAlign='right';ctx.fillText('HeadShot',x-12,y-18-rise);ctx.restore();
+        ctx.font='900 18px ui-monospace, monospace';ctx.textAlign='right';ctx.fillText('HeadShot',x-12,y-18-rise);ctx.restore();
     }
     return {add, layout, draw, drawHeadShot, reset() {popups = [];headshotAt=-Infinity;} };
 })();

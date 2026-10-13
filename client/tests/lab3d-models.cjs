@@ -10,7 +10,7 @@ THREE.WebGLRenderer = class {
     render(s,c) { if(c.near===.01){viewScene=s;viewCamera=c;viewScene.updateMatrixWorld(true);viewCamera.updateMatrixWorld(true);return;}scene=s;camera=c;scene.updateMatrixWorld(true);camera.updateMatrixWorld(true); }
 };
 const context=vm.createContext({window:{THREE},document:{body:{classList:{add(){}}}},performance:{now:()=>now},console});
-for (const file of ['aim-control.js','soldier-model.js','sniper-stance.js','organic-enemy-models.js','lab-enemy-models.js','wall-impacts.js','block-terrain.js','map-object-models.js','lab3d.js']) vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
+for (const file of ['aim-control.js','soldier-model.js','sniper-stance.js','organic-enemy-models.js','lab-enemy-models.js','wall-impacts.js','block-terrain.js','map-object-models.js','hit-presentation.js','lab3d.js']) vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
 const renderer=context.window.Lab3D.create({width:900,height:500,before(){}});
 const player={id:'me',x:100,y:100,facingX:0,facingY:-1};
 const state={core:{x:60,y:60},players:[player],enemies:[{id:1,type:'shield',x:180,y:100,hp:100,facingX:1,facingY:0}],slots:[
@@ -329,11 +329,12 @@ console.log('Bat-to-gun regression passed: first-frame restore, repeated switche
 // Confirmed local hits tint only that enemy, then restore frozen/original materials.
 frame.effects=[];state.enemies=[{id:901,type:'grunt',x:100,y:120,hp:100},{id:902,type:'grunt',x:140,y:120,hp:100}];now+=500;renderer.render(frame);
 const hitZombie=scene.getObjectByName('enemy:901'),otherZombie=scene.getObjectByName('enemy:902'),normalCoat=hitZombie.getObjectByName('Open lab coat').material;
-frame.effects=[{effect:'hit',enemyId:901,playerId:'other',damage:20,started:now}];renderer.render(frame);assert.equal(hitZombie.getObjectByName('Open lab coat').material,normalCoat,'Other players do not trigger local flash');
+frame.effects=[{effect:'hit',enemyId:901,playerId:'other',damage:20,started:now}];renderer.render(frame);const allyRed=hitZombie.getObjectByName('Open lab coat').material.color.r;assert(allyRed>normalCoat.color.r,'Ally hits tint the target lightly');
+now+=180;
 frame.effects=[{effect:'hit',enemyId:901,playerId:'me',damage:0,started:now}];renderer.render(frame);assert.equal(hitZombie.getObjectByName('Open lab coat').material,normalCoat,'Misses do not flash');
-frame.effects=[{effect:'hit',enemyId:901,playerId:'me',damage:20,started:now}];renderer.render(frame);assert.equal(hitZombie.getObjectByName('Open lab coat').material.color.getHexString(),'ef4250');assert.equal(otherZombie.getObjectByName('Open lab coat').material,normalCoat,'Shared materials never tint another enemy');
+frame.effects=[{effect:'hit',enemyId:901,playerId:'me',damage:20,started:now}];renderer.render(frame);assert(hitZombie.getObjectByName('Open lab coat').material.color.r>allyRed,'Own hits are much redder than ally hits');assert.equal(otherZombie.getObjectByName('Open lab coat').material,normalCoat,'Shared materials never tint another enemy');
 now+=180;state.enemies[0].frozenRemaining=1;renderer.render(frame);assert.equal(hitZombie.getObjectByName('Open lab coat').material.color.getHexString(),'95dded','Freeze state wins after flash expiry');state.enemies[0].frozenRemaining=0;renderer.render(frame);assert.equal(hitZombie.getObjectByName('Open lab coat').material,normalCoat);assert(hitZombie.children.length>0);
-console.log('Local hit flash passed: confirmed damage, individual enemy, shared material isolation and expiry');
+console.log('Hit tint passed: stronger own hits, faint ally hits, shared material isolation, freeze restoration and expiry');
 
 // Every ordinary gun displaces actual aim, once per discharge, including scatter pellets.
 for(const weapon of ['pistol','smg','rifle','revolver','lmg','shotgun','ricochet','freezeGun','sniper']) {
@@ -485,6 +486,20 @@ state.players.pop();renderer.render(frame);assert(!scene.getObjectByName('rail:r
 console.log('Railgun light passed: blue-white beam, muzzle alignment, converging charge, range/pitch, secondary hand and lifecycle');
 }
 
+// Lethal notifications can arrive with a snapshot that already removed the enemy.
+now+=1000;frame.effects=[];state.enemies=[{id:3001,type:'grunt',x:player.x,y:player.y-80,hp:100,facingX:0,facingY:1}];renderer.render(frame);
+const victim=scene.getObjectByName('enemy:3001'),headBounds=new THREE.Box3().setFromObject(victim.getObjectByName('Anatomical head'));
+const lethal={effect:'hit',weapon:'rifle',enemyId:3001,playerId:'me',damage:100,defeated:true,headshot:true,x:player.x,y:player.y-80,fromX:player.x,fromY:player.y,started:now};
+state.enemies=[];frame.effects=[lethal];renderer.render(frame);
+assert.equal(scene.getObjectByName('enemy:3001'),victim,'Death retains the actual model after snapshot removal');
+assert(victim.userData.presentationOnly,'Death is excluded from the aiming ray');
+const blood=scene.getObjectByName('hit-blood-particles'),particleMatrix=new THREE.Matrix4();assert.equal(blood.count,28);blood.getMatrixAt(0,particleMatrix);
+assert(Math.abs(new THREE.Vector3().setFromMatrixPosition(particleMatrix).y-headBounds.getCenter(new THREE.Vector3()).y)<1e-5,'HS burst starts at the visible head, not the neck joint');
+frame.effects=[];now+=300;renderer.render(frame);assert.equal(scene.getObjectByName('enemy:3001'),victim,'Death survives removal of the notification');
+victim.updateMatrixWorld(true);assert(Math.abs(new THREE.Box3().setFromObject(victim).min.y)<1e-5,'Falling model stays grounded');
+assert(Math.abs(victim.quaternion.x)>.05 || Math.abs(victim.quaternion.z)>.05,'Enemy tips away from the final shot');
+now+=410;renderer.render(frame);assert(!scene.getObjectByName('enemy:3001'));assert.equal(blood.count,0,'Death and blood fully expire');
+console.log('Death integration passed: snapshot removal, actual head origin, no aim targeting, grounded falling, notification removal and cleanup');
 // Plasma uses a handle-driven swing, poison has a real airborne bottle, and pressure is bounded.
 now+=1000;frame.effects=[];frame.motion={moving:false};player.weapon='plasmaBlade';renderer.render(frame);
 const plasmaReady=viewScene.getObjectByName('Rifle').quaternion.clone();
