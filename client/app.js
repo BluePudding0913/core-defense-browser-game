@@ -1435,7 +1435,6 @@ function playSoundEffect(message) {
     if (message.effect === "shot") name = message.item === "railgun-charge" ? message.item : message.weapon;
     else if (message.effect === "item-use") name = BUILD_INFO[message.item] ? "build" : message.item || "item";
     else if (message.effect === "pickup") name = "pickup";
-    else if (message.effect === "hit" && own && message.enemyId != null && message.damage > 0) name = "enemy-hit";
     else if (message.effect === "player-hit" && own) name = "damage";
     else if (message.effect === "drone-self-destruct") name = "drone-self-destruct";
     else return;

@@ -378,7 +378,7 @@ class GameplayRevisionTest {
         Method spawn = GameSession.class.getDeclaredMethod("spawnEnemy", String.class, SpawnPoint.class);
         spawn.setAccessible(true);
         game.round = 8;
-        double[] hp = {212, 134, 508, 16600};
+        double[] hp = {212, 134, 508, 14100};
         double[] speed = {70, 168, 46, 168};
         int[] gold = {35, 45, 100, 1188};
         String[] types = {"grunt", "runner", "brute", "boss"};

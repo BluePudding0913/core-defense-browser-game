@@ -26,16 +26,15 @@ listeners.pointerdown(); assert.equal(contexts, 1);
 const names = ['pistol', 'ricochet', 'shotgun', 'smg', 'rifle', 'sniper', 'revolver', 'lmg', 'rocket', 'missile-launch', 'missile-impact', 'bat', 'medkit', 'heal', 'build', 'pickup', 'item', 'damage', 'railgun', 'railgun-charge', 'refill', 'round-start'];
 const demo = [];
 names.push('flamethrower', 'drone-self-destruct', 'system-restore', 'system-online');
-names.push('enemy-hit');
+
 for (const name of names) {
     window.coreAudio.play(name);
     const source = sources.at(-1), data = source.buffer.getChannelData(0);
     assert(source.started, name);
     assert(data.some(value => Math.abs(value) > .01), `${name} is audible`);
-    const boosted = ['round-start', 'flamethrower', 'drone-self-destruct', 'enemy-hit'].includes(name);
-    assert(data.every(value => Number.isFinite(value) && Math.abs(value) <= (name==='enemy-hit' ? .321 : boosted ? .241 : .161)), `${name} stays within volume limit`);
+    const boosted = ['round-start', 'flamethrower', 'drone-self-destruct', 'pistol'].includes(name);
+    assert(data.every(value => Number.isFinite(value) && Math.abs(value) <= (boosted ? .241 : .161)), `${name} stays within volume limit`);
     if (boosted) assert(data.some(value => Math.abs(value) > .161), `${name} has increased amplitude`);
-    if(name==='enemy-hit')assert.equal(data.length,4800,'Hit chime lasts 100ms');
     if(name==='ricochet')assert(data.every(value=>Math.abs(value)<=.141),'Ricochet has a quieter soft waveform');
     demo.push(data, new Float32Array(12000));
     source.onended(); assert(source.disconnected);
@@ -109,7 +108,7 @@ assert(shakes[0].frames.some(f=>f.transform.includes('2px')));
 effect({ effect: 'player-hit', playerId: 'me' });
 assert.deepEqual(played.pop(), ['damage', 0]);
 effect({effect:'hit',playerId:'me',enemyId:1,damage:10});
-assert.deepEqual(played.pop(),['enemy-hit',0]);
+assert.equal(played.length,0,'Local enemy hit remains silent');
 for(const message of [
     {effect:'hit',playerId:'other',enemyId:1,damage:10},
     {effect:'hit',playerId:'me',enemyId:1,damage:0},
@@ -227,34 +226,9 @@ window.coreAudio.syncRewind(0, 2);
 assert.equal(sources.length, beforeReset, 'disconnect and leave stop without a false completion cue');
 console.log('Restore SE passed: six-second noise, no repeats, boot cue, disconnect and leave cleanup');
 
-for(const source of sources)source.onended?.();
-window.coreAudio.setVolume(1);
-for(let i=0;i<8;i++)window.coreAudio.play('rifle');
-const crowdedShots=sources.slice(-8),beforeHit=sources.length;
-window.coreAudio.play('enemy-hit');
-assert.equal(sources.length,beforeHit+1,'Hit cue plays even when gunshots occupy all eight voices');
-assert(crowdedShots[0].stopped,'Hit cue replaces one ordinary shot');
-const chime=sources.at(-1);
-for(let i=0;i<20;i++)window.coreAudio.play('enemy-hit');
-assert.equal(sources.length,beforeHit+1,'Pellets cannot stack identical hit cues');
-chime.onended();window.coreAudio.play('enemy-hit');
-assert.equal(sources.length,beforeHit+2,'Next hit can play after the short chime ends');
-for(const source of sources)source.onended?.();
-for(let i=0;i<4;i++)window.coreAudio.play('railgun',0,true);
-for(let i=0;i<4;i++)window.coreAudio.play('round-start');
-const protectedCount=sources.length,protectedVoices=sources.slice(-8);
-window.coreAudio.play('enemy-hit');assert.equal(sources.length,protectedCount,'Hit does not interrupt beams or critical cues');
-assert(protectedVoices.every(source=>!source.stopped));
-for(const source of sources)source.onended?.();
-const muted=sources.length;window.coreAudio.setVolume(0);window.coreAudio.play('enemy-hit');assert.equal(sources.length,muted);window.coreAudio.setVolume(1);
-// Compare against the previous profiles using the same synthesizer and sample rate.
-const oldWindow={AudioContext,addEventListener:(name,handler)=>{if(name==='pointerdown')oldWindow.unlock=handler;}};
-const soundSource=fs.readFileSync('client/sound.js','utf8').replace(/ricochet: \{[^\n]+\}/,'ricochet: { pitch: 1600, end: 380, duration: .18, noise: .15 }').replace(/"enemy-hit": \{[^\n]+\}/,'"enemy-hit": { pitch: 1150, end: 420, duration: .055, noise: .3, amplitude: .12 }');
-vm.runInNewContext(soundSource,{window:oldWindow,localStorage});oldWindow.unlock();
-const rms=data=>Math.sqrt(data.reduce((sum,value)=>sum+value*value,0)/data.length);
-const currentHit=sources.find(s=>s.effectName==='enemy-hit').buffer.getChannelData(0),currentRicochet=sources.find(s=>s.effectName==='ricochet').buffer.getChannelData(0);
-oldWindow.coreAudio.play('enemy-hit');const oldHit=sources.at(-1).buffer.getChannelData(0);sources.at(-1).onended();
-oldWindow.coreAudio.play('ricochet');const oldRicochet=sources.at(-1).buffer.getChannelData(0);sources.at(-1).onended();
-assert(rms(currentHit)>rms(oldHit)*1.5,'Hit cue has greater signal energy than the former click');
-assert(rms(currentRicochet)<rms(oldRicochet)*.6,'Ricochet is substantially softer than the former electronic sound');
-console.log('Hit/ricochet SE passed: distinct synthesized tones, stronger hit signal, softer ricochet, crowded mix priority, pellet coalescing, protected cues and mute');
+const beforeSilent=sources.length;window.coreAudio.play('enemy-hit');assert.equal(sources.length,beforeSilent,'Removed hit sound cannot be played');
+const pistolData=sources.find(s=>s.effectName==='pistol').buffer.getChannelData(0);
+assert.equal(pistolData.length,7680,'Pistol has a short 160ms report');
+const energy=(a,b)=>pistolData.slice(a,b).reduce((sum,v)=>sum+v*v,0)/(b-a);
+assert(energy(0,960)>energy(4800,5760)*10,'Pistol starts with a sharp crack and decays quickly');
+console.log('Combat audio passed: silent enemy hits, pistol crack/body/decay and soft ricochet');
