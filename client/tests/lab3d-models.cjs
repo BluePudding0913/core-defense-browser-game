@@ -445,3 +445,42 @@ for(const weapon of ['pistol','shotgun'])for(const angle of [{yaw:0,pitch:0},{ya
 }
 console.log('Detailed pistol/shotgun FPS tracer alignment passed');
 }
+
+// Continuous rail effects follow the muzzle and release all transient meshes.
+{
+frame.effects=[];frame.view={yaw:.4,pitch:.2,zoom:false};player.down=false;
+now=Math.ceil(now/625)*625;
+Object.assign(player,{weapon:'railgun',railgunCharge:.3,railgunRemaining:0});
+renderer.render(frame);
+const railCore=find('rail:memain:charge-core');
+const muzzleNdc=viewScene.getObjectByName('Muzzle').getWorldPosition(new THREE.Vector3()).project(viewCamera);
+const chargeNdc=railCore.position.clone().project(camera);
+assert(Math.hypot(muzzleNdc.x-chargeNdc.x,muzzleNdc.y-chargeNdc.y)<1e-5,'Charge gathers at the visible FPS muzzle');
+const particles=scene.children.filter(o=>o.name.startsWith('rail:memain:particle:'));
+assert.equal(particles.length,12);
+const firstDistance=particles[0].position.distanceTo(railCore.position),firstSize=railCore.scale.x;
+now+=100;renderer.render(frame);
+assert(particles[0].position.distanceTo(railCore.position)<firstDistance,'Blue particles converge toward the muzzle: '+firstDistance+' -> '+particles[0].position.distanceTo(railCore.position));
+player.railgunCharge=.9;renderer.render(frame);
+assert(railCore.scale.x>firstSize,'Charge core grows with charge progress');
+Object.assign(player,{railgunCharge:0,railgunRemaining:1,railgunDx:0,railgunDy:-1,railgunRange:1200,railgunPitch:.2});
+renderer.render(frame);
+assert(!scene.getObjectByName('rail:memain:charge-core'),'Charge disappears on discharge');
+const halo=find('rail:memain:halo'),core=find('rail:memain:core');
+assert(halo.scale.x>=10 && core.scale.x>2,'Beam has a broad blue halo and readable white core');
+assert(halo.material.color.equals(new THREE.Color('#247aff')));assert(core.material.color.equals(new THREE.Color('#e5f7ff')));
+assert.equal(core.material.toneMapped,false,'Beam stays bright regardless of room lighting');
+const endpoint=core.position.clone().add(new THREE.Vector3(0,core.scale.y/2,0).applyQuaternion(core.quaternion));
+assert(endpoint.distanceTo(new THREE.Vector3(player.x,26+Math.tan(.2)*1200,player.y-1200))<1e-5,'Wider beam preserves authoritative direction, range and pitch');
+player.down=true;renderer.render(frame);assert(!scene.children.some(o=>o.name.startsWith('rail:me')),'Down state clears beam and charge');
+player.down=false;player.weapon='pistol';player.railgunRemaining=0;player.job='attacker';
+player.secondaryWeapon='railgun';player.secondaryRailgunCharge=.5;renderer.render(frame);
+assert(find('rail:mesub:charge-core'));assert(!scene.getObjectByName('rail:memain:charge-core'));
+player.secondaryRailgunCharge=0;renderer.render(frame);assert(!scene.children.some(o=>o.name.startsWith('rail:me')),'Cancellation clears secondary charge');
+const remote={id:'rail-remote',x:140,y:100,weapon:'railgun',railgunCharge:.6,facingX:1,facingY:0};state.players.push(remote);renderer.render(frame);
+const remoteBody=scene.children.find(o=>o.userData.entity?.x===140 && o.userData.entity?.y===100 && o.getObjectByName('Muzzle'));
+const remoteMuzzle=remoteBody.getObjectByName('Muzzle').getWorldPosition(new THREE.Vector3());
+assert(find('rail:rail-remotemain:charge-core').position.distanceTo(remoteMuzzle)<1e-5,'Remote charge uses actual gun muzzle');
+state.players.pop();renderer.render(frame);assert(!scene.getObjectByName('rail:rail-remotemain:charge-core'),'Disconnect clears charge');
+console.log('Railgun light passed: blue-white beam, muzzle alignment, converging charge, range/pitch, secondary hand and lifecycle');
+}

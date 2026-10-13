@@ -431,6 +431,20 @@ window.Lab3D = (() => {
             const item=object(key,()=>{const root=new T.Mesh(cylinderGeometry,material(color,true));root.name=key;return {root};});
             const delta=b.clone().sub(a);item.root.position.copy(a).add(b).multiplyScalar(.5);item.root.scale.set(width,delta.length(),width);item.root.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),delta.normalize());
         }
+        function railLight(key,a,b,radius,color,opacity=1) {
+            const item=object(key,()=>{
+                const mat=new T.MeshBasicMaterial({color,transparent:opacity<1,opacity,
+                    blending:opacity<1?T.AdditiveBlending:T.NormalBlending,depthWrite:false,toneMapped:false});
+                const root=new T.Mesh(b?cylinderGeometry:sphereGeometry,mat);root.name=key;
+                return {root,dispose(){mat.dispose();}};
+            });
+            if(b) {
+                const delta=b.clone().sub(a);
+                item.root.position.copy(a).add(b).multiplyScalar(.5);
+                item.root.scale.set(radius,delta.length(),radius);
+                item.root.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),delta.normalize());
+            } else {item.root.position.copy(a);item.root.scale.setScalar(radius);}
+        }
         function firedBeam(effect,color,width) {
             if(!effectIds.has(effect))effectIds.set(effect,++nextEffectId);
             const item=object('special:'+effectIds.get(effect),()=>{
@@ -507,11 +521,33 @@ window.Lab3D = (() => {
             for(const [i,area] of (state.healingAreas || []).entries()) ring('healing:'+i,area.x,area.y,area.radius || 100,'#84e6b5',.3);
             for(const [i,gas] of (state.poisonClouds || state.poisonGas || []).entries()) ring('gas:'+i,gas.x,gas.y,gas.radius || 80,gas.hostile?'#a6ce46':'#b46eeb',gas.hostile?.8:.5);
             for(const player of state.players) {
+                if(player.down)continue;
                 const p=player.id===frame.localId && frame.predicted ? frame.predicted : smooth('player',player);
-                for(const [side,remaining,dx,dy,range,pitch] of [['main',player.railgunRemaining,player.railgunDx,player.railgunDy,player.railgunRange,player.railgunPitch],['sub',player.secondaryRailgunRemaining,player.secondaryRailgunDx,player.secondaryRailgunDy,player.secondaryRailgunRange,player.secondaryRailgunPitch]]) if(remaining>0) {
+                for(const [side,weapon,charge,remaining,dx,dy,range,pitch] of [
+                    ['main',player.weapon,player.railgunCharge,player.railgunRemaining,player.railgunDx,player.railgunDy,player.railgunRange,player.railgunPitch],
+                    ['sub',player.secondaryWeapon,player.secondaryRailgunCharge,player.secondaryRailgunRemaining,player.secondaryRailgunDx,player.secondaryRailgunDy,player.secondaryRailgunRange,player.secondaryRailgunPitch]]) {
+                    if(weapon!=='railgun' || !(remaining>0 || charge>0))continue;
                     const height=(Number.isFinite(pitch)?26:22)+(p.jumpHeight || player.jumpHeight || 0);
-                    const start=player.id===frame.localId && viewVisible ? fpsMuzzleWorld() : new T.Vector3(p.x,height,p.y);
-                    beam('rail:'+player.id+side,start,new T.Vector3(p.x+dx*range,height+Math.tan(pitch || 0)*range,p.y+dy*range),'#ff7390',2);
+                    const muzzle=objects.get('player:'+player.id)?.muzzle;
+                    const start=player.id===frame.localId && viewVisible ? fpsMuzzleWorld() : muzzle ? muzzle.getWorldPosition(new T.Vector3()) : new T.Vector3(p.x,height,p.y);
+                    const key='rail:'+player.id+side;
+                    if(remaining>0) {
+                        const end=new T.Vector3(p.x+dx*range,height+Math.tan(pitch || 0)*range,p.y+dy*range);
+                        railLight(key+':halo',start,end,11,'#247aff',.16);
+                        railLight(key+':blue',start,end,6,'#56baff',.35);
+                        railLight(key+':core',start,end,2.8,'#e5f7ff');
+                        railLight(key+':flare',start,null,7,'#75caff',.4);
+                    } else {
+                        const progress=Math.min(1,charge/1.2),time=now/1000;
+                        railLight(key+':charge-halo',start,null,2+progress*4,'#288aff',.3);
+                        railLight(key+':charge-core',start,null,.7+progress*1.5,'#b9eaff');
+                        for(let i=0;i<12;i++) {
+                            const phase=(time*1.6+i/12)%1,distance=3+(1-phase)*(12+progress*12);
+                            const angle=i*2.399+time*.8,y=1-i/5.5,horizontal=Math.sqrt(Math.max(0,1-y*y));
+                            const point=start.clone().add(new T.Vector3(Math.cos(angle)*horizontal,y,Math.sin(angle)*horizontal).multiplyScalar(distance));
+                            railLight(key+':particle:'+i,point,null,.45+phase*.65,'#56baff',.7);
+                        }
+                    }
                 }
             }
             for(const enemy of state.enemies) if(enemy.hp>0 && enemy.chargeWarning>0) {const p=smooth('enemy',enemy);beam('charge:'+enemy.id,new T.Vector3(p.x,1,p.y),new T.Vector3(p.x+enemy.chargeDx*286,1,p.y+enemy.chargeDy*286),'#ff5964',5);}
