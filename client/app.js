@@ -1704,7 +1704,7 @@ function openShopPurchase(shop, chooseExchange = false) {
     const ammoShop = shop.item === "ammo";
     if (shop.item === "medkit") {
         openNearbyActionMenu(shop.label, [{
-            label: "回復キット",
+            label: "BUY",
             detail: `${shop.cost}G`,
             stock: `所持 ${me.medkits} / ${state.rules.medkitCapacity}`,
             command: "BUY:medkit",
@@ -3056,6 +3056,7 @@ function drawResources() {
 }
 
 function drawDroppedResources() {
+    if (typeof labRenderer !== "undefined" && labRenderer) return;
     for (const drop of state.drops || []) {
         const bob = Math.sin(performance.now() / 230 + drop.id) * 2;
         ctx.save();
@@ -3079,15 +3080,6 @@ function drawDroppedResources() {
                 ctx.moveTo(0, -10); ctx.lineTo(10, -2); ctx.lineTo(6, 9);
                 ctx.lineTo(-7, 8); ctx.lineTo(-10, -3); ctx.closePath(); ctx.fill(); ctx.stroke();
             }
-        }
-        ctx.fillStyle = "#fff";
-        ctx.font = "900 10px ui-monospace, monospace";
-        ctx.textAlign = "center";
-        ctx.fillText(drop.type.toUpperCase(), 0, -18);
-        if (drop.pickupDelay > 0) {
-            ctx.fillStyle = "rgb(255 255 255 / 68%)";
-            ctx.font = "850 8px ui-monospace, monospace";
-            ctx.fillText(`${drop.pickupDelay.toFixed(1)}s`, 0, 21);
         }
         ctx.restore();
     }

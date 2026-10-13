@@ -39,6 +39,50 @@ window.MapObjectModels = (() => {
         // Table undersides are at 14.5–16: embed each leg slightly into the slab.
         function feet(w=26,d=22) {for(const x of [-w/2,w/2])for(const z of [-d/2,d/2])part('foot',3,16.5,3,metal,x,8.25,z);}
         function screen(x=0,y=27,z=3,w=20,h=12) {part('screen-frame',w+3,h+3,2,dark,x,y,z);part('screen',w,h,.6,accent,x,y,z+1.3,true);for(let i=0;i<3;i++)part('screen-line',w*(.65-i*.13),.7,.3,pale,x-w*.08,y+3-i*3,z+1.7);}
+        function computer(top,missile=false) {
+            // Base and stem overlap both the desktop and the monitor frame.
+            part('monitor-base',12,.8,7,metal,0,top+.3,-8);
+            part('monitor-stand',3,8,2,metal,0,top+4,-8);
+            part('screen-frame',28,18,2,dark,0,top+14,-8);
+            part('screen',25,15,.6,'#163e50',0,top+14,-6.7,true);
+            if(missile) {
+                const ink='#8dddeb',z=-6.3,cy=top+14;
+                const line=(name,x1,y1,x2,y2)=>{
+                    const bar=part(name,Math.hypot(x2-x1,y2-y1),.25,.2,ink,(x1+x2)/2,cy+(y1+y2)/2,z,true);
+                    bar.rotation.z=Math.atan2(y2-y1,x2-x1);
+                };
+                // Side elevation: blunt engine, swept tail fins, broad fuselage and short nose.
+                for(const side of [-1,1]) {
+                    line('blueprint-body',-8,2+side*1.5,4,2+side*1.5);
+                    line('blueprint-nose',4,2+side*1.5,8,2);
+                    line('blueprint-fin',-8,2+side*1.5,-8,2+side*3.5);
+                    line('blueprint-fin',-8,2+side*3.5,-3,2+side*1.5);
+                    line('blueprint-nozzle',-10,2+side,-8,2+side);
+                }
+                for(const x of [-8,-5,2])line('blueprint-seam',x,.5,x,3.5);
+                line('blueprint-exhaust',-10,1,-10,3);
+                for(let i=0;i<3;i++) {
+                    const x=-7+i*7;
+                    part('status-label',4,.3,.2,ink,x,cy-3.5,z,true);
+                    part('status-track',5,1,.2,'#285a69',x,cy-5,z,true);
+                    part('status-value',4-i,1,.25,'#6ac5b6',x-(1+i)/2,cy-5,z+.05,true);
+                }
+            } else {
+                for(let i=0;i<4;i++)part('screen-line',17-i*2,.6,.2,pale,-2,top+19-i*3,-6.3,true);
+            }
+            part('keyboard',21,.8,8,metal,-3,top+.4,5);
+            const keys=new T.InstancedMesh(boxGeometry,material(pale),40),matrix=new T.Matrix4();
+            keys.name='keyboard-keys';keys.position.y=top+1;
+            for(let row=0;row<4;row++)for(let col=0;col<10;col++) {
+                matrix.makeScale(1.5,.4,1.25);matrix.setPosition(-12+col*2,0,2.2+row*1.8);keys.setMatrixAt(row*10+col,matrix);
+            }
+            keys.castShadow=true;root.add(keys);
+            part('keyboard-space',7,.4,1.2,pale,-3,top+1,8.5);
+            part('mouse-pad',6,.2,9,'#1c2d38',11,top+.1,5);
+            part('mouse',3.5,.9,5,metal,11,top+.65,5);
+            for(const x of [10.1,11.9])part('mouse-button',1.5,.35,2.1,pale,x,top+1.2,3.7);
+            part('mouse-wheel',.4,.4,1,dark,11,top+1.3,4);
+        }
         if(kind==='medical') {
             part('healing-base',32,4,30,dark);part('healing-chassis',28,23,26,pale,0,15);
             part('healing-core',28,3,26,accent,0,28,0,true);
@@ -132,17 +176,14 @@ window.MapObjectModels = (() => {
             part('helmet',12,8,10,pale,0,34,15);part('helmet-visor',10,3,1,dark,0,34,20.5);
             for(const x of [-6,6])part('locker-vent',7,1,1,dark,x,13,14.5);part('door-handle',2,7,2,pale,9,23,15);
         } else if(kind==='missile') {
-            feet();part('launch-desk',32,5,26,dark,0,17);screen(-6,30,-6,14,15);
-            cylinder('missile-body',3,22,pale,10,30,0);cylinder('missile-nose',1.8,5,accent,10,43,0);
-            for(const x of [6,14])part('missile-fin',2,8,7,accent,x,23,0);part('launch-button',5,2,5,'#df705c',-6,21,8,true);
+            feet();part('launch-desk',34,5,26,dark,0,18);computer(20.5,true);
         } else if(kind==='time') {
             part('timer-base',28,5,25,dark);part('timer-pedestal',18,22,17,metal,0,16);const dial=cylinder('clock-rim',13,4,accent,0,36,0);dial.rotation.x=Math.PI/2;
             const face=cylinder('clock-face',11,1,pale,0,36,2.5);face.rotation.x=Math.PI/2;
             part('clock-hand-minute',1.5,9,1,dark,0,39,3.5);part('clock-hand-hour',7,1.5,1,dark,3,36,3.6);
             for(const [x,y] of [[0,45],[9,36],[0,27],[-9,36]])part('clock-tick',2,2,1,metal,x,y,3.5);
         } else if(kind==='command') {
-            feet();part('console-desk',34,5,26,dark,0,18);screen(0,32,-8,25,17);
-            part('keyboard',22,1,8,metal,0,21,5);for(const x of [-8,-4,0,4,8])part('keys',2,1,5,pale,x,22,5);
+            feet();part('console-desk',34,5,26,dark,0,18);computer(20.5);
         }
         root.userData.modelKind=kind;return root;
     }

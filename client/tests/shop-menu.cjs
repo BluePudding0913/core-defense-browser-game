@@ -91,14 +91,14 @@ assert(weaponButton.disabled);
 context.shop = { label: 'KIT', item: 'medkit', cost: 50, x: 0, y: 0 };
 run('openShopPurchase(shop)');
 assert.equal(actionOptions.children[0].innerHTML,
-    '回復キット<small>50G</small><span class="action-stock">所持 0 / 3</span>');
+    'BUY<small>50G</small><span class="action-stock">所持 0 / 3</span>');
 click();
 assert(!classes.has('hidden'));
 me.medkits = 3;
 snapshot();
 assert(actionOptions.children[0].disabled, 'kit capacity updates while the menu stays open');
 assert.equal(actionOptions.children[0].innerHTML,
-    '回復キット<small>50G</small><span class="action-stock">所持 3 / 3</span>');
+    'BUY<small>50G</small><span class="action-stock">所持 3 / 3</span>');
 me.medkits = 2;
 snapshot();
 assert(actionOptions.children[0].innerHTML.includes('所持 2 / 3'), 'using a kit updates the open menu');
