@@ -36,6 +36,16 @@ for(const [kind,topName] of [['workbench','worktop'],['advanced','worktop'],['wo
  for(const leg of legs){const box=new T.Box3().setFromObject(leg);assert.equal(box.min.y,0,'Leg rests on the ground');assert(box.max.y>top.min.y && box.max.y<top.max.y,'Leg joins inside the tabletop: '+kind);assert(box.min.x>=top.min.x && box.max.x<=top.max.x && box.min.z>=top.min.z && box.max.z<=top.max.z,'Leg remains underneath the tabletop: '+kind);}
 }
 const silhouettes=new Set();
+for(const kind of ['command','missile']) {
+ const root=models.build(T,kind),box=name=>new T.Box3().setFromObject(root.getObjectByName(name));
+ const top=box(kind==='command'?'console-desk':'launch-desk'),base=box('monitor-base'),stand=box('monitor-stand'),frame=box('screen-frame');
+ assert(base.min.y<=top.max.y && base.max.y>=top.max.y,'Monitor base contacts desktop');
+ assert(stand.min.y<=base.max.y && stand.max.y>=frame.min.y,'Monitor stem connects base and frame');
+ assert.equal(root.getObjectByName('keyboard-keys').count,40,'Keyboard has individual key rows');
+ assert(box('keyboard').min.y<=top.max.y && box('mouse-pad').min.y<=top.max.y,'Input devices rest on desktop');
+ assert(root.getObjectByName('mouse-wheel'));assert.equal(root.children.filter(o=>o.name==='mouse-button').length,2);
+ if(kind==='missile'){assert(!root.getObjectByName('missile-body'));assert(root.getObjectByName('blueprint-nose'));assert(root.getObjectByName('status-value'));}
+}
 for(const kind of Object.keys(models.colors)){
  const root=models.build(T,kind),bounds=new T.Box3().setFromObject(root),size=bounds.getSize(new T.Vector3());
  assert(size.x<=36 && size.z<=36 && bounds.min.y>=0 && bounds.max.y<=55,'Facility fits its footprint: '+kind);

@@ -10,7 +10,7 @@ const context=vm.createContext({labRenderer:{},ctx,performance:{now:()=>1000},sc
 for(const fn of ['drawAreas','drawBreakers','drawResources','drawDroppedResources','drawEnemies','drawHitEffects'])vm.runInContext(extract(fn),context);
 vm.runInContext('drawAreas();drawBreakers();drawResources();drawDroppedResources();drawEnemies()',context);
 assert.equal(shapes.length,0,'3D terminals, breakers, items and enemy equipment do not retain flat body geometry');
-assert(labels.includes('UNLOCK'));assert(labels.includes('MEDKIT'));
+assert(labels.includes('UNLOCK'));assert(!labels.includes('MEDKIT'),'Dropped items have no floating labels');
 context.hitEffects=[{effect:'hit',weapon:'pistol',damage:0,playerId:'me',fromX:100,fromY:100,x:200,y:100,started:1000}];
 vm.runInContext('drawHitEffects()',context);assert.equal(shapes.length,0,'3D gunfire does not duplicate a ground-level red line');
 context.labRenderer=null;vm.runInContext('drawAreas();drawBreakers();drawResources();drawDroppedResources();drawEnemies();drawHitEffects()',context);

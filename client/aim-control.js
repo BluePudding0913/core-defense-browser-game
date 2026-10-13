@@ -34,7 +34,8 @@ window.AimControl = (() => {
         const base=raw.slope/raw.penalty;
         const baseSlope=reset?base:previous.baseSlope+(base-previous.baseSlope)*(1-Math.exp(-(now-previous.at)/35));
         visuals.set(player.id,{penalty,baseSlope,at:now,elapsed:raw.elapsed,weapon,fixed:!!player?.sniper?.fixed});
-        return {...raw,slope:baseSlope*penalty,penalty};
+        // Shotgun pellet spread is intentionally wide; keep its breathing cue compact.
+        return {...raw,slope:baseSlope*penalty*(weapon==='shotgun'?.35:1),penalty};
     }
     function visible(player,view,definitions) {return supported(player?.weapon,definitions) && !!view.zoom;}
     const scopeFov=weapon=>weapon==='sniper'?16:weapon==='rifle'?32:26;
