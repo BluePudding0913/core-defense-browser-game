@@ -31,6 +31,9 @@ window.Lab3D = (() => {
         Object.assign(sun.shadow.camera, { left: -650, right: 650, top: 650, bottom: -650, near: 1, far: 2200 });
         sun.shadow.bias = -0.0005;
         scene.add(sun, sun.target);
+        // Soft view-facing fill preserves face/limb detail without brightening the room.
+        const enemyFill=new T.DirectionalLight(0xe5eee6,.65);enemyFill.name='enemy-readability-fill';enemyFill.layers.set(1);
+        camera.layers.enable(1);scene.add(enemyFill,enemyFill.target);
         const boxGeometry = new T.BoxGeometry(1, 1, 1);
         const cylinderGeometry = new T.CylinderGeometry(1, 1, 1, 8);
         const wirePoints = Array.from({length:81}, (_,i) => { const t=i/80, a=t*Math.PI*8; return new T.Vector3((t-.5)*32, 11+Math.cos(a)*6, Math.sin(a)*6); });
@@ -284,7 +287,7 @@ window.Lab3D = (() => {
             const item = object('enemy:' + entity.id + ':' + entity.type, () => {
                 const root = new T.Group(); root.name='enemy:'+entity.id;
                 const model=labEnemyModels.create(entity.type,radius);
-                if(model){root.add(model.root);return {root,model,dispose:model.dispose};}
+                if(model){model.root.traverse(o=>{if(o.isMesh)o.layers.enable(1);});root.add(model.root);return {root,model,dispose:model.dispose};}
                 const body = new T.Mesh(sphereGeometry, material(enemyColors[entity.type] || '#869095'));
                 body.scale.set(radius * .9, radius * .8, radius * .8); body.position.y = radius * .8;
                 body.castShadow = true; root.add(body);
@@ -598,6 +601,8 @@ window.Lab3D = (() => {
             darkened=!!state?.blackoutActive && !me?.drone?.controlled && !frame.nightVision;
             scene.fog=darkened?blackoutFog:null;scene.background.set(darkened?'#010205':'#141e26');
             ambient.intensity=darkened?.07:.75;sun.intensity=darkened?.08:1;
+            enemyFill.visible=!darkened;enemyFill.position.copy(camera.position);enemyFill.position.y+=30;
+            enemyFill.target.position.set(camera.position.x+Math.sin(view.yaw)*100,camera.position.y-15,camera.position.z-Math.cos(view.yaw)*100);
             nearbyLight.visible=darkened;nearbyLight.position.copy(camera.position);
             handLight.intensity=darkened?.38:1.8;sniperKey.intensity=darkened?.4:1.7;sniperFill.intensity=darkened?.15:.7;
             const holdingSniper=me?.weapon==='sniper';

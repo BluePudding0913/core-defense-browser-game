@@ -429,3 +429,5 @@ HUNTER / ARMORED / ARTILLERYにはlab-hunter / lab-armored / lab-artilleryを追
 CORE HUNTER / SEEKER / BLACKOUTにはlab-corehunter / lab-seeker / lab-blackoutを割り当てる。CORE HUNTERは幅広い体・拡大した手袋と前腕・両手を出した速い歩行、SEEKERは長身・細身の長い裾と歩行中の首振り、BLACKOUTは強い前傾・背面電源ケースと立体ケーブルで、体格と動きも差別化する。13タイプで形状共有と個体別歩行・凍結・被弾色・最終個体の解放を検証する。戦闘ルールは変更しない。比較ビューは新3体を初期表示する。
 
 SIEGE / CHAMPION / WARDENにはlab-siege / lab-champion / lab-wardenを割り当てる。SIEGEは幅広い体と片腕の破砕具、CHAMPIONは直立した暗色の長い上着、WARDENは胴体に沿う拘束帯・手枷・交互に向きを変えた立体の鎖で差別化する。破砕具は前腕、鎖は手枷へ固定し、主任の裾と鎖だけに控えめな揺れを加える。16タイプが共通の個体別歩行・凍結・被弾色と形状共有を使い、比較画面の追加3体で確認できる。ボス能力と戦闘判定は変更しない。
+
+敵の色はColorManagement.legacyModeを確認してsRGBから一度だけ線形化する。Lab3Dの自動変換に重ねて手動変換しない。通常時は敵メッシュだけlayer 1の弱い視点側補助光を受け、床・壁・停電時には適用しない。歩行はタイプ別の両脚の振り幅と膝の曲がりを使い、引きずり歩きは白衣の研究員系に限定する。実ゲームの位相は移動距離をモデル寸法に換算して進め、補正・テレポート時の追いつきを制限する。停止・凍結・接地と共有モデル間の位相分離を検証する。client/previews/enemy-game.htmlはLab3Dそのものの照明・描画で通常時と停電時の歩行を確認する。

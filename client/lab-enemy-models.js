@@ -17,10 +17,10 @@ window.createLabEnemyModels = T => {
   let point=null,lastAt=null,time=0,disposed=false,motion=[null,0,0];
   return {root,rig,update(next,now,frozen){
    const dt=lastAt===null?0:Math.max(0,Math.min(.1,(now-lastAt)/1000));
-   const moving=point&&Math.hypot(next.x-point.x,next.y-point.y)>.01;
+   const distance=point?Math.hypot(next.x-point.x,next.y-point.y):0,moving=distance>.01;
    entry.model.setMotion(motion);
-   if(!frozen){time+=dt;entry.model.pose(time,!!moving);}
-   else entry.model.pose(time,false);
+   if(!frozen){time+=dt;entry.model.pose(time,moving,moving?distance/root.scale.x:0);}
+   else entry.model.pose(time,false,0);
    motion=entry.model.getMotion();
    entry.nodes.forEach((o,i)=>{nodes[i].position.copy(o.position);nodes[i].quaternion.copy(o.quaternion);nodes[i].scale.copy(o.scale);});
    point={x:next.x,y:next.y};lastAt=now;

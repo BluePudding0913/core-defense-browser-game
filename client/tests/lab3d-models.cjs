@@ -279,6 +279,7 @@ for(const [dx,dz] of [[0,1],[1,0],[0,-1],[-1,0]]) {
 frame.stations=[];frame.reachable=new Set();for(let r=0;r<7;r++)for(let c=0;c<7;c++)frame.reachable.add(r+':'+c);
 player.x=140;player.y=220;frame.eye=player;frame.predicted=player;state.blackoutActive=true;player.drone=null;renderer.render(frame);
 assert(scene.fog && scene.fog.near===48 && scene.fog.far===160,'Blackout has a bounded nearby view');
+assert.equal(scene.getObjectByName('enemy-readability-fill').visible,false,'Enemy fill cannot bypass blackout');
 const nearbyLight=scene.getObjectByName('blackout-nearby-light');assert(nearbyLight.visible);assert.deepEqual(nearbyLight.position.toArray(),camera.position.toArray());
 assert.equal(renderer.project(140,40,26).visible,false,'Distant labels do not float in darkness');
 assert.equal(renderer.project(140,180,26).visible,true,'Nearby points remain visible');
@@ -287,6 +288,13 @@ player.drone={controlled:true};renderer.render(frame);assert.equal(scene.fog,nul
 player.drone=null;frame.nightVision=true;renderer.render(frame);assert.equal(scene.fog,null,'Drone aftermath retains night vision');
 frame.nightVision=false;state.blackoutActive=false;renderer.render(frame);assert.equal(scene.fog,null);assert(!nearbyLight.visible);
 assert.equal(scene.children.find(c=>c.isHemisphereLight).intensity,.75,'Lighting restores after power returns');
+const enemyFill=scene.getObjectByName('enemy-readability-fill');assert(enemyFill.visible&&enemyFill.layers.mask===2);
+assert(Math.abs(enemyFill.position.y-camera.position.y-30)<1e-6,'Enemy fill follows the viewing position');
+state.enemies=[{id:688,type:'runner',x:140,y:160,hp:100,facingY:1}];renderer.render(frame);
+const litEnemy=scene.getObjectByName('enemy:688');litEnemy.traverse(o=>{if(o.isMesh)assert(o.layers.mask&2,'Enemy meshes receive the soft fill');});
+assert.equal(terrain.children.find(o=>o.isInstancedMesh).layers.mask,1,'Room surfaces do not receive the enemy-only fill');
+const skinColor=litEnemy.getObjectByName('Anatomical head').material.color;
+assert(Math.abs(skinColor.r-new THREE.Color('#9b9f8d').r)<1e-10,'Live renderer uses skin color converted once');
 console.log('Lab visibility passed: flush panels, four-way breakers, nearby blackout vision, moving light and drone/restoration lifecycle');
 
 // A sniper posture lowers both the camera and the remote body, and restores standing afterwards.
