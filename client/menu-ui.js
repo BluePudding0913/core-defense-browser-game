@@ -68,6 +68,7 @@ function mountMenu() {
         }
         const jobScroll = root.querySelector(".job-list")?.scrollTop || 0;
         const focusedJob = document.activeElement?.dataset?.job;
+        if (view === "guest" || view === "home") content += `<aside class="ui-release" aria-label="開発版について"><p><strong>PRE-RELEASE</strong><span>開発版・正式リリース前</span></p><details><summary>このバージョンについて</summary><p>内容やバランスは変更される場合があります。不具合が発生することがあります。</p><p>プレイヤー名・設定・復帰情報はこのブラウザに保存されます。進行状況はサーバー再起動で失われます。</p><p>不具合の報告には、発生した操作・ラウンド・端末とブラウザ・デバッグモードの有無を添えてください。合言葉やアクセスキーは含めないでください。</p></details></aside>`;
         root.innerHTML = `<div class="ui-shell${view === "settings" ? " ui-settings" : ""}"><section class="ui-content">${content}</section></div>`;
         const jobList = root.querySelector(".job-list");
         if (jobList) jobList.scrollTop = jobScroll;
