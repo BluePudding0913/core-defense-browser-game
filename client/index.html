@@ -26,7 +26,6 @@
                 <div class="core-hud-track"><div class="core-hud-fill"></div></div>
             </div>
         </div>
-        <button id="leave-game" class="leave-game" type="button">EXIT</button>
         <div id="team" class="team"></div>
         <div id="self-vitals" class="self-vitals hidden">
             <div id="health-heart" class="health-heart" role="img" aria-label="体力 100%">
@@ -70,16 +69,18 @@
                     <label>右クリック<select data-hand="right" aria-label="右の武器"></select></label>
                 </section>
                 <div id="inventory-items" class="inventory-items"></div>
+                <div class="inventory-footer"><button id="leave-game" class="leave-game" type="button">EXIT</button></div>
             </div>
         </section>
     </section>
 
     <dialog id="exit-dialog" aria-labelledby="exit-dialog-title">
         <form method="dialog">
+            <span class="exit-dialog-label">EXIT GAME</span>
             <p id="exit-dialog-title">ゲームから退出しますか？</p>
             <div class="exit-dialog-actions">
-                <button value="cancel" autofocus>いいえ</button>
-                <button value="exit">はい</button>
+                <button value="cancel" autofocus>続ける</button>
+                <button value="exit">退出する</button>
             </div>
         </form>
     </dialog>

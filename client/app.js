@@ -1161,7 +1161,7 @@ function updateInventory(me) {
                 </div>
             </div>`;
     }
-    inventoryItems.querySelector(".inventory-job").textContent = `JOB · ${JOBS[me.job]?.name || me.job || "—"}`;
+    inventoryItems.querySelector(".inventory-job").textContent = JOBS[me.job]?.name || me.job || "—";
     inventoryItems.querySelector(".inventory-health").textContent = `HP ${Math.ceil(me.hp)} / ${me.maxHp || 100}${me.down ? "（ダウン中）" : ""}`;
     const medkitCard = inventoryItems.querySelector('[data-item="medkit"]');
     medkitCard.querySelector(".item-count").textContent = `×${me.medkits || 0}`;
