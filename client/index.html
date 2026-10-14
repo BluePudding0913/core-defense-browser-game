@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="menu-ui.css">
     <link rel="stylesheet" href="job-ui.css">
+    <link rel="stylesheet" href="comfort-frame.css">
 </head>
 <body class="menu-preview">
     <noscript><p style="position:fixed;inset:0;z-index:100;margin:0;padding:2rem;background:#101010;color:#fff">CORE DEFENSE（開発版）を遊ぶには、ブラウザのJavaScriptを有効にしてください。</p></noscript>
@@ -17,6 +18,7 @@
     <canvas id="game" tabindex="-1" aria-label="ゲーム画面"></canvas>
 
     <section id="hud" class="hidden" aria-live="polite">
+        <div class="comfort-frame" aria-hidden="true"></div>
         <div class="top-bar">
             <div class="round-status">
                 <strong id="round">ROUND 0</strong>
@@ -78,7 +80,6 @@
 
     <dialog id="exit-dialog" aria-labelledby="exit-dialog-title">
         <form method="dialog">
-            <span class="exit-dialog-label">EXIT GAME</span>
             <p id="exit-dialog-title">ゲームから退出しますか？</p>
             <div class="exit-dialog-actions">
                 <button value="cancel" autofocus>続ける</button>
@@ -174,6 +175,7 @@
     <script src="hit-presentation.js"></script>
     <script src="lab3d.js"></script>
     <script src="mouse-settings.js"></script>
+    <script src="comfort-frame.js"></script>
     <script src="minimap.js"></script>
     <script src="fps-input.js"></script>
     <script src="jump-movement.js"></script>
