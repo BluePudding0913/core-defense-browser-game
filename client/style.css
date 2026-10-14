@@ -720,11 +720,11 @@ button, input { font: inherit; }
 .weapon-icon.ricochet::after { left: 2.8rem; top: .9rem; width: .65rem; height: .65rem; background: #888; }
 
 #game { cursor: default; }
+.inventory-footer { display: flex; justify-content: flex-end; padding: .85rem 1rem 1rem; border-top: 1px solid rgb(255 255 255 / 8%); }
 .leave-game {
-    position: absolute; left: max(12px, env(safe-area-inset-left)); top: max(12px, env(safe-area-inset-top));
     pointer-events: auto; padding: 7px 12px; border: 1px solid rgb(255 255 255 / 16%);
-    border-radius: 8px; background: rgb(18 24 30 / 35%); color: rgb(255 255 255 / 85%);
-    backdrop-filter: blur(8px); font-size: .75rem; letter-spacing: .08em; cursor: pointer;
+    min-height: 40px; border-radius: 4px; background: transparent; color: rgb(255 255 255 / 65%);
+    font-size: .75rem; letter-spacing: .08em; cursor: pointer;
 }
 .leave-game:hover { background: rgb(255 255 255 / 12%); }
 #exit-dialog {
