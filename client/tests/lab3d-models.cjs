@@ -89,10 +89,10 @@ for(const view of [{yaw:0,pitch:0,zoom:false},{yaw:.7,pitch:.4,zoom:false},{yaw:
     frame.view={yaw:view.yaw+.5,pitch:view.pitch-.2,zoom:view.zoom};renderer.render(frame);
     assert.deepEqual(Array.from(attribute.array),fixed,'Camera turns cannot drag an existing shot into a fan');
 }
-for(const [i,type] of ['grunt','runner','carrier','shield','bomber','hunter','armored','artillery','coreHunter','seeker','blackout','siege','champion','warden','ghost'].entries()) {
+for(const [i,type] of ['warlord','titan','artilleryElite','grunt','runner','carrier','shield','bomber','hunter','armored','artillery','coreHunter','seeker','blackout','siege','champion','warden','ghost'].entries()) {
     state.enemies=[{id:200+i,type,x:180,y:100,hp:100,facingX:-.6,facingY:-.8}];frame.effects=[];renderer.render(frame);
     assert(Math.abs(scene.getObjectByName('enemy:'+(200+i)).rotation.y-Math.atan2(-.6,-.8))<1e-8,'All enemy models use transmitted facing');
-    const gear={shield:'Containment shield',bomber:'Demolition charge_-1',carrier:'Specimen backpack',hunter:'Torn patient gown',armored:'Protective vest',artillery:'Open launcher tube',coreHunter:'Recovery vest',seeker:'Seeker long coat',blackout:'Looped power cable',siege:'Crushing gauntlet',champion:'Supervisor coat',warden:'Hanging restraint chain'}[type];
+    const gear={warlord:'Command cuirass',titan:'Titan restraint yoke',artilleryElite:'Elite launcher rack',shield:'Containment shield',bomber:'Demolition charge_-1',carrier:'Specimen backpack',hunter:'Torn patient gown',armored:'Protective vest',artillery:'Open launcher tube',coreHunter:'Recovery vest',seeker:'Seeker long coat',blackout:'Looped power cable',siege:'Crushing gauntlet',champion:'Supervisor coat',warden:'Hanging restraint chain'}[type];
     if(gear)assert(scene.getObjectByName('enemy:'+(200+i)).getObjectByName(gear),'Live enemy uses its assigned lab equipment');
 }
 console.log('FPS trajectory regressions passed: muzzle screen alignment, pitch, zoom, fixed fired segments, aim excludes red lines, all enemy facing');
@@ -172,7 +172,7 @@ console.log('FPS requested fixes passed: captured special shot origins, movement
 // New enemies share their rendered body dimensions with server FPS hit rules.
 now+=500;frame.effects=[];state.enemies=[{id:501,type:'finalBoss',x:180,y:100,hp:140000,bossAction:'PULSE_WARNING',pulseRadius:260},{id:502,type:'poisoner',x:140,y:100,hp:400},{id:503,type:'artilleryElite',x:220,y:100,hp:900}];
 state.poisonClouds=[{x:140,y:100,radius:55,remaining:4,hostile:true}];frame.radius=e=>({finalBoss:58,poisoner:20,artilleryElite:27})[e.type]||21;renderer.render(frame);
-for(const e of state.enemies){const root=find('enemy:'+e.id);if(e.type==='poisoner'){assert(root.getObjectByName('Reagent tank_-1'));assert(Math.abs(new THREE.Box3().setFromObject(root).max.y-frame.radius(e)*1.55)<.01);}else assert.equal(root.children[0].scale.x,frame.radius(e)*.9);}
+for(const e of state.enemies){const root=find('enemy:'+e.id);if(e.type==='poisoner'||e.type==='artilleryElite'){assert(root.getObjectByName(e.type==='poisoner'?'Reagent tank_-1':'Elite launcher rack'));assert(Math.abs(new THREE.Box3().setFromObject(root).max.y-frame.radius(e)*1.55)<.01);}else assert.equal(root.children[0].scale.x,frame.radius(e)*.9);}
 assert.equal(find('boss-warning:501').scale.x,260,'Final boss pulse has a visible 3D warning');
 assert.equal(find('gas:0').scale.x,55);assert(find('gas:0').material.color.equals(new THREE.Color('#a6ce46')),'Small hostile poison uses its own radius and color');
 console.log('FPS new enemies passed: body sizes, final boss warning and hostile poison');
