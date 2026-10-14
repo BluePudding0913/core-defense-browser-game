@@ -117,7 +117,7 @@ class ExplosionBossTest {
 
     @Test void ordinaryShotsApplyFullDamageAndHeadshotsWithoutGold() throws Exception {
         player.x = 1020; player.y = 1900;
-        boss.x = 1120; boss.y = 1900;
+        boss.moveTo(1120, 1900);
         double before = boss.hp;
         for (double y : new double[]{1900, 1879}) {
             player.y = y;
@@ -138,7 +138,7 @@ class ExplosionBossTest {
     @Test void playerKillSpawnsFiveRunnersOnceWithoutExplodingAndKeepsRoundRunning() throws Exception {
         game.phase = GamePhase.WAVE;
         player.x = 1020; player.y = 1900;
-        boss.x = 1120; boss.y = 1900; boss.hp = 1; boss.fuse = .01;
+        boss.moveTo(1120, 1900); boss.hp = 1; boss.fuse = .01;
         double x = boss.x, y = boss.y;
         game.combat.fireRay(player, GameSession.weaponStats("pistol"), 1., 0.);
         assertEquals(0, boss.hp);
@@ -173,7 +173,7 @@ class ExplosionBossTest {
     @Test void silverAmmoTriplesNormalDamageAgainstExplosionBoss() {
         game.phase = GamePhase.WAVE;
         player.x = 1020; player.y = 1900;
-        boss.x = 1120; boss.y = 1900;
+        boss.moveTo(1120, 1900);
         assertTrue(player.weapons.buySilverAmmo(1));
         double hp = boss.hp;
         game.combat.attackAt(player, boss.x, boss.y);
@@ -186,7 +186,7 @@ class ExplosionBossTest {
             setup();
             game.phase = GamePhase.WAVE;
             player.x = 1020; player.y = 1900;
-            boss.x = 1120; boss.y = 1900; boss.hp = 1;
+            boss.moveTo(1120, 1900); boss.hp = 1;
             if (weapon.equals("missile")) game.combat.missileImpact(player, boss.x, boss.y);
             else {
                 player.weapons.grant(weapon); player.equipWeapon(weapon);

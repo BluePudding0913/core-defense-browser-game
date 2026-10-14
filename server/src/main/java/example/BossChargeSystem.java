@@ -32,7 +32,7 @@ final class BossChargeSystem {
                             && Math.hypot(x-slot.x, y-slot.y) <= 55) world.hit(slot, enemy.damage * 2);
                     enemy.chargeRemaining = 0; break;
                 }
-                enemy.x = x; enemy.y = y;
+                enemy.moveTo(x, y);
                 Player impact = world.players().stream().filter(p -> !p.down
                         && !JobRules.concealedFrom(p, enemy) && Math.hypot(x-p.x, y-p.y) <= 54)
                         .findFirst().orElse(null);

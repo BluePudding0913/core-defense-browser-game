@@ -86,7 +86,7 @@ final class GameSession {
     }
 
     final List<Player> players = new ArrayList<>();
-    final List<Enemy> enemies = new ArrayList<>();
+    final EnemySpatialIndex enemies = new EnemySpatialIndex();
     final List<MissileStrike> missiles = new ArrayList<>();
     final List<EnemyProjectileSystem.Shot> enemyProjectiles = new ArrayList<>();
     final List<CombatSystem.RocketFlight> rockets = new ArrayList<>();
@@ -2214,8 +2214,8 @@ final class GameSession {
         amount = Math.min(amount, length);
         double nextX = clamp(enemy.x + dx / length * amount, 18, WORLD_W - 18);
         double nextY = clamp(enemy.y + dy / length * amount, 18, WORLD_H - 18);
-        if (canOccupy(nextX, enemy.y, 17)) enemy.x = nextX;
-        if (canOccupy(enemy.x, nextY, 17)) enemy.y = nextY;
+        if (canOccupy(nextX, enemy.y, 17)) enemy.moveTo(nextX, enemy.y);
+        if (canOccupy(enemy.x, nextY, 17)) enemy.moveTo(enemy.x, nextY);
     }
 
     private void damageCore(double rawDamage) {

@@ -429,6 +429,15 @@ final class Enemy {
     double visiblePlayerY;
     double perceptionTimer;
 
+    // Registered enemies must move through moveTo so shots always use current buckets.
+    EnemySpatialIndex.Entry spatialEntry;
+    void moveTo(double x, double y) {
+        if (this.x == x && this.y == y) return;
+        this.x = x;
+        this.y = y;
+        if (spatialEntry != null) spatialEntry.owner.moved(spatialEntry);
+    }
+
     Enemy(int id, String type, SpawnPoint spawn, double hp, double speed, double damage, int reward) {
         this.id = id;
         this.type = type;

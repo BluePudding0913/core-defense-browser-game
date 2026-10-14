@@ -67,8 +67,8 @@ class AutoAimTest {
                         && GameMap.hasClearLine(x, y, x - 40, y, game.unlockedAreas)
                         && !GameMap.hasClearLine(x, y, x + 160, y, game.unlockedAreas)) {
                     player.x = x; player.y = y;
-                    visible.x = x - 40; visible.y = y;
-                    hidden.x = x + 160; hidden.y = y;
+                    visible.moveTo(x - 40, y);
+                    hidden.moveTo(x + 160, y);
                     found = true; break search;
                 }
             }

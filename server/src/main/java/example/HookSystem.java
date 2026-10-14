@@ -45,7 +45,7 @@ final class HookSystem {
             while (amount > 0) {
                 double step = Math.min(4, amount), x = enemy.x + dx * step, y = enemy.y + dy * step;
                 if (!world.canOccupy(x, y, Math.min(17, CombatSystem.enemyRadius(enemy)))) { clear(player); break; }
-                enemy.x = x; enemy.y = y; amount -= step;
+                enemy.moveTo(x, y); amount -= step;
                 enemy.navigationTimer = enemy.pathTimer = 0;
             }
         }
