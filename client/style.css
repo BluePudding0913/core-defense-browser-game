@@ -728,23 +728,15 @@ button, input { font: inherit; }
 }
 .leave-game:hover { background: rgb(255 255 255 / 12%); }
 #exit-dialog {
-    width: min(340px, calc(100vw - 32px)); padding: 28px;
-    border: 1px solid #3a424b; border-radius: 10px;
-    background: rgb(20 25 31 / 96%); color: #edf1f5; text-align: left;
-    box-shadow: 0 12px 40px rgb(0 0 0 / 20%);
+    width: min(25rem, calc(100vw - 32px)); padding: 24px;
+    border: 0; border-radius: 0;
+    background: #101010; color: #fff; text-align: center;
 }
 #exit-dialog::backdrop { background: rgb(0 0 0 / 18%); }
-.exit-dialog-label { display: block; margin-bottom: 14px; color: #87919c; font: 700 11px ui-monospace, monospace; letter-spacing: .17em; }
-#exit-dialog-title { margin: 0 0 28px; font-size: 18px; line-height: 1.6; font-weight: 500; }
-.exit-dialog-actions { display: flex; gap: 10px; }
-#exit-dialog button {
-    flex: 1; min-height: 44px; padding: 10px 16px; border: 1px solid #9cb8c4;
-    border-radius: 3px; background: transparent; color: #dce2e8; font-size: 13px; cursor: pointer;
-}
-#exit-dialog button[value="exit"] { border-color: #9c7273; background: #5d393e; color: #fff1f0; }
-#exit-dialog button:hover { background: rgb(255 255 255 / 10%); }
-#exit-dialog button[value="exit"]:hover { background: #74464c; }
-.leave-game:focus-visible, #exit-dialog button:focus-visible { outline: 2px solid rgb(255 255 255 / 70%); outline-offset: 3px; }
+#exit-dialog-title { margin: 0 0 24px; font-size: 1rem; line-height: 1.6; font-weight: 700; }
+.exit-dialog-actions { display: grid; gap: .55rem; }
+.leave-game:focus { outline: none; }
+.leave-game:focus-visible { border-color: #fff; }
 
 .weapon-icon.rocket::before { left: .15rem; top: .65rem; width: 4.6rem; height: .95rem; border: .12rem solid #ddd; background: #777; border-radius: .2rem; }
 .weapon-icon.rocket::after { left: 2.7rem; top: 1.6rem; width: .65rem; height: .75rem; background: #aaa; }
