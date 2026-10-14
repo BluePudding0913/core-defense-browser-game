@@ -2,9 +2,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const THREE = require('../vendor/three.min.js');
-let scene, camera, viewScene, viewCamera, now=1000;
+let scene, camera, viewScene, viewCamera, webglRenderer, now=1000;
 THREE.WebGLRenderer = class {
-    constructor() { this.domElement={width:0,height:0,addEventListener(){}};this.shadowMap={}; }
+    constructor() { this.domElement={width:0,height:0,addEventListener(){}};this.shadowMap={};webglRenderer=this; }
     setSize(w,h) { this.domElement.width=w;this.domElement.height=h; }
     clearDepth() {}
     render(s,c) { if(c.near===.01){viewScene=s;viewCamera=c;viewScene.updateMatrixWorld(true);viewCamera.updateMatrixWorld(true);return;}scene=s;camera=c;scene.updateMatrixWorld(true);camera.updateMatrixWorld(true); }
@@ -12,6 +12,8 @@ THREE.WebGLRenderer = class {
 const context=vm.createContext({window:{THREE},document:{body:{classList:{add(){}}}},performance:{now:()=>now},console});
 for (const file of ['aim-control.js','soldier-model.js','sniper-stance.js','organic-enemy-models.js','lab-enemy-models.js','wall-impacts.js','block-terrain.js','map-object-models.js','hit-presentation.js','lab3d.js']) vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
 const renderer=context.window.Lab3D.create({width:900,height:500,before(){}});
+assert.equal(webglRenderer.shadowMap.enabled, true, 'previews without settings keep shadows');
+vm.runInContext(fs.readFileSync('client/graphics-settings.js','utf8'),context);
 const player={id:'me',x:100,y:100,facingX:0,facingY:-1};
 const state={core:{x:60,y:60},players:[player],enemies:[{id:1,type:'shield',x:180,y:100,hp:100,facingX:1,facingY:0}],slots:[
     {id:'turret',x:100,y:160,defense:{type:'turret'}},
@@ -21,6 +23,12 @@ const state={core:{x:60,y:60},players:[player],enemies:[{id:1,type:'shield',x:18
 ],resources:[{id:'ore',type:'ore',x:200,y:200,available:true},{id:'empty',type:'wood',x:220,y:220,available:false}],drops:[{id:1,type:'medkit',x:240,y:240}]};
 const frame={map:{tileSize:40,rows:['#####','#...#','#...#','#...#','#####']},reachable:new Set(['1:1','1:2','1:3','2:1','2:2','2:3','3:1','3:2','3:3']),center:{x:140,y:140},scale:1,state,localId:'me',predicted:player,smooth:(_,p)=>p,radius:()=>24,stations:[[{id:'breaker',x:40,y:100},'', '#ff5964','breaker'],[{id:'unlock',x:40,y:140},'UNLOCK','#79d8ff','terminal']],aim:{x:200,y:100},effects:[]};
 renderer.render(frame);
+context.window.coreGraphicsSettings.setShadows(false);
+renderer.render(frame);
+assert.equal(webglRenderer.shadowMap.enabled, false, 'next frame disables shadow rendering');
+context.window.coreGraphicsSettings.setShadows(true);
+renderer.render(frame);
+assert.equal(webglRenderer.shadowMap.enabled, true, 'next frame restores shadow rendering');
 const initialGunBore=new THREE.Vector3(0,0,1).transformDirection(viewScene.getObjectByName('Rifle').matrixWorld);
 const find=name=>{const result=scene.getObjectByName(name);assert(result,name);return result;};
 const soldier=scene.children.find(o=>o.getObjectByName('Muzzle'));

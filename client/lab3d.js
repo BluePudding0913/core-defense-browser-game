@@ -13,7 +13,7 @@ window.Lab3D = (() => {
         renderer.outputEncoding = T.sRGBEncoding;
         renderer.toneMapping = T.ACESFilmicToneMapping;
         renderer.toneMappingExposure = .9;
-        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.enabled = window.coreGraphicsSettings?.getShadows() ?? true;
         renderer.shadowMap.type = T.PCFSoftShadowMap;
         renderer.domElement.id = 'lab-scene';
         overlay.before(renderer.domElement);
@@ -635,6 +635,7 @@ window.Lab3D = (() => {
         let lastFrame = performance.now(), walkPhase=0, walkBlend=0, recoil=0, sniperRecoil=0, batSwingAt=-Infinity, bottleThrowAt=-Infinity, lastKickAt=-Infinity, lastWalkPoint=null;
         const kickedEffects=new WeakSet(),lastGunKick=new Map();
         function render(frame) {
+            renderer.shadowMap.enabled = window.coreGraphicsSettings?.getShadows() ?? true;
             cachedAim=null;
             const { map, reachable, center, scale, state, localId, predicted, smooth, radius, stations, aim, effects = [] } = frame;
             const now = performance.now(), dt = Math.min(.1, (now - lastFrame) / 1000); lastFrame = now;

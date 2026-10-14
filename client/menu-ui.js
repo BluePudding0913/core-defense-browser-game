@@ -46,6 +46,8 @@ function mountMenu() {
         if (view === "guest" || view === "settings") content = `${view === "guest" ? "<h2>プレイヤー設定</h2>" : ""}<form data-form="name" novalidate><input name="name" maxlength="16" placeholder="ゲストプレイヤー名" aria-label="ゲストプレイヤー名" autocomplete="nickname" value="${escape(name)}"><button>決定</button></form>`;
         if (view === "settings") {
             const reticle = window.coreReticleSettings.get();
+            const shadows = window.coreGraphicsSettings?.getShadows() ?? true;
+            content = content.replace("<button>決定</button>", `<fieldset class="ui-settings-group"><legend>描画</legend><label>影<select name="shadows"><option value="on" ${shadows ? "selected" : ""}>オン</option><option value="off" ${!shadows ? "selected" : ""}>オフ</option></select></label></fieldset><button>決定</button>`);
             content = content.replace("<button>決定</button></form>", `<fieldset class="ui-settings-group"><legend>音量</legend><label>SE<input type="range" name="volume" aria-label="SE音量" min="0" max="100" step="1" value="${Math.round(window.coreAudio.getVolume() * 100)}"><output id="volume-value">${Math.round(window.coreAudio.getVolume() * 100)}%</output></label></fieldset><fieldset class="ui-settings-group"><legend>マウス</legend><label>感度<input type="range" name="mouse-sensitivity" aria-label="マウス感度" min="20" max="300" step="5" value="${Math.round((window.coreMouseSettings?.get() ?? 1)*100)}"><output id="mouse-sensitivity-value">${Math.round((window.coreMouseSettings?.get() ?? 1)*100)}%</output></label></fieldset><fieldset class="ui-settings-group"><legend>画面酔い対策</legend><label>白い枠<select name="comfort-frame"><option value="off" ${!window.coreComfortFrame?.get() ? "selected" : ""}>オフ</option><option value="on" ${window.coreComfortFrame?.get() ? "selected" : ""}>オン</option></select></label></fieldset><fieldset class="ui-settings-group"><legend>レティクル</legend><label>形<select name="reticle-shape">${[["cross", "×"], ["plus", "+"]].map(([value, label]) => `<option value="${value}" ${reticle.shape === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><label>色<input type="color" name="reticle-color" value="${reticle.color}"></label><label>大きさ<input type="range" name="reticle-size" min="4" max="32" step="1" value="${reticle.size}"><output id="reticle-size-value">${reticle.size}px</output></label><div class="ui-reticle-previews" aria-label="レティクルのプレビュー"><div class="ui-reticle-preview"><span></span></div></div></fieldset><fieldset class="ui-settings-group"><legend>キー割り当て</legend><label>回復キット<input name="medkit-key" aria-label="回復キットのキー" readonly value="${escape(window.coreKeySettings.getMedkit().toUpperCase())}"></label><label>ジョブ効果<input name="job-effect-key" aria-label="ジョブ効果のキー" readonly value="${escape(window.coreKeySettings.getJobEffect().toUpperCase())}"></label><label>伏せ固定<input name="sniper-stance-key" aria-label="伏せ固定のキー" readonly value="${escape(window.coreKeySettings.getSniperStance().toUpperCase())}"></label><label>ドローン自爆<input name="drone-self-destruct-key" aria-label="ドローン自爆のキー" readonly value="${escape(window.coreKeySettings.getDroneSelfDestruct().toUpperCase())}"></label></fieldset><button type="submit" class="ui-back">決定</button></form>`);
         }
         if (view === "settings" && inGameSettings) content = content.replace(/<input name="name"[^>]*>/, "").replace('data-form="name"', 'data-form="game-settings"');
@@ -162,6 +164,10 @@ function mountMenu() {
     }
     let volumePreview=0;
     root.addEventListener("change", async event => {
+        if (view === "settings" && event.target.name === "shadows") {
+            window.coreGraphicsSettings.setShadows(event.target.value === "on");
+            return;
+        }
         if (view === "settings" && event.target.name === "comfort-frame") {
             window.coreComfortFrame.set(event.target.value === "on");
             return;
