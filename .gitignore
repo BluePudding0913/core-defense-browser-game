@@ -29,7 +29,7 @@ tailscale-*.log
 #for AI-Agents
 AGENTS.md
 /clean.bat
+/reference/
+/td-dev*/
+/.codex*/
 
-# Codex development worktree
-/td-codex/
-/td-codex-*/
