@@ -25,6 +25,7 @@
     }
     const samples={
         pistol:sampleAsset("pistol_shot","coreAudioPistolWav",.35),
+        // One buffer contains the report, bolt at 550ms and casing at 900ms.
         sniper:sampleAsset("sniper_shot","coreAudioSniperWav",.45)
     };
     function preloadSample(name,audio) {

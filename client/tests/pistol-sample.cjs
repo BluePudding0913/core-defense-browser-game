@@ -17,6 +17,33 @@ if(weapon==='sniper') {
  const energy=(a,b)=>pcm.slice(a,b).reduce((sum,v)=>sum+v*v,0)/(b-a);
  assert(energy(0,4800)>energy(pcm.length-4800,pcm.length)*100,'Long report decays into a quiet tail');
  assert(pcm.slice(0,480).some(v=>Math.abs(v)>.05),'Shot starts within 10ms');
+ const crypto=require('node:crypto');
+ assert.equal(crypto.createHash('sha256').update(wav.subarray(44,44+26400*2)).digest('hex'),
+  '16317a195d1ab3c9feb11d5b03340d4b720068b7f9ba9d7c2bddd77ec8cb5a42',
+  'First 550ms preserves the original gunshot exactly');
+ const parts=[['sniper_bolt.wav',.55,-10],['sniper_casing.wav',.90,-15]].map(([file,offset,db])=>{
+  const data=fs.readFileSync('client/assets/sounds/'+file);
+  assert.equal(data.readUInt32LE(24),48000);assert.equal(data.readUInt16LE(22),1);assert.equal(data.readUInt16LE(34),16);
+  const samples=Array.from({length:(data.length-44)/2},(_,i)=>data.readInt16LE(44+i*2)/32767);
+  assert(samples.length>48000*.65 && samples.length<48000*.8,'Mechanism retains its rhythm and removes trailing silence');
+  assert.equal(samples[0],0);assert.equal(samples.at(-1),0);
+  const peak=samples.reduce((max,v)=>Math.max(max,Math.abs(v)),0);
+  assert(Math.abs(20*Math.log10(peak)-db)<.01,'Mechanical details stay below the gunshot');
+  return {samples,start:Math.round(offset*48000)};
+ });
+ // Correctly aligned component subtraction leaves only the quiet gunshot tail.
+ // Shifting either component by 20ms must leave substantially more energy.
+ function residual(shiftPart,shifted) {
+  let sum=0;
+  for(let i=parts[shiftPart].start;i<pcm.length;i++) {
+   let value=pcm[i];
+   parts.forEach((part,index)=>{value-=part.samples[i-part.start-(shifted && index===shiftPart?960:0)] || 0;});
+   sum+=value*value;
+  }
+  return sum;
+ }
+ assert(residual(0,true)>residual(0,false)*1.5,'Bolt is mixed at 550ms');
+ assert(residual(1,true)>residual(1,false)*1.5,'Casing is mixed at 900ms');
 }
 function setup(mode='ok') {
  const sources=[],listeners={},requests=[],scripts=[];let contexts=0,decodes=0,finish,finishScript;
