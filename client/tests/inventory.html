@@ -28,9 +28,9 @@
   let checks=0;
   const check=(ok,msg)=>{if(!ok)throw new Error(msg);checks++;};
   render(me);
-  check(container.querySelector('.inventory-job').textContent==='JOB · Healer','Current job missing');
+  check(container.querySelector('.inventory-job').textContent==='Healer','Current job missing');
   me.job='drone';render(me);
-  check(container.querySelector('.inventory-job').textContent==='JOB · Drone Operator','Job change not reflected');
+  check(container.querySelector('.inventory-job').textContent==='Drone Operator','Job change not reflected');
   check(container.querySelector('.inventory-health').textContent==='HP 42 / 100','Inventory health missing');
   check(container.querySelector('[data-resource="silver"] .resource-count').textContent==='×1','New material missing');
   check(!!container.querySelector('[data-item="medkit"]'),'Healing item missing');
