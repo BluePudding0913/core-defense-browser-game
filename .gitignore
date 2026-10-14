@@ -33,6 +33,3 @@ AGENTS.md
 # Codex development worktree
 /td-codex/
 /td-codex-*/
-
-# Optional local audio conversion tools
-/.audio-tools/
