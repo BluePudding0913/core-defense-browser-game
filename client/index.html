@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="menu-ui.css">
     <link rel="stylesheet" href="job-ui.css">
+    <link rel="stylesheet" href="comfort-frame.css">
 </head>
 <body class="menu-preview">
     <main id="menu-ui" aria-label="メニュー"></main>
@@ -15,6 +16,7 @@
     <canvas id="game" tabindex="-1" aria-label="ゲーム画面"></canvas>
 
     <section id="hud" class="hidden" aria-live="polite">
+        <div class="comfort-frame" aria-hidden="true"></div>
         <div class="top-bar">
             <div class="round-status">
                 <strong id="round">ROUND 0</strong>
@@ -172,6 +174,7 @@
     <script src="hit-presentation.js"></script>
     <script src="lab3d.js"></script>
     <script src="mouse-settings.js"></script>
+    <script src="comfort-frame.js"></script>
     <script src="minimap.js"></script>
     <script src="fps-input.js"></script>
     <script src="jump-movement.js"></script>
