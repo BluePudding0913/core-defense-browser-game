@@ -52,3 +52,11 @@
 .ui-settings-toast { position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 20; width: max-content; max-width: calc(100vw - 32px); padding: .75rem 1rem; border: 1px solid #555; border-radius: .5rem; background: #242424; color: #fff; box-shadow: 0 4px 16px #0008; font-size: .85rem; text-align: center; pointer-events: none; }
 .ui-settings-toast[hidden] { display: none; }
 .ui-defense-result small { display: block; margin-top: .35rem; font: .85rem ui-monospace, monospace; opacity: .7; }
+#menu-ui .ui-release { margin-top: 1.5rem; color: #aaa; font-size: .75rem; line-height: 1.7; }
+#menu-ui .ui-release p { margin: 0 0 .65rem; }
+#menu-ui .ui-release strong { display: block; color: #e0c48d; font: 700 .7rem ui-monospace, monospace; letter-spacing: .16em; }
+#menu-ui .ui-release summary { cursor: pointer; text-underline-offset: .2em; }
+#menu-ui .ui-release summary:hover { color: #fff; }
+#menu-ui .ui-release summary:focus-visible { outline: 2px solid #e0c48d; outline-offset: 4px; }
+#menu-ui .ui-release details[open] summary { margin-bottom: .75rem; }
+#menu-ui .ui-release details p { text-align: left; overflow-wrap: anywhere; }

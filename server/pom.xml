@@ -6,7 +6,7 @@
 
     <groupId>example</groupId>
     <artifactId>core-defense-server</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.0-SNAPSHOT</version>
 
     <properties>
         <maven.compiler.release>17</maven.compiler.release>

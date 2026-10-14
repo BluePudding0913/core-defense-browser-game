@@ -4,13 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#080d12">
-    <title>CORE DEFENSE</title>
+    <meta name="description" content="CORE DEFENSE — 最大4人でCOREを守る協力型防衛ゲーム。現在は開発版（正式リリース前）です。">
+    <title>CORE DEFENSE — 開発版</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="menu-ui.css">
     <link rel="stylesheet" href="job-ui.css">
     <link rel="stylesheet" href="comfort-frame.css">
 </head>
 <body class="menu-preview">
+    <noscript><p style="position:fixed;inset:0;z-index:100;margin:0;padding:2rem;background:#101010;color:#fff">CORE DEFENSE（開発版）を遊ぶには、ブラウザのJavaScriptを有効にしてください。</p></noscript>
     <main id="menu-ui" aria-label="メニュー"></main>
     <div id="settings-toast" class="ui-settings-toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
     <canvas id="game" tabindex="-1" aria-label="ゲーム画面"></canvas>
@@ -98,7 +100,7 @@
     </section>
 
     <section id="menu" class="menu">
-        <h1>CORE DEFENSE</h1>
+        <h1>CORE DEFENSE <small style="display:block;font-size:.7rem;margin-top:.75rem">PRE-RELEASE · 正式リリース前</small></h1>
         <p id="menu-status">サーバーに接続しています…</p>
         <section id="room-browser" class="room-panel">
             <button id="create-room" class="primary-button" type="button" disabled>ルームを作成</button>
