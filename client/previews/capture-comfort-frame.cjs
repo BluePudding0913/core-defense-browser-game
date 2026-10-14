@@ -1,0 +1,17 @@
+// Run from the worktree root with Playwright on NODE_PATH. COMFORT_PREVIEW_BROWSER may select an installed Chromium browser.
+const {chromium}=require('playwright');const fs=require('node:fs');const {pathToFileURL}=require('node:url');const path=require('node:path');const assert=require('node:assert/strict');
+(async()=>{fs.mkdirSync('artifacts/comfort-frame',{recursive:true});const browser=await chromium.launch({headless:true,...(process.env.COMFORT_PREVIEW_BROWSER?{executablePath:process.env.COMFORT_PREVIEW_BROWSER}:{}),args:['--allow-file-access-from-files']});try{
+const page=await browser.newPage({viewport:{width:1440,height:900}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.goto(pathToFileURL(path.resolve('client/previews/comfort-frame.html')).href);await page.waitForFunction(()=>window.previewReady);await page.waitForTimeout(1500);
+const frame=page.locator('.comfort-frame');assert(await frame.isVisible());const initial=await frame.boundingBox();assert(Math.abs(initial.x-1440*.08)<1);assert.equal(await frame.evaluate(e=>getComputedStyle(e).pointerEvents),'none');
+await page.screenshot({path:'artifacts/comfort-frame/on.png'});await page.getByRole('button',{name:'白い枠：オン'}).click();assert(!await frame.isVisible());await page.screenshot({path:'artifacts/comfort-frame/off.png'});
+await page.getByRole('button',{name:'白い枠：オフ'}).click();await page.getByRole('button',{name:'視点を動かす'}).click();await page.waitForTimeout(400);assert.deepEqual(await frame.boundingBox(),initial);await page.getByRole('button',{name:'視点を止める'}).click();
+await page.setViewportSize({width:740,height:420});const small=await frame.boundingBox();assert(Math.abs(small.x-740*.08)<1);assert(Math.abs(small.y-420*.08)<1);await page.screenshot({path:'artifacts/comfort-frame/small.png'});assert.deepEqual(errors,[]);
+await page.setViewportSize({width:1440,height:900});await page.goto(pathToFileURL(path.resolve('client/index.html')).href);assert.equal(await page.evaluate(()=>coreComfortFrame.get()),false);
+await page.locator('input[name="name"]').fill('Preview');await page.getByRole('button',{name:'決定',exact:true}).click();await page.getByRole('button',{name:'設定',exact:true}).click();
+const select=page.locator('[name="comfort-frame"]');assert.equal(await select.inputValue(),'off');await select.selectOption('on');assert.equal(await page.evaluate(()=>localStorage.getItem('core-defense-comfort-frame')),'true');
+// Menu hides the frame; gameplay HUD makes the same overlay visible.
+assert(!await page.locator('.comfort-frame').isVisible());await page.evaluate(()=>{document.body.classList.remove('menu-preview');document.querySelector('#hud').classList.remove('hidden');document.querySelector('#menu-ui').hidden=true;});assert(await page.locator('.comfort-frame').isVisible());
+await page.reload();assert.equal(await page.evaluate(()=>coreComfortFrame.get()),true);await page.getByRole('button',{name:'設定',exact:true}).click();assert.equal(await select.inputValue(),'on');await select.selectOption('off');await page.screenshot({path:'artifacts/comfort-frame/settings.png'});await page.reload();assert.equal(await page.evaluate(()=>coreComfortFrame.get()),false);
+console.log('Browser checks passed: frame toggle, fixed bounds during motion, responsive bounds, input passthrough, default off, settings, persistence, menu hiding.');
+}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1});
