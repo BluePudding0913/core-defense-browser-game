@@ -424,7 +424,10 @@ final class CombatSystem {
             interceptShots(player, "railgun", player.x, player.y, shot -> (beamRay == null || FpsHitRules.projectile(beamRay, shot.x, shot.y, stats.width()) != null) && Double.isFinite(EnemyProjectileSystem.rayEntry(shot,
                     player.x, player.y, player.railgunDx, player.railgunDy, range, stats.width())), stats.damage() * GameConfig.RAILGUN_TICK);
             // Copy: damage can spawn world.enemies(), so newly spawned world.enemies() enter on the next tick.
-            for (Enemy enemy : List.copyOf(world.enemies())) {
+            List<Enemy> beamEnemies = rayEnemies(player.x, player.y, player.railgunDx, player.railgunDy, range, stats.width()).stream()
+                    .filter(enemy -> enemy.hp > 0 && isInsideAttack(enemy, player.x, player.y, player.railgunDx, player.railgunDy, stats, range))
+                    .sorted(Comparator.comparingInt(this::enemyOrder)).toList();
+            for (Enemy enemy : beamEnemies) {
                 if (enemy.hp <= 0 || !isInsideAttack(enemy, player.x, player.y, player.railgunDx, player.railgunDy, stats, range)
                         || !GameMap.hasClearLine(player.x, player.y, enemy.x, enemy.y, world.unlockedAreas())) continue;
                 FpsHitRules.Hit beamHit = beamRay == null ? null : fpsEnemy(beamRay, enemy, stats.width());
@@ -482,7 +485,7 @@ final class CombatSystem {
                             flight.x, flight.y, dx, dy, range, flight.weapon.width()));
                 }
                 // Stop at the first enemy body; unlike bullets, the rocket detonates instead of piercing.
-                for (Enemy enemy : world.enemies()) {
+                for (Enemy enemy : rayEnemies(flight.x, flight.y, dx, dy, range, flight.weapon.width())) {
                     if (enemy.hp <= 0) continue;
                     if(ray!=null){var hit=fpsEnemy(ray,enemy,flight.weapon.width());if(hit!=null)impactDistance=Math.min(impactDistance,hit.distance());continue;}
                     double ex = enemy.x - flight.x, ey = enemy.y - flight.y;
@@ -636,7 +639,8 @@ final class CombatSystem {
         java.util.Map<Enemy, FpsHitRules.Hit> fpsHits = new java.util.HashMap<>();
         double endX = originX + directionX * shotDistance;
         double endY = originY + directionY * shotDistance;
-        List<Enemy> candidates = world.enemies().stream().filter(enemy -> enemy.hp > 0)
+        List<Enemy> shotEnemies = rayEnemies(originX, originY, directionX, directionY, shotDistance, weapon.width());
+        List<Enemy> candidates = shotEnemies.stream().filter(enemy -> enemy.hp > 0)
                 .filter(enemy -> isInsideAttack(enemy, originX, originY, directionX, directionY, weapon, shotDistance))
                 .filter(enemy -> {
                     if (fpsRay == null) return true;
@@ -645,8 +649,9 @@ final class CombatSystem {
                     fpsHits.put(enemy, hit);return true;
                 })
                 .filter(enemy -> GameMap.hasClearLine(originX, originY, enemy.x, enemy.y, world.unlockedAreas()))
-                .sorted(Comparator.comparingDouble(enemy ->
-                        fpsRay == null ? (enemy.x - originX) * directionX + (enemy.y - originY) * directionY : fpsHits.get(enemy).distance())).toList();
+                .sorted(Comparator.<Enemy>comparingDouble(enemy ->
+                        fpsRay == null ? (enemy.x - originX) * directionX + (enemy.y - originY) * directionY : fpsHits.get(enemy).distance())
+                        .thenComparingInt(this::enemyOrder)).toList();
         boolean piercing = WeaponCatalog.find(shotWeapon(player)).piercing();
         int maxTargets = WeaponCatalog.find(shotWeapon(player)).maxTargets();
         List<Enemy> targets = piercing && maxTargets < 0 ? candidates
@@ -760,6 +765,15 @@ final class CombatSystem {
         events.hit(player.id, weapon, x, y, bag.x(), bag.y(), dealt, false, 0, false, enemy.id);
     }
 
+    private List<Enemy> rayEnemies(double x, double y, double dx, double dy, double range, double width) {
+        return world.enemies() instanceof EnemySpatialIndex index && index.size() >= EnemySpatialIndex.MIN_INDEXED_ENEMIES
+                ? index.rayCandidates(x, y, dx, dy, range, width) : world.enemies();
+    }
+
+    private int enemyOrder(Enemy enemy) {
+        return world.enemies() instanceof EnemySpatialIndex index ? index.orderOf(enemy) : 0;
+    }
+
     private List<Player> friendlyRayTargets(Player shooter, double originX, double originY,
             double dx, double dy, WeaponStats weapon, double range) {
         return world.players().stream().filter(target -> JobRules.canHitDisguisedAlly(shooter, target))
@@ -869,8 +883,8 @@ final class CombatSystem {
         double length = Math.max(1, Math.hypot(dx, dy));
         double nextX = clamp(enemy.x + dx / length * amount, 18, WORLD_W - 18);
         double nextY = clamp(enemy.y + dy / length * amount, 18, WORLD_H - 18);
-        if (world.canOccupy(nextX, enemy.y, 17)) enemy.x = nextX;
-        if (world.canOccupy(enemy.x, nextY, 17)) enemy.y = nextY;
+        if (world.canOccupy(nextX, enemy.y, 17)) enemy.moveTo(nextX, enemy.y);
+        if (world.canOccupy(enemy.x, nextY, 17)) enemy.moveTo(enemy.x, nextY);
     }
 
 }

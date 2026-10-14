@@ -23,7 +23,7 @@ class EnemyHookGachaTest {
     }
     Enemy enemy(String type, double x, double y) throws Exception {
         invoke("spawnEnemy", new Class<?>[]{String.class, SpawnPoint.class}, type, GameMap.SPAWN_POINTS.get(0));
-        Enemy e = game.enemies.get(game.enemies.size()-1); e.x=x; e.y=y; return e;
+        Enemy e = game.enemies.get(game.enemies.size()-1); e.moveTo(x,y); return e;
     }
     void atGacha() {
         var shop = GameMap.shopByItem("gacha"); player.x=shop.x(); player.y=shop.y();

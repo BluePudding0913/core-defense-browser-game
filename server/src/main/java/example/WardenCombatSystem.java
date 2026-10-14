@@ -56,7 +56,7 @@ final class WardenCombatSystem {
                     impact(enemy, 52, enemy.damage * 1.1, world);
                     break;
                 }
-                enemy.x = x; enemy.y = y;
+                enemy.moveTo(x, y);
                 state.chargeX = x; state.chargeY = y;
                 impact(enemy, WardenRules.CHARGE_RADIUS, enemy.damage * 1.1, world);
                 amount -= step;
