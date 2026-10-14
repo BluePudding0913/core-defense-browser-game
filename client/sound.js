@@ -1,31 +1,40 @@
 "use strict";
 
-// Pistol uses the bundled WAV; other effects and the loading fallback are synthesized locally.
+// Firearm samples share decoded buffers; other effects and loading fallbacks are synthesized locally.
 (() => {
     const scriptUrl=typeof document!=="undefined"?document.currentScript?.src:null;
-    const pistolUrl=scriptUrl?new URL("assets/sounds/pistol_shot.wav",scriptUrl).href:"assets/sounds/pistol_shot.wav";
-    function embeddedPistol() {
-        try {return typeof window.coreAudioPistolWav==="string"
-            ? Uint8Array.from(atob(window.coreAudioPistolWav),char=>char.charCodeAt(0)).buffer:null;}
+    function embeddedSample(key) {
+        try {return typeof window[key]==="string"
+            ? Uint8Array.from(atob(window[key]),char=>char.charCodeAt(0)).buffer:null;}
         catch {return null;}
     }
     // HTTP uses the WAV directly. Only file pages need a script carrying identical bytes.
     const localFile=scriptUrl && new URL(scriptUrl).protocol==="file:";
-    const pistolBytes=localFile?new Promise(resolve=>{
-        const bytes=embeddedPistol();if(bytes){resolve(bytes);return;}
-        const script=document.createElement("script");
-        script.src=new URL("assets/sounds/pistol_shot.js",scriptUrl).href;
-        script.onload=()=>resolve(embeddedPistol());script.onerror=()=>resolve(null);
-        document.head.append(script);
-    }):typeof fetch==="function"
-        ? fetch(pistolUrl).then(response=>response.ok?response.arrayBuffer():null).catch(()=>null)
-        : Promise.resolve(null);
-    let pistolSample=null,pistolLoad=null;
-    function preloadPistol(audio) {
+    function sampleAsset(file,key,gain) {
+        const url=scriptUrl?new URL(`assets/sounds/${file}.wav`,scriptUrl).href:`assets/sounds/${file}.wav`;
+        const bytes=localFile?new Promise(resolve=>{
+            const embedded=embeddedSample(key);if(embedded){resolve(embedded);return;}
+            const script=document.createElement("script");
+            script.src=new URL(`assets/sounds/${file}.js`,scriptUrl).href;
+            script.onload=()=>resolve(embeddedSample(key));script.onerror=()=>resolve(null);
+            document.head.append(script);
+        }):typeof fetch==="function"
+            ? fetch(url).then(response=>response.ok?response.arrayBuffer():null).catch(()=>null)
+            : Promise.resolve(null);
+        return {bytes,gain,buffer:null,load:null};
+    }
+    const samples={
+        pistol:sampleAsset("pistol_shot","coreAudioPistolWav",.35),
+        // One buffer contains the report, bolt at 550ms and casing at 900ms.
+        sniper:sampleAsset("sniper_shot","coreAudioSniperWav",.45)
+    };
+    function preloadSample(name,audio) {
+        const sample=samples[name];
+        if(!sample)return Promise.resolve(false);
         if(!audio || typeof audio.decodeAudioData!=="function")return Promise.resolve(false);
-        if(!pistolLoad)pistolLoad=pistolBytes.then(bytes=>bytes?audio.decodeAudioData(bytes):null)
-            .then(buffer=>{pistolSample=buffer;return !!buffer;}).catch(()=>false);
-        return pistolLoad;
+        if(!sample.load)sample.load=sample.bytes.then(bytes=>bytes?audio.decodeAudioData(bytes):null)
+            .then(buffer=>{sample.buffer=buffer;return !!buffer;}).catch(()=>false);
+        return sample.load;
     }
     const effects = {
         "system-restore": { pitch: 95, end: 1000, duration: 6, noise: .82, glitch: true, amplitude: .14 },
@@ -93,7 +102,7 @@
         unlocked = true;
         const audio = context();
         if (audio?.state === "suspended") audio.resume().catch(() => {});
-        preloadPistol(audio);
+        for(const name of Object.keys(samples))preloadSample(name,audio);
     }
     // Retry on later gestures if the browser suspended audio again.
     window.addEventListener("pointerdown", unlock);
@@ -144,7 +153,7 @@
         return buffer;
     }
     window.coreAudio = {
-        preloadSamples() { return preloadPistol(context()); },
+        preloadSamples(name="pistol") { return preloadSample(name,context()); },
         syncRewind(remaining, version) {
             const pending = remaining > 0;
             if (pending && !rewindPending) {
@@ -206,8 +215,8 @@
             }
             const source = audio.createBufferSource();
             source.effectName = name;
-            const sample=name==="pistol"?pistolSample:null;
-            const sampleGain=sample ? .35 : 1;
+            const sample=samples[name]?.buffer;
+            const sampleGain=sample ? samples[name].gain : 1;
             const gain = audio.createGain();
             gain.gain.value = volume*sampleGain;
             source.buffer = sample || bufferFor(name, audio);
