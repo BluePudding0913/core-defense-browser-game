@@ -1,11 +1,13 @@
 'use strict';
 // Unarmored candidates: visible flesh, fabric, anatomy and hostile asymmetrical poses.
 window.buildOrganicEnemy = (T,id) => {
- const specialist=['lab-warlord','lab-titan','lab-artilleryelite','lab-boss','lab-runner','lab-brute','lab-poisoner','lab-shield','lab-bomber','lab-carrier','lab-hunter','lab-armored','lab-artillery','lab-corehunter','lab-seeker','lab-blackout','lab-siege','lab-champion','lab-warden','lab-tiny','lab-gilded','lab-blueace'].includes(id);
+ const specialist=['lab-warlord','lab-titan','lab-artilleryelite','lab-explosionboss','lab-finalboss','lab-boss','lab-runner','lab-brute','lab-poisoner','lab-shield','lab-bomber','lab-carrier','lab-hunter','lab-armored','lab-artillery','lab-corehunter','lab-seeker','lab-blackout','lab-siege','lab-champion','lab-warden','lab-tiny','lab-gilded','lab-blueace'].includes(id);
  const lab=['researcher','lab-assistant','lab-pathologist'].includes(id)||specialist;
  let settings={'lab-assistant':{skin:'#969b85',cloth:'#a4ada4',pants:'#304342',width:1.15,lean:.32,arm:[-.50,-.68],elbow:[-.38,-.26],head:[.15,.06,-.10]},'lab-pathologist':{skin:'#99a08c',cloth:'#b0ab98',pants:'#3a3b35',width:.82,lean:.49,arm:[-.38,-.54],elbow:[-.14,-.31],head:[.26,-.09,-.18]},researcher:{skin:'#8f9a87',cloth:'#a5a79a',pants:'#353e3c',width:.96,lean:.43,arm:[-.38,-.95],elbow:[-.16,-.55],head:[.21,-.06,.16]},rasp:{skin:'#978f7d',cloth:'#444a45',pants:'#2e3432',width:1,lean:.20,arm:[-.30,-1.05],elbow:[-.22,-.40],head:[.18,0,-.10]},rush:{skin:'#a18a77',cloth:'#69473b',pants:'#333635',width:1.19,lean:.30,arm:[-1.15,-1.40],elbow:[-.45,-.35],head:[.15,.08,.04]},hollow:{skin:'#b1aa99',cloth:'#575954',pants:'#383b3a',width:.83,lean:.23,arm:[-.20,-1.10],elbow:[-.18,-.34],head:[.22,-.12,.16]}}[id];
 
  const extra={
+  'lab-explosionboss':{skin:'#9b8d79',cloth:'#62503c',pants:'#343831',width:1.90,lean:.57,arm:[-.24,-.85],elbow:[-.18,-.65],head:[-.14,.12,-.18]},
+  'lab-finalboss':{skin:'#aeb7b3',cloth:'#444b51',pants:'#292f35',width:1.35,lean:.06,arm:[-.42,-.88],elbow:[-.25,-.45],head:[.04,-.04,0]},
   'lab-warlord':{skin:'#a49389',cloth:'#75434a',pants:'#3f3538',width:1.55,lean:.14,arm:[-.55,-.75],elbow:[-.38,-.48],head:[.18,-.08,.05]},
   'lab-titan':{skin:'#aea397',cloth:'#6b496f',pants:'#3f3943',width:2.10,lean:.30,arm:[-.65,-.58],elbow:[-.35,-.42],head:[.24,.04,-.10]},
   'lab-artilleryelite':{skin:'#9ca189',cloth:'#526a43',pants:'#364332',width:1.27,lean:.34,arm:[-.38,-.65],elbow:[-.28,-.50],head:[.20,-.10,.08]},
@@ -337,6 +339,101 @@ if(lab){
   loft(torso,'Supervisor collar',[[.43,.17,.145],[.48,.14,.125],[.51,.115,.115]],trim,2.4,24);
   loft(arms[0],'Supervisor cuff',[[-.30,.12*wide,.135,.008],[-.27,.125*wide,.14,.008]],trim,2.3,20);
  }
+
+ // Boss-only industrial details share the same ownership and pose hierarchy as anatomy.
+ function bossMesh(parent,name,geometry,material){geometry.setAttribute('color',new T.Float32BufferAttribute(Array(geometry.attributes.position.count*3).fill(.96),3));owned.add(geometry);const m=new T.Mesh(geometry,material);m.name=name;m.castShadow=m.receiveShadow=true;parent.add(m);return m;}
+ function hose(parent,name,points,radius,material){return bossMesh(parent,name,new T.TubeGeometry(new T.CatmullRomCurve3(points.map(p=>new T.Vector3(...p))),20,radius,7,false),material);}
+ function dial(parent,name,x,y,z,radius,material){const m=bossMesh(parent,name,new T.CylinderGeometry(radius,radius,.018,24),material);m.rotation.x=Math.PI/2;m.position.set(x,y,z);return m;}
+ function bore(parent,name,radius,length,material){
+  const ring=new T.Shape(),hole=new T.Path();ring.absarc(0,0,radius,0,Math.PI*2,false);hole.absarc(0,0,radius*.68,0,Math.PI*2,true);ring.holes.push(hole);
+  const g=new T.ExtrudeGeometry(ring,{depth:length,bevelEnabled:false,steps:1,curveSegments:12});g.rotateX(Math.PI/2);bossMesh(parent,name,g,material);
+ }
+ if(id==='lab-explosionboss'){
+  const frame=mat('Blast carrier steel','#353d36',.87),charge=mat('Scorched explosive casing','#8b6039',.91),warning=mat('Blast hazard ochre','#cea04f',.93),rubber=mat('Heavy fuel hoses','#242b27',.95),gauge=mat('Aged pressure dial','#c4b695',.87);
+  head.scale.set(.92,.86,.98);torso.scale.set(1.05,1,1.35);
+  root.getObjectByName('Chest').material=skin;
+  // Heavy abdomen and sunken head break the ordinary upright human silhouette.
+  loft(torso,'Distended abdomen',[[-.22,.42,.35,.05],[-.13,.59,.46,.08],[.02,.69,.49,.07],[.18,.64,.41,.04],[.32,.45,.26]],skin,2.1,32);
+  loft(torso,'Abdominal blast cage',[[-.14,.53,.07,.27],[-.04,.64,.075,.31],[.13,.59,.07,.29],[.22,.40,.05,.22]],frame,3.4,24);
+  for(const x of [-.22,-.11,0,.11,.22])loft(torso,'Blast cage rib_'+x,[[-.12,.035,.035,.32,x],[.12,.035,.035,.33,x],[.20,.03,.03,.25,x*.8]],warning,3,12);
+  loft(torso,'Blast carrier frame',[[-.13,.58,.15,-.23],[.49,.58,.15,-.23]],frame,3,20);
+  for(const side of [-1,1]){
+   const tall=side<0?.68:.54;
+   loft(torso,'Large explosive drum_'+side,[[-.12,.24,.26,-.36,side*.24],[-.07,.31,.34,-.36,side*.24],[tall-.05,.31,.34,-.36,side*.24],[tall,.24,.26,-.36,side*.24]],charge,2,24);
+   for(const y of [.00,.36])loft(torso,'Drum retaining band_'+side+'_'+y,[[y,.322,.352,-.36,side*.24],[y+.035,.322,.352,-.36,side*.24]],frame,2,20);
+   loft(torso,'Tank neck_'+side,[[tall,.10,.11,-.36,side*.24],[tall+.06,.10,.11,-.36,side*.24]],frame,3,16);
+   const wheel=bossMesh(torso,'Tank shutoff wheel_'+side,new T.TorusGeometry(.065,.012,6,20),warning);wheel.rotation.x=Math.PI/2;wheel.position.set(side*.24,tall+.065,-.36);
+   loft(torso,'Blast harness_'+side,[[.00,.07,.04,.24,side*.22],[.30,.07,.04,.16,side*.28],[.47,.07,.04,-.03,side*.21]],frame,3,12);
+   hose(torso,'Tank feed hose_'+side,[[side*.24,tall+.02,-.36],[side*.43,.46,-.27],[side*.40,.18,.10],[side*.18,.09,.36]],.021,rubber);
+  }
+  // One armored dragging arm, one bare arm; no matching shoulder pads.
+  elbows[0].scale.set(1.35,1.18,1.3);arms[0].scale.y=1.12;
+  loft(arms[0],'Riveted blast shoulder',[[-.18,.29,.29],[.01,.36,.32],[.10,.20,.20]],charge,3,20);
+  loft(elbows[0],'Scorched forearm shield',[[-.28,.26,.08,.13],[-.12,.31,.09,.14],[.04,.23,.07,.12]],frame,3,20);
+  for(const x of [-.07,.07])dial(elbows[0],'Shield rivet_'+x,x,-.09,.19,.013,warning);
+  loft(elbows[1],'Blast wrist cuff_1',[[-.25,.15,.17,.01],[-.17,.16,.18,.01]],frame,3,16);
+  loft(torso,'Exposed fuse controller',[[.22,.17,.08,.23],[.36,.17,.08,.18]],frame,3,20);
+  dial(torso,'Pressure gauge',-.045,.29,.267,.047,gauge);
+  loft(torso,'Pressure needle',[[.282,.006,.008,.279,-.045],[.318,.006,.008,.279,-.032]],shadow,2,8);
+  loft(torso,'Fuse warning lens',[[.27,.035,.012,.276,.057],[.32,.035,.012,.253,.057]],warning,3,12);
+  // Respirator and corrugated feed replace the ordinary exposed jaw.
+  loft(head,'Blast respirator',[[.07,.15,.09,.12],[.14,.18,.11,.12],[.19,.13,.07,.10]],rubber,3,20);
+  dial(head,'Respirator intake',0,.12,.19,.044,frame);
+  hose(torso,'Respirator supply',[[.08,.58,.19],[.22,.48,.25],[.31,.31,.20],[.22,.13,.35]],.017,rubber);
+  loft(head,'Blast brow hood',[[.19,.19,.19,-.01],[.28,.18,.18,-.02],[.32,.11,.12,-.02]],frame,3,20);
+  for(const side of [-1,1])loft(shins[side<0?0:1],'Blast shin brace_'+side,[[-.31,.15,.04,.08],[-.03,.18,.05,.08]],frame,3,16);
+ }
+ if(id==='lab-finalboss'){
+  const shell=mat('Final containment armor','#b7bab0',.73),frame=mat('Final restraint graphite','#29353d',.82),signal=mat('Pulse ceramic inserts','#62afa6',.65),dark=mat('Core cavity','#172329',.94);
+  signal.emissive.set('#245c55');if(T.ColorManagement?.legacyMode!==false)signal.emissive.convertSRGBToLinear();signal.emissiveIntensity=.38;
+  head.scale.set(.90,1.12,.95);
+  root.getObjectByName('Chest').material=frame;
+  // A narrow waist and splayed segmented rib cage leave an actual recessed core.
+  loft(torso,'Final waist corset',[[-.12,.27,.22],[.02,.29,.24],[.16,.34,.25]],frame,3.6,20);
+  loft(torso,'Pulse sternum housing',[[.07,.27,.045,.13],[.23,.35,.05,.14],[.40,.24,.05,.11]],dark,3,24);
+  const core=joint(torso,'Recessed pulse core',0,.245,.183);
+  const coreRing=bossMesh(core,'Core aperture rim',new T.TorusGeometry(.092,.019,8,32),frame);coreRing.scale.y=1.23;
+  dial(core,'Pulse core lens',0,0,-.012,.073,signal);
+  loft(core,'Core split seam',[[-.085,.012,.01,.008],[.085,.012,.01,.008]],frame,3,12);
+  for(const side of [-1,1]){
+   for(let i=0;i<3;i++){
+    const y=.11+i*.10;
+    loft(torso,'Floating rib armor_'+side+'_'+i,[[y,.13,.08,.19,side*.22],[y+.06,.21,.08,.17,side*.23],[y+.085,.16,.06,.14,side*.21]],shell,3.7,16);
+   }
+   loft(torso,'Final collar blade_'+side,[[.35,.14,.15,-.02,side*.23],[.51,.16,.17,-.05,side*.27],[.63,.07,.09,-.08,side*.29]],shell,3.4,20);
+   loft(arms[side<0?0:1],'Final shoulder armor_'+side,[[-.10,.22,.24],[.015,.31,.29],[.16,.23,.20],[.24,.055,.065]],shell,3.8,20);
+   loft(shins[side<0?0:1],'Segmented final greave_'+side,[[-.34,.10,.13,.025],[-.21,.13,.17,.035],[.015,.17,.18,.02]],shell,3.4,20);
+   loft(legs[side<0?0:1],'Final knee plate_'+side,[[-.40,.14,.05,.13],[-.29,.18,.06,.14],[-.23,.13,.04,.12]],frame,3,16);
+  }
+  // Broken containment halo, anchored by a spine and three braces, rather than a backpack.
+  const halo=joint(torso,'Segmented containment halo',0,.36,-.30);
+  for(let i=0;i<6;i++){
+   const segment=bossMesh(halo,'Halo segment_'+i,new T.TorusGeometry(.43,.035,6,24,Math.PI*.255),shell);segment.rotation.z=i*Math.PI/3+.12;
+   const inset=bossMesh(halo,'Halo pulse track_'+i,new T.TorusGeometry(.405,.012,5,20,Math.PI*.23),signal);inset.rotation.z=i*Math.PI/3+.15;inset.position.z=.022;
+  }
+  loft(torso,'Dorsal pulse chamber',[[-.10,.16,.14,-.24],[.50,.18,.15,-.25],[.62,.12,.12,-.25]],frame,3.4,20);
+  for(const side of [-1,1])hose(torso,'Halo support spar_'+side,[[0,.05,-.25],[side*.18,.13,-.30],[side*.34,.25,-.30]],.025,frame);
+  // Small radial launch cells keep the halo's shape, with real recessed muzzles.
+  for(const side of [-1,1]){
+   const launcher=joint(halo,'Final salvo pod_'+side,side*.36,.14,0);launcher.rotation.z=-side*.65;launcher.rotation.x=.45;
+   bore(launcher,'Final salvo barrel_'+side,.063,.21,frame);
+   loft(launcher,'Final bore floor_'+side,[[-.20,.085,.085],[-.18,.085,.085]],dark,2,24);
+  }
+  // Right forearm is a cannon; left carries three elongated articulated-looking talons.
+  const cannon=joint(elbows[1],'Integrated pulse cannon',0,-.40,.035);cannon.rotation.z=Math.PI;
+  const replacedHand=root.getObjectByName('Hand_R');replacedHand.traverse(o=>{if(o.isMesh){owned.delete(o.geometry);o.geometry.dispose();}});replacedHand.parent.remove(replacedHand);
+  bore(cannon,'Pulse cannon bore',.107,.29,frame);
+  loft(cannon,'Pulse cannon floor',[[-.28,.14,.14],[-.26,.14,.14]],dark,2,24);
+  for(const side of [-1,1])loft(elbows[1],'Cannon cheek plate_'+side,[[-.28,.06,.20,.02,side*.11],[-.03,.06,.21,.02,side*.11]],shell,3.5,16);
+  loft(elbows[0],'Final talon bracer',[[-.25,.15,.15],[.02,.18,.18]],frame,3.4,20);
+  const hand=root.getObjectByName('Hand_L');
+  for(const x of [-.052,0,.052])loft(hand,'Containment talon_'+x,[[-.25,.010,.018,-.055,x],[-.20,.023,.026,-.045,x],[-.11,.025,.035,-.015,x],[-.02,.025,.033,0,x]],shell,3,12);
+  // A faceless split mask replaces the common jaw guard and facial details.
+  for(const part of [...head.children])if(/^(Eye|Pupil|Brow|Nose|Mouth|Lower lip)/.test(part.name)){head.remove(part);owned.delete(part.geometry);part.geometry.dispose();}
+  loft(head,'Final faceless mask',[[.04,.055,.045,.11],[.09,.115,.065,.105],[.24,.14,.055,.095],[.30,.095,.035,.055]],shell,3.7,24);
+  loft(head,'Mask vertical split',[[.055,.008,.009,.145],[.245,.008,.009,.128]],dark,3,12);
+  loft(head,'Mask pulse slit',[[.17,.007,.009,.140],[.215,.007,.009,.137]],signal,3,12);
+ }
  if(id==='lab-warlord'){
   const armor=mat('Command armor','#5c4247',.87),trim=mat('Command insignia','#b79d83',.92);
   loft(torso,'Command cuirass',[[.015,.43,.28],[.16,.50,.31],[.32,.62,.32,-.025],[.41,.48,.25,-.03]],armor,3,24);
@@ -405,7 +502,7 @@ if(lab){
   }
   loft(torso,'Restraint jacket collar',[[.40,.27,.19,-.02],[.46,.18,.14],[.49,.13,.12]],cloth,2.4,24);
  }
- const mouth=root.getObjectByName('Mouth crease');mouth.scale.y=2.6;mouth.position.y=-.162;root.getObjectByName('Lower lip').position.y=-.008;mouth.rotation.z=.09;
+ const mouth=root.getObjectByName('Mouth crease');if(mouth){mouth.scale.y=2.6;mouth.position.y=-.162;root.getObjectByName('Lower lip').position.y=-.008;mouth.rotation.z=.09;}
  head.position.set(0,.475,.006);
  // Cervical base stays in the shoulder girdle; only the skull pivots with the head.
  const oldNeck=root.getObjectByName('Neck');head.remove(oldNeck);owned.delete(oldNeck.geometry);oldNeck.geometry.dispose();
@@ -435,6 +532,7 @@ if(lab){
   'lab-corehunter':[5.8,.44,.44,.56,.56],'lab-seeker':[3.8,.31,.31,.42,.42],
   'lab-blackout':[3.4,.30,.30,.40,.40],'lab-siege':[3.0,.30,.30,.40,.40],
   'lab-champion':[4.2,.36,.36,.48,.48],'lab-warden':[3.2,.31,.31,.42,.42],'lab-boss':[4.4,.40,.40,.55,.55],
+  'lab-explosionboss':[3.2,.30,.38,.43,.54],'lab-finalboss':[4.0,.36,.36,.49,.49],
   'lab-tiny':[8.8,.48,.48,.65,.65],'lab-gilded':[4.8,.36,.36,.50,.50],'lab-blueace':[9.5,.57,.57,.80,.80]
  }[id]||[id==='rush'?7:4.5,.34,.34,.50,.50];
  function advance(seconds,walking=true,travel){
@@ -450,9 +548,9 @@ if(lab){
    const s=Math.sin(phase+i*Math.PI);
    leg.rotation.x=restLeg[i]+s*gait[1+i]*blend;
    shins[i].rotation.x=restShin[i]+Math.max(0,-s)*gait[3+i]*blend;
-   arms[i].rotation.x=settings.arm[i]-s*(id==='lab-shield'&&i===0?.025:id==='lab-carrier'?.06:.12)*blend;
+   arms[i].rotation.x=settings.arm[i]-s*(id==='lab-shield'&&i===0?.025:id==='lab-carrier'?.06:id==='lab-finalboss'?.035:.12)*blend;
   });
-  torso.rotation.z+=Math.sin(phase)*.025*blend;head.rotation.z+=Math.sin(phase*.5)*.018*blend;
+  torso.rotation.z+=Math.sin(phase)*(id==='lab-finalboss'?.008:id==='lab-explosionboss'?.04:.025)*blend;head.rotation.z+=Math.sin(phase*.5)*(id==='lab-finalboss'?.004:.018)*blend;
   if(id==='lab-warlord')root.getObjectByName('Command coat tails').rotation.z=Math.sin(phase)*.012*blend;
   if(id==='lab-champion')root.getObjectByName('Supervisor coat tails').rotation.z=Math.sin(phase)*.012*blend;
   if(id==='lab-warden')root.getObjectByName('Hanging restraint chain').rotation.z=Math.sin(phase)*.06*blend;

@@ -2,7 +2,7 @@
 // Renderer-scoped pool: geometry/materials are shared, transforms and gait are per actor.
 window.createLabEnemyModels = T => {
  let nextActor=0;
- const assignments={warlord:'lab-warlord',titan:'lab-titan',artilleryElite:'lab-artilleryelite',boss:'lab-boss',grunt:'researcher',runner:'lab-runner',brute:'lab-brute',poisoner:'lab-poisoner',shield:'lab-shield',bomber:'lab-bomber',carrier:'lab-carrier',hunter:'lab-hunter',armored:'lab-armored',artillery:'lab-artillery',coreHunter:'lab-corehunter',seeker:'lab-seeker',blackout:'lab-blackout',siege:'lab-siege',champion:'lab-champion',warden:'lab-warden',tiny:'lab-tiny',gilded:'lab-gilded',blueAce:'lab-blueace'},pool=new Map();
+ const assignments={warlord:'lab-warlord',titan:'lab-titan',artilleryElite:'lab-artilleryelite',explosionBoss:'lab-explosionboss',finalBoss:'lab-finalboss',boss:'lab-boss',grunt:'researcher',runner:'lab-runner',brute:'lab-brute',poisoner:'lab-poisoner',shield:'lab-shield',bomber:'lab-bomber',carrier:'lab-carrier',hunter:'lab-hunter',armored:'lab-armored',artillery:'lab-artillery',coreHunter:'lab-corehunter',seeker:'lab-seeker',blackout:'lab-blackout',siege:'lab-siege',champion:'lab-champion',warden:'lab-warden',tiny:'lab-tiny',gilded:'lab-gilded',blueAce:'lab-blueace'},pool=new Map();
  function create(type,radius){
   const id=assignments[type];if(!id)return null;
   let entry=pool.get(id);
