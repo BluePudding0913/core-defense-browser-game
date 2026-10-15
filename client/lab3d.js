@@ -552,7 +552,7 @@ window.Lab3D = (() => {
         function renderCombat(frame,now) {
             const {state,smooth}=frame;
             for(const shot of state.projectiles || []) {const p=smooth('projectile',shot),dx=Math.cos(shot.angle),dy=Math.sin(shot.angle);beam('projectile:'+shot.id,new T.Vector3(p.x-dx*20,(shot.height ?? 16)-(shot.slope || 0)*20,p.y-dy*20),new T.Vector3(p.x,shot.height ?? 16,p.y),shot.source==='enemy'?'#ff7050':'#69dfff',1.5);}
-            for(const shell of state.artilleryShells || []) {ring('shell:'+shell.id,shell.x,shell.y,shell.radius,'#7edc7a');const remaining=shell.remaining-Math.max(0,(now-(state.artilleryReceivedAt || now))/1000);const progress=Math.max(0,Math.min(1,1-remaining/shell.duration));const x=shell.sourceX+(shell.x-shell.sourceX)*progress,y=shell.sourceY+(shell.y-shell.sourceY)*progress;beam('shell-body:'+shell.id,new T.Vector3(x,5+Math.sin(progress*Math.PI)*65,y),new T.Vector3(x,12+Math.sin(progress*Math.PI)*65,y),'#7edc7a',3);}
+            for(const shell of state.artilleryShells || []) {ring('shell:'+shell.id,shell.x,shell.y,shell.radius,'#48be41',.95);const remaining=shell.remaining-Math.max(0,(now-(state.artilleryReceivedAt || now))/1000);const progress=Math.max(0,Math.min(1,1-remaining/shell.duration));const x=shell.sourceX+(shell.x-shell.sourceX)*progress,y=shell.sourceY+(shell.y-shell.sourceY)*progress;beam('shell-body:'+shell.id,new T.Vector3(x,5+Math.sin(progress*Math.PI)*65,y),new T.Vector3(x,12+Math.sin(progress*Math.PI)*65,y),'#7edc7a',3);}
             for(const [i,strike] of (state.missiles || []).entries()) {
                 missileRadius=strike.radius || 120;
                 const pulse=.65+.35*Math.sin(now*.018);
@@ -566,6 +566,7 @@ window.Lab3D = (() => {
             for(const player of state.players) {
                 if(player.down)continue;
                 const p=player.id===frame.localId && frame.predicted ? frame.predicted : smooth('player',player);
+                if(player.job==='tank')ring('tank-aura:'+player.id,p.x,p.y,player.tankAuraRadius || 160,'#7acba8',.6);
                 for(const [side,weapon,charge,remaining,dx,dy,range,pitch] of [
                     ['main',player.weapon,player.railgunCharge,player.railgunRemaining,player.railgunDx,player.railgunDy,player.railgunRange,player.railgunPitch],
                     ['sub',player.secondaryWeapon,player.secondaryRailgunCharge,player.secondaryRailgunRemaining,player.secondaryRailgunDx,player.secondaryRailgunDy,player.secondaryRailgunRange,player.secondaryRailgunPitch]]) {
@@ -593,6 +594,7 @@ window.Lab3D = (() => {
                     }
                 }
             }
+            for(const enemy of state.enemies) if(enemy.hp>0 && enemy.type==='bomber') {const p=smooth('enemy',enemy);ring('bomber-range:'+enemy.id,p.x,p.y,enemy.blastRadius || 120,'#ff805c',.85);}
             for(const enemy of state.enemies) if(enemy.hp>0 && enemy.chargeWarning>0) {const p=smooth('enemy',enemy);beam('charge:'+enemy.id,new T.Vector3(p.x,1,p.y),new T.Vector3(p.x+enemy.chargeDx*286,1,p.y+enemy.chargeDy*286),'#ff5964',5);}
             for(const enemy of state.enemies) if(enemy.hp>0 && ['PULSE_WARNING','SUMMON_WARNING'].includes(enemy.bossAction)) {
                 ring('boss-warning:'+enemy.id,enemy.x,enemy.y,enemy.pulseRadius,enemy.bossAction==='SUMMON_WARNING'?'#9ce8ff':'#ffac70',.95);

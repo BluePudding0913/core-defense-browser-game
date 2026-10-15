@@ -41,6 +41,15 @@ class ArtilleryEnemyTest {
         invoke("updateEnemies", new Class<?>[]{double.class}, dt);
     }
 
+    @Test void artilleryWaitsSixSecondsBetweenShots() throws Exception {
+        update(0); assertEquals(1, game.artilleryShells.size());
+        game.artilleryShells.clear();
+        invoke("updateArtillery", new Class<?>[]{Enemy.class,double.class}, artillery, 5.9);
+        assertTrue(game.artilleryShells.isEmpty());
+        invoke("updateArtillery", new Class<?>[]{Enemy.class,double.class}, artillery, .11);
+        assertEquals(1, game.artilleryShells.size());
+    }
+
     @Test void fixedAimAllowsDodgingAndFlightSurvivesShooterDeath() throws Exception {
         update(.05);
         assertEquals(1, game.artilleryShells.size()); assertEquals(100, player.hp);
@@ -76,7 +85,7 @@ class ArtilleryEnemyTest {
     @Test void cooldownLimitsFireAndCloseRangeUsesMelee() throws Exception {
         update(.05); update(1.5); assertEquals(16, player.hp);
         assertTrue(game.artilleryShells.isEmpty());
-        update(2.45); assertTrue(game.artilleryShells.isEmpty());
+        update(4.45); assertTrue(game.artilleryShells.isEmpty());
         update(.05); assertEquals(1, game.artilleryShells.size());
         game.artilleryShells.clear(); artillery.specialCooldown = 0;
         player.hp = 100;

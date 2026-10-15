@@ -10,7 +10,7 @@ player.aimControl={elapsed:0,movement:0,turn:0};assert(Math.abs(api.sample(playe
 player.weapon='rifle';api.sync([player],2000);const a=api.sample(player,2100,definitions);player.aimControl.elapsed=.09;api.sync([player],2100);assert(Math.abs(api.sample(player,2100,definitions).slope-a.slope)<1e-12,'Snapshot correction is continuous');assert(api.sample(player,2200,definitions).elapsed>api.sample(player,2199,definitions).elapsed,'Clock never stalls');
 console.log('Aim control passed: breathing, server penalties, movement continuity, ADS/prone/hip visibility, deferred weapons and smooth clock');
 const shotgun={id:'compact-shotgun',weapon:'shotgun',aimControl:{elapsed:.5}},shotgunFields={shotgun:{spreadSlope:.21,aimControl:true}};
-assert(Math.abs(api.displaySample(shotgun,0,shotgunFields).slope/api.sample(shotgun,0,shotgunFields).slope-.35)<1e-12,'Shotgun breathing cue is 35% of pellet cone');
+assert(Math.abs(api.displaySample(shotgun,0,shotgunFields).slope/api.sample(shotgun,0,shotgunFields).slope-.28)<1e-12,'Shotgun retains compact cue with 20% reduction');
 assert.equal(api.sample(shotgun,0,shotgunFields).slope,.21*1.35,'Shotgun firing spread is unchanged');
 
 // The displayed penalty is continuous at snapshots; authoritative sampling remains immediate.
@@ -37,8 +37,12 @@ prone.weapon='sniper';api.sync([prone],1000);assert(api.sample(prone,1660,defini
 
 const jitter={id:'jitter',weapon:'rifle',aimControl:{elapsed:.1,movement:0,turn:0}};api.sync([jitter],0);api.displaySample(jitter,0,definitions);
 const beforeJitter=api.displaySample(jitter,100,definitions);jitter.aimControl.elapsed=.4;api.sync([jitter],100);
-assert(Math.abs(api.sample(jitter,100,definitions).slope-beforeJitter.slope)>1e-4,'Fixture creates a real clock/radius discontinuity');
+assert(Math.abs(api.sample(jitter,100,definitions).slope*.8-beforeJitter.slope)>1e-4,'Fixture creates a real clock/radius discontinuity');
 assert.equal(api.displaySample(jitter,100,definitions).slope,beforeJitter.slope,'Snapshot does not jump the visible circle');
 const afterJitter=api.displaySample(jitter,116,definitions);assert(Number.isFinite(afterJitter.slope));assert(afterJitter.slope>beforeJitter.slope,'Display follows the faster breathing smoothly');
 const weapons=['pistol','smg','rifle','revolver','lmg','shotgun','ricochet','freezeGun','sniper'];
 for(const weapon of weapons){const p={id:'period-'+weapon,weapon,aimControl:{elapsed:.5,turn:0,movement:0},sniper:{fixed:false,recovery:0}};const max=api.sample(p,0).slope;p.aimControl.elapsed=1.5;const min=api.sample(p,0).slope;assert(Math.abs(max/min-1.35/.65)<1e-9,weapon+' has 2-second breathing');}
+for(const weapon of weapons){
+ const p={id:'all-compact-'+weapon,weapon,aimControl:{elapsed:.5,turn:0,movement:0},sniper:{fixed:false,recovery:0}};
+ assert(Math.abs(api.displaySample(p,0).slope/api.sample(p,0).slope-(weapon==='shotgun'?.28:.8))<1e-12,weapon+' has a smaller display circle');
+}

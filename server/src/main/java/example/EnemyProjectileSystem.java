@@ -5,8 +5,8 @@ import static example.GameSupport.distance;
 
 /** Enemy power disruption and steerable missiles, independent of UI and transport. */
 final class EnemyProjectileSystem {
-    static final double BLACKOUT_RANGE = 280, SHOT_RANGE = 420, SPEED = 170, TURN_RATE = 2.2;
-    static final double SHOT_HP = 100;
+    static final double BLACKOUT_RANGE = 280, SHOT_RANGE = 420, SPEED = 170, TURN_RATE = .8;
+    static final double SHOT_HP = 1;
     static final class Shot {
         final int id; final Player target; final double damage;
         double x, y, angle, remaining = 5, hp = SHOT_HP;
@@ -17,8 +17,8 @@ final class EnemyProjectileSystem {
     }
     static boolean damage(Shot shot, double amount) {
         if (!Double.isFinite(amount) || amount <= 0 || shot.hp <= 0) return false;
-        shot.hp = Math.max(0, shot.hp - amount);
-        return shot.hp == 0;
+        shot.hp = 0;
+        return true;
     }
 
     static final double SHOT_RADIUS = 8;

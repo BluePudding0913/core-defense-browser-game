@@ -77,6 +77,17 @@ class EnemyProjectileSystemTest {
         EnemyProjectileSystem.update(game.enemyProjectiles,1,world());
         assertEquals(hp-30,slot.defense.hp);assertEquals(100,player.hp);assertTrue(game.enemyProjectiles.isEmpty());
     }
+    @Test void missileCannotTurnSharplyEvenWhenTargetMovesBehindIt() {
+        var e=enemy("seeker",1220,1900);
+        var shot=new EnemyProjectileSystem.Shot(0,e,player);
+        game.enemyProjectiles.add(shot);
+        double initial=shot.angle;
+        player.x=1400; player.y=1980;
+        EnemyProjectileSystem.update(game.enemyProjectiles,.2,world());
+        double turned=Math.abs(Math.atan2(Math.sin(shot.angle-initial),Math.cos(shot.angle-initial)));
+        assertEquals(.16,turned,1e-9,"Turn is limited to .8 radians per second");
+        assertTrue(shot.x<1220,"Missile keeps flying forward instead of making an abrupt U-turn");
+    }
     @Test void missileCannotCrossWallsAndExpiresWithoutTarget() {
         player.x=1020;player.y=1580;var e=enemy("seeker",1240,1580);
         game.enemyProjectiles.add(new EnemyProjectileSystem.Shot(0,e,player));
