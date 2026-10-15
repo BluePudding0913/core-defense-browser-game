@@ -481,3 +481,5 @@ EXPLOSION BOSS / FINAL BOSSにはlab-explosionboss / lab-finalbossを割り当�
 WARLORD・TITAN・ARTILLERY ELITEはlab-warlord・lab-titan・lab-artilleryeliteの有機モデルへ接続する。指揮装甲と長い上着、幅広い拘束実験体、双筒の砲撃装置で区別する。共有形状・個体別歩行・姿勢間引き・凍結・被弾・死亡・解放は既存経路を使い、能力と命中判定は変更しない。enemy-heavy.htmlで実ゲームの照明・既存半径44/48/27を確認できる。
 
 SEEKERの誘導弾用武装はorganic-enemy-models.jsのlab-seekerに置く。右肩の前向きランチャー・赤い照準レンズ・背面予備弾ケースをTorsoへ取り付け、首振りと腕振りから分離する。共有素材・個体別姿勢・凍結・被弾・解放は既存経路を使う。敵弾の発射・追尾・判定と通信には変更を加えない。
+
+GHOSTはlab-ghostの半透明な被験者モデルへ割り当てる。OrganicEnemyが青白い身体・裂けた検査衣・患者バンドと材質の透明度を所有し、深度テストは維持、深度書き込みと影は無効にする。LabEnemyModelsは半透明材質の凍結色だけ個体別に複製し、元の透明度を保持して個体解放時に破棄する。HitPresentationの既存の透明度乗算を利用して被弾・死亡表示を連携する。GLB出力もopacityとalphaMode=BLENDを保持する。戦闘・通信・命中判定は変更しない。
