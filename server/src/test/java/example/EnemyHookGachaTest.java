@@ -144,7 +144,7 @@ class EnemyHookGachaTest {
         Enemy boss=enemy("boss",1020,1900); boss.chargeCooldown=0;
         invoke("updateEnemies",new Class<?>[]{double.class},.05);
         assertTrue(boss.chargeWarning>0); assertEquals(1020,boss.x);
-        invoke("updateEnemies",new Class<?>[]{double.class},.44); assertEquals(0,boss.chargeRemaining);
+        invoke("updateEnemies",new Class<?>[]{double.class},.79); assertEquals(0,boss.chargeRemaining);
         invoke("updateEnemies",new Class<?>[]{double.class},.02); assertTrue(boss.chargeRemaining>0);
         invoke("updateEnemies",new Class<?>[]{double.class},.65);
         assertTrue(boss.x>1100); assertEquals(28,player.hp,.001); assertEquals(0,boss.chargeRemaining);
@@ -192,9 +192,50 @@ class EnemyHookGachaTest {
         TrapSlot wall=new TrapSlot("wall","free",1140,1900,null); wall.defense=new Defense("barricade");
         game.trapSlots.add(wall);
         invoke("updateEnemies",new Class<?>[]{double.class},.05);
-        invoke("updateEnemies",new Class<?>[]{double.class},.7);
+        invoke("updateEnemies",new Class<?>[]{double.class},.81);
         invoke("updateEnemies",new Class<?>[]{double.class},.65);
         assertTrue(boss.x<1140); assertEquals(100,player.hp);
         assertEquals(1104,wall.defense.hp,.001); assertEquals(0,boss.chargeRemaining);
+    }
+
+    @Test void chargeWarningAndChargeResistDisplacementButStillTakeDamage() throws Exception {
+        for (boolean warning : new boolean[]{true, false}) {
+            game.enemies.clear();
+            player.x=1020; player.y=1900; player.cooldown=0;
+            player.weapons.grant("revolver"); player.equipWeapon("revolver");
+            Enemy boss=enemy("boss",1120,1900);
+            if (warning) boss.chargeWarning=.8; else boss.chargeRemaining=1.1;
+            game.combat.attackAt(player,boss.x,boss.y);
+            assertTrue(boss.hp<boss.maxHp);
+            assertEquals(1120,boss.x); assertEquals(1900,boss.y);
+        }
+    }
+
+    @Test void ordinaryBossStillTakesKnockback() throws Exception {
+        player.x=1020; player.y=1900;
+        player.weapons.grant("revolver"); player.equipWeapon("revolver");
+        Enemy boss=enemy("boss",1120,1900);
+        game.combat.attackAt(player,boss.x,boss.y);
+        assertTrue(boss.hp<boss.maxHp);
+        assertEquals(1130,boss.x);
+    }
+
+    @Test void freezingPausesChargeAndHeadingDoesNotFollowMovingTarget() throws Exception {
+        player.x=1220; player.y=1900;
+        Enemy boss=enemy("boss",1020,1900); boss.chargeCooldown=0;
+        invoke("updateEnemies",new Class<?>[]{double.class},.05);
+        player.y=1820;
+        boss.frozenRemaining=1;
+        invoke("updateEnemies",new Class<?>[]{double.class},.5);
+        assertEquals(.8,boss.chargeWarning); assertEquals(1020,boss.x);
+        boss.frozenRemaining=0;
+        invoke("updateEnemies",new Class<?>[]{double.class},.81);
+        boss.frozenRemaining=1;
+        invoke("updateEnemies",new Class<?>[]{double.class},.5);
+        assertEquals(1.1,boss.chargeRemaining); assertEquals(1020,boss.x);
+        boss.frozenRemaining=0;
+        invoke("updateEnemies",new Class<?>[]{double.class},.05);
+        assertEquals(1033,boss.x,1e-6); assertEquals(1900,boss.y);
+        assertEquals(100,player.hp);
     }
 }
