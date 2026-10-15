@@ -608,3 +608,19 @@ frame.effects=[{effect:'hit',enemyId:4001,playerId:'me',damage:100,defeated:true
 frame.effects=[];now+=65;renderer.render(frame);assert(Math.abs(ghostSkin.material.opacity-.15)<1e-6,'Death halves the original ghost alpha');
 now+=70;renderer.render(frame);assert(!scene.getObjectByName('enemy:4001'));
 console.log('Ghost integration passed: live assignment, translucency, freeze, isolated hit tint, thaw and proportional death fade');
+
+// Range indicators use authoritative radii, follow movement, and disappear when inactive.
+player.job='tank';player.tankAuraRadius=160;
+frame.predicted={...player,x:115,y:125};
+state.enemies=[{id:5001,type:'bomber',x:180,y:100,hp:100,blastRadius:120}];
+state.artilleryShells=[{id:5002,sourceX:100,sourceY:100,x:200,y:100,radius:64,remaining:1,duration:1.5}];
+renderer.render(frame);
+const tankRing=find('tank-aura:me'),bomberRing=find('bomber-range:5001'),shellRing=find('shell:5002');
+assert.equal(tankRing.scale.x,160);assert.equal(tankRing.position.x,115);assert.equal(tankRing.position.z,125);
+assert.equal(bomberRing.scale.x,120);assert.equal(bomberRing.position.x,180);
+assert.equal(shellRing.material.opacity,.95);assert.equal(shellRing.material.color.getHexString(),'48be41');
+state.enemies[0].x=190;renderer.render(frame);assert.equal(bomberRing.position.x,190);
+state.enemies[0].hp=0;player.down=true;renderer.render(frame);
+assert(!scene.getObjectByName('tank-aura:me'));assert(!scene.getObjectByName('bomber-range:5001'));
+player.down=false;player.job='scout';renderer.render(frame);assert(!scene.getObjectByName('tank-aura:me'));
+console.log('Combat ranges passed: Tank prediction, Bomber blast radius/movement/death, stronger artillery warning');

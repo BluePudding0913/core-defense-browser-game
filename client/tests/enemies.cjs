@@ -41,6 +41,7 @@ for (const type of ['grunt', 'runner', 'brute', 'boss', 'armored', 'hunter', 'si
         assert.equal(bodies[0].radius, 22);
         assert(bodies.some(part => part.radius === 9 && part.color === '#cce76b'));
     }
+    if (type === 'bomber') assert(bodies.some(part => part.radius === 120), 'Bomber blast range is visible');
     const isBoss = ['boss', 'warlord', 'titan'].includes(type);
     assert.equal(bars.length, isBoss ? 1 : 0);
     if (isBoss) {

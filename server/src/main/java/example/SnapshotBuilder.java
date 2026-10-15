@@ -496,6 +496,7 @@ final class SnapshotBuilder {
             }
             json.append(",\"powerCut\":").append(enemy.powerCut);
             json.append(",\"frozenRemaining\":").append(roundOne(enemy.frozenRemaining));
+            if (enemy.type.equals("bomber")) json.append(",\"blastRadius\":").append(GameConfig.BOMBER_BLAST_RADIUS);
             if (enemy.type.equals("explosionBoss")) json.append(",\"fuse\":").append(enemy.fuse);
             if (enemy.type.equals("carrier")) {
                 MapPoint bag = SpecialEnemyRules.bag(enemy);
