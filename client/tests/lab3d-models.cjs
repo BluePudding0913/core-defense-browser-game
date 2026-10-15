@@ -2,6 +2,11 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const THREE = require('../vendor/three.min.js');
+function sourceBounds(root) {
+    root.updateMatrixWorld(true); const bounds=new THREE.Box3();
+    root.traverse(o=>{if(o.isMesh && !o.userData.staticBatch){if(!o.geometry.boundingBox)o.geometry.computeBoundingBox();bounds.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld));}});
+    return bounds;
+}
 let scene, camera, viewScene, viewCamera, webglRenderer, now=1000;
 THREE.WebGLRenderer = class {
     constructor() { this.domElement={width:0,height:0,addEventListener(){}};this.shadowMap={};webglRenderer=this; }
@@ -172,7 +177,7 @@ console.log('FPS requested fixes passed: captured special shot origins, movement
 // New enemies share their rendered body dimensions with server FPS hit rules.
 now+=500;frame.effects=[];state.enemies=[{id:501,type:'finalBoss',x:180,y:100,hp:140000,bossAction:'PULSE_WARNING',pulseRadius:260},{id:502,type:'poisoner',x:140,y:100,hp:400},{id:503,type:'artilleryElite',x:220,y:100,hp:900}];
 state.poisonClouds=[{x:140,y:100,radius:55,remaining:4,hostile:true}];frame.radius=e=>({finalBoss:58,poisoner:20,artilleryElite:27})[e.type]||21;renderer.render(frame);
-for(const e of state.enemies){const root=find('enemy:'+e.id);if(e.type==='poisoner'||e.type==='artilleryElite'){assert(root.getObjectByName(e.type==='poisoner'?'Reagent tank_-1':'Elite launcher rack'));assert(Math.abs(new THREE.Box3().setFromObject(root).max.y-frame.radius(e)*1.55)<.01);}else if(e.type==='finalBoss'){assert(root.getObjectByName('Pulse sternum housing'));assert(Math.abs(new THREE.Box3().setFromObject(root).max.y-frame.radius(e)*1.55)<.01);}else assert.equal(root.children[0].scale.x,frame.radius(e)*.9);}
+for(const e of state.enemies){const root=find('enemy:'+e.id);if(e.type==='poisoner'||e.type==='artilleryElite'){assert(root.getObjectByName(e.type==='poisoner'?'Reagent tank_-1':'Elite launcher rack'));assert(Math.abs(sourceBounds(root).max.y-frame.radius(e)*1.55)<.01);}else if(e.type==='finalBoss'){assert(root.getObjectByName('Pulse sternum housing'));assert(Math.abs(sourceBounds(root).max.y-frame.radius(e)*1.55)<.01);}else assert.equal(root.children[0].scale.x,frame.radius(e)*.9);}
 assert.equal(find('boss-warning:501').scale.x,260,'Final boss pulse has a visible 3D warning');
 assert.equal(find('gas:0').scale.x,55);assert(find('gas:0').material.color.equals(new THREE.Color('#a6ce46')),'Small hostile poison uses its own radius and color');
 console.log('FPS new enemies passed: body sizes, final boss warning and hostile poison');

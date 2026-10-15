@@ -2,6 +2,13 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 const context=vm.createContext({window:{}});
 for(const file of ['organic-enemy-models.js','lab-enemy-models.js'])vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
 const pool=context.window.createLabEnemyModels(T);
+// Aggregate batch AABBs are broader under rotating parents. Original source
+// meshes remain the reference bounds for sizing/grounding and exact head rays.
+function sourceBounds(root){
+ root.updateMatrixWorld(true);const bounds=new T.Box3();
+ root.traverse(o=>{if(o.isMesh && !o.userData.staticBatch){if(!o.geometry.boundingBox)o.geometry.computeBoundingBox();bounds.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld));}});
+ return bounds;
+}
 // A color must reach the same linear value in the studio and the game.
 const legacy=T.ColorManagement.legacyMode;
 try{
@@ -15,7 +22,9 @@ try{
 assert.equal(pool.create('unknown',21),null);
 for(const [type,detail,radius]of [['explosionBoss','Large explosive drum_-1',42],['finalBoss','Pulse sternum housing',58]]){
  const actor=pool.create(type,radius);assert(actor.rig.getObjectByName(detail));actor.root.updateMatrixWorld(true);
- const bounds=new T.Box3().setFromObject(actor.root);assert(Math.abs(bounds.max.y-radius*1.55)<1e-7,'Boss height uses its existing radius');
+ const source=context.window.buildOrganicEnemy(T,pool.assignments[type]);source.root.updateMatrixWorld(true);
+ const originalHeight=new T.Box3().setFromObject(source.root).max.y;
+ assert(Math.abs(actor.root.scale.x-radius*1.55/originalHeight)<1e-7,'Boss keeps original radius scaling');source.dispose();
  if(type==='finalBoss')for(const side of [-1,1]){
   const tube=actor.rig.getObjectByName('Final salvo pod_'+side),origin=tube.localToWorld(new T.Vector3(0,1,0)),direction=new T.Vector3(0,-1,0).transformDirection(tube.matrixWorld);
   assert.equal(new T.Raycaster(origin,direction).intersectObject(tube,true)[0]?.object.name,'Final bore floor_'+side,'Salvo barrel has a recessed bore');
@@ -50,7 +59,7 @@ for(const type of ['ghost','warlord','titan','artilleryElite','explosionBoss','f
  const left=a.rig.getObjectByName('Thigh_L'),idle=b.rig.getObjectByName('Thigh_L');assert(stride>.01,'Walking and idle actors retain independent motion');
  const stopped=left.quaternion.toArray();a.update({x:81,y:0},5100,true);assert.deepEqual(left.quaternion.toArray(),stopped,'Freeze holds the current pose');
  const original=meshes[0].material,tint=new T.MeshBasicMaterial({color:'#95dded'});a.tint(tint);if(type==='ghost'){assert.notEqual(meshes[0].material,tint);assert.equal(meshes[0].material.opacity,original.opacity);assert.equal(meshes[0].material.transparent,true);assert.equal(meshes[0].material.depthWrite,false);}else assert.equal(meshes[0].material,tint);assert.equal(b.rig.getObjectByName(meshes[0].name).material,original);a.tint(null);assert.equal(meshes[0].material,original);
- a.root.updateMatrixWorld(true);const bounds=new T.Box3().setFromObject(a.root);assert(Math.abs(bounds.min.y)<.08&&bounds.max.y<21*1.63);
+ const bounds=sourceBounds(a.root);assert(Math.abs(bounds.min.y)<.08&&bounds.max.y<21*1.63);
  if(type==='grunt'){
   const head=new T.Box3().setFromObject(a.rig.getObjectByName('Anatomical head')),center=head.getCenter(new T.Vector3()).divideScalar(21);
   assert(Math.abs(center.y-1.39)<.04&&Math.abs(center.z-.25)<.04,'Visible head stays at the server head volume');

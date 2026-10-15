@@ -23,6 +23,8 @@ for(const type of Object.keys(current.assignments)){
  for(let i=0;i<3;i++){
   a.update({x:i*3,y:0},1000+i*90,i===2);b.update({x:i*3,y:0},1000+i*90,i===2);
   const actual=signature(a.root),before=signature(b.root);assert.equal(actual.vertices,before.vertices,type);
+  const bounds=new T.Box3().setFromObject(a.root,true),oldBounds=new T.Box3().setFromObject(b.root,true);
+  assert(bounds.min.distanceTo(oldBounds.min)<1e-4 && bounds.max.distanceTo(oldBounds.max)<1e-4,type+' physical bounds');
   actual.sums.forEach((value,j)=>assert(Math.abs(value-before.sums[j])/Math.max(1,Math.abs(before.sums[j]))<1e-6,type+' world geometry '+j));
   if(type==='grunt'){assert(actual.meshes<before.meshes);assert(actual.shadows<before.shadows);}
  }
