@@ -1,5 +1,7 @@
 # 機能変更に合わせた責務分離
 
+CARRIERはorganic-enemy-models.jsで、肩より高く左右にも張り出す黄土色の布袋、絞り口・口紐・補強底・圧縮ベルト・側面ポケット・検体マークを胴体へ取り付ける。暗い作業服と太いハーネスで袋を強調し、既存の歩行・凍結・被弾色・共有・解放経路を利用する。能力・袋の命中判定・通信は変更しない。enemy-models.cjs、lab-enemy-models.cjs、lab3d-models.cjs、enemy-animation.cjsで形状と表示連携、previews/carrier.htmlで4方向の見た目を確認する。
+
 GILDEDの金色防護具・検体ケースとWARLORDの指揮官用装甲・背面旗はorganic-enemy-models.jsで既存関節へ取り付ける。状態・通信・戦闘・判定は変更せず、既存の共有アセット・歩行・凍結・被弾色・解放経路を利用する。形状・出力・表示連携は既存の敵モデル関連4テスト、見た目はpreviews/gilded-warlord.htmlで確認する。
 
 ARMOREDは布の防護ベストの上に、厚い面取り付き胸・背面装甲、分割腹部装甲、肩殻、前腕・大腿・膝・すねの防弾装甲を重ねる。暗い縁と明るい硬質シェルで厚みを示し、ヘルメットの頬・顎保護を追加する。各防具は既存の胴・頭・腕・脚の関節へ取り付け、歩行・凍結・被弾・解放を共有する。戦闘の軽減率・命中判定・通信は変更しない。enemy-models.cjsで形状・接地・GLB出力、lab-enemy-models.cjs・lab3d-models.cjs・enemy-animation.cjsで表示連携を確認する。

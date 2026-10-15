@@ -21,7 +21,7 @@ window.buildOrganicEnemy = (T,id) => {
   'lab-poisoner':{skin:'#a1aa87',cloth:'#b7baa1',pants:'#35453b',width:.92,lean:.48,arm:[-.54,-.92],elbow:[-.32,-.85],head:[.27,.14,-.16]},
   'lab-shield':{skin:'#9c9f8f',cloth:'#526469',pants:'#333f43',width:1.12,lean:.28,arm:[-.72,-.40],elbow:[-.95,-.24],head:[.18,-.09,.09]},
   'lab-bomber':{skin:'#a19b87',cloth:'#8c604a',pants:'#44423c',width:.95,lean:.46,arm:[-.58,-.85],elbow:[-.43,-.62],head:[.25,.10,-.14]},
-  'lab-carrier':{skin:'#9a9d8a',cloth:'#868876',pants:'#414a41',width:1.2,lean:.40,arm:[-.34,-.51],elbow:[-.20,-.33],head:[.19,-.07,.12]},
+  'lab-carrier':{skin:'#9a9d8a',cloth:'#424f4b',pants:'#303a36',width:1.2,lean:.40,arm:[-.34,-.51],elbow:[-.20,-.33],head:[.19,-.07,.12]},
   'lab-hunter':{skin:'#a0a28f',cloth:'#8b9290',pants:'#424b48',width:.78,lean:.57,arm:[-.92,-1.12],elbow:[-.64,-.50],head:[.13,-.06,-.12]},
   'lab-armored':{skin:'#9c9e8b',cloth:'#4d5b5b',pants:'#363f3d',width:1.3,lean:.24,arm:[-.43,-.59],elbow:[-.29,-.35],head:[.20,.08,-.06]},
   'lab-artillery':{skin:'#9d9f8a',cloth:'#74735a',pants:'#41483d',width:1.06,lean:.29,arm:[-.36,-.70],elbow:[-.26,-.58],head:[.20,-.11,.10]},
@@ -282,14 +282,24 @@ if(lab){
   loft(arms[0],'Maintenance sleeve',[[-.26,.10,.12],[-.12,.13,.15],[.025,.14,.15]],cloth,2.1,24,.012);
  }
  if(id==='lab-carrier'){
-  const pack=mat('Canvas specimen carrier','#77765e',.99),strap=mat('Carrier harness','#484f43',.97),lid=mat('Carrier lid','#969780',.96);
-  loft(torso,'Specimen backpack',[[-.09,.31,.23,-.235],[-.04,.37,.26,-.235],[.43,.37,.26,-.235],[.48,.30,.23,-.235]],pack,4,32);
-  loft(torso,'Backpack lid',[[.405,.38,.27,-.236],[.44,.38,.27,-.236],[.49,.30,.23,-.236]],lid,4,24);
+  const pack=mat('Canvas specimen carrier','#b7914e',.99),strap=mat('Carrier harness','#353b32',.97),seam=mat('Carrier canvas seams','#d0b47a',.99),patch=mat('Carrier specimen marker','#754137',.98);
+  // A stuffed, gathered sack: the shoulder-high crown and broad sides read from the front too.
+  loft(torso,'Specimen backpack',[[-.16,.34,.26,-.29],[-.11,.56,.40,-.32],[.04,.66,.47,-.33],[.25,.70,.49,-.34],[.46,.66,.46,-.33],[.61,.54,.38,-.31],[.69,.32,.25,-.29],[.73,.23,.19,-.28]],pack,2.35,32);
+  loft(torso,'Gathered sack mouth',[[.68,.31,.25,-.29],[.73,.23,.19,-.28],[.78,.35,.25,-.29],[.80,.32,.23,-.29]],pack,2.2,24,.018);
+  loft(torso,'Sack neck binding',[[.711,.265,.215,-.28],[.735,.265,.215,-.28]],strap,2.2,20);
+  loft(torso,'Sack tie tail',[[.57,.025,.025,-.405,.075],[.65,.029,.026,-.408,.045],[.73,.025,.024,-.391,.015]],strap,2.1,12);
+  loft(torso,'Reinforced sack base',[[-.16,.35,.27,-.29],[-.115,.57,.415,-.32],[-.065,.62,.445,-.33]],strap,2.35,24);
   for(const side of [-1,1]){
-   loft(torso,'Carrier strap_'+side,[[.01,.038,.022,.104,side*.12],[.26,.038,.022,.115,side*.13],[.43,.038,.022,.073,side*.15],[.47,.038,.025,-.06,side*.14]],strap,2.5,16);
-   loft(torso,'Side specimen pouch_'+side,[[.025,.08,.13,-.245,side*.22],[.055,.105,.15,-.245,side*.22],[.25,.105,.15,-.245,side*.22],[.275,.08,.13,-.245,side*.22]],pack,3,20);
+   loft(torso,'Carrier strap_'+side,[[.01,.058,.027,.113,side*.12],[.26,.062,.03,.128,side*.13],[.43,.062,.03,.085,side*.15],[.49,.062,.032,-.06,side*.15],[.46,.062,.032,-.18,side*.17]],strap,2.5,16);
+   loft(torso,'Sack compression belt_'+side,[[-.12,.047,.028,-.49,side*.18],[.04,.047,.028,-.561,side*.20],[.25,.047,.028,-.585,side*.21],[.46,.047,.028,-.553,side*.20],[.61,.047,.028,-.49,side*.16]],strap,2.5,16);
+   loft(torso,'Sack stitched panel_'+side,[[-.08,.009,.012,-.475,side*.25],[.10,.009,.012,-.54,side*.28],[.30,.009,.012,-.55,side*.29],[.49,.009,.012,-.512,side*.26],[.62,.009,.012,-.46,side*.18]],seam,2,12);
+   loft(torso,'Side specimen pouch_'+side,[[-.025,.10,.16,-.32,side*.345],[.015,.14,.21,-.32,side*.355],[.20,.14,.21,-.32,side*.355],[.25,.11,.18,-.32,side*.345]],pack,2.5,20);
+   loft(torso,'Side pouch flap_'+side,[[.18,.147,.22,-.325,side*.355],[.23,.147,.22,-.325,side*.355],[.26,.115,.19,-.325,side*.345]],seam,2.5,16);
+   loft(torso,'Carrier harness buckle_'+side,[[.24,.076,.037,.146,side*.13],[.28,.076,.037,.146,side*.13]],seam,3,12);
   }
-  loft(torso,'Harness bridge',[[.18,.28,.018,.129],[.20,.28,.018,.129]],strap,3,16);
+  loft(torso,'Harness bridge',[[.18,.32,.027,.145],[.21,.32,.027,.145]],strap,3,16);
+  loft(torso,'Sack specimen patch',[[.24,.19,.018,-.592],[.39,.19,.018,-.585]],patch,3.5,16);
+  loft(torso,'Sack specimen stripe',[[.295,.125,.019,-.605],[.325,.125,.019,-.604]],seam,3,12);
  }
  if(id==='lab-hunter'){
   const band=mat('Patient wrist band','#b5b6a3',.97);
