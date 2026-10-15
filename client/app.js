@@ -3195,8 +3195,8 @@ function drawArtilleryShells() {
         if (remaining <= 0) continue;
         const progress = clamp(1 - remaining / shell.duration, 0, 1);
         ctx.save();
-        ctx.fillStyle = "rgb(126 220 122 / 18%)";
-        ctx.strokeStyle = "rgb(126 220 122 / 40%)"; ctx.lineWidth = 3;
+        ctx.fillStyle = "rgb(72 190 65 / 38%)";
+        ctx.strokeStyle = "rgb(72 190 65 / 90%)"; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.arc(shell.x, shell.y, shell.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         ctx.strokeStyle = "#7edc7a"; ctx.lineWidth = 4;
         ctx.beginPath(); ctx.arc(shell.x, shell.y, shell.radius, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2); ctx.stroke();
@@ -3216,6 +3216,10 @@ function drawEnemies() {
         if (enemy.hp <= 0) continue;
         if (typeof WardenUI !== "undefined") WardenUI.draw(ctx, enemy);
         const p = smoothEntity("enemy", enemy), radius = enemyRadius(enemy);
+        if (enemy.type === "bomber" && (typeof labRenderer === "undefined" || !labRenderer)) {
+            ctx.save(); ctx.strokeStyle = "#ff805c"; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(p.x, p.y, enemy.blastRadius || 120, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+        }
         if (enemy.type === "carrier" && enemy.bagHp > 0) {
             const bx = p.x + enemy.bagX - enemy.x, by = p.y + enemy.bagY - enemy.y;
             ctx.fillStyle = "#62442e"; ctx.strokeStyle = "#d9ae77"; ctx.lineWidth = 2;
@@ -3450,7 +3454,7 @@ function drawPlayers() {
         const p = isLocal ? predictedLocal : smoothEntity("player", player);
         if (player.job === "tank" && !player.down) {
             ctx.save();
-            ctx.strokeStyle = "#7acba822";
+            ctx.strokeStyle = "#7acba899";
             ctx.beginPath(); ctx.arc(p.x, p.y, player.tankAuraRadius, 0, Math.PI * 2); ctx.stroke();
             ctx.restore();
         }
