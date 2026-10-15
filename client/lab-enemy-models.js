@@ -17,18 +17,21 @@ window.createLabEnemyModels = T => {
     if(!groups.has(key))groups.set(key,[]);groups.get(key).push(mesh);
    }
    for(const meshes of groups.values())if(meshes.length>1){
-    const parts=meshes.map(mesh=>{mesh.updateMatrix();const g=mesh.geometry.index?mesh.geometry.toNonIndexed():mesh.geometry.clone();g.applyMatrix4(mesh.matrix);return g;});
+    const parts=meshes.map(mesh=>{mesh.updateMatrix();return mesh.geometry.clone().applyMatrix4(mesh.matrix);});
     const geometry=new T.BufferGeometry();
     for(const name of Object.keys(parts[0].attributes)){
      const first=parts[0].attributes[name],data=new Float32Array(parts.reduce((n,g)=>n+g.attributes[name].array.length,0));let offset=0;
      for(const part of parts){data.set(part.attributes[name].array,offset);offset+=part.attributes[name].array.length;}
      geometry.setAttribute(name,new T.BufferAttribute(data,first.itemSize,first.normalized));
     }
+    const indices=[];let vertexOffset=0;
+    for(const part of parts){const count=part.index?.count || part.attributes.position.count;for(let i=0;i<count;i++)indices.push(vertexOffset+(part.index?part.index.getX(i):i));vertexOffset+=part.attributes.position.count;}
+    geometry.setIndex(indices);
     parts.forEach(g=>g.dispose());owned.push(geometry);
     const first=meshes[0],batch=new T.Mesh(geometry,first.material);batch.name='Batched '+parent.name+' '+owned.length;
     batch.castShadow=first.castShadow;batch.receiveShadow=first.receiveShadow;batch.layers.mask=first.layers.mask;batch.renderOrder=first.renderOrder;
-    batch.raycast=()=>{};batch.userData.staticBatch=true;parent.add(batch);
-    for(const mesh of meshes)mesh.visible=false;
+    batch.raycast=()=>{};batch.userData.staticBatch=true;batch.matrixAutoUpdate=false;parent.add(batch);
+    for(const mesh of meshes){mesh.visible=false;mesh.matrixAutoUpdate=false;mesh.userData.batchedSource=true;}
    }
   }
   return owned;
@@ -61,7 +64,7 @@ window.createLabEnemyModels = T => {
    if(updatePose){
     entry.model.applyPose();
     posedMotion=motion;
-    entry.nodes.forEach((o,i)=>{nodes[i].position.copy(o.position);nodes[i].quaternion.copy(o.quaternion);nodes[i].scale.copy(o.scale);});
+    entry.nodes.forEach((o,i)=>{if(o.userData.staticBatch || o.userData.batchedSource)return;nodes[i].position.copy(o.position);nodes[i].quaternion.copy(o.quaternion);nodes[i].scale.copy(o.scale);});
     lastPoseAt=now;
     // Spread sparse updates across frames instead of refreshing an entire wave together.
     nextPoseAt=interval>0?(Math.floor(now/interval+phaseOffset)+1-phaseOffset)*interval:now;
