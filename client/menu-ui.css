@@ -43,7 +43,7 @@
 #menu-ui .ui-settings-group input[name$="-key"] { width: 5rem; flex: 0 0 5rem; margin-left: auto; text-align: center; cursor: pointer; }
 #menu-ui .ui-reticle-previews { display: grid; grid-template-columns: 1fr; gap: 4px; }
 #menu-ui .ui-reticle-preview { padding-top: 8px; display: grid; place-items: center; background: #181818; border-radius: .3rem; }
-#menu-ui .ui-reticle-preview span { width: 80px; height: 80px; background: var(--reticle-preview) center / contain no-repeat; }
+#menu-ui .ui-reticle-preview span { width: 120px; height: 120px; background: var(--reticle-preview) center / contain no-repeat; }
 @media (max-height: 520px) { #menu-ui h1 { margin-bottom: 24px; } }
 
 #menu-ui .ui-settings-group select { margin-left: auto; min-width: 3rem; color: #fff; background: #181818; border: 1px solid #666; padding: .25rem; }

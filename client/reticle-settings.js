@@ -6,7 +6,7 @@ window.coreReticleSettings = (() => {
     const defaults = { color: "#0088ff", size: 20, shape: "plus" };
     const normalize = value => ({
         color: /^#[0-9a-f]{6}$/i.test(value?.color) ? value.color.toLowerCase() : defaults.color,
-        size: Number.isFinite(value?.size) ? Math.max(4, Math.min(32, Math.round(value.size))) : defaults.size,
+        size: Number.isFinite(value?.size) ? Math.max(4, Math.min(96, Math.round(value.size))) : defaults.size,
         // Retired circle selections fall back to the default without losing color or size.
         shape: ["cross", "plus"].includes(value?.shape) ? value.shape : defaults.shape
     });
@@ -23,7 +23,7 @@ window.coreReticleSettings = (() => {
         return `<path d="${d}" fill="none" stroke="${color}" stroke-width="${width}" stroke-linecap="round"/>`;
     }
     function apply() {
-        const markup=`<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80">${svg()}</svg>`;
+        const markup=`<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="-20 -20 120 120">${svg()}</svg>`;
         document.documentElement.style.setProperty('--reticle-preview',`url("data:image/svg+xml,${encodeURIComponent(markup)}")`);
     }
     function paint(ctx,x,y) {

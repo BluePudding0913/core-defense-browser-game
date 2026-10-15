@@ -24,7 +24,14 @@ const retired=load('{"shape":"dot","color":"#123456","size":16}');assert.deepEqu
 assert(!fs.readFileSync('client/menu-ui.js','utf8').includes('["dot", "○"]'),'Circle is absent from settings');
 const copy=initial.api.get();copy.size=32;assert.equal(initial.api.get().size,8);
 for(const value of ['{broken','null','{"color":"url(bad)","size":"32","shape":"bad"}'])assert.deepEqual({...load(value).api.get()},{color:'#0088ff',size:20,shape:'plus'});
-initial.api.update({size:100});assert.equal(initial.api.get().size,32);
+initial.api.update({size:100});assert.equal(initial.api.get().size,96);
+assert.equal(load(initial.stored.get('core-defense-reticle')).api.get().size,96);
+for(const shape of ['cross','plus']) {
+ initial.api.update({shape,size:96});strokes.length=0;initial.api.draw(ctx,400,300);
+ assert.equal(Math.max(...strokes.map(p=>p[0]))-Math.min(...strokes.map(p=>p[0])),96);
+ const preview=decodeURIComponent(initial.styles.get('--reticle-preview'));
+ assert(preview.includes('viewBox="-20 -20 120 120"'),'Largest reticle fits in the preview');
+}
 initial.api.update({size:-1});assert.equal(initial.api.get().size,4);
 initial.api.update({size:NaN,shape:'bad'});assert.equal(initial.api.get().size,20);assert.equal(initial.api.get().shape,'plus');
 const blocked=load(null,true);blocked.api.update({color:'#123456'});assert.equal(blocked.api.get().color,'#123456');
