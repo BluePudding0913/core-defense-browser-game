@@ -1,5 +1,7 @@
 # 機能変更に合わせた責務分離
 
+最大FPSは`client/graphics-settings.js`が60（初期値）／30の選択と端末内保存を管理し、`menu-ui.js`の設定→描画からプレイ中も変更できる。`app.js`はrequestAnimationFrameの時刻で2D・3D・HUDの共通drawを間引き、移動予測・音声同期・端末UI更新は毎コールバック維持する。遅延後の描画は1回に留める。graphics-settings.cjs・menu-ui.cjs・frame-rate.cjsで保存・設定連携・30〜240Hzでの上限・動的切替・長い停止後の再開を検証する。
+
 EnemyTierRulesは10〜20ラウンド（両端を含む）の生成HP・攻撃力に0.9倍を適用する。ボスのHP丸めと人数補正より前に適用し、通常出現・増援・デバッグ召喚が同じ処理を共有する。速度・報酬・出現数は維持する。EnemyExpansionTestで全ラウンドの倍率と境界の通常／召喚生成・スナップショットを確認する。
 
 HUNTERとCORE HUNTERはorganic-enemy-models.js内の共通形状・装飾経路を使い、赤／金のパレットで識別する。モデル形状と休止姿勢の一致、色とリソースの独立性はlab-enemy-models.cjsで検証する。CORE HUNTERの旧ベスト・大型手袋は廃止し、ゲーム半径・攻撃・標的・種類別歩行周期は維持する。

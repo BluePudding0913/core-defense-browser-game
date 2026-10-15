@@ -151,6 +151,7 @@ let aimPointer = null;
 const fpsInput = labRenderer?.firstPerson ? window.FPSInput.create(canvas,{onEscape:()=>{if(state && ["preparing","wave"].includes(state.phase))openExitDialog();}}) : null;
 let dashRequested = false;
 let lastFrameAt = performance.now();
+let lastDrawAt = null;
 let mapReady = false;
 let resolveMapReady;
 const mapReadyPromise = new Promise(resolve => { resolveMapReady = resolve; });
@@ -2540,7 +2541,14 @@ function animate(now = performance.now()) {
     updateLocalPrediction(dt, elapsed);
     window.coreAudio?.syncRailguns?.(socket?.readyState === WebSocket.OPEN ? state?.players || [] : [], predictedLocal || getMe(), myPlayerId, Boolean(firingPointer), secondaryHeld);
     window.TerminalUI?.update(state, getMe(), { map: { world: WORLD, tileMap: TILE_MAP, areas: AREAS, startingArea: STARTING_AREA, breakerTerminals: BREAKER_TERMINALS }, send });
-    draw();
+    const frameInterval = 1000 / (window.coreGraphicsSettings?.getMaxFps() ?? 60);
+    const sinceDraw = lastDrawAt === null ? frameInterval : now - lastDrawAt;
+    // Preserve cadence on high-refresh displays without replaying missed frames.
+    if (sinceDraw + .01 >= frameInterval) {
+        lastDrawAt = lastDrawAt === null ? now
+            : lastDrawAt + Math.floor((sinceDraw + .01) / frameInterval) * frameInterval;
+        draw();
+    }
     requestAnimationFrame(animate);
 }
 

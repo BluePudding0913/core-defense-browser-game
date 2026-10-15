@@ -10,6 +10,17 @@ function load(localStorage = storage) {
     return window.coreGraphicsSettings;
 }
 let settings = load();
+assert.equal(settings.getMaxFps(), 60);
+settings.setMaxFps(30);
+assert.equal(load().getMaxFps(), 30, '30 FPS survives reload');
+settings.setMaxFps('60');
+assert.equal(load().getMaxFps(), 60, '60 FPS can be restored');
+for (const value of ['', '0', '120', 'NaN', '{broken']) {
+    saved.set('core-defense-max-fps', value);
+    assert.equal(load().getMaxFps(), 60, 'invalid FPS storage retains the default');
+    settings.setMaxFps(value);
+    assert.equal(settings.getMaxFps(), 60, 'unsupported FPS falls back to 60');
+}
 assert.equal(settings.getShadows(), true);
 settings.setShadows(false);
 assert.equal(load().getShadows(), false, 'shadow-free mode survives reload');
@@ -20,6 +31,9 @@ for (const value of ['', 'off', '0', '{broken']) {
     assert.equal(load().getShadows(), true, 'invalid storage retains the default');
 }
 settings = load({ getItem() { throw Error('blocked'); }, setItem() { throw Error('blocked'); } });
+assert.equal(settings.getMaxFps(), 60);
+settings.setMaxFps('30');
+assert.equal(settings.getMaxFps(), 30, 'FPS switching works without storage');
 assert.equal(settings.getShadows(), true);
 settings.setShadows(false);
 assert.equal(settings.getShadows(), false, 'unavailable storage does not prevent switching');
