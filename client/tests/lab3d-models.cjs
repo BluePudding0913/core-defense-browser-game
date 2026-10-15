@@ -287,14 +287,14 @@ for(const [dx,dz] of [[0,1],[1,0],[0,-1],[-1,0]]) {
 frame.stations=[];frame.reachable=new Set();for(let r=0;r<7;r++)for(let c=0;c<7;c++)frame.reachable.add(r+':'+c);
 player.x=140;player.y=220;frame.eye=player;frame.predicted=player;state.blackoutActive=true;player.drone=null;renderer.render(frame);
 assert(scene.fog && scene.fog.near===48 && scene.fog.far===160,'Blackout has a bounded nearby view');
-assert.equal(scene.getObjectByName('enemy-readability-fill').visible,false,'Enemy fill cannot bypass blackout');
+assert.equal(scene.getObjectByName('enemy-readability-fill').intensity,0,'Enemy fill cannot bypass blackout');
 const nearbyLight=scene.getObjectByName('blackout-nearby-light');assert(nearbyLight.visible);assert.deepEqual(nearbyLight.position.toArray(),camera.position.toArray());
 assert.equal(renderer.project(140,40,26).visible,false,'Distant labels do not float in darkness');
 assert.equal(renderer.project(140,180,26).visible,true,'Nearby points remain visible');
 player.x+=15;renderer.render(frame);assert.equal(nearbyLight.position.x,player.x,'Near illumination follows the player');
-player.drone={controlled:true};renderer.render(frame);assert.equal(scene.fog,null,'Drone retains night vision');assert(!nearbyLight.visible);
-player.drone=null;frame.nightVision=true;renderer.render(frame);assert.equal(scene.fog,null,'Drone aftermath retains night vision');
-frame.nightVision=false;state.blackoutActive=false;renderer.render(frame);assert.equal(scene.fog,null);assert(!nearbyLight.visible);
+player.drone={controlled:true};renderer.render(frame);assert.equal(scene.fog.near,10000,'Drone retains night vision');assert.equal(nearbyLight.intensity,0);
+player.drone=null;frame.nightVision=true;renderer.render(frame);assert.equal(scene.fog.near,10000,'Drone aftermath retains night vision');
+frame.nightVision=false;state.blackoutActive=false;renderer.render(frame);assert.equal(scene.fog.near,10000);assert.equal(nearbyLight.intensity,0);
 assert.equal(scene.children.find(c=>c.isHemisphereLight).intensity,.75,'Lighting restores after power returns');
 const enemyFill=scene.getObjectByName('enemy-readability-fill');assert(enemyFill.visible&&enemyFill.layers.mask===2);
 assert(Math.abs(enemyFill.position.y-camera.position.y-30)<1e-6,'Enemy fill follows the viewing position');
@@ -304,6 +304,41 @@ assert.equal(terrain.children.find(o=>o.isInstancedMesh).layers.mask,1,'Room sur
 const skinColor=litEnemy.getObjectByName('Anatomical head').material.color;
 assert(Math.abs(skinColor.r-new THREE.Color('#9b9f8d').r)<1e-10,'Live renderer uses skin color converted once');
 console.log('Lab visibility passed: flush panels, four-way breakers, nearby blackout vision, moving light and drone/restoration lifecycle');
+
+// Power transitions must preserve program conditions in each graphics mode.
+const programConditions=()=>{
+ const lights=[];scene.traverseVisible(o=>{if(o.isLight&&o.layers.test(camera.layers))lights.push(o.type+':'+o.castShadow);});
+ return JSON.stringify([!!scene.fog,webglRenderer.shadowMap.enabled,lights.sort()]);
+};
+for(const detailed of [true,false,true]){
+ context.window.coreGraphicsSettings.setShadows(detailed);
+ state.blackoutActive=false;renderer.render(frame);const normalConditions=programConditions();
+ const sameFog=scene.fog;
+ state.enemies=[{id:689,type:'runner',x:player.x,y:player.y-400,hp:100,facingY:1}];
+ state.blackoutActive=true;renderer.render(frame);
+ assert.equal(programConditions(),normalConditions,'Blackout keeps shader conditions in this graphics mode');
+ assert.equal(scene.fog,sameFog,'Fog object does not change on power transitions');
+ assert.equal(nearbyLight.visible,detailed);assert.equal(nearbyLight.intensity,detailed?1.8:0);
+ assert.equal(webglRenderer.shadowMap.autoUpdate,false,'Blackout skips the sun shadow pass');
+ assert.equal(camera.far,200,'Blackout shortens rendering distance');
+ assert.equal(scene.getObjectByName('enemy:689').visible,false,'Completely dark distant enemy is culled');
+ state.enemies[0].y=player.y-(detailed?180:220);renderer.render(frame);
+ assert.equal(scene.getObjectByName('enemy:689').visible,true,'Body intersecting visibility boundary is retained');
+ state.enemies[0].y=player.y-80;renderer.render(frame);
+ assert.equal(scene.getObjectByName('enemy:689').visible,true,'Enemy returning to nearby view is restored');
+ // Settings changes during a blackout must also apply immediately.
+ context.window.coreGraphicsSettings.setShadows(!detailed);renderer.render(frame);
+ assert.equal(!!scene.fog,!detailed);assert.equal(nearbyLight.visible,!detailed);
+ context.window.coreGraphicsSettings.setShadows(detailed);
+ state.enemies[0].y=player.y-400;frame.nightVision=true;renderer.render(frame);
+ assert.equal(programConditions(),normalConditions,'Night vision keeps shader conditions');
+ assert.equal(scene.getObjectByName('enemy:689').visible,true,'Night vision restores distant enemies');
+ assert.equal(camera.far,5000);assert.equal(webglRenderer.shadowMap.autoUpdate,true);
+ frame.nightVision=false;state.blackoutActive=false;renderer.render(frame);
+ assert.equal(programConditions(),normalConditions,'Power restoration keeps shader conditions');
+ assert.equal(camera.far,5000);assert.equal(webglRenderer.shadowMap.autoUpdate,true);
+}
+console.log('Blackout performance passed: stable program conditions, both graphics modes, live toggles, distant culling and restoration');
 
 // A sniper posture lowers both the camera and the remote body, and restores standing afterwards.
 frame.motion={moving:false};frame.effects=[];frame.scoped=true;frame.view={yaw:0,pitch:0};player.weapon='sniper';
