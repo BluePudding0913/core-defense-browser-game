@@ -1,11 +1,13 @@
 'use strict';
 // Unarmored candidates: visible flesh, fabric, anatomy and hostile asymmetrical poses.
 window.buildOrganicEnemy = (T,id) => {
- const specialist=['lab-boss','lab-runner','lab-brute','lab-poisoner','lab-shield','lab-bomber','lab-carrier','lab-hunter','lab-armored','lab-artillery','lab-corehunter','lab-seeker','lab-blackout','lab-siege','lab-champion','lab-warden','lab-tiny','lab-gilded','lab-blueace'].includes(id);
+ const specialist=['lab-explosionboss','lab-finalboss','lab-boss','lab-runner','lab-brute','lab-poisoner','lab-shield','lab-bomber','lab-carrier','lab-hunter','lab-armored','lab-artillery','lab-corehunter','lab-seeker','lab-blackout','lab-siege','lab-champion','lab-warden','lab-tiny','lab-gilded','lab-blueace'].includes(id);
  const lab=['researcher','lab-assistant','lab-pathologist'].includes(id)||specialist;
  let settings={'lab-assistant':{skin:'#969b85',cloth:'#a4ada4',pants:'#304342',width:1.15,lean:.32,arm:[-.50,-.68],elbow:[-.38,-.26],head:[.15,.06,-.10]},'lab-pathologist':{skin:'#99a08c',cloth:'#b0ab98',pants:'#3a3b35',width:.82,lean:.49,arm:[-.38,-.54],elbow:[-.14,-.31],head:[.26,-.09,-.18]},researcher:{skin:'#8f9a87',cloth:'#a5a79a',pants:'#353e3c',width:.96,lean:.43,arm:[-.38,-.95],elbow:[-.16,-.55],head:[.21,-.06,.16]},rasp:{skin:'#978f7d',cloth:'#444a45',pants:'#2e3432',width:1,lean:.20,arm:[-.30,-1.05],elbow:[-.22,-.40],head:[.18,0,-.10]},rush:{skin:'#a18a77',cloth:'#69473b',pants:'#333635',width:1.19,lean:.30,arm:[-1.15,-1.40],elbow:[-.45,-.35],head:[.15,.08,.04]},hollow:{skin:'#b1aa99',cloth:'#575954',pants:'#383b3a',width:.83,lean:.23,arm:[-.20,-1.10],elbow:[-.18,-.34],head:[.22,-.12,.16]}}[id];
 
  const extra={
+  'lab-explosionboss':{skin:'#a19b86',cloth:'#493f35',pants:'#303631',width:1.78,lean:.38,arm:[-.50,-.72],elbow:[-.38,-.45],head:[.22,.06,-.12]},
+  'lab-finalboss':{skin:'#aba29f',cloth:'#605065',pants:'#34333d',width:2.05,lean:.16,arm:[-.66,-.85],elbow:[-.40,-.56],head:[.12,-.06,-.08]},
   'lab-boss':{skin:'#a39c8c',cloth:'#635c50',pants:'#353c3a',width:1.95,lean:.20,arm:[-.72,-.88],elbow:[-.44,-.56],head:[.12,-.04,-.08]},
   'lab-tiny':{skin:'#a4ad8e',cloth:'#a0a995',pants:'#4c554b',width:1.02,lean:.65,arm:[-.95,-1.10],elbow:[-.90,-.75],head:[.25,.06,-.10]},
   'lab-gilded':{skin:'#a5a18c',cloth:'#baa465',pants:'#494435',width:1.18,lean:.23,arm:[-.38,-.56],elbow:[-.28,-.60],head:[.19,-.08,.08]},
@@ -318,6 +320,45 @@ if(lab){
   loft(torso,'Supervisor collar',[[.43,.17,.145],[.48,.14,.125],[.51,.115,.115]],trim,2.4,24);
   loft(arms[0],'Supervisor cuff',[[-.30,.12*wide,.135,.008],[-.27,.125*wide,.14,.008]],trim,2.3,20);
  }
+ if(id==='lab-explosionboss'){
+  const frame=mat('Blast carrier steel','#3b4441',.85),charge=mat('Scorched explosive casing','#756347',.92),warning=mat('Blast hazard ochre','#bc874b',.94);
+  loft(torso,'Blast carrier frame',[[-.08,.55,.13,-.20],[.48,.55,.13,-.20]],frame,3,20);
+  for(const side of [-1,1]){
+   loft(torso,'Large explosive drum_'+side,[[-.06,.20,.24,-.29,side*.16],[-.025,.27,.30,-.29,side*.16],[.43,.27,.30,-.29,side*.16],[.48,.20,.24,-.29,side*.16]],charge,2,24);
+   for(const y of [.04,.32])loft(torso,'Drum retaining band_'+side+'_'+y,[[y,.278,.308,-.29,side*.16],[y+.035,.278,.308,-.29,side*.16]],frame,2,20);
+   loft(torso,'Blast harness_'+side,[[.00,.065,.035,.12,side*.16],[.30,.065,.04,.14,side*.22],[.47,.065,.04,-.03,side*.20]],frame,3,12);
+   loft(torso,'Chest explosive pack_'+side,[[.05,.13,.08,.18,side*.13],[.24,.14,.09,.18,side*.13]],charge,3,16);
+   loft(torso,'Chest hazard stripe_'+side,[[.13,.145,.095,.18,side*.13],[.16,.145,.095,.18,side*.13]],warning,3,16);
+   loft(elbows[side<0?0:1],'Blast wrist cuff_'+side,[[-.25,.15,.17,.01],[-.17,.16,.18,.01]],frame,3,16);
+  }
+  loft(torso,'Exposed fuse controller',[[.27,.105,.065,.17],[.38,.105,.065,.16]],frame,3,16);
+  loft(torso,'Fuse warning lens',[[.30,.045,.012,.206],[.35,.045,.012,.202]],warning,3,12);
+  loft(head,'Blast jaw guard',[[.06,.18,.05,.10],[.13,.19,.05,.10]],frame,3,20);
+ }
+ if(id==='lab-finalboss'){
+  const shell=mat('Final containment armor','#82758c',.85),frame=mat('Final restraint graphite','#383b46',.86),signal=mat('Pulse ceramic inserts','#a596ac',.9);
+  head.scale.setScalar(1.14);
+  loft(torso,'Final thoracic armor',[[.02,.43,.07,.17],[.16,.64,.09,.19],[.34,.68,.08,.18],[.42,.49,.06,.12]],shell,3.2,24);
+  loft(torso,'Pulse sternum housing',[[.12,.16,.045,.25],[.20,.22,.05,.25],[.30,.16,.04,.23]],frame,3,20);
+  for(const x of [-.055,0,.055])loft(torso,'Pulse ceramic rib_'+x,[[.16,.025,.012,.279,x],[.26,.025,.012,.274,x]],signal,3,12);
+  loft(torso,'Final cervical brace',[[.40,.37,.25,-.01],[.49,.30,.22],[.53,.24,.20]],frame,3,24);
+  loft(torso,'Dorsal pulse chamber',[[.02,.40,.18,-.23],[.10,.48,.24,-.24],[.42,.48,.24,-.24],[.49,.32,.18,-.21]],frame,3,24);
+  for(const side of [-1,1]){
+   const arm=arms[side<0?0:1],elbow=elbows[side<0?0:1];elbow.scale.set(1.22,1.05,1.22);
+   loft(arm,'Final shoulder armor_'+side,[[-.12,.29,.30],[.01,.39,.35],[.10,.24,.24]],shell,3,24);
+   loft(elbow,'Pulse gauntlet_'+side,[[-.25,.22,.24,.02],[-.09,.24,.26,.02],[.01,.19,.22]],frame,3,20);
+   loft(elbow,'Gauntlet ceramic band_'+side,[[-.20,.23,.25,.02],[-.16,.235,.255,.02]],signal,3,20);
+   loft(legs[side<0?0:1],'Final knee plate_'+side,[[-.41,.20,.06,.14],[-.28,.24,.07,.14],[-.22,.18,.04,.12]],shell,3,16);
+   const launcher=joint(torso,'Final salvo pod_'+side,side*.32,.64,-.12);launcher.rotation.x=.40;
+   // Open annulus and recessed floor: the muzzle has actual depth.
+   const ring=new T.Shape(),hole=new T.Path();ring.absarc(0,0,.095,0,Math.PI*2,false);hole.absarc(0,0,.066,0,Math.PI*2,true);ring.holes.push(hole);
+   const g=new T.ExtrudeGeometry(ring,{depth:.32,bevelEnabled:false,steps:1,curveSegments:12});g.rotateX(Math.PI/2);g.setAttribute('color',new T.Float32BufferAttribute(Array(g.attributes.position.count*3).fill(.96),3));owned.add(g);
+   const tube=new T.Mesh(g,frame);tube.name='Final salvo barrel_'+side;tube.castShadow=tube.receiveShadow=true;launcher.add(tube);
+   loft(launcher,'Final bore floor_'+side,[[-.30,.13,.13],[-.28,.13,.13]],shadow,2,24);
+   loft(torso,'Dorsal support rail_'+side,[[.00,.06,.06,-.37,side*.18],[.64,.06,.06,-.27,side*.32]],shell,3,12);
+  }
+  loft(head,'Final jaw restraint',[[.065,.20,.05,.11],[.13,.21,.045,.11]],frame,3,20);
+ }
  if(id==='lab-boss'){
   const ceramic=mat('Broken containment ceramic','#a7a69a',.88),iron=mat('Breach restraint iron','#414d4b',.83),warning=mat('Faded hazard paint','#ae6946',.94);
   head.scale.setScalar(1.12);
@@ -380,6 +421,7 @@ if(lab){
   'lab-corehunter':[5.8,.44,.44,.56,.56],'lab-seeker':[3.8,.31,.31,.42,.42],
   'lab-blackout':[3.4,.30,.30,.40,.40],'lab-siege':[3.0,.30,.30,.40,.40],
   'lab-champion':[4.2,.36,.36,.48,.48],'lab-warden':[3.2,.31,.31,.42,.42],'lab-boss':[4.4,.40,.40,.55,.55],
+  'lab-explosionboss':[4.0,.34,.34,.46,.46],'lab-finalboss':[4.6,.40,.40,.55,.55],
   'lab-tiny':[8.8,.48,.48,.65,.65],'lab-gilded':[4.8,.36,.36,.50,.50],'lab-blueace':[9.5,.57,.57,.80,.80]
  }[id]||[id==='rush'?7:4.5,.34,.34,.50,.50];
  function advance(seconds,walking=true,travel){

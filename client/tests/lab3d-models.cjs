@@ -172,7 +172,7 @@ console.log('FPS requested fixes passed: captured special shot origins, movement
 // New enemies share their rendered body dimensions with server FPS hit rules.
 now+=500;frame.effects=[];state.enemies=[{id:501,type:'finalBoss',x:180,y:100,hp:140000,bossAction:'PULSE_WARNING',pulseRadius:260},{id:502,type:'poisoner',x:140,y:100,hp:400},{id:503,type:'artilleryElite',x:220,y:100,hp:900}];
 state.poisonClouds=[{x:140,y:100,radius:55,remaining:4,hostile:true}];frame.radius=e=>({finalBoss:58,poisoner:20,artilleryElite:27})[e.type]||21;renderer.render(frame);
-for(const e of state.enemies){const root=find('enemy:'+e.id);if(e.type==='poisoner'){assert(root.getObjectByName('Reagent tank_-1'));assert(Math.abs(new THREE.Box3().setFromObject(root).max.y-frame.radius(e)*1.55)<.01);}else assert.equal(root.children[0].scale.x,frame.radius(e)*.9);}
+for(const e of state.enemies){const root=find('enemy:'+e.id);if(e.type==='poisoner'){assert(root.getObjectByName('Reagent tank_-1'));assert(Math.abs(new THREE.Box3().setFromObject(root).max.y-frame.radius(e)*1.55)<.01);}else if(e.type==='finalBoss'){assert(root.getObjectByName('Pulse sternum housing'));assert(Math.abs(new THREE.Box3().setFromObject(root).max.y-frame.radius(e)*1.55)<.01);}else assert.equal(root.children[0].scale.x,frame.radius(e)*.9);}
 assert.equal(find('boss-warning:501').scale.x,260,'Final boss pulse has a visible 3D warning');
 assert.equal(find('gas:0').scale.x,55);assert(find('gas:0').material.color.equals(new THREE.Color('#a6ce46')),'Small hostile poison uses its own radius and color');
 console.log('FPS new enemies passed: body sizes, final boss warning and hostile poison');
@@ -541,3 +541,14 @@ const fixedStart=[reflectedPoints.getX(0),reflectedPoints.getY(0),reflectedPoint
 assert.deepEqual([reflectedPoints.getX(0),reflectedPoints.getY(0),reflectedPoints.getZ(0)],fixedStart,'Turning does not move the rebound point');
 frame.effects=[];now+=250;renderer.render(frame);assert(!scene.children.some(o=>o.name==='muzzle-tracer'),'Reflected paths expire normally');
 console.log('Ricochet trail passed: wall-origin segment, server heights/endpoints, stationary path, single firing recoil and expiry');
+
+// Organic explosion boss retains its timed warning, freeze priority and normal colors.
+frame.effects=[];state.enemies=[{id:900,type:'explosionBoss',x:180,y:100,hp:100,fuse:1}];
+now=Math.PI/2*50;renderer.render(frame);
+const blast=scene.getObjectByName('Enemy_lab-explosionboss');assert(blast);const drum=blast.getObjectByName('Large explosive drum_-1');
+const flash=drum.material;assert(flash.color.equals(new THREE.Color('#d64e58')));
+state.enemies[0].frozenRemaining=1;renderer.render(frame);assert(drum.material.color.equals(new THREE.Color('#95dded')));
+state.enemies[0].frozenRemaining=0;now=Math.PI*1.5*50;renderer.render(frame);
+assert.notEqual(drum.material,flash);assert.equal(drum.material.name,'Scorched explosive casing');
+state.enemies[0].type='finalBoss';renderer.render(frame);assert(scene.getObjectByName('Final salvo pod_-1'));assert(!scene.getObjectByName('Enemy_lab-explosionboss'));
+console.log('Final enemy models: fuse flash, freeze priority, color recovery and model replacement passed');

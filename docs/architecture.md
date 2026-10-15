@@ -471,3 +471,6 @@ SIEGE / CHAMPION / WARDENにはlab-siege / lab-champion / lab-wardenを割り当
 プラズマブレードはLab3Dで直線ビーム・銃反動を出さず、共有の手・柄追従モーションで予備動作・斬撃・復帰を描く。HUDとインベントリは同じSVGアイコンを使う。毒ガスは右手の掌と指で瓶を握り、220msで手を離れて580msの放物線演出を行う。PoisonGasRulesが投擲開始から800msの待機を管理し、待機中はSnapshotBuilderに効果エリアを出さず、着地から従来の6秒間のダメージを開始する。瓶自体の衝突・当たり判定は追加しない。リパルサーは1波90粒子、所有者ごと1波、全体最大4波とし、アンテナを除く。LASER CANNONの共有武器モデルは青系を使う。
 
 画面酔い対策の白い枠は`client/comfort-frame.js`が初期オフ・端末内保存を管理し、`menu-ui.js`の設定から切り替える。`comfort-frame.css`の固定枠をHUD内に置き、カメラ移動・反動・倍率とは独立して画面の8%・24%内側へ二重に表示する。枠のz-indexは0とし、他のHUDより奥へ配置する。枠は入力を遮らず、メニュー・ロビーでは非表示。`client/previews/comfort-frame.html`は共通CSSでオン・オフと視点移動を比較し、プレビューの操作は保存設定を変更しない。`node client/tests/comfort-frame.cjs`で保存と失敗時の動作を検証し、`client/previews/capture-comfort-frame.cjs`でブラウザー表示・設定連携と画像を確認する。
+
+
+EXPLOSION BOSS / FINAL BOSSにはlab-explosionboss / lab-finalbossを割り当てる。大型の爆薬容器と前面起爆装置、肩の中空砲撃ポッドと胸部・背面の衝撃波装置で区別する。共有形状・個別歩行・接地・凍結・被弾・死亡・解放は既存の有機モデル経路を使い、爆発ボスの導火線点滅は凍結色より低い優先度で維持する。性能・能力・命中判定は変更しない。previews/final-enemies.htmlでゲーム照明と停電、previews/enemy-models.htmlで形状比較・GLB出力を確認する。

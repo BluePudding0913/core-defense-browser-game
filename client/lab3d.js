@@ -324,7 +324,8 @@ window.Lab3D = (() => {
             item.root.rotation.y = Math.atan2(entity.facingX || 0, entity.facingY ?? 1);
             if(item.model){
                 item.model.update(point,now,entity.frozenRemaining>0,enemyAnimationInterval(point,radius));
-                item.model.tint(entity.frozenRemaining>0?material('#95dded'):null);
+                item.model.tint(entity.frozenRemaining>0?material('#95dded')
+                    :entity.type==='explosionBoss' && entity.fuse>=0 && Math.sin(now/Math.max(50,entity.fuse*15))>0?material('#d64e58'):null);
                 return;
             }
             item.body.material = material(entity.frozenRemaining > 0 ? '#95dded'

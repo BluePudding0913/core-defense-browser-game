@@ -28,11 +28,13 @@ window.EnemyModels = (() => {
     {id:'lab-warden', name:'WARDEN', label:'拘束管理員', color:'#657379'},
     {id:'lab-tiny', name:'TINY', label:'小型の逃走被験者', color:'#a0a995'},
     {id:'lab-gilded', name:'GILDED', label:'金色の検体回収員', color:'#baa465'},
-    {id:'lab-blueace', name:'BLUE ACE', label:'高速の青い警備員', color:'#466f9f'}
+    {id:'lab-blueace', name:'BLUE ACE', label:'高速の青い警備員', color:'#466f9f'},
+    {id:'lab-explosionboss',name:'EXPLOSION BOSS',label:'爆薬を背負う大型個体',color:'#756347'},
+    {id:'lab-finalboss',name:'FINAL BOSS',label:'砲撃と衝撃波の最終実験体',color:'#82758c'}
   ];
   function build(T,id) {
     if(!variants.some(v=>v.id===id))throw new Error('Unknown enemy model: '+id);
-    if(['rasp','rush','hollow','researcher','lab-assistant','lab-pathologist','lab-runner','lab-brute','lab-poisoner','lab-shield','lab-bomber','lab-carrier','lab-hunter','lab-armored','lab-artillery','lab-corehunter','lab-seeker','lab-blackout','lab-siege','lab-champion','lab-warden','lab-tiny','lab-gilded','lab-blueace'].includes(id))return window.buildOrganicEnemy(T,id);
+    if(['lab-explosionboss','lab-finalboss','rasp','rush','hollow','researcher','lab-assistant','lab-pathologist','lab-runner','lab-brute','lab-poisoner','lab-shield','lab-bomber','lab-carrier','lab-hunter','lab-armored','lab-artillery','lab-corehunter','lab-seeker','lab-blackout','lab-siege','lab-champion','lab-warden','lab-tiny','lab-gilded','lab-blueace'].includes(id))return window.buildOrganicEnemy(T,id);
     const root=new T.Group();root.name='Enemy_'+id;const owned=new Set(),mats=[];
     const mat=(name,color,roughness,metalness=0)=>{const m=new T.MeshStandardMaterial({name,color,roughness,metalness});m.color.convertSRGBToLinear();m.envMapIntensity=.55;mats.push(m);return m;};
     const under=mat('Graphite textile','#20282a',.94),rubber=mat('Rubber','#161d20',.84),dark=mat('Recess','#0c1417',.54);
