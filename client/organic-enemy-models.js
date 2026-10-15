@@ -157,8 +157,8 @@ if(lab){
   for(const side of ['L','R'])root.getObjectByName('Hand_'+side).scale.setScalar(1.35);
  }
  if(id==='lab-gilded') {
-  const gold=mat('Tarnished brass','#d6ab45',.42),strap=mat('Specimen straps','#34382f',.95),seal=mat('Sealed specimen jade','#3dbaa1',.64);
-  gold.metalness=.55;
+  const gold=mat('Tarnished brass','#f5bf3e',.20),strap=mat('Specimen straps','#34382f',.95),seal=mat('Sealed specimen jade','#3dbaa1',.64);
+  gold.metalness=.9;gold.envMapIntensity=.8;
   seal.emissive.copy(seal.color);seal.emissiveIntensity=.32;
   loft(torso,'Gold specimen vest',[[.02,.34,.25],[.20,.40,.28],[.36,.48,.28,-.025],[.43,.34,.23,-.02]],gold,3.2,24);
   // A gold protective hood and dark horizontal visor replace the shared bare scalp.
@@ -621,5 +621,7 @@ if(lab){
  }
  function pose(seconds,walking=true,travel){advance(seconds,walking,travel);applyPose();}
  function dispose(){owned.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());}
+ // Apply after shared anatomy corrections so neck, flesh, cloth, boots and gear are all gold.
+ if(id==='lab-gilded'){const gold=root.getObjectByName('Gold specimen vest').material;root.traverse(o=>{if(o.isMesh)o.material=gold;});}
  if(id==='hollow')root.scale.y=1.055;if(id==='lab-ghost'){root.scale.y=1.07;root.traverse(o=>{if(o.isMesh)o.castShadow=o.receiveShadow=false;});}if(id==='lab-seeker')root.scale.y=1.065;if(id==='lab-champion')root.scale.y=1.045;if(id==='lab-assistant')root.scale.y=.95;if(id==='lab-pathologist')root.scale.y=1.065;reset();return {root,head,torso,arms,legs,pose,advance,applyPose,reset,dispose,id,getMotion:()=>[previous,phase,blend],setMotion:state=>{[previous,phase,blend]=state;}};
 };
