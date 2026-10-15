@@ -9,6 +9,11 @@ function sourceBounds(root){
  root.traverse(o=>{if(o.isMesh && !o.userData.staticBatch){if(!o.geometry.boundingBox)o.geometry.computeBoundingBox();bounds.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld));}});
  return bounds;
 }
+{
+ const gilded=pool.create('gilded',21),gold=gilded.rig.getObjectByName('Gold specimen vest').material;
+ gilded.rig.traverse(o=>{if(o.isMesh){assert.equal(o.material,gold,'Every GILDED surface, including corrected neck and hands, is gold');assert(o.material.metalness>=.85&&o.material.roughness<=.25,'GILDED keeps a polished metal finish');}});
+ gilded.dispose();
+}
 // A color must reach the same linear value in the studio and the game.
 const legacy=T.ColorManagement.legacyMode;
 try{

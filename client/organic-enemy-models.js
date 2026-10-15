@@ -9,19 +9,19 @@ window.buildOrganicEnemy = (T,id) => {
   'lab-ghost':{skin:'#b0d5d5',cloth:'#81aeb8',pants:'#668a98',width:.72,lean:.38,arm:[-.85,-1.02],elbow:[-.28,-.40],head:[.19,-.10,.12]},
   'lab-explosionboss':{skin:'#9b8d79',cloth:'#62503c',pants:'#343831',width:1.90,lean:.57,arm:[-.24,-.85],elbow:[-.18,-.65],head:[-.14,.12,-.18]},
   'lab-finalboss':{skin:'#aeb7b3',cloth:'#444b51',pants:'#292f35',width:1.35,lean:.06,arm:[-.42,-.88],elbow:[-.25,-.45],head:[.04,-.04,0]},
-  'lab-warlord':{skin:'#a49389',cloth:'#75434a',pants:'#3f3538',width:1.55,lean:.14,arm:[-.55,-.75],elbow:[-.38,-.48],head:[.18,-.08,.05]},
+  'lab-warlord':{skin:'#a49389',cloth:'#661f32',pants:'#252a32',width:1.55,lean:.14,arm:[-.55,-.75],elbow:[-.38,-.48],head:[.18,-.08,.05]},
   'lab-titan':{skin:'#aea397',cloth:'#6b496f',pants:'#3f3943',width:2.10,lean:.30,arm:[-.65,-.58],elbow:[-.35,-.42],head:[.24,.04,-.10]},
   'lab-artilleryelite':{skin:'#9ca189',cloth:'#526a43',pants:'#364332',width:1.27,lean:.34,arm:[-.38,-.65],elbow:[-.28,-.50],head:[.20,-.10,.08]},
   'lab-boss':{skin:'#a39c8c',cloth:'#635c50',pants:'#353c3a',width:1.95,lean:.20,arm:[-.72,-.88],elbow:[-.44,-.56],head:[.12,-.04,-.08]},
   'lab-tiny':{skin:'#a4ad8e',cloth:'#a0a995',pants:'#4c554b',width:1.02,lean:.65,arm:[-.95,-1.10],elbow:[-.90,-.75],head:[.25,.06,-.10]},
-  'lab-gilded':{skin:'#a5a18c',cloth:'#baa465',pants:'#494435',width:1.18,lean:.23,arm:[-.38,-.56],elbow:[-.28,-.60],head:[.19,-.08,.08]},
+  'lab-gilded':{skin:'#a5a18c',cloth:'#35372e',pants:'#2d302b',width:1.18,lean:.23,arm:[-.38,-.56],elbow:[-.28,-.60],head:[.19,-.08,.08]},
   'lab-blueace':{skin:'#9aabaa',cloth:'#466f9f',pants:'#2e3d54',width:.93,lean:.46,arm:[-.80,-1.15],elbow:[-1.0,-.85],head:[.12,.08,-.08]},
   'lab-runner':{skin:'#9b9f8d',cloth:'#6b8781',pants:'#344945',width:.85,lean:.53,arm:[-.55,-1.20],elbow:[-.95,-.68],head:[.12,-.12,.08]},
   'lab-brute':{skin:'#a39e8c',cloth:'#686d65',pants:'#3d403a',width:1.65,lean:.22,arm:[-.38,-.47],elbow:[-.24,-.32],head:[.21,.06,-.06]},
   'lab-poisoner':{skin:'#a1aa87',cloth:'#b7baa1',pants:'#35453b',width:.92,lean:.48,arm:[-.54,-.92],elbow:[-.32,-.85],head:[.27,.14,-.16]},
   'lab-shield':{skin:'#9c9f8f',cloth:'#526469',pants:'#333f43',width:1.12,lean:.28,arm:[-.72,-.40],elbow:[-.95,-.24],head:[.18,-.09,.09]},
   'lab-bomber':{skin:'#a19b87',cloth:'#8c604a',pants:'#44423c',width:.95,lean:.46,arm:[-.58,-.85],elbow:[-.43,-.62],head:[.25,.10,-.14]},
-  'lab-carrier':{skin:'#9a9d8a',cloth:'#868876',pants:'#414a41',width:1.2,lean:.40,arm:[-.34,-.51],elbow:[-.20,-.33],head:[.19,-.07,.12]},
+  'lab-carrier':{skin:'#9a9d8a',cloth:'#424f4b',pants:'#303a36',width:1.2,lean:.40,arm:[-.34,-.51],elbow:[-.20,-.33],head:[.19,-.07,.12]},
   'lab-hunter':{skin:'#a0a28f',cloth:'#8b9290',pants:'#424b48',width:.78,lean:.57,arm:[-.92,-1.12],elbow:[-.64,-.50],head:[.13,-.06,-.12]},
   'lab-armored':{skin:'#9c9e8b',cloth:'#4d5b5b',pants:'#363f3d',width:1.3,lean:.24,arm:[-.43,-.59],elbow:[-.29,-.35],head:[.20,.08,-.06]},
   'lab-artillery':{skin:'#9d9f8a',cloth:'#74735a',pants:'#41483d',width:1.06,lean:.29,arm:[-.36,-.70],elbow:[-.26,-.58],head:[.20,-.11,.10]},
@@ -157,15 +157,27 @@ if(lab){
   for(const side of ['L','R'])root.getObjectByName('Hand_'+side).scale.setScalar(1.35);
  }
  if(id==='lab-gilded') {
-  const gold=mat('Tarnished brass','#d0b16a',.42),strap=mat('Specimen straps','#5c4d36',.95);
-  gold.metalness=.55;
-  loft(torso,'Gold specimen vest',[[.02,.34,.24],[.20,.40,.27],[.36,.48,.265,-.025],[.43,.34,.22,-.02]],cloth,2.6,24);
+  const gold=mat('Tarnished brass','#f5bf3e',.20),strap=mat('Specimen straps','#34382f',.95),seal=mat('Sealed specimen jade','#3dbaa1',.64);
+  gold.metalness=.9;gold.envMapIntensity=.8;
+  seal.emissive.copy(seal.color);seal.emissiveIntensity=.32;
+  loft(torso,'Gold specimen vest',[[.02,.34,.25],[.20,.40,.28],[.36,.48,.28,-.025],[.43,.34,.23,-.02]],gold,3.2,24);
+  // A gold protective hood and dark horizontal visor replace the shared bare scalp.
+  loft(head,'Gilded recovery hood',[[.19,.183,.21,-.012],[.25,.178,.20,-.014],[.30,.128,.15,-.017],[.325,.055,.07,-.017]],gold,2.8,24);
+  loft(head,'Gilded face shield',[[.075,.10,.035,.105],[.10,.155,.045,.105],[.22,.171,.045,.105],[.24,.14,.035,.10]],gold,3.5,24);
+  loft(head,'Gilded dark visor',[[.158,.144,.012,.131],[.184,.144,.012,.131]],strap,3.5,20);
+  loft(head,'Gilded visor inset',[[.167,.105,.008,.139],[.175,.105,.008,.139]],seal,3,16);
+  loft(torso,'Specimen strongbox',[[.01,.35,.22,-.25],[.06,.42,.28,-.25],[.43,.42,.28,-.25],[.49,.34,.23,-.25]],gold,4,24);
+  for(const y of [.10,.36])loft(torso,'Strongbox reinforcement_'+y,[[y,.43,.29,-.25],[y+.035,.43,.29,-.25]],strap,4,20);
+  loft(torso,'Strongbox jade seal',[[.20,.105,.012,-.397],[.29,.105,.012,-.397]],seal,3,16);
   for(const side of [-1,1]) {
-   loft(torso,'Brass shoulder clasp_'+side,[[.35,.095,.09,.08,side*.18],[.43,.10,.10,.04,side*.16]],gold,3,16);
+   loft(torso,'Brass shoulder clasp_'+side,[[.35,.13,.10,.08,side*.18],[.43,.14,.11,.04,side*.16]],gold,3,16);
    loft(torso,'Specimen harness_'+side,[[.03,.03,.025,.135,side*.13],[.29,.03,.025,.145,side*.16],[.45,.035,.03,.05,side*.15]],strap,2.5,16);
-   loft(torso,'Gold specimen canister_'+side,[[.03,.12,.13,-.20,side*.10],[.07,.14,.15,-.20,side*.10],[.35,.14,.15,-.20,side*.10],[.39,.10,.11,-.20,side*.10]],gold,2,20);
+   loft(torso,'Gold specimen canister_'+side,[[.03,.085,.10,-.25,side*.255],[.07,.105,.12,-.25,side*.255],[.35,.105,.12,-.25,side*.255],[.39,.08,.09,-.25,side*.255]],gold,2,20);
+   loft(torso,'Canister seal_'+side,[[.25,.110,.125,-.25,side*.255],[.28,.110,.125,-.25,side*.255]],seal,2,16);
+   loft(elbows[side<0?0:1],'Gilded forearm guard_'+side,[[-.24,.12,.13,.01],[-.10,.15,.16,.01],[-.06,.12,.13]],gold,2.8,20);
   }
-  loft(torso,'Brass chest seal',[[.22,.075,.025,.15],[.29,.075,.025,.15]],gold,3,16);
+  loft(torso,'Brass chest seal',[[.19,.11,.018,.15],[.30,.11,.018,.15]],strap,3,16);
+  loft(torso,'Jade chest seal',[[.22,.07,.012,.165],[.27,.07,.012,.165]],seal,3,16);
  }
  if(id==='lab-blueace') {
   const armor=mat('Blue response armor','#477dab',.7),dark=mat('Response webbing','#273c4e',.95),stripe=mat('Pale rank marks','#b0ced6',.83);
@@ -270,14 +282,24 @@ if(lab){
   loft(arms[0],'Maintenance sleeve',[[-.26,.10,.12],[-.12,.13,.15],[.025,.14,.15]],cloth,2.1,24,.012);
  }
  if(id==='lab-carrier'){
-  const pack=mat('Canvas specimen carrier','#77765e',.99),strap=mat('Carrier harness','#484f43',.97),lid=mat('Carrier lid','#969780',.96);
-  loft(torso,'Specimen backpack',[[-.09,.31,.23,-.235],[-.04,.37,.26,-.235],[.43,.37,.26,-.235],[.48,.30,.23,-.235]],pack,4,32);
-  loft(torso,'Backpack lid',[[.405,.38,.27,-.236],[.44,.38,.27,-.236],[.49,.30,.23,-.236]],lid,4,24);
+  const pack=mat('Canvas specimen carrier','#b7914e',.99),strap=mat('Carrier harness','#353b32',.97),seam=mat('Carrier canvas seams','#d0b47a',.99),patch=mat('Carrier specimen marker','#754137',.98);
+  // A stuffed, gathered sack: the shoulder-high crown and broad sides read from the front too.
+  loft(torso,'Specimen backpack',[[-.16,.34,.26,-.29],[-.11,.56,.40,-.32],[.04,.66,.47,-.33],[.25,.70,.49,-.34],[.46,.66,.46,-.33],[.61,.54,.38,-.31],[.69,.32,.25,-.29],[.73,.23,.19,-.28]],pack,2.35,32);
+  loft(torso,'Gathered sack mouth',[[.68,.31,.25,-.29],[.73,.23,.19,-.28],[.78,.35,.25,-.29],[.80,.32,.23,-.29]],pack,2.2,24,.018);
+  loft(torso,'Sack neck binding',[[.711,.265,.215,-.28],[.735,.265,.215,-.28]],strap,2.2,20);
+  loft(torso,'Sack tie tail',[[.57,.025,.025,-.405,.075],[.65,.029,.026,-.408,.045],[.73,.025,.024,-.391,.015]],strap,2.1,12);
+  loft(torso,'Reinforced sack base',[[-.16,.35,.27,-.29],[-.115,.57,.415,-.32],[-.065,.62,.445,-.33]],strap,2.35,24);
   for(const side of [-1,1]){
-   loft(torso,'Carrier strap_'+side,[[.01,.038,.022,.104,side*.12],[.26,.038,.022,.115,side*.13],[.43,.038,.022,.073,side*.15],[.47,.038,.025,-.06,side*.14]],strap,2.5,16);
-   loft(torso,'Side specimen pouch_'+side,[[.025,.08,.13,-.245,side*.22],[.055,.105,.15,-.245,side*.22],[.25,.105,.15,-.245,side*.22],[.275,.08,.13,-.245,side*.22]],pack,3,20);
+   loft(torso,'Carrier strap_'+side,[[.01,.058,.027,.113,side*.12],[.26,.062,.03,.128,side*.13],[.43,.062,.03,.085,side*.15],[.49,.062,.032,-.06,side*.15],[.46,.062,.032,-.18,side*.17]],strap,2.5,16);
+   loft(torso,'Sack compression belt_'+side,[[-.12,.047,.028,-.49,side*.18],[.04,.047,.028,-.561,side*.20],[.25,.047,.028,-.585,side*.21],[.46,.047,.028,-.553,side*.20],[.61,.047,.028,-.49,side*.16]],strap,2.5,16);
+   loft(torso,'Sack stitched panel_'+side,[[-.08,.009,.012,-.475,side*.25],[.10,.009,.012,-.54,side*.28],[.30,.009,.012,-.55,side*.29],[.49,.009,.012,-.512,side*.26],[.62,.009,.012,-.46,side*.18]],seam,2,12);
+   loft(torso,'Side specimen pouch_'+side,[[-.025,.10,.16,-.32,side*.345],[.015,.14,.21,-.32,side*.355],[.20,.14,.21,-.32,side*.355],[.25,.11,.18,-.32,side*.345]],pack,2.5,20);
+   loft(torso,'Side pouch flap_'+side,[[.18,.147,.22,-.325,side*.355],[.23,.147,.22,-.325,side*.355],[.26,.115,.19,-.325,side*.345]],seam,2.5,16);
+   loft(torso,'Carrier harness buckle_'+side,[[.24,.076,.037,.146,side*.13],[.28,.076,.037,.146,side*.13]],seam,3,12);
   }
-  loft(torso,'Harness bridge',[[.18,.28,.018,.129],[.20,.28,.018,.129]],strap,3,16);
+  loft(torso,'Harness bridge',[[.18,.32,.027,.145],[.21,.32,.027,.145]],strap,3,16);
+  loft(torso,'Sack specimen patch',[[.24,.19,.018,-.592],[.39,.19,.018,-.585]],patch,3.5,16);
+  loft(torso,'Sack specimen stripe',[[.295,.125,.019,-.605],[.325,.125,.019,-.604]],seam,3,12);
  }
  if(id==='lab-hunter'){
   const band=mat('Patient wrist band','#b5b6a3',.97);
@@ -494,13 +516,25 @@ if(lab){
   loft(head,'Mask pulse slit',[[.17,.007,.009,.140],[.215,.007,.009,.137]],signal,3,12);
  }
  if(id==='lab-warlord'){
-  const armor=mat('Command armor','#5c4247',.87),trim=mat('Command insignia','#b79d83',.92);
+  const armor=mat('Command armor','#30343f',.79),trim=mat('Command insignia','#c8c9c2',.85),red=mat('Command crimson edges','#9e2944',.91);
   loft(torso,'Command cuirass',[[.015,.43,.28],[.16,.50,.31],[.32,.62,.32,-.025],[.41,.48,.25,-.03]],armor,3,24);
   loft(torso,'Command gorget',[[.40,.29,.22,-.02],[.48,.24,.19],[.51,.18,.16]],armor,2.7,24);
+  loft(head,'Command officer helmet',[[.20,.192,.22,-.01],[.26,.19,.215,-.012],[.31,.13,.15,-.017],[.33,.055,.075,-.017]],armor,3,24);
+  loft(head,'Command helmet brow',[[.18,.21,.09,.09],[.205,.21,.09,.09]],red,3.8,20);
+  loft(head,'Command jaw guard',[[.055,.10,.06,.10],[.09,.155,.06,.105],[.135,.16,.045,.105]],armor,3.2,20);
+  loft(head,'Command helmet crest',[[.215,.026,.012,.106],[.265,.030,.012,.098],[.31,.025,.012,.065],[.335,.018,.012,.025]],trim,3,12);
   coatShell(root,'Command coat tails',[[.36,.57,.34],[.49,.58,.35],[.77,.48,.30],[.94,.43,.27]],[.42,.38,.30,.28],cloth,.018);
+  const standard=joint(torso,'Command dorsal standard',0,.05,-.29);
+  loft(standard,'Standard mast',[[.05,.022,.025],[.80,.022,.025]],trim,3,12);
+  loft(standard,'Crimson command banner',[[.40,.21,.018],[.49,.28,.018],[.76,.28,.018]],red,4,16);
+  for(const x of [-.055,.055])loft(standard,'Banner insignia_'+x,[[.54,.018,.024,0,x],[.69,.018,.024,0,x]],trim,3,12);
   for(const side of [-1,1]){
-   loft(arms[side<0?0:1],'Command pauldron_'+side,[[-.14,.24,.26],[-.05,.29,.30],[.04,.23,.25],[.09,.14,.16]],armor,2.8,24);
+   const arm=arms[side<0?0:1];
+   loft(arm,'Command pauldron_'+side,[[-.14,.26,.28],[-.05,.35,.33],[.08,.31,.29],[.13,.17,.19]],armor,3.5,24);
+   loft(arm,'Crimson shoulder rim_'+side,[[-.14,.275,.295],[-.11,.30,.31]],red,3.5,20);
+   loft(arm,'Command shoulder rank_'+side,[[.05,.32,.30],[.075,.32,.30]],trim,3.5,20);
    loft(elbows[side<0?0:1],'Command bracer_'+side,[[-.25,.15,.16,.01],[-.12,.18,.19,.01],[-.06,.14,.15]],armor,2.7,20);
+   loft(shins[side<0?0:1],'Command greave_'+side,[[-.31,.13,.05,.065],[-.12,.16,.055,.075],[-.02,.16,.05,.07]],armor,3.2,20);
   }
   for(const y of [.22,.27,.32])loft(torso,'Command rank bar_'+y,[[y,.105,.014,.151],[y+.016,.105,.014,.151]],trim,3,12);
  }
@@ -623,5 +657,7 @@ if(lab){
  }
  function pose(seconds,walking=true,travel){advance(seconds,walking,travel);applyPose();}
  function dispose(){owned.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());}
+ // Apply after shared anatomy corrections so neck, flesh, cloth, boots and gear are all gold.
+ if(id==='lab-gilded'){const gold=root.getObjectByName('Gold specimen vest').material;root.traverse(o=>{if(o.isMesh)o.material=gold;});}
  if(id==='hollow')root.scale.y=1.055;if(id==='lab-ghost'){root.scale.y=1.07;root.traverse(o=>{if(o.isMesh)o.castShadow=o.receiveShadow=false;});}if(id==='lab-seeker')root.scale.y=1.065;if(id==='lab-champion')root.scale.y=1.045;if(id==='lab-assistant')root.scale.y=.95;if(id==='lab-pathologist')root.scale.y=1.065;reset();return {root,head,torso,arms,legs,pose,advance,applyPose,reset,dispose,id,getMotion:()=>[previous,phase,blend],setMotion:state=>{[previous,phase,blend]=state;}};
 };
