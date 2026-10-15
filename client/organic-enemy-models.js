@@ -21,7 +21,7 @@ window.buildOrganicEnemy = (T,id) => {
   'lab-shield':{skin:'#9c9f8f',cloth:'#526469',pants:'#333f43',width:1.12,lean:.28,arm:[-.72,-.40],elbow:[-.95,-.24],head:[.18,-.09,.09]},
   'lab-bomber':{skin:'#a19b87',cloth:'#8c604a',pants:'#44423c',width:.95,lean:.46,arm:[-.58,-.85],elbow:[-.43,-.62],head:[.25,.10,-.14]},
   'lab-carrier':{skin:'#9a9d8a',cloth:'#868876',pants:'#414a41',width:1.2,lean:.40,arm:[-.34,-.51],elbow:[-.20,-.33],head:[.19,-.07,.12]},
-  'lab-hunter':{skin:'#a4afa7',cloth:'#483a43',pants:'#2f3438',width:.78,lean:.57,arm:[-.92,-1.12],elbow:[-.64,-.50],head:[.13,-.06,-.12]},
+  'lab-hunter':{skin:'#202025',cloth:'#111216',pants:'#17181d',width:.78,lean:.57,arm:[-.92,-1.12],elbow:[-.64,-.50],head:[.13,-.06,-.12]},
   'lab-armored':{skin:'#9c9e8b',cloth:'#4d5b5b',pants:'#363f3d',width:1.3,lean:.24,arm:[-.43,-.59],elbow:[-.29,-.35],head:[.20,.08,-.06]},
   'lab-artillery':{skin:'#9d9f8a',cloth:'#74735a',pants:'#41483d',width:1.06,lean:.29,arm:[-.36,-.70],elbow:[-.26,-.58],head:[.20,-.11,.10]},
   'lab-corehunter':{skin:'#9c9e85',cloth:'#97815a',pants:'#444639',width:1.43,lean:.40,arm:[-.96,-1.01],elbow:[-.50,-.55],head:[.15,.02,-.05]},
@@ -252,11 +252,26 @@ if(lab){
   loft(torso,'Harness bridge',[[.18,.28,.018,.129],[.20,.28,.018,.129]],strap,3,16);
  }
  if(id==='lab-hunter'){
-  const band=mat('Patient wrist band','#b5b6a3',.97);
-  loft(root,'Torn patient gown',[[.51,.31,.235],[.62,.32,.25],[.80,.28,.23],[.94,.235,.20]],cloth,2.2,32,.025);
+  const band=mat('Hunter crimson markings','#b51b2b',.84),darkRed=mat('Hunter dark red extremities','#741725',.88);
+  loft(root,'Torn patient gown',[[.51,.31,.235],[.62,.32,.25],[.80,.28,.23],[.94,.235,.20]],darkRed,2.2,32,.025);
   loft(torso,'Patient gown neckline',[[.405,.23,.18,-.025],[.45,.16,.135,-.008],[.47,.12,.12]],cloth,2.15,24);
   loft(elbows[1],'Patient wrist band',[[-.25,.072*wide,.085,.011],[-.23,.078*wide,.092,.011]],band,2.2,20);
   const sleeve=root.getObjectByName('Short sleeve_R');sleeve.parent.remove(sleeve);owned.delete(sleeve.geometry);sleeve.geometry.dispose();
+  root.getObjectByName('Short sleeve_L').material=band;
+  // Broad red surfaces carry the identity at a distance, on both sides of the body.
+  for(const side of [-1,1]){
+   loft(torso,'Hunter chest slash_'+side,[[.06,.045,.012,.095,side*.035],[.18,.055,.012,.102,side*.048],[.29,.060,.012,.073,side*.063],[.38,.055,.012,.043,side*.080]],band,3,16);
+   loft(torso,'Hunter back slash_'+side,[[.05,.040,.012,-.102,side*.030],[.18,.050,.012,-.111,side*.040],[.30,.060,.012,-.142,side*.055],[.39,.055,.012,-.158,side*.070]],band,3,16);
+  }
+  loft(head,'Hunter facial stripe',[[.187,.027,.010,.089],[.220,.030,.010,.086],[.255,.027,.010,.069],[.277,.022,.010,.047]],band,3,16);
+  loft(head,'Hunter rear skull stripe',[[.100,.027,.010,-.066],[.180,.030,.010,-.091],[.250,.027,.010,-.093],[.277,.022,.010,-.068]],band,3,16);
+  elbows.forEach((elbow,i)=>{
+   elbow.getObjectByName('Forearm anatomy_'+(i===0?'L':'R')).material=darkRed;
+   const hand=elbow.getObjectByName('Hand_'+(i===0?'L':'R'));hand.traverse(o=>{if(o.isMesh&&o.name.startsWith('Finger'))o.material=darkRed;});
+  });
+  legs.forEach((leg,i)=>loft(leg,'Hunter thigh marking_'+i,[[-.31,.055,.012,.081],[-.18,.065,.012,.098],[-.02,.060,.012,.106]],band,3,16));
+  shins.forEach((shin,i)=>loft(shin,'Hunter red shin_'+i,[[-.30,.042,.012,.058],[-.20,.052,.012,.063],[-.09,.060,.012,.069]],band,3,16));
+  feet.forEach(foot=>foot.material=pants);
  }
  if(id==='lab-armored'){
   const protection=mat('Worn protective textile','#69746e',.95),webbing=mat('Protective vest webbing','#3c4742',.98);
