@@ -539,6 +539,12 @@ function send(message) {
         const weapon=message.startsWith('SECONDARY_FIRE:')?getMe()?.secondaryWeapon:getMe()?.weapon;
         if(window.AimControl.supported(weapon,WEAPON_FIELDS))message+=':'+window.AimControl.sample(getMe(),performance.now(),WEAPON_FIELDS,weapon).elapsed.toFixed(6);
     }
+    if (/^(FIRE|SECONDARY_FIRE):/.test(message) && fpsInput && Number.isFinite(fpsInput.view.yaw)) {
+        const fields=message.split(':');
+        if(fields.length===5)fields.push(''); // No breathing clock for straight-firing guns.
+        fields.push(fpsInput.view.yaw.toFixed(9));
+        message=fields.join(':');
+    }
     const sequence = nextInputSequence++;
     socket.send(`INPUT:${sequence}:${message}`);
     pendingInputs.push({ sequence, kind: message.split(":", 1)[0] });

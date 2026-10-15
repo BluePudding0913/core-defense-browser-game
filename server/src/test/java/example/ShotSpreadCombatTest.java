@@ -15,6 +15,33 @@ class ShotSpreadCombatTest {
     void fire(double pitch){game.handleMessage(player,"FIRE:"+(player.x+200)+":"+player.y+":1:"+pitch);}
     List<JsonNode> rays()throws Exception{List<JsonNode> result=new ArrayList<>();for(String m:messages){var e=json.readTree(m);if(e.path("effect").asText().equals("hit")&&e.path("damage").asDouble()==0)result.add(e);}return result;}
     double slope(JsonNode e){double x=e.path("x").asDouble()-e.path("fromX").asDouble(),y=e.path("y").asDouble()-e.path("fromY").asDouble(),z=e.path("hitHeight").asDouble()-e.path("fromHeight").asDouble();return Math.hypot(y,z)/x;}
+    @Test void fpsPistolKeepsSightDirectionAcrossStaleTargetsMovementAndBothHands() throws Exception {
+        for(boolean secondary:new boolean[]{false,true}) {
+            equip("pistol");player.aimYaw=null;player.aimPitch=0.;
+            if(secondary){player.job="attacker";player.equipWeapon("rifle");player.equipSecondaryWeapon("pistol");player.secondaryCooldown=0;}
+            player.aimYaw=-.8;
+            String command=secondary?"SECONDARY_FIRE":"FIRE";
+            // Target coordinates point west; the current sight direction points east.
+            game.handleMessage(player,command+":"+(player.x-100)+":"+player.y+":1:0.2::"+(Math.PI/2));
+            for(int shot=0;shot<3;shot++) {
+                if(shot>0){player.x+=11;player.y+=30;player.cooldown=player.secondaryCooldown=0;messages.clear();
+                    if(secondary)game.combat.attackSecondary(player,player.secondaryAimX,player.secondaryAimY);
+                    else game.combat.attackAt(player,player.aimX,player.aimY);}
+                var ray=rays().get(0);double dx=ray.path("x").asDouble()-ray.path("fromX").asDouble();
+                assertTrue(dx>0);assertEquals(0,ray.path("y").asDouble()-ray.path("fromY").asDouble(),1e-8);
+                assertEquals(Math.tan(.2),(ray.path("hitHeight").asDouble()-ray.path("fromHeight").asDouble())/dx,.002);
+                if(secondary)assertEquals(-.8,player.aimYaw,"SUB must restore primary direction");
+            }
+            player.firing=player.secondaryFiring=false;
+        }
+    }
+    @Test void invalidFpsYawCannotStartFireOrConsumeAmmo() {
+        equip("smg");
+        for(String yaw:List.of("NaN","Infinity","-Infinity")) {
+            game.handleMessage(player,"FIRE:1220:1900:1:0::"+yaw);
+            assertFalse(player.firing);assertEquals(20,player.weapons.ammo("smg"));
+        }
+    }
     @Test void removedConesFollowAimEvenWhileMovingTurningAndJumping() throws Exception {
         for(String id:List.of("pistol","smg","revolver","lmg","freezeGun","laserCannon","ricochet"))
         for(double pitch:new double[]{0,.2,-.2}) {
