@@ -343,7 +343,7 @@ assert.equal(context.window.coreGraphicsSettings.getFov(), 95);
 assert.equal(field('#fov-value').textContent, '95°');
 assert.equal(saved.get('core-defense-fov'), '95');
 
-assert.match(root.innerHTML, /type="range" name="reticle-size"[^>]*value="20"/);
+assert.match(root.innerHTML, /type="range" name="reticle-size"[^>]*max="96"[^>]*value="20"/);
 handlers.input({ target: { name: 'reticle-color', value: '#ff9900' } });
 handlers.input({ target: { name: 'reticle-size', value: '20' } });
 assert.equal(context.window.coreReticleSettings.get().color,'#ff9900');
