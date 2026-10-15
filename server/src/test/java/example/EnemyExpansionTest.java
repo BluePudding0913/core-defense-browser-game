@@ -28,20 +28,40 @@ class EnemyExpansionTest {
         var m=GameSession.class.getDeclaredMethod("spawnEnemy",String.class,SpawnPoint.class);
         m.setAccessible(true);m.invoke(game,type,GameMap.SPAWN_POINTS.get(0));return game.enemies.get(game.enemies.size()-1);
     }
-    @Test void decadeMultiplierChangesExactlyAtEveryTensBoundary() {
-        for(int decade=1;decade<=5;decade++) {
-            assertEquals(1+(decade-1)*.2,EnemyTierRules.multiplier(decade*10-1),1e-9);
-            assertEquals(1+decade*.2,EnemyTierRules.multiplier(decade*10),1e-9);
-            assertEquals(1+decade*.2,EnemyTierRules.multiplier(decade*10+1),1e-9);
+    @Test void midRoundReliefAppliesOnlyFromTenThroughTwenty() {
+        for(int round=1;round<=50;round++) {
+            double tier = 1 + (round / 10) * .2;
+            assertEquals(tier * (round >= 10 && round <= 20 ? .9 : 1),
+                    EnemyTierRules.multiplier(round),1e-9,"Round " + round);
         }
     }
     @Test void spawnScalesHpAndDamageOnceAndKeepsSpeedAcrossDecade() throws Exception {
         game.round=9;Enemy before=spawn("grunt");
         assertEquals(224.5,before.maxHp);assertEquals(19,before.damage);
         game.round=10;Enemy after=spawn("grunt");
-        assertEquals(284.4,after.maxHp,1e-9);assertEquals(24,after.damage);
+        assertEquals(255.96,after.maxHp,1e-9);assertEquals(21.6,after.damage,1e-9);
         assertEquals((58+10*1.5)*.5*GameMap.SPAWN_POINTS.get(0).speedMultiplier(),after.speed,1e-9);
         assertEquals(0,EnemyWaveRules.bossCount(49));assertEquals(1,EnemyWaveRules.bossCount(50));
+    }
+    @Test void midRoundStrengthReachesNormalAndSummonedEnemiesAndSnapshots() throws Exception {
+        var spawn = GameSession.class.getDeclaredMethod("spawnEnemy",String.class,SpawnPoint.class,boolean.class);
+        spawn.setAccessible(true);
+        for(int round : new int[]{9,10,16,19,20,21}) for(boolean summoned : new boolean[]{false,true}) {
+            game.round=round;game.enemies.clear();game.roundHumanCount=4;
+            double strength = round==9 ? 1 : round<=19 ? 1.08 : round==20 ? 1.26 : 1.4;
+            spawn.invoke(game,"grunt",GameMap.SPAWN_POINTS.get(0),summoned);
+            spawn.invoke(game,"warden",GameMap.SPAWN_POINTS.get(0),summoned);
+            Enemy grunt=game.enemies.get(0),warden=game.enemies.get(1);
+            assertEquals((56+round*6.25)*2*strength,grunt.maxHp,1e-9);
+            assertEquals((10+round)*strength,grunt.damage,1e-9);
+            assertEquals(Math.round((1600+round*50)*13*strength/100)*100.,warden.maxHp,1e-9);
+            assertEquals((38+round*.6)*strength,warden.damage,1e-9);
+            assertEquals((140+round*3.5)*.5*GameMap.SPAWN_POINTS.get(0).speedMultiplier(),warden.speed,1e-9);
+            assertEquals(grunt.maxHp,grunt.hp);assertEquals(warden.maxHp,warden.hp);
+            var enemies=new ObjectMapper().readTree(SnapshotBuilder.build(game)).path("enemies");
+            assertEquals(Math.round(grunt.maxHp*10)/10.,enemies.get(0).path("maxHp").asDouble(),1e-9);
+            assertEquals(Math.round(warden.maxHp*10)/10.,enemies.get(1).path("maxHp").asDouble(),1e-9);
+        }
     }
     @Test void everyTurretDealsHalfDamageToAllExistingBossesAndZeroToFinalBoss() throws Exception {
         for(String turret:List.of("turret","copperTurret","silverTurret","overclockSilver")) {

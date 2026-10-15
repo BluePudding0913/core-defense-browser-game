@@ -109,8 +109,8 @@ class BomberEnemyTest {
         for (int i = 0; i < 200; i++) found |= "bomber".equals(invoke("selectEnemyType", new Class<?>[]{SpawnPoint.class}, spawn));
         assertTrue(found);
         invoke("spawnEnemy", new Class<?>[]{String.class, SpawnPoint.class}, "bomber", spawn);
-        assertEquals(252, game.enemies.get(0).maxHp);
-        assertEquals(102, game.enemies.get(0).damage);
+        assertEquals(226.8, game.enemies.get(0).maxHp, 1e-9);
+        assertEquals(91.8, game.enemies.get(0).damage, 1e-9);
     }
     @Test void debugDoesNotSpawnOrUnlockBombersBeforeRoundFifteen() throws Exception {
         invoke("startMatch", new Class<?>[]{Player.class, boolean.class}, player, true);

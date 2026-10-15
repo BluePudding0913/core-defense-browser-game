@@ -1,8 +1,11 @@
 package example;
 
-/** Extra decade pressure, applied once when any enemy is created. */
+/** Round strength, applied once when any enemy is created. */
 final class EnemyTierRules {
-    static double multiplier(int round) { return 1 + Math.max(0, round / 10) * .2; }
+    static double multiplier(int round) {
+        double tier = 1 + Math.max(0, round / 10) * .2;
+        return round >= 10 && round <= 20 ? tier * .9 : tier;
+    }
     static double hp(String type, double baseHp, int round) {
         double value = BossRules.spawnHp(type, baseHp * multiplier(round));
         if (type.equals("boss") && round == 4) value *= .5;
