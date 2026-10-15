@@ -129,6 +129,12 @@ final class CombatSystem {
     }
 
     private MapPoint assistedAim(Player player, String weapon, double x, double y, double aimX, double aimY) {
+        // FPS input carries sight direction independently of old rendered target coordinates.
+        // Anchor it to the current firing origin so movement between shots cannot rotate it.
+        if (player.human && player.aimPitch != null && player.aimYaw != null) {
+            aimX=x+Math.sin(player.aimYaw)*2400;
+            aimY=y-Math.cos(player.aimYaw)*2400;
+        }
         Enemy target = AutoAimRules.target(player.enchantments.getOrDefault(weapon, 0), x, y,
                 aimX, aimY, WeaponCatalog.stats(weapon).range(), world.enemies(),
                 enemy -> GameMap.hasClearLine(x, y, enemy.x, enemy.y, world.unlockedAreas()));
@@ -256,24 +262,25 @@ final class CombatSystem {
 
     // Run both hands through the same weapon rules; only hand state is swapped.
     private record HandState(String weapon, double cooldown, double cooldownMax, boolean firing, boolean hookPressHandled,
-            double aimX, double aimY, Double pitch, double charge, double remaining, double tick, double dx, double dy, Double beamPitch) {
+            double aimX, double aimY, Double pitch, Double yaw, double charge, double remaining, double tick, double dx, double dy, Double beamPitch) {
         static HandState primary(Player p) {
-            return new HandState(p.weapon, p.cooldown, p.cooldownMax, p.firing, p.hookPressHandled, p.aimX, p.aimY, p.aimPitch,
+            return new HandState(p.weapon, p.cooldown, p.cooldownMax, p.firing, p.hookPressHandled, p.aimX, p.aimY, p.aimPitch, p.aimYaw,
                     p.railgunCharge, p.railgunRemaining, p.railgunTick, p.railgunDx, p.railgunDy, p.railgunPitch);
         }
         static HandState secondary(Player p) {
             return new HandState(p.secondaryWeapon, p.secondaryCooldown, p.secondaryCooldownMax,
-                    p.secondaryFiring, p.secondaryHookPressHandled, p.secondaryAimX, p.secondaryAimY, p.secondaryAimPitch, p.secondaryRailgunCharge,
+                    p.secondaryFiring, p.secondaryHookPressHandled, p.secondaryAimX, p.secondaryAimY, p.secondaryAimPitch, p.secondaryAimYaw, p.secondaryRailgunCharge,
                     p.secondaryRailgunRemaining, p.secondaryRailgunTick, p.secondaryRailgunDx, p.secondaryRailgunDy, p.secondaryRailgunPitch);
         }
         void applyPrimary(Player p) {
             p.weapon = weapon; p.cooldown = cooldown; p.cooldownMax = cooldownMax; p.firing = firing; p.hookPressHandled = hookPressHandled;
-            p.aimX = aimX; p.aimY = aimY; p.aimPitch = pitch; p.railgunCharge = charge; p.railgunRemaining = remaining;
+            p.aimX = aimX; p.aimY = aimY; p.aimPitch = pitch; p.aimYaw = yaw; p.railgunCharge = charge; p.railgunRemaining = remaining;
             p.railgunTick = tick; p.railgunDx = dx; p.railgunDy = dy; p.railgunPitch = beamPitch;
         }
         void applySecondary(Player p) {
             p.secondaryWeapon = weapon; p.secondaryCooldown = cooldown; p.secondaryCooldownMax = cooldownMax;
             p.secondaryFiring = firing; p.secondaryHookPressHandled = hookPressHandled; p.secondaryAimX = aimX; p.secondaryAimY = aimY; p.secondaryAimPitch = pitch;
+            p.secondaryAimYaw = yaw;
             p.secondaryRailgunCharge = charge; p.secondaryRailgunRemaining = remaining;
             p.secondaryRailgunTick = tick; p.secondaryRailgunDx = dx; p.secondaryRailgunDy = dy; p.secondaryRailgunPitch = beamPitch;
         }

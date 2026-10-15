@@ -115,6 +115,7 @@ final class Player {
     boolean secondaryFiring;
     double secondaryAimX, secondaryAimY;
     Double secondaryAimPitch;
+    Double secondaryAimYaw;
     int hookTargetId = -1;
     boolean hookReeling, hookPressHandled, secondaryHookPressHandled;
     String gachaWeapon;
@@ -122,6 +123,7 @@ final class Player {
     double aimX;
     double aimY;
     Double aimPitch;
+    Double aimYaw;
     int wood;
     int ore;
     int copper, silver, medkits, copperTurretItems, silverTurretItems;
@@ -243,6 +245,7 @@ final class Player {
         secondaryAimX = source.secondaryAimX;
         secondaryAimY = source.secondaryAimY;
         secondaryAimPitch = source.secondaryAimPitch;
+        secondaryAimYaw = source.secondaryAimYaw;
         hookTargetId = source.hookTargetId;
         hookReeling = source.hookReeling;
         hookPressHandled = source.hookPressHandled;
@@ -252,6 +255,7 @@ final class Player {
         aimX = source.aimX;
         aimY = source.aimY;
         aimPitch = source.aimPitch;
+        aimYaw = source.aimYaw;
         wood = source.wood;
         ore = source.ore;
         copper = source.copper;

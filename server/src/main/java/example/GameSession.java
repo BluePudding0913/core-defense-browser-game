@@ -246,6 +246,7 @@ final class GameSession {
         player.human = false;
         player.sniper.stop();
         player.aimPitch = player.secondaryAimPitch = null;
+        player.aimYaw = player.secondaryAimYaw = null;
         releaseDroneControl(player);
         player.missileControl = false;
         player.breakerControl = null;
@@ -348,8 +349,8 @@ final class GameSession {
             case "SNIPER_CANCEL" -> player.sniper.cancelDeploy();
             case "DASH" -> handleDash(player, parts);
             case "ATTACK" -> combat.attackAt(player, player.aimX, player.aimY);
-            case "FIRE" -> handleFire(player, message.split(":", 6));
-            case "SECONDARY_FIRE" -> handleSecondaryFire(player, message.split(":", 6));
+            case "FIRE" -> handleFire(player, message.split(":", 7));
+            case "SECONDARY_FIRE" -> handleSecondaryFire(player, message.split(":", 7));
             case "INTERACT" -> { if (parts.length >= 2) interact(player, parts[1]); }
             case "WEAPON" -> { if (parts.length >= 2) switchWeapon(player, parts[1]); }
             case "SECONDARY_WEAPON" -> { if (parts.length >= 2) switchSecondaryWeapon(player, parts[1]); }
@@ -1048,7 +1049,7 @@ final class GameSession {
         player.aimControl.look(Double.parseDouble(parts[1]),Double.parseDouble(parts[2]),Double.parseDouble(parts[3]),player.weapon.equals("sniper") && player.sniper.fixed);
     }
     private boolean acceptAimTime(Player player,String[] parts,String weapon) {
-        if(parts.length<6||!AimControlRules.supported(weapon))return true;
+        if(parts.length<6||parts[5].isEmpty()||!AimControlRules.supported(weapon))return true;
         double time=Double.parseDouble(parts[5]);
         if(!player.aimControl.validTime(time))return false;
         player.aimControl.inputTime=time;return true;
@@ -1061,9 +1062,13 @@ final class GameSession {
         if (!Double.isFinite(x) || !Double.isFinite(y)) return;
         Double pitch = parts.length >= 5 ? Double.valueOf(parts[4]) : null;
         if (pitch != null && !FpsHitRules.validPitch(pitch)) return;
+        Double yaw = parts.length >= 7 ? Double.valueOf(parts[6]) : null;
+        if (yaw != null && (pitch == null || !Double.isFinite(yaw))) return;
+        if (yaw != null) { x=player.x+Math.sin(yaw)*2400; y=player.y-Math.cos(yaw)*2400; }
         if(!acceptAimTime(player,parts,player.secondaryWeapon))return;
         player.aimControl.look(x-player.x,y-player.y,pitch==null?0:pitch,player.weapon.equals("sniper") && player.sniper.fixed);
         player.secondaryAimPitch = pitch;
+        player.secondaryAimYaw = yaw;
         player.secondaryAimX = clamp(x, pitch == null ? 0 : -WORLD_W * 2, pitch == null ? WORLD_W : WORLD_W * 3);
         player.secondaryAimY = clamp(y, pitch == null ? 0 : -WORLD_H * 2, pitch == null ? WORLD_H : WORLD_H * 3);
         boolean begins = !player.secondaryFiring;
@@ -1083,7 +1088,10 @@ final class GameSession {
         }
         Double pitch = parts.length >= 5 ? Double.valueOf(parts[4]) : null;
         if (pitch != null && !FpsHitRules.validPitch(pitch)) return;
-        if (active && parts.length>=6 && player.weapon.equals("sniper") && player.sniper.fixed) {
+        Double yaw = parts.length >= 7 ? Double.valueOf(parts[6]) : null;
+        if (yaw != null && (pitch == null || !Double.isFinite(yaw))) return;
+        if (yaw != null) { x=player.x+Math.sin(yaw)*2400; y=player.y-Math.cos(yaw)*2400; }
+        if (active && parts.length>=6 && !parts[5].isEmpty() && player.weapon.equals("sniper") && player.sniper.fixed) {
             double time=Double.parseDouble(parts[5]);
             if (!player.sniper.validTime(time)) return;
             player.sniper.inputTime=time;
@@ -1093,6 +1101,7 @@ final class GameSession {
         }
         if(active && AimControlRules.supported(player.weapon) && !DroneRules.controlling(player))player.aimControl.look(x-player.x,y-player.y,pitch==null?0:pitch,player.weapon.equals("sniper") && player.sniper.fixed);
         player.aimPitch = pitch;
+        player.aimYaw = yaw;
         boolean beginsPress = active && !player.firing;
         player.aimX = clamp(x, pitch == null ? 0 : -WORLD_W * 2, pitch == null ? WORLD_W : WORLD_W * 3);
         player.aimY = clamp(y, pitch == null ? 0 : -WORLD_H * 2, pitch == null ? WORLD_H : WORLD_H * 3);
@@ -3861,6 +3870,7 @@ final class GameSession {
             player.aimX = player.x + 100;
             player.aimY = player.y;
             player.aimPitch = player.secondaryAimPitch = null;
+            player.aimYaw = player.secondaryAimYaw = null;
             player.stopRailgun();
             HookSystem.clear(player);
             player.hookPressHandled = false;
