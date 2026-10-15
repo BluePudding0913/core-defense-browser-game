@@ -8,25 +8,29 @@ window.coreKeySettings = (() => {
     const reserved = new Set(["w", "a", "s", "d", "e", "r", " ", ..."123456789"]);
     const valid = key => typeof key === "string"
         && (key.length === 1 || /^f([1-9]|1[0-2])$/.test(key)) && !reserved.has(key);
-    let sniperStance = "c";
-    let medkit = "h";
-    let jobEffect = "f";
-    let droneSelfDestruct = "g";
-    try {
-        const saved = localStorage.getItem(storageKey);
-        if (valid(saved)) medkit = saved;
-        const savedJob = localStorage.getItem(jobStorageKey);
-        if (valid(savedJob)) jobEffect = savedJob;
-        if (medkit === jobEffect) medkit = jobEffect === "h" ? "j" : "h";
-        const savedDrone = localStorage.getItem(droneStorageKey);
-        if (valid(savedDrone)) droneSelfDestruct = savedDrone;
-        if ([medkit, jobEffect].includes(droneSelfDestruct))
-            droneSelfDestruct = ["g", "j", "k"].find(key => ![medkit, jobEffect].includes(key));
-        const savedSniper=localStorage.getItem(sniperStorageKey);
-        if(valid(savedSniper))sniperStance=savedSniper;
-    } catch { /* Optional storage. */ }
-    if([medkit,jobEffect,droneSelfDestruct].includes(sniperStance))
-        sniperStance=["c","z","v","b"].find(key=>![medkit,jobEffect,droneSelfDestruct].includes(key));
+    const bindings = [
+        {storage: storageKey, fallback: ["c", "h", "j", "k"]},
+        {storage: jobStorageKey, fallback: ["f", "j", "k", "l"]},
+        {storage: droneStorageKey, fallback: ["g", "j", "k", "l"]},
+        {storage: sniperStorageKey, fallback: ["v", "z", "c", "b"]}
+    ];
+    const used = new Set();
+    for (const binding of bindings) {
+        try {
+            const saved = localStorage.getItem(binding.storage);
+            if (valid(saved) && !used.has(saved)) {
+                binding.value = saved;
+                used.add(saved);
+            }
+        } catch { /* Optional storage. */ }
+    }
+    for (const binding of bindings) {
+        if (!binding.value) {
+            binding.value = binding.fallback.find(key => !used.has(key));
+            used.add(binding.value);
+        }
+    }
+    let [medkit, jobEffect, droneSelfDestruct, sniperStance] = bindings.map(binding => binding.value);
     return {
         gameKey(event) {
             // Gameplay follows physical keys even while Windows IME is active.

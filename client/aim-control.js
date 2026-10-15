@@ -35,12 +35,15 @@ window.AimControl = (() => {
         const baseSlope=reset?base:previous.baseSlope+(base-previous.baseSlope)*(1-Math.exp(-(now-previous.at)/35));
         visuals.set(player.id,{penalty,baseSlope,at:now,elapsed:raw.elapsed,weapon,fixed:!!player?.sniper?.fixed});
         // Shotgun uses the full authoritative cone; other weapons retain their compact cue.
-        return {...raw,slope:baseSlope*penalty*(weapon==='shotgun'?1:.8),penalty};
+        return {...raw,slope:baseSlope*penalty*(weapon==='shotgun'?1:weapon==='sniper'?.64:.8),penalty};
     }
     function visible(player,view,definitions) {return (player?.weapon==='rifle' || player?.weapon==='sniper') && supported(player.weapon,definitions) && !!view.zoom;}
     const scopeFov=weapon=>weapon==='sniper'?16:weapon==='rifle'?32:26;
-    const viewFov=(weapon,view,scoped)=>weapon==='sniper' && Number.isFinite(view.sniperAds)
-        ? 72+(scopeFov(weapon)-72)*view.sniperAds : scoped?scopeFov(weapon):view.zoom?48:72;
+    const viewFov=(weapon,view,scoped)=>{
+        const base=window.coreGraphicsSettings?.getFov?.() ?? 72;
+        return weapon==='sniper' && Number.isFinite(view.sniperAds)
+            ? base+(scopeFov(weapon)-base)*view.sniperAds : scoped?scopeFov(weapon):view.zoom?48:base;
+    };
     const recoil={pistol:.009,smg:.003,rifle:.015,revolver:.023,lmg:.004,shotgun:.018,ricochet:.012,freezeGun:.009,sniper:.045};
     const recoilPitch=weapon=>recoil[weapon] || 0;
     return {supported,sync,sample,displaySample,visible,scopeFov,viewFov,recoilPitch};

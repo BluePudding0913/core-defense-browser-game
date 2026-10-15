@@ -3,7 +3,7 @@
 // One shape definition drives both the aiming overlay and all settings previews.
 window.coreReticleSettings = (() => {
     const storageKey = "core-defense-reticle";
-    const defaults = { color: "#e8f4f8", size: 20, shape: "plus" };
+    const defaults = { color: "#0088ff", size: 20, shape: "plus" };
     const normalize = value => ({
         color: /^#[0-9a-f]{6}$/i.test(value?.color) ? value.color.toLowerCase() : defaults.color,
         size: Number.isFinite(value?.size) ? Math.max(4, Math.min(32, Math.round(value.size))) : defaults.size,

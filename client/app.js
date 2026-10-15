@@ -69,18 +69,7 @@ const roundIntro = document.querySelector("#round-intro");
 const screenFade = document.querySelector("#screen-fade");
 const howToMenu = document.querySelector("#how-to-menu");
 const howToStart = document.querySelector("#how-to-start");
-document.querySelector("#inventory-settings").addEventListener("click", () => {
-    endInteractionHold(true);
-    keys.clear(); joystick = null; dashKey = false; setDash(false);
-    if (pendingMove) clearTimeout(pendingMove.timer);
-    pendingMove = null;
-    if (firingPointer) stopFiring(firingPointer.clientX, firingPointer.clientY);
-    sendMovement(true);
-    inventoryMenu.classList.add("hidden");
-    window.coreMenu?.openSettings(() => {
-        if (["preparing", "wave"].includes(state?.phase)) toggleInventory();
-    });
-});
+
 const howToInventory = document.querySelector("#how-to-inventory");
 const howToClose = document.querySelector("#how-to-close");
 const URL_PARAMETERS = new URLSearchParams(window.location.search);
@@ -354,6 +343,8 @@ function connect() {
         if (message.type === "purchase-complete") {
             window.coreAudio?.play("purchase", 0);
             if (message.closeMenu) closeActionMenu();
+            if (message.item === "sniper")
+                showNotice(`${window.coreKeySettings.getSniperStance().toUpperCase()} 長押しで伏せ固定`);
         }
         if (message.type === "ammo-refilled") {
             window.coreAudio?.play("refill", 0);
@@ -691,7 +682,7 @@ function updateRoomLobby(snapshot) {
     roomOwner.textContent = `作成者: ${owner?.name || "接続待ち"}`;
     const humans = snapshot.players.filter(player => player.human);
     roomMembers.innerHTML = humans.map(player => `<div class="room-member ${player.id === snapshot.roomOwnerId || player.ready ? "ready" : ""}">
-        <strong>${escapeHtml(player.name)}</strong>
+        <strong>${escapeHtml(player.name)} <small>${escapeHtml(JOBS[player.job]?.name || "Healer")}</small></strong>
         <span>${player.id === snapshot.roomOwnerId ? "host" : player.ready ? "準備完了" : "準備中"}</span>
     </div>`).join("");
     const me = snapshot.players.find(player => player.id === myPlayerId);
@@ -802,7 +793,6 @@ refreshRoomsButton.addEventListener("click", () => {
 });
 leaveRoomButton.addEventListener("click", leaveRoom);
 const exitDialog = document.querySelector("#exit-dialog");
-document.querySelector("#leave-game").addEventListener("click", openExitDialog);
 function openExitDialog() {
     if (exitDialog.open) return;
     fpsInput?.setActive(false,true);
@@ -816,9 +806,12 @@ function openExitDialog() {
     sendMovement();
     exitDialog.returnValue = "cancel";
     exitDialog.showModal();
+    closeInventory();
+    closeActionMenu();
 }
 exitDialog.addEventListener("close", () => {
     if (exitDialog.returnValue === "exit") leaveRoom();
+    else if (exitDialog.returnValue === "settings") window.coreMenu?.openSettings(openExitDialog);
 });
 
 let equipmentOrder = loadEquipmentOrder();
@@ -929,7 +922,8 @@ function useJobAbility() {
             || !state || !["preparing", "wave"].includes(state.phase)
             || !inventoryMenu.classList.contains("hidden") || !howToMenu.classList.contains("hidden")
             || !actionMenu.classList.contains("hidden")) return;
-    if (me.job === "drone" && !me.drone?.active) openDroneLaunch();
+    if (me.job === "tank") requestTankWall(worldFromScreen(aimPointer?.x ?? 0, aimPointer?.y ?? 0));
+    else if (me.job === "drone" && !me.drone?.active) openDroneLaunch();
     else if (me.job === "scout") requestScoutDash(worldFromScreen(aimPointer?.x ?? 0, aimPointer?.y ?? 0));
     else if (["drone", "healer", "spy", "tp"].includes(me.job)) send("JOB_ABILITY");
 }
@@ -984,8 +978,7 @@ interactButton.addEventListener("lostpointercapture", () => endInteractionHold(t
 interactButton.addEventListener("click", event => { if (event.detail === 0) toggleNearestInteraction(); });
 window.addEventListener("wheel", event => {
     if (!state || !["preparing", "wave"].includes(state.phase)) return;
-    if (!actionMenu.classList.contains("hidden") || !inventoryMenu.classList.contains("hidden")
-            || !howToMenu.classList.contains("hidden") || getMe()?.missileControl) return;
+    if (gameplayUiOpen()) return;
     event.preventDefault();
     cycleEquipment(event.deltaY > 0 ? 1 : -1);
 }, { passive: false });

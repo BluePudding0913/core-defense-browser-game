@@ -10,15 +10,15 @@ const context = vm.createContext({
     document: { querySelector(selector) { return selector === '#exit-dialog' ? dialog
         : { addEventListener(type, fn) { handlers[type] = fn; } }; } },
     gameplayUiOpen:()=>false, fpsInput: null, endInteractionHold() {}, endJobHold() {}, keys: new Set(['w']), joystick: {}, dashKey: true,
-    setDash() {}, pendingMove: null, firingPointer: null, secondaryHeld:false, sendMovement() {},
+    closeInventory() {}, closeActionMenu() {}, setDash() {}, pendingMove: null, firingPointer: null, secondaryHeld:false, sendMovement() {},
     leaveRoom() { exits++; }, window: { confirm() { throw Error('Blocking confirmation'); } },
-    performance: { now: () => 100 }, lastFrameAt: 0, updateLocalPrediction() {},
+    performance: { now: () => 100 }, lastFrameAt: 0, lastDrawAt: null, updateLocalPrediction() {},
     draw() { draws++; }, requestAnimationFrame() { frames++; },
 });
 vm.runInContext(source.slice(source.indexOf('const exitDialog ='), source.indexOf('let equipmentOrder =')), context);
 const start = source.indexOf('function animate(');
 vm.runInContext(source.slice(start, source.indexOf('\nfunction draw(', start)), context);
-handlers.click();
+vm.runInContext("openExitDialog()", context);
 assert(dialog.open);
 assert.equal(context.keys.size, 0);
 vm.runInContext('animate()', context);
@@ -28,7 +28,7 @@ handlers.close();
 assert.equal(exits, 0, 'cancel keeps the player in the room');
 dialog.returnValue = 'exit'; handlers.close();
 assert.equal(exits, 1);
-handlers.click(); handlers.close();
+vm.runInContext("openExitDialog()", context); handlers.close();
 assert.equal(exits, 1, 'reopening resets the previous exit choice');
 let keydown;
 vm.runInContext(fs.readFileSync('client/key-settings.js', 'utf8'), context);
@@ -53,9 +53,14 @@ assert(!dialog.open, 'Escape in the lobby does not open game confirmation');
 context.state = { phase: 'preparing' };
 keydown(esc);
 assert(dialog.open, 'Escape also works between rounds');
-assert.match(fs.readFileSync('client/index.html', 'utf8'), /id="leave-game"[^>]*>EXIT<\/button>/);
-assert.match(fs.readFileSync('client/index.html', 'utf8'), /class="inventory-footer"><button id="leave-game"/);
-assert.equal((fs.readFileSync('client/index.html', 'utf8').match(/id="leave-game"/g) || []).length, 1);
+assert.doesNotMatch(fs.readFileSync('client/index.html', 'utf8'), /id="(?:leave-game|inventory-settings)"/);
+assert.match(fs.readFileSync('client/index.html', 'utf8'), /value="settings">設定/);
+let settingsOpened = 0;
+context.window.coreMenu = {openSettings(onClose) { settingsOpened++; context.returnToPause = onClose; }};
+dialog.returnValue = 'settings'; handlers.close();
+assert.equal(settingsOpened, 1, 'pause menu opens settings');
+assert.equal(exits, 1, 'opening settings keeps the room');
+context.returnToPause(); assert(dialog.open, 'closing settings returns to pause menu');
 assert.match(fs.readFileSync('client/menu-ui.js', 'utf8'), /button\("leave", "戻る"\)/);
 console.log('Exit confirmation passed: drawing, cancel, exit, reopen, input reset, labels');
 

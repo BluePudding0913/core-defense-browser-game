@@ -11,7 +11,7 @@ function load(stored, blocked = false) {
     return { api: context.window.coreKeySettings, stored: () => stored };
 }
 const settings = load(null);
-assert.equal(settings.api.getMedkit(), 'h');
+assert.equal(settings.api.getMedkit(), 'c');
 assert(settings.api.setMedkit('Q'));
 assert.equal(load(settings.stored()).api.getMedkit(), 'q');
 for (const key of ['w', 'a', 's', 'd', 'e', 'r', '1', '9', 'Shift', 'Escape', 'ArrowUp', ' ', 'Tab']) {
@@ -19,7 +19,7 @@ for (const key of ['w', 'a', 's', 'd', 'e', 'r', '1', '9', 'Shift', 'Escape', 'A
     assert.equal(settings.api.getMedkit(), 'q');
 }
 for (const key of ['j', '0', ';', 'F2']) assert(settings.api.setMedkit(key));
-assert.equal(load('invalid').api.getMedkit(), 'h');
+assert.equal(load('invalid').api.getMedkit(), 'c');
 const blocked = load(null, true);
 assert(blocked.api.setMedkit('q'));
 assert.equal(blocked.api.getMedkit(), 'q');
@@ -45,7 +45,7 @@ assert.equal(persisted.window.coreKeySettings.setJobEffect('x'),false);
 vm.runInNewContext(source,persisted);
 assert.equal(persisted.window.coreKeySettings.getDroneSelfDestruct(),'x', 'self-destruct binding survives restart');
 
-assert.equal(load(null).api.getSniperStance(),'c');
+assert.equal(load(null).api.getSniperStance(),'v');
 assert.equal(settings.api.setSniperStance('w'),false);
 assert.equal(settings.api.setSniperStance(settings.api.getMedkit()),false);
 assert(settings.api.setSniperStance('v'));
@@ -55,7 +55,12 @@ assert.equal(settings.api.setMedkit('v'),false);
 savedKeys.set('core-defense-job-key','c');savedKeys.set('core-defense-sniper-stance-key','c');
 vm.runInNewContext(source,persisted);
 assert.equal(persisted.window.coreKeySettings.getJobEffect(),'c');
-assert.equal(persisted.window.coreKeySettings.getSniperStance(),'z','Old bindings take priority over prone default');
+assert.equal(persisted.window.coreKeySettings.getSniperStance(),'v','Old bindings take priority over prone default');
 assert(persisted.window.coreKeySettings.setSniperStance('b'));
 vm.runInNewContext(source,persisted);
 assert.equal(persisted.window.coreKeySettings.getSniperStance(),'b');
+
+const oldProne = {window:{},localStorage:{getItem:key=>key==='core-defense-sniper-stance-key'?'c':null}};
+vm.runInNewContext(source, oldProne);
+assert.equal(oldProne.window.coreKeySettings.getSniperStance(), 'c', 'saved prone key takes priority over new medkit default');
+assert.equal(oldProne.window.coreKeySettings.getMedkit(), 'h');

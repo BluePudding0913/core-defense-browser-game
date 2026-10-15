@@ -52,7 +52,7 @@ assert.equal(api.visible(null,{zoom:true},definitions),false);
 for(const weapon of weapons){const p={id:'period-'+weapon,weapon,aimControl:{elapsed:.5,turn:0,movement:0},sniper:{fixed:false,recovery:0}};const max=api.sample(p,0).slope;p.aimControl.elapsed=1.5;const min=api.sample(p,0).slope;assert(Math.abs(max/min-1.35/.65)<1e-9,weapon+' has 2-second breathing');}
 for(const weapon of weapons){
  const p={id:'all-compact-'+weapon,weapon,aimControl:{elapsed:.5,turn:0,movement:0},sniper:{fixed:false,recovery:0}};
- assert(Math.abs(api.displaySample(p,0).slope/api.sample(p,0).slope-(weapon==='shotgun'?1:.8))<1e-12,weapon+' uses its intended display scale');
+ assert(Math.abs(api.displaySample(p,0).slope/api.sample(p,0).slope-(weapon==='shotgun'?1:weapon==='sniper'?.64:.8))<1e-12,weapon+' uses its intended display scale');
 }
 
 // The authoritative shotgun slope projects to the breathing circle without a hidden shrink.
@@ -72,3 +72,12 @@ for(const elapsed of [0,.5,1.5])for(const movement of [0,1]) {
  }
 }
 console.log('Shotgun cone contract passed: full disk, compact fallback, breathing, movement and FOV projection');
+
+assert.equal(api.viewFov('pistol', {}, false), 72);
+c.window.coreGraphicsSettings = {getFov: () => 100};
+assert.equal(api.viewFov('pistol', {}, false), 100);
+assert.equal(api.viewFov('pistol', {zoom:true}, false), 48);
+assert.equal(api.viewFov('rifle', {zoom:true}, true), 32);
+assert.equal(api.viewFov('sniper', {sniperAds:0}, false), 100);
+assert.equal(api.viewFov('sniper', {sniperAds:.5}, true), 58);
+assert.equal(api.viewFov('sniper', {sniperAds:1}, true), 16);
