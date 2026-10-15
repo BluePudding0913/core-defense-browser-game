@@ -59,7 +59,8 @@ context.teleportUseButton = { classList: { toggle() {} } };
 context.roundElement = {};
 context.phaseElement = { classList: { add() {} } };
 context.phaseDetail = {};
-context.teamElement = {};
+let teamWrites=0,teamHtml='';
+context.teamElement = {get innerHTML(){return teamHtml;},set innerHTML(value){teamWrites++;teamHtml=value;}};
 context.selfVitals = { classList: { toggle() {} } };
 context.getMe = () => null;
 context.state = { round: 1, phase: 'preparing', prepTime: 60, players: [
@@ -78,16 +79,19 @@ assert.doesNotMatch(context.teamElement.innerHTML, /CPU[34]|Host/);
 console.log('CPU HUD names passed: server numbering and escaped player names');
 const self = {id:'me', job:'healer', hp:100, credits:25, weapon:'pistol', buildItems:{}, cooldown:0};
 context.getMe = () => self;
+let inventoryVisible=false,inventoryUpdates=0,cooldownWrites=0,cooldownHtml='';
 Object.assign(context, {
     JOBS: {healer: {name:'Healer'}}, selfJob: {}, selfCredits: {}, jobCooldownLabel: {}, weaponSilver: {},
     healthHeart: {style: {setProperty() {}}, classList:{toggle() {}}, setAttribute() {}},
     weaponName: {}, weaponAmmo: {}, weaponIcon: {}, weaponCooldown: {},
     weaponButton: {style:{setProperty() {}}, classList:{toggle() {}}},
     WeaponUI: require('../weapon-ui.js'), WEAPON_FIELDS: {pistol:{name:'PISTOL', capacity:0}},
-    BUILD_INFO: {}, ammoForWeapon: () => '∞', updateInventory() {}, updateAttackerLoadout() {}, updateSecondaryHud() {},
+    BUILD_INFO: {}, ammoForWeapon: () => '∞', updateInventory() {inventoryUpdates++;}, updateAttackerLoadout() {}, updateSecondaryHud() {},
+    inventoryMenu:{classList:{contains:()=>!inventoryVisible}},
     placementSelection: () => null, findNearestInteraction: () => null,
     interactLabel: {}, interactButton: {classList:{toggle() {}}}, clamp:(v,a,b)=>Math.max(a,Math.min(v,b)),
 });
+context.jobCooldownLabel={get innerHTML(){return cooldownHtml;},set innerHTML(value){cooldownWrites++;cooldownHtml=value;}};
 vm.runInContext('updateHud()', context);
 assert.equal(context.selfJob.textContent, 'Healer');
 assert.equal(context.selfCredits.textContent, '25G');
@@ -95,3 +99,13 @@ self.jobCooldown = 2.5;
 vm.runInContext('updateHud()', context);
 assert.match(context.jobCooldownLabel.innerHTML, /class="cooldown-orb"[^>]*>2.5<\/span>/);
 assert.doesNotMatch(context.jobCooldownLabel.innerHTML, />[^<]*s<\/span>/);
+const writes=[teamWrites,cooldownWrites];
+vm.runInContext('updateHud()',context);
+assert.deepEqual([teamWrites,cooldownWrites],writes,'Unchanged snapshots preserve HTML nodes');
+assert.equal(inventoryUpdates,0,'Closed inventory does no DOM work');
+context.state.players[1].hp=50;self.jobCooldown=1;
+vm.runInContext('updateHud()',context);
+assert.equal(teamWrites,writes[0]+1);assert.equal(cooldownWrites,writes[1]+1);
+assert.match(context.teamElement.innerHTML,/width:50%/);
+inventoryVisible=true;vm.runInContext('updateHud()',context);assert.equal(inventoryUpdates,1,'Open inventory receives updates');
+console.log('HUD update budget passed: stable nodes, changed health/cooldowns and deferred hidden inventory');

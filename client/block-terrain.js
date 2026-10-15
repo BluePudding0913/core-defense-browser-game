@@ -45,5 +45,32 @@ window.BlockTerrain = (() => {
         const terrain=compile(map);
         for(let r=0;r<map.rows.length;r++)for(let c=0;c<map.rows[r].length;c++)if(!map.legend[map.rows[r][c]].solid){const x=(c+.5)*map.tileSize,z=(r+.5)*map.tileSize;if(terrain.support(x,z)!==0||!Number.isFinite(terrain.ceiling(x,z))||terrain.ceiling(x,z)<40)fail();}
     }
-    return {compile,validate};
+    // Keep Three's exact triangle/material-side intersections, but visit only
+    // nearby static instances. Buckets include full bounds, not just centers.
+    function indexInstances(T,mesh,items,cellSize=160) {
+        if(!T.Ray || !mesh.getMatrixAt)return;
+        const buckets=new Map(),bounds=[];
+        items.forEach(([x,y,z,w,h,d],id)=>{
+            const box=new T.Box3(new T.Vector3(x-w/2,y-h/2,z-d/2),new T.Vector3(x+w/2,y+h/2,z+d/2));
+            box.expandByScalar(1e-7);bounds.push(box);
+            const key=Math.floor(x/cellSize)+':'+Math.floor(z/cellSize);
+            let bucket=buckets.get(key);
+            if(!bucket){bucket={box:new T.Box3(),ids:[]};buckets.set(key,bucket);}
+            bucket.box.union(box);bucket.ids.push(id);
+        });
+        const groups=[...buckets.values()],localRay=new T.Ray(),inverse=new T.Matrix4(),matrix=new T.Matrix4();
+        const candidate=new T.Mesh(mesh.geometry,mesh.material),hits=[];
+        mesh.raycast=function(raycaster,intersects){
+            inverse.copy(this.matrixWorld).invert();localRay.copy(raycaster.ray).applyMatrix4(inverse);
+            candidate.geometry=this.geometry;candidate.material=this.material;
+            for(const bucket of groups)if(localRay.intersectsBox(bucket.box))for(const id of bucket.ids){
+                if(id>=this.count || !localRay.intersectsBox(bounds[id]))continue;
+                this.getMatrixAt(id,matrix);candidate.matrixWorld.multiplyMatrices(this.matrixWorld,matrix);
+                candidate.raycast(raycaster,hits);
+                for(const hit of hits){hit.instanceId=id;hit.object=this;intersects.push(hit);}
+                hits.length=0;
+            }
+        };
+    }
+    return {compile,validate,indexInstances};
 })();

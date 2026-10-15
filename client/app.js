@@ -308,6 +308,7 @@ function connect() {
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const serverPort = URL_PARAMETERS.get("serverPort") || "8887";
     const parameters = new URLSearchParams({ session: clientSessionId });
+    parameters.set("rules", "once");
     const access = URL_PARAMETERS.get("access");
     if (access) parameters.set("access", access);
     if (connectionTarget.phrase) parameters.set("phrase", connectionTarget.phrase);
@@ -320,6 +321,7 @@ function connect() {
     creatingRoom = false;
     updateRoomButtons();
     const connectingSocket = socket;
+    let ruleDefinitions = null;
     let welcomed = false;
     clearTimeout(connectionAttemptTimer);
     connectionAttemptTimer = setTimeout(() => {
@@ -345,6 +347,8 @@ function connect() {
         if (socket !== connectingSocket) return;
         let message;
         try { message = JSON.parse(data); } catch { return; }
+        if (message.type === "rules") { ruleDefinitions = message.rules; return; }
+        if (message.type === "state" && ruleDefinitions) message.rules = { ...ruleDefinitions, ...message.rules };
         if (message.type === "error" || message.type === "feedback") window.coreMenu?.status(message.message);
         if (message.type === "purchase-complete") {
             window.coreAudio?.play("purchase", 0);
@@ -556,7 +560,8 @@ function acknowledgeInputs(value) {
 }
 
 function applyRules(next) {
-    if (next.rules) {
+    if (next.rules && (typeof state === "undefined" || next.rules.weapons !== state?.rules?.weapons
+            || next.rules.recipes !== state?.rules?.recipes)) {
         BUILD_INFO = { ...next.rules.recipes, teleporter: { name: "TP", shopOnly: true } };
         SHOP_UNITS.filter(shop => shop.item.endsWith("Factory")).forEach(shop => {
             BUILD_INFO[shop.item] = { name: shop.label, description: "持ち運べる製造装置", shopOnly: true };
@@ -1021,7 +1026,7 @@ function updateHud() {
         : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}`
             : "";
     const me = getMe();
-    teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
+    const teamHtml = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">
             <div class="teammate-label">
                 <span>${player.id === myPlayerId ? "YOU" : escapeHtml(player.name)}</span>
@@ -1030,6 +1035,7 @@ function updateHud() {
             <div class="hp-line"><span style="width:${100 * player.hp / (player.maxHp || 100)}%"></span></div>
             ${me?.job === "scout" ? window.JobUI.renderAllyIntel(player, AREAS, areaContains, STARTING_AREA) : ""}
         </div>`).join("");
+    if (teamElement.renderedHtml !== teamHtml) { teamElement.innerHTML = teamHtml; teamElement.renderedHtml = teamHtml; }
     selfVitals.classList.toggle("hidden", !me);
     if (me) {
         const health = clamp(100 * me.hp / (me.maxHp || 100), 0, 100);
@@ -1037,8 +1043,9 @@ function updateHud() {
         healthHeart.classList.toggle("full", health === 100);
         healthHeart.setAttribute("aria-label", `体力 ${Math.ceil(health)}%`);
         selfJob.textContent = JOBS[me.job]?.name || me.job;
-        jobCooldownLabel.innerHTML = WeaponUI.jobCooldowns(me).map(timer =>
+        const cooldownHtml = WeaponUI.jobCooldowns(me).map(timer =>
             `<span class="cooldown-orb" title="${timer.label}" aria-label="${timer.label} ${timer.seconds}秒">${timer.seconds}</span>`).join("");
+        if (jobCooldownLabel.renderedHtml !== cooldownHtml) { jobCooldownLabel.innerHTML = cooldownHtml; jobCooldownLabel.renderedHtml = cooldownHtml; }
         selfCredits.textContent = `${me.credits}G`;
         const selectedBuild = me.selectedBuild && (me.buildItems?.[me.selectedBuild] || 0) > 0
             ? me.selectedBuild : null;
@@ -1073,7 +1080,7 @@ function updateHud() {
         weaponButton.classList.toggle("silver-active", Boolean(silverLabel));
         updateSecondaryHud(me);
         updateAttackerLoadout(me);
-        updateInventory(me);
+        if (!inventoryMenu.classList.contains("hidden")) updateInventory(me);
         const placing = Boolean(placementSelection(me));
         const interaction = findNearestInteraction();
         interactLabel.textContent = placing ? "PLACE" : interaction?.kind === "teleporter"
@@ -1345,6 +1352,8 @@ function toggleInventory() {
     }
     closeActionMenu(false);
     inventoryMenu.classList.remove("hidden");
+    const me = getMe();
+    if (me) updateInventory(me);
     stopGameplayMovement();
     fpsInput?.setActive(false,true);
 }

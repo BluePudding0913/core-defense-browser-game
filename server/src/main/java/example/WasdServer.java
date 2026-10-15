@@ -37,6 +37,7 @@ public final class WasdServer extends WebSocketServer {
     private final Map<WebSocket, MessageBudget> messageBudgets = new ConcurrentHashMap<>();
     private final Map<String, GameRoom> rooms = new ConcurrentHashMap<>();
     private final Map<WebSocket, ConnectionAssignment> assignments = new ConcurrentHashMap<>();
+    private final Set<WebSocket> compactRuleConnections = ConcurrentHashMap.newKeySet();
     private final Set<WebSocket> directoryConnections = ConcurrentHashMap.newKeySet();
     private final Map<WebSocket, String> directorySessions = new ConcurrentHashMap<>();
     private final ScheduledExecutorService ticker = Executors.newSingleThreadScheduledExecutor(runnable -> {
@@ -119,6 +120,11 @@ public final class WasdServer extends WebSocketServer {
             }
             assigned = room.game.connectPlayer(sessionId);
             if (assigned != null) {
+                if ("once".equals(readQueryParameter(handshake.getResourceDescriptor(), "rules"))) {
+                    // Queue definitions before exposing this connection to the ticker.
+                    sendIfOpen(connection, SnapshotBuilder.definitionsMessage());
+                    compactRuleConnections.add(connection);
+                }
                 MatchReservation reservation = room.reservations.remove(sessionId);
                 if (reservation != null && reservation.expiresAt() >= System.nanoTime()) {
                     room.game.handleMessage(assigned, "HELLO:" + reservation.name());
@@ -183,6 +189,7 @@ public final class WasdServer extends WebSocketServer {
     @Override
     public void onClose(WebSocket connection, int code, String reason, boolean remote) {
         messageBudgets.remove(connection);
+        compactRuleConnections.remove(connection);
         if (directoryConnections.remove(connection)) {
             directorySessions.remove(connection);
             return;
@@ -286,13 +293,21 @@ public final class WasdServer extends WebSocketServer {
 
     private void sendSnapshot(GameRoom room) {
         if (room.playerConnections.isEmpty()) return;
-        String snapshot;
         synchronized (gameLock) {
-            snapshot = SnapshotBuilder.build(room.game, room.id, humanCount(room), PLAYER_COUNT);
-            snapshot = snapshot.substring(0, snapshot.length() - 1)
-                    + ",\"privateRoom\":" + (room.password != null) + "}";
+            String full = null, compact = null;
+            for (WebSocket connection : room.playerConnections.values()) {
+                boolean small = compactRuleConnections.contains(connection);
+                if (small && compact == null) compact = roomSnapshot(room, false);
+                if (!small && full == null) full = roomSnapshot(room, true);
+                sendIfOpen(connection, small ? compact : full);
+            }
         }
-        sendToRoom(room, snapshot);
+    }
+
+    private String roomSnapshot(GameRoom room, boolean includeDefinitions) {
+        String snapshot = SnapshotBuilder.build(room.game, room.id, humanCount(room), PLAYER_COUNT, includeDefinitions);
+        return snapshot.substring(0, snapshot.length() - 1)
+                + ",\"privateRoom\":" + (room.password != null) + "}";
     }
 
     private static void sendToRoom(GameRoom room, String message) {

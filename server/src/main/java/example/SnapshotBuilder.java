@@ -17,6 +17,10 @@ final class SnapshotBuilder {
     }
 
     static String build(GameSession game, String roomId, int humans, int capacity) {
+        return build(game, roomId, humans, capacity, true);
+    }
+
+    static String build(GameSession game, String roomId, int humans, int capacity, boolean includeDefinitions) {
         StringBuilder json = new StringBuilder(8192);
         json.append("{\"type\":\"state\",\"phase\":\"")
                 .append(game.phase.name().toLowerCase(Locale.ROOT));
@@ -71,7 +75,7 @@ final class SnapshotBuilder {
                 .append(",\"maxShield\":").append(roundOne(game.coreMaxShield));
         json.append(",\"defense\":").append(game.coreDefenseLevel)
                 .append(",\"regen\":").append(game.coreRegenLevel).append('}');
-        appendRules(json, game);
+        appendRules(json, game, includeDefinitions);
         appendAreas(json, game);
         appendPlayers(json, game);
         json.append(",\"decoys\":[");
@@ -154,8 +158,16 @@ final class SnapshotBuilder {
         json.append(']');
     }
 
-    private static void appendRules(StringBuilder json, GameSession game) {
-        json.append(",\"rules\":{\"weaponLimit\":").append(JobRules.weaponLimit(JobRules.DEFAULT)).append(",\"weapons\":{");
+    private static final class Definitions {
+        static final String JSON = buildDefinitions();
+        static final String MESSAGE = "{\"type\":\"rules\",\"rules\":" + JSON + "}";
+    }
+
+    static String definitionsMessage() { return Definitions.MESSAGE; }
+
+    private static String buildDefinitions() {
+        StringBuilder json = new StringBuilder(8192);
+        json.append("{\"weaponLimit\":").append(JobRules.weaponLimit(JobRules.DEFAULT)).append(",\"weapons\":{");
         boolean first = true;
         for (var definition : WeaponCatalog.ALL) {
             if (!first) json.append(',');
@@ -218,7 +230,14 @@ final class SnapshotBuilder {
             .append(",\"teamCost\":").append(UpgradeRules.TEAM_COST).append(",\"teamDuration\":").append(UpgradeRules.TEAM_DURATION)
             .append(",\"teamDamage\":").append(UpgradeRules.TEAM_DAMAGE).append(",\"teamDefense\":").append(UpgradeRules.TEAM_DEFENSE)
             .append("},\"shop\":{\"medkit\":").append(GameConfig.MEDKIT_PRICE).append(",\"ammo\":").append(ammo.cost())
-            .append("},\"medkitHeal\":").append(GameConfig.MEDKIT_HEAL).append(",\"medkitCapacity\":").append(GameConfig.MEDKIT_CAPACITY).append(",\"unlockCost\":").append(game.unlockCost())
+            .append("},\"medkitHeal\":").append(GameConfig.MEDKIT_HEAL).append(",\"medkitCapacity\":").append(GameConfig.MEDKIT_CAPACITY);
+        return json.append('}').toString();
+    }
+
+    private static void appendRules(StringBuilder json, GameSession game, boolean includeDefinitions) {
+        json.append(",\"rules\":{");
+        if (includeDefinitions) json.append(Definitions.JSON, 1, Definitions.JSON.length() - 1).append(',');
+        json.append("\"unlockCost\":").append(game.unlockCost())
             .append(",\"areaUnlockCosts\":{");
         for (int i = 0; i < GameMap.AREAS.size(); i++) {
             if (i > 0) json.append(',');

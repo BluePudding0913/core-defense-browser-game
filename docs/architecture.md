@@ -1,5 +1,9 @@
 # 機能変更に合わせた責務分離
 
+軽量化ではBlockTerrain.indexInstancesが描画地形の静的インスタンスを160単位の区画へ索引化し、Three.jsの厳密なMesh.raycastへ候補だけ渡す。未解放区画・表裏・高さ・near/farは描画地形と共通にし、照準と表示用遮蔽の結果キャッシュは混同しない。LabEnemyModelsは同じ親関節と材質を持つ固定・不透明な末端部品を結合し、元の名前付き形状を頭位置と照準レイ用に保持する。元モデルで大きさを決め、結合形状はタイプ単位で共有・解放する。動く末端を増やす時はbatchStaticPartsの除外とenemy-batching.cjsの姿勢・実頂点比較を確認する。固定部品はローカル行列更新と姿勢転写を省く。詳しい調査・比較条件は[performance-audit.md](performance-audit.md)を参照。
+
+SnapshotBuilderは固定定義をプロセス内で一度だけ構築し、WasdServerはrules=onceの接続に定義を先送りしてから動的状態を配信する。接続ごとに再送し、クライアントはソケットの寿命内だけ保持して動的ルールと合成する。旧接続は全量形式を維持し、混在時も形式ごとに最大1回生成する。CORE強化等の可変費用を固定定義へ移さない。EnemySpatialIndex.nearbyCandidatesは64体以下の全件確認を保ち、65体以上では近傍区画から元の一覧順で候補を返す。GameSessionの設備更新はその候補に既存の戦闘判定を適用し、状態・消費・通知を所有する。HUDは味方・能力欄の内容が変わった時だけHTMLを更新し、所持品は表示中または開く時に最新状態を反映する。
+
 CARRIERはorganic-enemy-models.jsで、肩より高く左右にも張り出す黄土色の布袋、絞り口・口紐・補強底・圧縮ベルト・側面ポケット・検体マークを胴体へ取り付ける。暗い作業服と太いハーネスで袋を強調し、既存の歩行・凍結・被弾色・共有・解放経路を利用する。能力・袋の命中判定・通信は変更しない。enemy-models.cjs、lab-enemy-models.cjs、lab3d-models.cjs、enemy-animation.cjsで形状と表示連携、previews/carrier.htmlで4方向の見た目を確認する。
 
 GILDEDの金色防護具・検体ケースとWARLORDの指揮官用装甲・背面旗はorganic-enemy-models.jsで既存関節へ取り付ける。状態・通信・戦闘・判定は変更せず、既存の共有アセット・歩行・凍結・被弾色・解放経路を利用する。形状・出力・表示連携は既存の敵モデル関連4テスト、見た目はpreviews/gilded-warlord.htmlで確認する。

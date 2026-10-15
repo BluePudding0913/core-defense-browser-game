@@ -28,6 +28,7 @@ function client(url) {
     });
     return {
         ws,
+        requeue(message) { messages.unshift(message); },
         opened: new Promise((resolve, reject) => {
             ws.addEventListener('open', resolve, { once: true });
             ws.addEventListener('error', reject, { once: true });
@@ -63,8 +64,10 @@ const deadline = setTimeout(() => {
     const created = await directory.next(m => m.type === 'room-created');
     assert(created.roomId);
     directory.ws.close();
-    const host = client(`${base}session=${session}&room=${created.roomId}`);
+    const host = client(`${base}session=${session}&room=${created.roomId}&rules=once`);
     await host.opened;
+    const definitions = await host.next(m => m.type === 'rules');
+    assert(definitions.rules.weapons.pistol);
     const map = await host.next(m => m.type === 'map');
     assert.equal(map.map.version, 5);
     const definition = JSON.parse(require('node:fs').readFileSync('shared/map.json', 'utf8'));
@@ -77,6 +80,8 @@ const deadline = setTimeout(() => {
     const lobby = await host.next(m => m.type === 'state' && m.phase === 'lobby'
         && m.players.some(p => p.id === welcome.playerId && p.ackInput >= 1));
     assert.equal(lobby.roomOwnerId, welcome.playerId);
+    assert(!lobby.rules.weapons, 'compact clients receive definitions once');
+    assert(lobby.rules.coreCosts, 'dynamic prices remain in every state');
     assert(lobby.allReady, 'the owner can start alone without a ready command');
     const guestSession = randomUUID();
     const listing = client(`${base}session=${guestSession}&directory=1`);
@@ -88,6 +93,7 @@ const deadline = setTimeout(() => {
     const guest = client(`${base}session=${guestSession}&room=${created.roomId}`);
     await guest.opened;
     await guest.next(m => m.type === 'welcome');
+    assert((await guest.next(m => m.type === 'state')).rules.weapons.pistol, 'legacy clients retain full states in mixed rooms');
     guest.ws.send('INPUT:1:HELLO:い');
     guest.ws.send('INPUT:2:ROOM_READY:1');
     await host.next(m => m.type === 'state' && m.allReady
@@ -106,8 +112,13 @@ const deadline = setTimeout(() => {
         return directory.peer.next(m => m.type === 'room-created' || m.type === 'error');
     }
     async function enter(directory, roomId, password = '', resume = false) {
-        const peer = client(`${base}session=${directory.session}&room=${roomId}&phrase=${encodeURIComponent(password)}${resume ? '&resume=1' : ''}`);
+        const peer = client(`${base}session=${directory.session}&room=${roomId}&rules=once&phrase=${encodeURIComponent(password)}${resume ? '&resume=1' : ''}`);
         await peer.opened;
+        // Reconnects and replacement tabs must get fresh definitions as well.
+        // Failed joins close without definitions and are checked by their callers.
+        const first = await peer.next(m => m.type === 'rules' || m.type === 'error');
+        if (first.type === 'rules') assert(first.rules.weapons.pistol);
+        else peer.requeue(first);
         return peer;
     }
     async function close(peer, leaving = true) {

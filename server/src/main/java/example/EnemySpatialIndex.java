@@ -148,6 +148,29 @@ final class EnemySpatialIndex extends AbstractList<Enemy> implements RandomAcces
 
     int orderOf(Enemy enemy) { return enemy.spatialEntry.order; }
 
+    /** Conservative range candidates in world-list order, shared by defense rules. */
+    List<Enemy> nearbyCandidates(double x, double y, double radius) {
+        if (size() < MIN_INDEXED_ENEMIES) return this;
+        ensureIndexed();
+        long version = ++queryVersion;
+        List<Enemy> found = new ArrayList<>();
+        int minX = cell(x - radius), maxX = cell(x + radius);
+        int minY = cell(y - radius), maxY = cell(y + radius);
+        for (int row = minY; row <= maxY; row++) for (int column = minX; column <= maxX; column++) {
+            Cell bucket = cells.get(key(column, row));
+            if (bucket == null) continue;
+            for (Membership membership : bucket.members) {
+                Entry entry = membership.entry;
+                if (entry.queryVersion != version) {
+                    entry.queryVersion = version;
+                    found.add(entry.enemy);
+                }
+            }
+        }
+        found.sort(java.util.Comparator.comparingInt(this::orderOf));
+        return found;
+    }
+
     private void ensureIndexed() {
         if (indexed) return;
         for (Entry entry : entries) { bounds(entry); attach(entry); }
