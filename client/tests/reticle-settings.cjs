@@ -9,7 +9,7 @@ function load(saved,blocked=false) {
  vm.runInNewContext(source,context);return {api:context.window.coreReticleSettings,styles,stored};
 }
 const initial=load(null);
-assert.deepEqual({...initial.api.get()},{color:'#e8f4f8',size:20,shape:'plus'},'Obsolete pointer preferences do not control the reticle');
+assert.deepEqual({...initial.api.get()},{color:'#0088ff',size:20,shape:'plus'},'Obsolete pointer preferences do not control the reticle');
 assert(!initial.styles.has('--game-pointer'),'Settings never create a mouse cursor');
 const strokes=[],dots=[];const ctx={save(){},restore(){},beginPath(){},moveTo(x,y){strokes.push([x,y]);},lineTo(x,y){strokes.push([x,y]);},stroke(){},arc(...p){dots.push(p);},fill(){}};
 initial.api.draw(ctx,400,300);
@@ -23,7 +23,7 @@ initial.api.update({shape:'dot',size:8});initial.api.draw(ctx,400,300);assert.eq
 const retired=load('{"shape":"dot","color":"#123456","size":16}');assert.deepEqual({...retired.api.get()},{shape:'plus',color:'#123456',size:16},'Retired circle preserves color and size');
 assert(!fs.readFileSync('client/menu-ui.js','utf8').includes('["dot", "○"]'),'Circle is absent from settings');
 const copy=initial.api.get();copy.size=32;assert.equal(initial.api.get().size,8);
-for(const value of ['{broken','null','{"color":"url(bad)","size":"32","shape":"bad"}'])assert.deepEqual({...load(value).api.get()},{color:'#e8f4f8',size:20,shape:'plus'});
+for(const value of ['{broken','null','{"color":"url(bad)","size":"32","shape":"bad"}'])assert.deepEqual({...load(value).api.get()},{color:'#0088ff',size:20,shape:'plus'});
 initial.api.update({size:100});assert.equal(initial.api.get().size,32);
 initial.api.update({size:-1});assert.equal(initial.api.get().size,4);
 initial.api.update({size:NaN,shape:'bad'});assert.equal(initial.api.get().size,20);assert.equal(initial.api.get().shape,'plus');

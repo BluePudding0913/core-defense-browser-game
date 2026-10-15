@@ -33,7 +33,7 @@ const {pathToFileURL} = require('node:url');
         await key.click(); await key.press('j');
         assert.equal(await key.inputValue(), 'J');
         assert.equal(await page.evaluate(() => localStorage.getItem('core-defense-job-key')), 'j');
-        await key.press('h');
+        await key.press('c');
         assert.equal(await key.inputValue(), 'J', 'reserved medkit assignment is rejected');
         await page.reload();
         await page.getByRole('button', {name:'設定',exact:true}).click();

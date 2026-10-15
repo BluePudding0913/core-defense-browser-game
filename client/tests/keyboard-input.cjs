@@ -163,6 +163,18 @@ assert.equal(commands.length,scoutCount,'settings, typing, exit dialog and lobby
 scout.scoutDashRemaining=.2;key('keydown',{code:'KeyJ'});
 assert.equal(commands.length,scoutCount+1,'another press can restart an active dash');
 console.log('Scout keyboard passed: F, remapping, IME, aim, repeat, active dash and gameplay/UI restrictions');
+// Tank uses the same configurable job key and authoritative wall request.
+vm.runInContext(extractFunction('requestTankWall'), context);
+context.getMe = () => ({job:'tank',jobCooldown:0});
+commands.length=0;
+assert(context.window.coreKeySettings.setJobEffect('f'));
+key('keydown',{code:'KeyF'});
+key('keydown',{code:'KeyF',repeat:true});
+assert.deepEqual(commands,['TANK_WALL:320.0:240.0']);
+context.getMe = () => ({job:'tank',jobCooldown:1});
+key('keydown',{code:'KeyF'});
+assert.equal(commands.length,1,'Tank cooldown blocks repeated walls');
+context.getMe = () => scout;
 let inventoryOpen=false;
 let inventoryRefreshes=0;
 context.updateInventory=me=>{assert.deepEqual(me,context.getMe());inventoryRefreshes++;};
@@ -182,3 +194,20 @@ key('keydown',{code:'KeyR',repeat:true});assert(inventoryOpen,'Repeated R does n
 key('keydown',{code:'KeyR'});assert(!inventoryOpen,'R closes the inventory before gameplay input is blocked');
 let interactions=0;context.beginInteractionHold=()=>interactions++;
 key('keyup',{code:'KeyR'});assert.equal(interactions,0,'Closing the inventory does not start a facility interaction');
+
+// Wheel remains native in settings and pause UI, and cycles equipment only during gameplay.
+let cycled = 0, prevented = 0;
+context.cycleEquipment = direction => {cycled += direction;};
+const wheelStart = source.indexOf('window.addEventListener("wheel",');
+vm.runInContext(source.slice(wheelStart, source.indexOf('actionClose.addEventListener', wheelStart)), context);
+context.state.phase = 'wave';
+context.window.coreMenu.settingsOpen = () => true;
+handlers.wheel({deltaY:1, preventDefault(){prevented++;}});
+assert.equal(prevented, 0); assert.equal(cycled, 0);
+context.window.coreMenu.settingsOpen = () => false;
+context.exitDialog.open = true;
+handlers.wheel({deltaY:1, preventDefault(){prevented++;}});
+assert.equal(prevented, 0);
+context.exitDialog.open = false;
+handlers.wheel({deltaY:1, preventDefault(){prevented++;}});
+assert.equal(prevented, 1); assert.equal(cycled, 1);
