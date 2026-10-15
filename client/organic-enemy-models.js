@@ -281,6 +281,22 @@ if(lab){
   loft(arms[0],'Seeker long sleeve',[[-.305,.11*wide,.13,.008],[-.24,.12*wide,.15,.01],[-.15,.15*wide,.175,-.005],[-.06,.175*wide,.19,-.008],[.018,.155*wide,.175],[.065,.10*wide,.13]],cloth,2.1,24);
   loft(torso,'Tracking instrument',[[.23,.065,.025,.134,-.075],[.30,.065,.025,.13,-.075]],equipment,3,20);
   loft(torso,'Instrument strap',[[.18,.02,.014,.12,-.08],[.39,.02,.014,.07,-.10],[.46,.02,.014,.025,-.07]],equipment,2,12);
+  const casing=mat('Guided launcher casing','#555e59',.86),bore=mat('Guided launcher bore','#252a28',.98),red=mat('Tracking sensor red','#bd4b46',.73);
+  // A forward-facing shoulder tube stays on the torso as the arms and head move.
+  loft(torso,'Seeker launcher saddle',[[.31,.12,.19,-.035,.22],[.40,.15,.22,-.035,.22],[.45,.13,.20,-.035,.22]],equipment,3,20);
+  const launcher=joint(torso,'Seeker guided launcher',.24,.46,-.05);launcher.rotation.x=Math.PI/2;
+  coatShell(launcher,'Guided launcher tube',[[-.26,.14,.14],[-.22,.18,.18],[.27,.18,.18],[.34,.16,.16]],0,casing);
+  coatShell(launcher,'Guided launcher muzzle',[ [.30,.19,.19],[.35,.19,.19] ],0,equipment);
+  loft(launcher,'Guided launcher rear breech',[[-.25,.13,.13],[-.23,.13,.13]],bore,2,20);
+  loft(launcher,'Guidance sensor housing',[[.19,.07,.075,0,-.12],[.32,.07,.075,0,-.12]],equipment,2.8,16);
+  loft(launcher,'Red tracking lens',[[.322,.048,.05,0,-.12],[.327,.048,.05,0,-.12]],red,2,20);
+  for(const y of [-.17,.13])coatShell(launcher,'Launcher retention band_'+y,[[y,.19,.19],[y+.025,.19,.19]],0,equipment);
+  loft(torso,'Seeker ammunition case',[[.025,.25,.14,-.20],[.065,.29,.16,-.20],[.30,.29,.16,-.20],[.34,.25,.14,-.20]],casing,3,20);
+  for(const x of [-.075,.075]){
+   loft(torso,'Guided reload pod_'+x,[[.08,.085,.09,-.30,x],[.12,.10,.11,-.30,x],[.33,.10,.11,-.30,x],[.38,.06,.07,-.30,x]],equipment,2,20);
+   loft(torso,'Reload identification band_'+x,[[.27,.103,.113,-.30,x],[.29,.103,.113,-.30,x]],red,2,16);
+  }
+  loft(torso,'Launcher shoulder harness',[[.02,.04,.025,.12,.11],[.29,.04,.025,.13,.13],[.43,.05,.03,.06,.18],[.46,.05,.035,-.04,.18]],equipment,2.5,16);
  }
  if(id==='lab-blackout'){
   const equipment=mat('Electrical insulation','#333e37',.97),caseMat=mat('Power case','#6c7662',.9),ceramic=mat('Breaker ceramic','#aaad96',.94);

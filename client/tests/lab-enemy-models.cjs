@@ -14,7 +14,7 @@ try{
 }finally{T.ColorManagement.legacyMode=legacy;}
 assert.equal(pool.create('ghost',21),null);
 const boss=pool.create('boss',42);assert(boss.rig.getObjectByName('Broken chest plate'));assert(boss.rig.getObjectByName('Breach collar'));assert(boss.rig.getObjectByName('Heavy wrist shackle_1'));let bossMeshes=0,bossTriangles=0;boss.rig.traverse(o=>{if(o.isMesh){bossMeshes++;bossTriangles+=(o.geometry.index?.count || o.geometry.attributes.position.count)/3;}});assert(bossMeshes<100 && bossTriangles<35000,'Boss stays within bounded mesh/triangle budget');boss.dispose();
-for(const [type,detail] of [['tiny','Broken wrist restraint'],['gilded','Gold specimen canister_-1'],['blueAce','Blue response helmet']]) {
+for(const [type,detail] of [['seeker','Seeker guided launcher'],['tiny','Broken wrist restraint'],['gilded','Gold specimen canister_-1'],['blueAce','Blue response helmet']]) {
  const actor=pool.create(type,type==='tiny'?10:21);assert(actor.rig.getObjectByName(detail),'New role has its own equipment: '+type);assert(actor.rig.getObjectByName('Anatomical head'));actor.dispose();
 }
 for(const type of ['boss','grunt','runner','brute','poisoner','shield','bomber','carrier','hunter','armored','artillery','coreHunter','seeker','blackout','siege','champion','warden','tiny','gilded','blueAce']){

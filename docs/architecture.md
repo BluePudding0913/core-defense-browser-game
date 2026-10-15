@@ -471,3 +471,5 @@ SIEGE / CHAMPION / WARDENにはlab-siege / lab-champion / lab-wardenを割り当
 プラズマブレードはLab3Dで直線ビーム・銃反動を出さず、共有の手・柄追従モーションで予備動作・斬撃・復帰を描く。HUDとインベントリは同じSVGアイコンを使う。毒ガスは右手の掌と指で瓶を握り、220msで手を離れて580msの放物線演出を行う。PoisonGasRulesが投擲開始から800msの待機を管理し、待機中はSnapshotBuilderに効果エリアを出さず、着地から従来の6秒間のダメージを開始する。瓶自体の衝突・当たり判定は追加しない。リパルサーは1波90粒子、所有者ごと1波、全体最大4波とし、アンテナを除く。LASER CANNONの共有武器モデルは青系を使う。
 
 画面酔い対策の白い枠は`client/comfort-frame.js`が初期オフ・端末内保存を管理し、`menu-ui.js`の設定から切り替える。`comfort-frame.css`の固定枠をHUD内に置き、カメラ移動・反動・倍率とは独立して画面の8%・24%内側へ二重に表示する。枠のz-indexは0とし、他のHUDより奥へ配置する。枠は入力を遮らず、メニュー・ロビーでは非表示。`client/previews/comfort-frame.html`は共通CSSでオン・オフと視点移動を比較し、プレビューの操作は保存設定を変更しない。`node client/tests/comfort-frame.cjs`で保存と失敗時の動作を検証し、`client/previews/capture-comfort-frame.cjs`でブラウザー表示・設定連携と画像を確認する。
+
+SEEKERの誘導弾用武装はorganic-enemy-models.jsのlab-seekerに置く。右肩の前向きランチャー・赤い照準レンズ・背面予備弾ケースをTorsoへ取り付け、首振りと腕振りから分離する。共有素材・個体別姿勢・凍結・被弾・解放は既存経路を使う。敵弾の発射・追尾・判定と通信には変更を加えない。
