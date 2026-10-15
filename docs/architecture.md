@@ -1,5 +1,7 @@
 # 機能変更に合わせた責務分離
 
+HUNTERとCORE HUNTERはorganic-enemy-models.js内の共通形状・装飾経路を使い、赤／金のパレットで識別する。モデル形状と休止姿勢の一致、色とリソースの独立性はlab-enemy-models.cjsで検証する。CORE HUNTERの旧ベスト・大型手袋は廃止し、ゲーム半径・攻撃・標的・種類別歩行周期は維持する。
+
 敵の接近警告は`client/proximity-warning.js`が担当する。生存敵の中心間水平距離200以内（5マス）から、現在の水平視野外にいる最寄りの敵1体を選ぶ。Lab3Dと共通のAimControl.viewFovから画面比率に合わせた水平視野を求め、正面の視界内は通知しない。描画と同じ補間済み敵座標・予測視点を使い、境界から約4.6度の間で発光を強める。近いほど強い赤い方向アークを左右・背後に表示し、背後は画面下へ対応する。GHOSTは隠密表示を保つため除外。壁・高さの遮蔽判定は追加しない。app.jsはFPSの準備・戦闘中だけ、停電暗幕とスコープ枠より手前へCSSピクセルで描画する。メニュー・ダウン・ドローン操作と破壊直後の遠隔視点では隠す。動きを減らす設定では明滅を止め、戦闘・通信・保存設定は変更しない。`previews/proximity.html`のB案も同じ判定と描画を使う。A案・C案は比較用に維持する。`node client/tests/proximity-warning.cjs`で5マス境界・視野・ズーム・複数敵・方向・補間・DPI・FPS表示条件・停電を確認し、reticle-settings.cjs、blackout-overlay.cjs、fpsui.cjsで既存HUDを確認する。
 
 軽量化ではBlockTerrain.indexInstancesが描画地形の静的インスタンスを160単位の区画へ索引化し、Three.jsの厳密なMesh.raycastへ候補だけ渡す。未解放区画・表裏・高さ・near/farは描画地形と共通にし、照準と表示用遮蔽の結果キャッシュは混同しない。LabEnemyModelsは同じ親関節と材質を持つ固定・不透明な末端部品を結合し、元の名前付き形状を頭位置と照準レイ用に保持する。元モデルで大きさを決め、結合形状はタイプ単位で共有・解放する。動く末端を増やす時はbatchStaticPartsの除外とenemy-batching.cjsの姿勢・実頂点比較を確認する。固定部品はローカル行列更新と姿勢転写を省く。詳しい調査・比較条件は[performance-audit.md](performance-audit.md)を参照。
