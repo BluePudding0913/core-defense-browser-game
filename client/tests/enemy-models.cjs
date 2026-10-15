@@ -23,6 +23,14 @@ for(const {id}of context.window.EnemyModels.variants){
    assert.equal(new T.Raycaster(origin,direction).intersectObject(tube,true)[0]?.object.name,'Elite bore floor_'+side,'Both elite muzzles are hollow');
   }
  }
+ if(id==='lab-seeker'){
+  const launcher=m.root.getObjectByName('Seeker guided launcher');
+  assert.equal(launcher.parent,m.torso,'Launcher follows the torso independently of scanning head and swinging arms');
+  assert(m.root.getObjectByName('Red tracking lens')&&m.root.getObjectByName('Seeker ammunition case'));
+  const origin=launcher.localToWorld(new T.Vector3(0,.6,0)),direction=new T.Vector3(0,-1,0).transformDirection(launcher.matrixWorld);
+  assert.equal(new T.Raycaster(origin,direction).intersectObject(launcher,true)[0]?.object.name,'Guided launcher rear breech','Guided launcher has a recessed open muzzle');
+  const forward=new T.Vector3(0,1,0).transformDirection(launcher.matrixWorld);assert(forward.z>.9,'Guided launcher aims forward rather than upward');
+ }
  if(id==='lab-artillery'){
   const tube=m.root.getObjectByName('Shoulder launcher');m.root.updateMatrixWorld(true);
   const origin=tube.localToWorld(new T.Vector3(0,1,0)),direction=new T.Vector3(0,-1,0).transformDirection(tube.matrixWorld);

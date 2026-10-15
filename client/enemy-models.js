@@ -21,7 +21,7 @@ window.EnemyModels = (() => {
     {id:'lab-armored', name:'ARMORED', label:'防護警備員', color:'#69746e'},
     {id:'lab-artillery', name:'ARTILLERY', label:'射出装置の作業員', color:'#74735a'},
     {id:'lab-corehunter', name:'CORE HUNTER', label:'コア回収員', color:'#97815a'},
-    {id:'lab-seeker', name:'SEEKER', label:'追跡検査員', color:'#8b7777'},
+    {id:'lab-seeker', name:'SEEKER', label:'誘導弾ランチャーの追跡検査員', color:'#8b7777'},
     {id:'lab-blackout', name:'BLACKOUT', label:'感染した電気技師', color:'#425f59'},
     {id:'lab-siege', name:'SIEGE', label:'大型の破砕作業員', color:'#80745b'},
     {id:'lab-champion', name:'CHAMPION', label:'感染した警備主任', color:'#4a4652'},
