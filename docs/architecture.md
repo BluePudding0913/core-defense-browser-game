@@ -1,5 +1,7 @@
 # 機能変更に合わせた責務分離
 
+敵の接近エフェクトは採用前の比較用として`client/previews/proximity.html`へ配置する。既存Lab3Dの地形・照明・敵・FPS武器を使い、画面端発光・方向アーク・照準周辺リング・なしを同じ距離と方向で切り替える。`previews/proximity-effects.js`は生存敵の中心間水平距離120未満（3マス）から最寄りの敵を選び、視線相対方向と距離による強さを描画へ渡す。GHOSTは隠密表示を維持して除外する。この試作は壁・高さを判定しない。接近再生・停電切替・距離と方向の調整はプレビュー内だけに保持し、ゲーム本体・保存設定・戦闘・通信へはまだ接続しない。動きを減らす設定では警告の明滅を止める。`node client/tests/proximity-effects.cjs`で境界・死亡・GHOST・方向・最寄り・強さを確認し、ブラウザーで表示と操作を確認する。`client/previews/capture-proximity.cjs`はPlaywrightとChromiumを用意した環境で画像保存と操作確認を行う。
+
 軽量化ではBlockTerrain.indexInstancesが描画地形の静的インスタンスを160単位の区画へ索引化し、Three.jsの厳密なMesh.raycastへ候補だけ渡す。未解放区画・表裏・高さ・near/farは描画地形と共通にし、照準と表示用遮蔽の結果キャッシュは混同しない。LabEnemyModelsは同じ親関節と材質を持つ固定・不透明な末端部品を結合し、元の名前付き形状を頭位置と照準レイ用に保持する。元モデルで大きさを決め、結合形状はタイプ単位で共有・解放する。動く末端を増やす時はbatchStaticPartsの除外とenemy-batching.cjsの姿勢・実頂点比較を確認する。固定部品はローカル行列更新と姿勢転写を省く。詳しい調査・比較条件は[performance-audit.md](performance-audit.md)を参照。
 
 SnapshotBuilderは固定定義をプロセス内で一度だけ構築し、WasdServerはrules=onceの接続に定義を先送りしてから動的状態を配信する。接続ごとに再送し、クライアントはソケットの寿命内だけ保持して動的ルールと合成する。旧接続は全量形式を維持し、混在時も形式ごとに最大1回生成する。CORE強化等の可変費用を固定定義へ移さない。EnemySpatialIndex.nearbyCandidatesは64体以下の全件確認を保ち、65体以上では近傍区画から元の一覧順で候補を返す。GameSessionの設備更新はその候補に既存の戦闘判定を適用し、状態・消費・通知を所有する。HUDは味方・能力欄の内容が変わった時だけHTMLを更新し、所持品は表示中または開く時に最新状態を反映する。
