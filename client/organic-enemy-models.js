@@ -21,7 +21,7 @@ window.buildOrganicEnemy = (T,id) => {
   'lab-shield':{skin:'#9c9f8f',cloth:'#526469',pants:'#333f43',width:1.12,lean:.28,arm:[-.72,-.40],elbow:[-.95,-.24],head:[.18,-.09,.09]},
   'lab-bomber':{skin:'#a19b87',cloth:'#8c604a',pants:'#44423c',width:.95,lean:.46,arm:[-.58,-.85],elbow:[-.43,-.62],head:[.25,.10,-.14]},
   'lab-carrier':{skin:'#9a9d8a',cloth:'#868876',pants:'#414a41',width:1.2,lean:.40,arm:[-.34,-.51],elbow:[-.20,-.33],head:[.19,-.07,.12]},
-  'lab-hunter':{skin:'#a0a28f',cloth:'#8b9290',pants:'#424b48',width:.78,lean:.57,arm:[-.92,-1.12],elbow:[-.64,-.50],head:[.13,-.06,-.12]},
+  'lab-hunter':{skin:'#a4afa7',cloth:'#483a43',pants:'#2f3438',width:.78,lean:.57,arm:[-.92,-1.12],elbow:[-.64,-.50],head:[.13,-.06,-.12]},
   'lab-armored':{skin:'#9c9e8b',cloth:'#4d5b5b',pants:'#363f3d',width:1.3,lean:.24,arm:[-.43,-.59],elbow:[-.29,-.35],head:[.20,.08,-.06]},
   'lab-artillery':{skin:'#9d9f8a',cloth:'#74735a',pants:'#41483d',width:1.06,lean:.29,arm:[-.36,-.70],elbow:[-.26,-.58],head:[.20,-.11,.10]},
   'lab-corehunter':{skin:'#9c9e85',cloth:'#97815a',pants:'#444639',width:1.43,lean:.40,arm:[-.96,-1.01],elbow:[-.50,-.55],head:[.15,.02,-.05]},
@@ -57,12 +57,14 @@ window.buildOrganicEnemy = (T,id) => {
  const head=joint(torso,'Head',0,.475,.01);
  loft(head,'Neck',[[-.055,.12*wide,.12],[.015,.11*wide,.12,.01],[.07,.105*wide,.12,.01]],skin);
  loft(head,'Anatomical head',[[.045,.090,.10,.035],[.062,.125,.13,.032],[.09,.137,.152,.021],[.13,.157,.168,.012],[.17,.156,.178],[.21,.157,.18,-.005],[.255,.144,.164,-.012],[.28,.107,.124,-.016],[.29,.045,.06,-.016]],skin,2.25);
- // Narrow sunken sockets, a structural brow and nose; no visor or emissive eyes.
+ // Hunter's enlarged red eyes remain readable under subdued game lighting.
+ if(id==='lab-hunter'){eye.name='Hunter red eyes';eye.color.set('#ff242c');eye.emissive.set('#ff1018');if(T.ColorManagement?.legacyMode!==false){eye.color.convertSRGBToLinear();eye.emissive.convertSRGBToLinear();}eye.emissiveIntensity=2.4;}
+ // Narrow sunken sockets, a structural brow and nose.
  for(const side of [-1,1]){
   const x=side*.043;
   const socket=loft(head,'Eye socket_'+side,[[.154,.038,.009,.088,x],[.165,.044,.012,.089,x],[.177,.040,.01,.086,x]],shadow,2.5,16);socket.rotation.z=side*.055;
   loft(head,'Pupil_'+side,[[.160,.006,.004,.100,x],[.165,.007,.004,.100,x]],shadow,2,12);
-  loft(head,'Eye_'+side,[[.159,.020,.006,.096,x],[.164,.023,.006,.096,x],[.167,.018,.004,.096,x]],eye,2.6,12);
+  loft(head,'Eye_'+side,id==='lab-hunter'?[[.155,.031,.008,.100,x],[.163,.036,.010,.101,x],[.170,.029,.008,.100,x]]:[[.159,.020,.006,.096,x],[.164,.023,.006,.096,x],[.167,.018,.004,.096,x]],eye,2.6,12);
   loft(head,'Brow_'+side,[[.175,.050,.012,.086,x],[.182,.052,.014,.084,x],[.187,.043,.010,.080,x]],skin,2.35,20);
   loft(head,'Ear_'+side,[[.125,.022,.026,-.005,side*.080],[.155,.027,.033,-.007,side*.081],[.177,.022,.029,-.008,side*.079]],skin,2,16);
  }
@@ -221,13 +223,21 @@ if(lab){
   loft(head,'Security cropped hair',[[.22,.16,.18,-.008],[.26,.146,.166,-.012],[.29,.045,.06,-.016]],hair,2.2,24);
  }
  if(id==='lab-bomber'){
-  const webbing=mat('Demolition webbing','#413f36',.98),charge=mat('Dull demolition packs','#6a6554',.9),warning=mat('Faded hazard band','#a37558',.94);
+  const webbing=mat('Demolition webbing','#292e2c',.98),charge=mat('Red demolition packs','#b63829',.88),warning=mat('Explosive warning yellow','#edbb35',.91);
   for(const side of [-1,1]){
-   loft(torso,'Demolition strap_'+side,[[.015,.034,.024,.103,side*.09],[.25,.034,.024,.121,side*.10],[.43,.034,.024,.065,side*.13]],webbing,2.5,12);
-   loft(torso,'Demolition charge_'+side,[[.035,.070,.055,.139,side*.078],[.055,.090,.065,.139,side*.078],[.24,.090,.065,.139,side*.078],[.26,.070,.055,.139,side*.078]],charge,3,20);
-   loft(torso,'Charge hazard band_'+side,[[.12,.093,.068,.139,side*.078],[.145,.093,.068,.139,side*.078]],warning,3,20);
+   loft(torso,'Demolition strap_'+side,[[.015,.045,.024,.103,side*.09],[.25,.045,.024,.121,side*.10],[.43,.045,.024,.065,side*.13],[.46,.045,.024,-.08,side*.13]],webbing,2.5,12);
+   loft(torso,'Demolition charge_'+side,[[.015,.066,.066,.165,side*.125],[.035,.086,.086,.165,side*.125],[.30,.086,.086,.165,side*.125],[.32,.066,.066,.165,side*.125]],charge,2,20);
+   loft(torso,'Inner demolition charge_'+side,[[.015,.066,.066,.165,side*.041],[.035,.080,.080,.165,side*.041],[.30,.080,.080,.165,side*.041],[.32,.066,.066,.165,side*.041]],charge,2,20);
+   for(const y of [.075,.235])loft(torso,'Charge hazard band_'+side+'_'+y,[[y,.171,.092,.165,side*.083],[y+.025,.171,.092,.165,side*.083]],warning,3,20);
+   loft(torso,'Back explosive canister_'+side,[[.015,.09,.11,-.20,side*.095],[.04,.135,.15,-.20,side*.095],[.43,.135,.15,-.20,side*.095],[.46,.10,.12,-.20,side*.095]],charge,2,24);
+   for(const y of [.10,.34])loft(torso,'Back hazard band_'+side+'_'+y,[[y,.140,.155,-.20,side*.095],[y+.035,.140,.155,-.20,side*.095]],warning,2,20);
   }
-  loft(torso,'Charge controller',[[.29,.045,.025,.135],[.34,.045,.025,.126]],webbing,3,16);
+  loft(torso,'Charge controller',[[.33,.09,.040,.130],[.39,.09,.040,.102]],webbing,3,16);
+  const indicator=mat('Armed red indicator','#ff3824',.65);indicator.emissive.copy(indicator.color);indicator.emissiveIntensity=1.8;
+  loft(torso,'Armed indicator',[[.348,.056,.008,.154],[.374,.056,.008,.143]],indicator,3,12);
+  // Broad alternating bands read as a warning even at gameplay distance.
+  loft(root,'Explosive warning belt',[[.765,.32,.235],[.81,.32,.235]],warning,2.6,24);
+  for(const x of [-.105,-.035,.035,.105])loft(root,'Warning belt stripe_'+x,[[.766,.025,.008,.122,x],[.81,.025,.008,.122,x+.020]],webbing,3,12);
   // One damaged sleeve gives a readable asymmetry without surface clutter.
   loft(arms[0],'Maintenance sleeve',[[-.26,.10,.12],[-.12,.13,.15],[.025,.14,.15]],cloth,2.1,24,.012);
  }

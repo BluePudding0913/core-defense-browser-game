@@ -2,6 +2,20 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 const context=vm.createContext({window:{}});
 for(const file of ['organic-enemy-models.js','lab-enemy-models.js'])vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
 const pool=context.window.createLabEnemyModels(T);
+// Identification cues must survive runtime material sharing, freeze and tint restoration.
+{
+ const hunter=pool.create('hunter',18),bomber=pool.create('bomber',20),grunt=pool.create('grunt',21);
+ const eye=hunter.rig.getObjectByName('Eye_1').material;
+ assert(eye.color.r>eye.color.g*5&&eye.emissive.r>eye.emissive.g*5&&eye.emissiveIntensity>1,'Hunter eyes stay visibly red without relying on room light');
+ assert.equal(grunt.rig.getObjectByName('Eye_1').material.emissiveIntensity,1);
+ assert.equal(grunt.rig.getObjectByName('Eye_1').material.emissive.getHex(),0,'Ordinary enemies do not gain glowing eyes');
+ assert(bomber.rig.getObjectByName('Back explosive canister_-1')&&bomber.rig.getObjectByName('Back explosive canister_1'),'Bomber explosive silhouette is visible from behind');
+ const indicator=bomber.rig.getObjectByName('Armed indicator').material;
+ assert(indicator.emissiveIntensity>1&&indicator.emissive.r>indicator.emissive.g*5);
+ const frozen=new T.MeshBasicMaterial({color:'#95dded'});hunter.tint(frozen);bomber.tint(frozen);hunter.tint(null);bomber.tint(null);
+ assert.equal(hunter.rig.getObjectByName('Eye_1').material,eye);assert.equal(bomber.rig.getObjectByName('Armed indicator').material,indicator);
+ hunter.dispose();bomber.dispose();grunt.dispose();frozen.dispose();
+}
 // A color must reach the same linear value in the studio and the game.
 const legacy=T.ColorManagement.legacyMode;
 try{

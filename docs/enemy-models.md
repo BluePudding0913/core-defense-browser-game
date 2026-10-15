@@ -1,5 +1,7 @@
 # Enemy form studies
 
+HUNTER / BOMBER recognition revision: HUNTER has enlarged red emissive eyes, pale cool skin and a dark plum patient gown. BOMBER carries four red front charges and two larger rear canisters, yellow retaining bands, a yellow/black waist warning and a red armed indicator. The runtime builder and individual GLBs are updated; combat, collision volumes and gait parameters are unchanged. [Front/back image](previews/hunter-bomber.png); regenerate the image with `client/previews/hunter-bomber.html`. Geometry/export, grounded walking, shared assets, freeze/tint restoration and renderer integration pass the four client model/animation suites. Dedicated assertions verify red emission, ordinary-eye isolation and rear equipment presence.
+
 The live renderer now uses `lab-enemy-models.js`: GRUNT → researcher, RUNNER → lab-runner, BRUTE → lab-brute, POISONER → lab-poisoner. The studio opens the new three enemy roles; 白衣3案 retains all three coat variations. Earlier preview-only notes below describe the preceding iterations.
 
 - RUNNER: narrow teal scrubs, bare forearms, a low forward posture and faster, longer strides.
