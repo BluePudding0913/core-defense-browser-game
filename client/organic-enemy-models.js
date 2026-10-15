@@ -18,7 +18,7 @@ window.buildOrganicEnemy = (T,id) => {
   'lab-blueace':{skin:'#9aabaa',cloth:'#466f9f',pants:'#2e3d54',width:.93,lean:.46,arm:[-.80,-1.15],elbow:[-1.0,-.85],head:[.12,.08,-.08]},
   'lab-runner':{skin:'#9b9f8d',cloth:'#6b8781',pants:'#344945',width:.85,lean:.53,arm:[-.55,-1.20],elbow:[-.95,-.68],head:[.12,-.12,.08]},
   'lab-brute':{skin:'#a39e8c',cloth:'#686d65',pants:'#3d403a',width:1.65,lean:.22,arm:[-.38,-.47],elbow:[-.24,-.32],head:[.21,.06,-.06]},
-  'lab-poisoner':{skin:'#9a9b80',cloth:'#928b63',pants:'#4d5145',width:1.02,lean:.38,arm:[-.66,-.43],elbow:[-.46,-.22],head:[.22,.09,-.10]},
+  'lab-poisoner':{skin:'#a1aa87',cloth:'#b7baa1',pants:'#35453b',width:.92,lean:.48,arm:[-.54,-.92],elbow:[-.32,-.85],head:[.27,.14,-.16]},
   'lab-shield':{skin:'#9c9f8f',cloth:'#526469',pants:'#333f43',width:1.12,lean:.28,arm:[-.72,-.40],elbow:[-.95,-.24],head:[.18,-.09,.09]},
   'lab-bomber':{skin:'#a19b87',cloth:'#8c604a',pants:'#44423c',width:.95,lean:.46,arm:[-.58,-.85],elbow:[-.43,-.62],head:[.25,.10,-.14]},
   'lab-carrier':{skin:'#9a9d8a',cloth:'#868876',pants:'#414a41',width:1.2,lean:.40,arm:[-.34,-.51],elbow:[-.20,-.33],head:[.19,-.07,.12]},
@@ -211,15 +211,41 @@ if(lab){
   elbows.forEach(e=>{e.scale.x=1.18;e.scale.z=1.13;});
  }
  if(id==='lab-poisoner'){
-  const equipment=mat('Contamination equipment','#444d43',.87),tank=mat('Worn reagent cylinders','#74795c',.89);
+  const equipment=mat('Contamination equipment','#35473b',.87),tank=mat('Worn reagent cylinders','#64785a',.89),reagent=mat('Toxic chartreuse reagent','#9dc43c',.58),lens=mat('Smoked green lenses','#405e44',.38),glove=mat('Chemical rubber gloves','#455b43',.94);
+  coatShell(torso,'Poisoner open lab coat',[[0,.29,.235],[.16,.31,.25],[.29,.36,.265,-.025],[.39,.39,.28,-.05],[.44,.30,.24,-.04],[.47,.16,.14]],[.28,.28,.34,.48,.65,.75],cloth);
+  coatShell(root,'Split coat tails',[[.38,.40,.28,-.014],[.49,.42,.29,-.008],[.77,.35,.27],[.93,.29,.235]],[.42,.36,.28,.28],cloth,.035);
+  lapel(-1);lapel(1);
+  loft(torso,'Poisoner research badge',[[.24,.045,.012,.141,-.105],[.29,.045,.012,.141,-.105]],equipment,3,12);
+  loft(torso,'Chemical stained pocket',[[.16,.065,.013,.128,.10],[.23,.065,.013,.135,.10]],tank,3,16);
+  for(const x of [.085,.112])loft(torso,'Pocket sample vial_'+x,[[.21,.016,.018,.148,x],[.27,.016,.018,.148,x]],reagent,2,12);
   for(const side of [-1,1]){
    loft(torso,'Reagent tank_'+side,[[.06,.095,.095,-.20,side*.067],[.09,.116,.116,-.20,side*.067],[.33,.116,.116,-.20,side*.067],[.36,.09,.09,-.20,side*.067]],tank,2,24);
-   loft(torso,'Tank harness_'+side,[[.03,.025,.025,.105,side*.13],[.24,.025,.025,.13,side*.13],[.42,.025,.025,.10,side*.15],[.47,.025,.025,-.03,side*.13]],equipment,2,12);
+   loft(torso,'Tank reagent window_'+side,[[.12,.054,.012,-.261,side*.067],[.29,.054,.012,-.261,side*.067]],reagent,3,12);
+   loft(torso,'Tank valve_'+side,[[.35,.025,.03,-.20,side*.067],[.40,.025,.03,-.20,side*.067]],equipment,2,12);
+   loft(torso,'Tank harness_'+side,[[.03,.025,.025,.131,side*.13],[.24,.025,.025,.146,side*.13],[.42,.025,.025,.10,side*.15],[.47,.025,.025,-.03,side*.13]],equipment,2,12);
    loft(head,'Respirator filter_'+side,[[.08,.035,.04,.101,side*.049],[.115,.035,.04,.101,side*.049]],equipment,2,16);
+   loft(head,'Round protective lens_'+side,[[.144,.016,.012,.102,side*.047],[.151,.043,.016,.104,side*.047],[.177,.043,.016,.104,side*.047],[.184,.016,.012,.102,side*.047]],lens,2,20);
+   const g=new T.TorusGeometry(.029,.006,8,24);g.setAttribute('color',new T.Float32BufferAttribute(Array(g.attributes.position.count*3).fill(.96),3));owned.add(g);
+   const rim=new T.Mesh(g,equipment);rim.name='Round goggle rim_'+side;rim.position.set(side*.047,.164,.112);rim.castShadow=rim.receiveShadow=true;head.add(rim);
+   loft(head,'Goggle temple_'+side,[[.159,.012,.15,.025,side*.080],[.169,.012,.15,.025,side*.080]],equipment,2,12);
   }
+  loft(head,'Goggle bridge',[[.162,.035,.012,.112],[.169,.035,.012,.112]],equipment,2,12);
+  const grayHair=mat('Disheveled gray hair','#8a9380',.99);
+  coatShell(head,'Disheveled researcher hair',[[.20,.173,.19,-.008],[.24,.17,.185,-.014],[.28,.12,.14,-.02],[.30,.05,.065,-.03]],[1.25,1.35,1.65,2.1],grayHair,.008);
+  for(const side of [-1,1])loft(head,'Unkempt hair tuft_'+side,[[.19,.05,.09,-.025,side*.075],[.23,.07,.085,-.03,side*.09],[.255,.008,.025,-.04,side*.13]],grayHair,2,16);
   loft(head,'Respirator cup',[[.075,.055,.032,.100],[.10,.08,.05,.112],[.13,.055,.032,.103]],equipment,2.3,24);
-  loft(torso,'Coverall zipper',[[.02,.008,.005,.108],[.33,.008,.005,.117],[.40,.008,.005,.09]],equipment,2,12);
-  for(const arm of arms)loft(arm,'Coverall sleeve_'+arm.name,[[-.30,.10,.12],[-.15,.13,.15],[.02,.14,.15]],cloth,2.1,24);
+  for(let i=0;i<2;i++){
+   loft(arms[i],'Research coat sleeve_'+i,[[-.30,.10,.12],[-.15,.13,.15],[.02,.14,.15]],cloth,2.1,24);
+   loft(elbows[i],'Stained researcher cuff_'+i,[[-.20,.09,.105],[-.08,.115,.13],[.03,.10,.12]],cloth,2.1,24,.01);
+   loft(elbows[i],'Chemical glove cuff_'+i,[[-.27,.082,.095,.01],[-.20,.095,.11,.01]],glove,2.2,16);
+   root.getObjectByName('Hand_'+(i?'R':'L')).traverse(o=>{if(o.isMesh)o.material=glove;});
+  }
+  const syringe=joint(root.getObjectByName('Hand_R'),'Poisoner reagent syringe',-.035,-.065,-.045);syringe.rotation.z=-.35;
+  loft(syringe,'Syringe reagent barrel',[[-.14,.055,.055],[-.12,.065,.065],[.12,.065,.065],[.14,.055,.055]],reagent,2,20);
+  for(const y of [-.14,.12])loft(syringe,'Syringe collar_'+y,[[y,.075,.075],[y+.024,.075,.075]],equipment,2,16);
+  loft(syringe,'Syringe needle',[[-.28,.004,.004],[-.18,.010,.010],[-.14,.015,.015]],equipment,2,12);
+  loft(syringe,'Syringe plunger',[[.14,.018,.018],[.23,.018,.018]],equipment,2,12);
+  loft(syringe,'Syringe thumb plate',[[.225,.09,.045],[.245,.09,.045]],equipment,3,12);
  }
  if(id==='lab-shield'){
   const panel=mat('Worn containment shield','#596c70',.8),grip=mat('Shield webbing','#303b3e',.96);
