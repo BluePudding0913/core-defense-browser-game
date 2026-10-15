@@ -308,6 +308,7 @@ function connect() {
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const serverPort = URL_PARAMETERS.get("serverPort") || "8887";
     const parameters = new URLSearchParams({ session: clientSessionId });
+    parameters.set("rules", "once");
     const access = URL_PARAMETERS.get("access");
     if (access) parameters.set("access", access);
     if (connectionTarget.phrase) parameters.set("phrase", connectionTarget.phrase);
@@ -320,6 +321,7 @@ function connect() {
     creatingRoom = false;
     updateRoomButtons();
     const connectingSocket = socket;
+    let ruleDefinitions = null;
     let welcomed = false;
     clearTimeout(connectionAttemptTimer);
     connectionAttemptTimer = setTimeout(() => {
@@ -345,6 +347,8 @@ function connect() {
         if (socket !== connectingSocket) return;
         let message;
         try { message = JSON.parse(data); } catch { return; }
+        if (message.type === "rules") { ruleDefinitions = message.rules; return; }
+        if (message.type === "state" && ruleDefinitions) message.rules = { ...ruleDefinitions, ...message.rules };
         if (message.type === "error" || message.type === "feedback") window.coreMenu?.status(message.message);
         if (message.type === "purchase-complete") {
             window.coreAudio?.play("purchase", 0);
