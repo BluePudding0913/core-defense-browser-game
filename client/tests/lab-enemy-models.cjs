@@ -2,6 +2,15 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 const context=vm.createContext({window:{}});
 for(const file of ['organic-enemy-models.js','lab-enemy-models.js'])vm.runInContext(fs.readFileSync('client/'+file,'utf8'),context);
 const pool=context.window.createLabEnemyModels(T);
+// The two hunters share a silhouette and rest pose, with independent palettes/resources.
+{
+ const a=context.window.buildOrganicEnemy(T,'lab-hunter'),b=context.window.buildOrganicEnemy(T,'lab-corehunter');a.reset();b.reset();
+ const nodesA=[],nodesB=[];a.root.traverse(o=>nodesA.push(o));b.root.traverse(o=>nodesB.push(o));assert.equal(nodesA.length,nodesB.length);
+ nodesA.forEach((o,i)=>{const n=nodesB[i];if(i)assert.equal(o.name,n.name);assert(o.position.distanceTo(n.position)<1e-10&&o.quaternion.angleTo(n.quaternion)<1e-7&&o.scale.distanceTo(n.scale)<1e-10,'Hunters retain identical rest transforms');if(o.isMesh)assert.deepEqual(o.geometry.attributes.position.array,n.geometry.attributes.position.array,'Hunters share authored shapes');});
+ const red=a.root.getObjectByName('Short sleeve_L').material.color,gold=b.root.getObjectByName('Short sleeve_L').material.color;assert(red.r>red.g*5&&gold.r>gold.g&&gold.g>gold.b*5,'Red and gold palettes remain distinct');
+ const eyes=b.root.getObjectByName('Eye_1').material;assert(eyes.emissive.r>eyes.emissive.g&&eyes.emissive.g>eyes.emissive.b*5,'Core hunter has gold emissive eyes');
+ a.dispose();b.pose(.5);b.dispose();
+}
 // Identification cues must survive runtime material sharing, freeze and tint restoration.
 {
  const hunter=pool.create('hunter',18),bomber=pool.create('bomber',20),grunt=pool.create('grunt',21);

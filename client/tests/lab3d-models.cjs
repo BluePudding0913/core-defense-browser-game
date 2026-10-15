@@ -92,7 +92,7 @@ for(const view of [{yaw:0,pitch:0,zoom:false},{yaw:.7,pitch:.4,zoom:false},{yaw:
 for(const [i,type] of ['warlord','titan','artilleryElite','grunt','runner','carrier','shield','bomber','hunter','armored','artillery','coreHunter','seeker','blackout','siege','champion','warden','ghost'].entries()) {
     state.enemies=[{id:200+i,type,x:180,y:100,hp:100,facingX:-.6,facingY:-.8}];frame.effects=[];renderer.render(frame);
     assert(Math.abs(scene.getObjectByName('enemy:'+(200+i)).rotation.y-Math.atan2(-.6,-.8))<1e-8,'All enemy models use transmitted facing');
-    const gear={warlord:'Command cuirass',titan:'Titan restraint yoke',artilleryElite:'Elite launcher rack',shield:'Containment shield',bomber:'Demolition charge_-1',carrier:'Specimen backpack',hunter:'Torn patient gown',armored:'Protective vest',artillery:'Open launcher tube',coreHunter:'Recovery vest',seeker:'Seeker guided launcher',blackout:'Looped power cable',siege:'Crushing gauntlet',champion:'Supervisor coat',warden:'Hanging restraint chain'}[type];
+    const gear={warlord:'Command cuirass',titan:'Titan restraint yoke',artilleryElite:'Elite launcher rack',shield:'Containment shield',bomber:'Demolition charge_-1',carrier:'Specimen backpack',hunter:'Torn patient gown',armored:'Protective vest',artillery:'Open launcher tube',coreHunter:'Torn patient gown',seeker:'Seeker guided launcher',blackout:'Looped power cable',siege:'Crushing gauntlet',champion:'Supervisor coat',warden:'Hanging restraint chain'}[type];
     if(gear)assert(scene.getObjectByName('enemy:'+(200+i)).getObjectByName(gear),'Live enemy uses its assigned lab equipment');
 }
 console.log('FPS trajectory regressions passed: muzzle screen alignment, pitch, zoom, fixed fired segments, aim excludes red lines, all enemy facing');
