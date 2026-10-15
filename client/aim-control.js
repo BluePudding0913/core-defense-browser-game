@@ -20,7 +20,7 @@ window.AimControl = (() => {
         let slope;
         if(weapon==='sniper' && player?.sniper?.fixed)slope=window.SniperAim.sample(player,now).slope;
         else {
-            slope=(definitions[weapon]?.spreadSlope ?? (weapon==='sniper'?90:100)*PIXEL_SLOPE)*(1+.35*Math.sin(elapsed/PERIOD*Math.PI*2));
+            slope=(definitions[weapon]?.spreadSlope ?? (weapon==='shotgun'?145.6:weapon==='sniper'?90:100)*PIXEL_SLOPE)*(1+.35*Math.sin(elapsed/PERIOD*Math.PI*2));
             if(weapon==='sniper')slope+=Math.max(0,(player.sniper?.recovery || 0)-age)**2/.9**2*48*PIXEL_SLOPE;
         }
         return {elapsed,slope:slope*penalty,penalty};
@@ -34,8 +34,8 @@ window.AimControl = (() => {
         const base=raw.slope/raw.penalty;
         const baseSlope=reset?base:previous.baseSlope+(base-previous.baseSlope)*(1-Math.exp(-(now-previous.at)/35));
         visuals.set(player.id,{penalty,baseSlope,at:now,elapsed:raw.elapsed,weapon,fixed:!!player?.sniper?.fixed});
-        // Shotgun pellet spread is intentionally wide; keep its breathing cue compact.
-        return {...raw,slope:baseSlope*penalty*(weapon==='shotgun'?.35:1),penalty};
+        // Shotgun uses the full authoritative cone; other weapons retain their compact cue.
+        return {...raw,slope:baseSlope*penalty*(weapon==='shotgun'?1:.8),penalty};
     }
     function visible(player,view,definitions) {return supported(player?.weapon,definitions) && !!view.zoom;}
     const scopeFov=weapon=>weapon==='sniper'?16:weapon==='rifle'?32:26;

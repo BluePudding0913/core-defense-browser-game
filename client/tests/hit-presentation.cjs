@@ -38,4 +38,16 @@ for(const playerId of ['me','ally'])for(const defeated of [false,true]) {
 for(const playerId of ['me','ally']) {
  fx.reset();update([hit(0,{playerId,defeated:true,headshot:false,started:3000})],3000);assert.equal(blood.count,0,'Body kills never emit blood');
 }
-console.log('Hit presentation passed: tint ownership, common HS burst regardless of shooter/lethality, no body blood, throttle, caps, stationary fade and disposal');
+// Collection can release an actor while its death event is still being retained.
+fx.reset();
+update([hit(5,{defeated:true,started:4000})],4000);
+fx.release(items.get(5));
+update([],4050);
+assert.equal(kept.size,0,'Released actors must not be retained by an unfinished fade');
+assert.equal(items.get(5).root.userData.presentationOnly,false,'Release clears the presentation-only tag');
+// Reset must also restore living actors, without relying on the next render frame.
+update([hit(6,{started:5000})],5000);
+assert.notEqual(items.get(6).body.material,shared);
+fx.reset();
+assert.equal(items.get(6).body.material,shared,'Reset immediately restores a living actor hit tint');
+console.log('Hit presentation passed: tint ownership, common HS burst regardless of shooter/lethality, no body blood, throttle, caps, stationary fade, reset and disposal');

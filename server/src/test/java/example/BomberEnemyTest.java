@@ -8,6 +8,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class BomberEnemyTest {
+    @Test void snapshotSharesActualBlastRadiusWithRangeIndicator() throws Exception {
+        enemy("bomber", 0, 100);
+        var enemies = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(SnapshotBuilder.build(game)).path("enemies");
+        assertEquals(GameConfig.BOMBER_BLAST_RADIUS, enemies.get(0).path("blastRadius").asDouble());
+    }
     GameSession game;
     Player player;
     List<String> effects = new ArrayList<>();

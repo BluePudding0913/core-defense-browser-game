@@ -2,6 +2,11 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const THREE = require('../vendor/three.min.js');
+function sourceBounds(root) {
+    root.updateMatrixWorld(true); const bounds=new THREE.Box3();
+    root.traverse(o=>{if(o.isMesh && !o.userData.staticBatch){if(!o.geometry.boundingBox)o.geometry.computeBoundingBox();bounds.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld));}});
+    return bounds;
+}
 let scene, camera, viewScene, viewCamera, webglRenderer, now=1000;
 THREE.WebGLRenderer = class {
     constructor() { this.domElement={width:0,height:0,addEventListener(){}};this.shadowMap={};webglRenderer=this; }
@@ -92,7 +97,7 @@ for(const view of [{yaw:0,pitch:0,zoom:false},{yaw:.7,pitch:.4,zoom:false},{yaw:
 for(const [i,type] of ['warlord','titan','artilleryElite','grunt','runner','carrier','shield','bomber','hunter','armored','artillery','coreHunter','seeker','blackout','siege','champion','warden','ghost'].entries()) {
     state.enemies=[{id:200+i,type,x:180,y:100,hp:100,facingX:-.6,facingY:-.8}];frame.effects=[];renderer.render(frame);
     assert(Math.abs(scene.getObjectByName('enemy:'+(200+i)).rotation.y-Math.atan2(-.6,-.8))<1e-8,'All enemy models use transmitted facing');
-    const gear={warlord:'Command cuirass',titan:'Titan restraint yoke',artilleryElite:'Elite launcher rack',shield:'Containment shield',bomber:'Demolition charge_-1',carrier:'Specimen backpack',hunter:'Torn patient gown',armored:'Protective vest',artillery:'Open launcher tube',coreHunter:'Torn patient gown',seeker:'Seeker guided launcher',blackout:'Looped power cable',siege:'Crushing gauntlet',champion:'Supervisor coat',warden:'Hanging restraint chain'}[type];
+    const gear={ghost:'Ghost examination gown',warlord:'Command cuirass',titan:'Titan restraint yoke',artilleryElite:'Elite launcher rack',shield:'Containment shield',bomber:'Demolition charge_-1',carrier:'Specimen backpack',hunter:'Torn patient gown',armored:'Protective vest',artillery:'Open launcher tube',coreHunter:'Torn patient gown',seeker:'Seeker guided launcher',blackout:'Looped power cable',siege:'Crushing gauntlet',champion:'Supervisor coat',warden:'Hanging restraint chain'}[type];
     if(gear)assert(scene.getObjectByName('enemy:'+(200+i)).getObjectByName(gear),'Live enemy uses its assigned lab equipment');
 }
 console.log('FPS trajectory regressions passed: muzzle screen alignment, pitch, zoom, fixed fired segments, aim excludes red lines, all enemy facing');
@@ -172,7 +177,7 @@ console.log('FPS requested fixes passed: captured special shot origins, movement
 // New enemies share their rendered body dimensions with server FPS hit rules.
 now+=500;frame.effects=[];state.enemies=[{id:501,type:'finalBoss',x:180,y:100,hp:140000,bossAction:'PULSE_WARNING',pulseRadius:260},{id:502,type:'poisoner',x:140,y:100,hp:400},{id:503,type:'artilleryElite',x:220,y:100,hp:900}];
 state.poisonClouds=[{x:140,y:100,radius:55,remaining:4,hostile:true}];frame.radius=e=>({finalBoss:58,poisoner:20,artilleryElite:27})[e.type]||21;renderer.render(frame);
-for(const e of state.enemies){const root=find('enemy:'+e.id);if(e.type==='poisoner'||e.type==='artilleryElite'){assert(root.getObjectByName(e.type==='poisoner'?'Reagent tank_-1':'Elite launcher rack'));assert(Math.abs(new THREE.Box3().setFromObject(root).max.y-frame.radius(e)*1.55)<.01);}else if(e.type==='finalBoss'){assert(root.getObjectByName('Pulse sternum housing'));assert(Math.abs(new THREE.Box3().setFromObject(root).max.y-frame.radius(e)*1.55)<.01);}else assert.equal(root.children[0].scale.x,frame.radius(e)*.9);}
+for(const e of state.enemies){const root=find('enemy:'+e.id);if(e.type==='poisoner'||e.type==='artilleryElite'){assert(root.getObjectByName(e.type==='poisoner'?'Reagent tank_-1':'Elite launcher rack'));assert(Math.abs(sourceBounds(root).max.y-frame.radius(e)*1.55)<.01);}else if(e.type==='finalBoss'){assert(root.getObjectByName('Pulse sternum housing'));assert(Math.abs(sourceBounds(root).max.y-frame.radius(e)*1.55)<.01);}else assert.equal(root.children[0].scale.x,frame.radius(e)*.9);}
 assert.equal(find('boss-warning:501').scale.x,260,'Final boss pulse has a visible 3D warning');
 assert.equal(find('gas:0').scale.x,55);assert(find('gas:0').material.color.equals(new THREE.Color('#a6ce46')),'Small hostile poison uses its own radius and color');
 console.log('FPS new enemies passed: body sizes, final boss warning and hostile poison');
@@ -287,14 +292,14 @@ for(const [dx,dz] of [[0,1],[1,0],[0,-1],[-1,0]]) {
 frame.stations=[];frame.reachable=new Set();for(let r=0;r<7;r++)for(let c=0;c<7;c++)frame.reachable.add(r+':'+c);
 player.x=140;player.y=220;frame.eye=player;frame.predicted=player;state.blackoutActive=true;player.drone=null;renderer.render(frame);
 assert(scene.fog && scene.fog.near===48 && scene.fog.far===160,'Blackout has a bounded nearby view');
-assert.equal(scene.getObjectByName('enemy-readability-fill').visible,false,'Enemy fill cannot bypass blackout');
+assert.equal(scene.getObjectByName('enemy-readability-fill').intensity,0,'Enemy fill cannot bypass blackout');
 const nearbyLight=scene.getObjectByName('blackout-nearby-light');assert(nearbyLight.visible);assert.deepEqual(nearbyLight.position.toArray(),camera.position.toArray());
 assert.equal(renderer.project(140,40,26).visible,false,'Distant labels do not float in darkness');
 assert.equal(renderer.project(140,180,26).visible,true,'Nearby points remain visible');
 player.x+=15;renderer.render(frame);assert.equal(nearbyLight.position.x,player.x,'Near illumination follows the player');
-player.drone={controlled:true};renderer.render(frame);assert.equal(scene.fog,null,'Drone retains night vision');assert(!nearbyLight.visible);
-player.drone=null;frame.nightVision=true;renderer.render(frame);assert.equal(scene.fog,null,'Drone aftermath retains night vision');
-frame.nightVision=false;state.blackoutActive=false;renderer.render(frame);assert.equal(scene.fog,null);assert(!nearbyLight.visible);
+player.drone={controlled:true};renderer.render(frame);assert.equal(scene.fog.near,10000,'Drone retains night vision');assert.equal(nearbyLight.intensity,0);
+player.drone=null;frame.nightVision=true;renderer.render(frame);assert.equal(scene.fog.near,10000,'Drone aftermath retains night vision');
+frame.nightVision=false;state.blackoutActive=false;renderer.render(frame);assert.equal(scene.fog.near,10000);assert.equal(nearbyLight.intensity,0);
 assert.equal(scene.children.find(c=>c.isHemisphereLight).intensity,.75,'Lighting restores after power returns');
 const enemyFill=scene.getObjectByName('enemy-readability-fill');assert(enemyFill.visible&&enemyFill.layers.mask===2);
 assert(Math.abs(enemyFill.position.y-camera.position.y-30)<1e-6,'Enemy fill follows the viewing position');
@@ -304,6 +309,41 @@ assert.equal(terrain.children.find(o=>o.isInstancedMesh).layers.mask,1,'Room sur
 const skinColor=litEnemy.getObjectByName('Anatomical head').material.color;
 assert(Math.abs(skinColor.r-new THREE.Color('#9b9f8d').r)<1e-10,'Live renderer uses skin color converted once');
 console.log('Lab visibility passed: flush panels, four-way breakers, nearby blackout vision, moving light and drone/restoration lifecycle');
+
+// Power transitions must preserve program conditions in each graphics mode.
+const programConditions=()=>{
+ const lights=[];scene.traverseVisible(o=>{if(o.isLight&&o.layers.test(camera.layers))lights.push(o.type+':'+o.castShadow);});
+ return JSON.stringify([!!scene.fog,webglRenderer.shadowMap.enabled,lights.sort()]);
+};
+for(const detailed of [true,false,true]){
+ context.window.coreGraphicsSettings.setShadows(detailed);
+ state.blackoutActive=false;renderer.render(frame);const normalConditions=programConditions();
+ const sameFog=scene.fog;
+ state.enemies=[{id:689,type:'runner',x:player.x,y:player.y-400,hp:100,facingY:1}];
+ state.blackoutActive=true;renderer.render(frame);
+ assert.equal(programConditions(),normalConditions,'Blackout keeps shader conditions in this graphics mode');
+ assert.equal(scene.fog,sameFog,'Fog object does not change on power transitions');
+ assert.equal(nearbyLight.visible,detailed);assert.equal(nearbyLight.intensity,detailed?1.8:0);
+ assert.equal(webglRenderer.shadowMap.autoUpdate,false,'Blackout skips the sun shadow pass');
+ assert.equal(camera.far,200,'Blackout shortens rendering distance');
+ assert.equal(scene.getObjectByName('enemy:689').visible,false,'Completely dark distant enemy is culled');
+ state.enemies[0].y=player.y-(detailed?180:220);renderer.render(frame);
+ assert.equal(scene.getObjectByName('enemy:689').visible,true,'Body intersecting visibility boundary is retained');
+ state.enemies[0].y=player.y-80;renderer.render(frame);
+ assert.equal(scene.getObjectByName('enemy:689').visible,true,'Enemy returning to nearby view is restored');
+ // Settings changes during a blackout must also apply immediately.
+ context.window.coreGraphicsSettings.setShadows(!detailed);renderer.render(frame);
+ assert.equal(!!scene.fog,!detailed);assert.equal(nearbyLight.visible,!detailed);
+ context.window.coreGraphicsSettings.setShadows(detailed);
+ state.enemies[0].y=player.y-400;frame.nightVision=true;renderer.render(frame);
+ assert.equal(programConditions(),normalConditions,'Night vision keeps shader conditions');
+ assert.equal(scene.getObjectByName('enemy:689').visible,true,'Night vision restores distant enemies');
+ assert.equal(camera.far,5000);assert.equal(webglRenderer.shadowMap.autoUpdate,true);
+ frame.nightVision=false;state.blackoutActive=false;renderer.render(frame);
+ assert.equal(programConditions(),normalConditions,'Power restoration keeps shader conditions');
+ assert.equal(camera.far,5000);assert.equal(webglRenderer.shadowMap.autoUpdate,true);
+}
+console.log('Blackout performance passed: stable program conditions, both graphics modes, live toggles, distant culling and restoration');
 
 // A sniper posture lowers both the camera and the remote body, and restores standing afterwards.
 frame.motion={moving:false};frame.effects=[];frame.scoped=true;frame.view={yaw:0,pitch:0};player.weapon='sniper';
@@ -552,3 +592,35 @@ state.enemies[0].frozenRemaining=0;now=Math.PI*1.5*50;renderer.render(frame);
 assert.notEqual(drum.material,flash);assert.equal(drum.material.name,'Scorched explosive casing');
 state.enemies[0].type='finalBoss';renderer.render(frame);assert(scene.getObjectByName('Final salvo pod_-1'));assert(!scene.getObjectByName('Enemy_lab-explosionboss'));
 console.log('Final enemy models: fuse flash, freeze priority, color recovery and model replacement passed');
+
+// Ghost transparency survives the real freeze, hit and death presentation paths.
+now+=1000;frame.effects=[];state.enemies=[{id:4001,type:'ghost',x:180,y:100,hp:100},{id:4002,type:'ghost',x:220,y:100,hp:100}];renderer.render(frame);
+const ghostRoot=scene.getObjectByName('enemy:4001'),ghostSkin=ghostRoot.getObjectByName('Anatomical head'),ghostOriginal=ghostSkin.material;
+assert(ghostRoot.getObjectByName('Ghost torn gown'));assert.equal(ghostOriginal.opacity,.30);assert.equal(ghostOriginal.depthWrite,false);
+state.enemies[0].frozenRemaining=1;renderer.render(frame);
+assert.equal(ghostSkin.material.opacity,.30);assert(ghostSkin.material.transparent);assert.equal(ghostSkin.material.depthWrite,false);
+assert.equal(ghostSkin.material.color.getHexString(),'95dded');
+assert.equal(scene.getObjectByName('enemy:4002').getObjectByName('Anatomical head').material,ghostOriginal,'Freeze does not change another ghost');
+frame.effects=[{effect:'hit',enemyId:4001,playerId:'me',damage:20,started:now}];renderer.render(frame);
+assert.equal(ghostSkin.material.opacity,.30);assert(ghostSkin.material.transparent);assert.equal(ghostSkin.material.depthWrite,false);
+now+=200;frame.effects=[];state.enemies[0].frozenRemaining=0;renderer.render(frame);assert.equal(ghostSkin.material,ghostOriginal);
+frame.effects=[{effect:'hit',enemyId:4001,playerId:'me',damage:100,defeated:true,started:now}];state.enemies.shift();renderer.render(frame);
+frame.effects=[];now+=65;renderer.render(frame);assert(Math.abs(ghostSkin.material.opacity-.15)<1e-6,'Death halves the original ghost alpha');
+now+=70;renderer.render(frame);assert(!scene.getObjectByName('enemy:4001'));
+console.log('Ghost integration passed: live assignment, translucency, freeze, isolated hit tint, thaw and proportional death fade');
+
+// Range indicators use authoritative radii, follow movement, and disappear when inactive.
+player.job='tank';player.tankAuraRadius=160;
+frame.predicted={...player,x:115,y:125};
+state.enemies=[{id:5001,type:'bomber',x:180,y:100,hp:100,blastRadius:120}];
+state.artilleryShells=[{id:5002,sourceX:100,sourceY:100,x:200,y:100,radius:64,remaining:1,duration:1.5}];
+renderer.render(frame);
+const tankRing=find('tank-aura:me'),bomberRing=find('bomber-range:5001'),shellRing=find('shell:5002');
+assert.equal(tankRing.scale.x,160);assert.equal(tankRing.position.x,115);assert.equal(tankRing.position.z,125);
+assert.equal(bomberRing.scale.x,120);assert.equal(bomberRing.position.x,180);
+assert.equal(shellRing.material.opacity,.95);assert.equal(shellRing.material.color.getHexString(),'48be41');
+state.enemies[0].x=190;renderer.render(frame);assert.equal(bomberRing.position.x,190);
+state.enemies[0].hp=0;player.down=true;renderer.render(frame);
+assert(!scene.getObjectByName('tank-aura:me'));assert(!scene.getObjectByName('bomber-range:5001'));
+player.down=false;player.job='scout';renderer.render(frame);assert(!scene.getObjectByName('tank-aura:me'));
+console.log('Combat ranges passed: Tank prediction, Bomber blast radius/movement/death, stronger artillery warning');

@@ -84,6 +84,19 @@ frame.effects=[];now+=140;render();assert(!scene.getObjectByName('enemy:1'),'Thr
 frame.state.enemies=[enemy(1,500,900)];now+=1;before=poses;render();assert.equal(poses,before+1,'Recreated actor cannot inherit an old timer');
 console.log(`Enemy animation integration passed: near 60/60, far ${far}/60, offscreen ${outside}/60; main/sub sniper, screen edges, view/range/weapon promotion, position/facing, hit tint and death cleanup`);
 
+frame.state.blackoutActive=true;
+const hiddenCadence=cadence([500,300],'sniper');
+assert(hiddenCadence<=2,'Fog-hidden sniper targets do not assemble poses every frame');
+assert.equal(scene.getObjectByName('enemy:1').visible,false);
+frame.state.enemies[0].y=900;now+=1;before=poses;render();
+assert.equal(poses,before+1,'Entering blackout view immediately restores the current pose');
+assert.equal(scene.getObjectByName('enemy:1').visible,true);
+frame.state.enemies[0].y=300;now+=1;render();
+frame.nightVision=true;now+=1;before=poses;render();
+assert.equal(poses,before+1,'Night vision immediately restores distant sniper poses');
+frame.nightVision=false;frame.state.blackoutActive=false;
+console.log('Blackout animation passed: hidden pose throttling and immediate nearby/night-vision promotion');
+
 if(process.argv.includes('--benchmark')) {
  const {performance}=require('node:perf_hooks');
  function measure(interval){

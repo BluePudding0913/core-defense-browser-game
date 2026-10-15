@@ -2,6 +2,20 @@
 
 HUNTERとCORE HUNTERはorganic-enemy-models.js内の共通形状・装飾経路を使い、赤／金のパレットで識別する。モデル形状と休止姿勢の一致、色とリソースの独立性はlab-enemy-models.cjsで検証する。CORE HUNTERの旧ベスト・大型手袋は廃止し、ゲーム半径・攻撃・標的・種類別歩行周期は維持する。
 
+敵の接近警告は`client/proximity-warning.js`が担当する。生存敵の中心間水平距離200以内（5マス）から、現在の水平視野外にいる最寄りの敵1体を選ぶ。Lab3Dと共通のAimControl.viewFovから画面比率に合わせた水平視野を求め、正面の視界内は通知しない。描画と同じ補間済み敵座標・予測視点を使い、境界から約4.6度の間で発光を強める。近いほど強い赤い方向アークを左右・背後に表示し、背後は画面下へ対応する。GHOSTは隠密表示を保つため除外。壁・高さの遮蔽判定は追加しない。app.jsはFPSの準備・戦闘中だけ、停電暗幕とスコープ枠より手前へCSSピクセルで描画する。メニュー・ダウン・ドローン操作と破壊直後の遠隔視点では隠す。動きを減らす設定では明滅を止め、戦闘・通信・保存設定は変更しない。`previews/proximity.html`のB案も同じ判定と描画を使う。A案・C案は比較用に維持する。`node client/tests/proximity-warning.cjs`で5マス境界・視野・ズーム・複数敵・方向・補間・DPI・FPS表示条件・停電を確認し、reticle-settings.cjs、blackout-overlay.cjs、fpsui.cjsで既存HUDを確認する。
+
+軽量化ではBlockTerrain.indexInstancesが描画地形の静的インスタンスを160単位の区画へ索引化し、Three.jsの厳密なMesh.raycastへ候補だけ渡す。未解放区画・表裏・高さ・near/farは描画地形と共通にし、照準と表示用遮蔽の結果キャッシュは混同しない。LabEnemyModelsは同じ親関節と材質を持つ固定・不透明な末端部品を結合し、元の名前付き形状を頭位置と照準レイ用に保持する。元モデルで大きさを決め、結合形状はタイプ単位で共有・解放する。動く末端を増やす時はbatchStaticPartsの除外とenemy-batching.cjsの姿勢・実頂点比較を確認する。固定部品はローカル行列更新と姿勢転写を省く。詳しい調査・比較条件は[performance-audit.md](performance-audit.md)を参照。
+
+SnapshotBuilderは固定定義をプロセス内で一度だけ構築し、WasdServerはrules=onceの接続に定義を先送りしてから動的状態を配信する。接続ごとに再送し、クライアントはソケットの寿命内だけ保持して動的ルールと合成する。旧接続は全量形式を維持し、混在時も形式ごとに最大1回生成する。CORE強化等の可変費用を固定定義へ移さない。EnemySpatialIndex.nearbyCandidatesは64体以下の全件確認を保ち、65体以上では近傍区画から元の一覧順で候補を返す。GameSessionの設備更新はその候補に既存の戦闘判定を適用し、状態・消費・通知を所有する。HUDは味方・能力欄の内容が変わった時だけHTMLを更新し、所持品は表示中または開く時に最新状態を反映する。
+
+CARRIERはorganic-enemy-models.jsで、肩より高く左右にも張り出す黄土色の布袋、絞り口・口紐・補強底・圧縮ベルト・側面ポケット・検体マークを胴体へ取り付ける。暗い作業服と太いハーネスで袋を強調し、既存の歩行・凍結・被弾色・共有・解放経路を利用する。能力・袋の命中判定・通信は変更しない。enemy-models.cjs、lab-enemy-models.cjs、lab3d-models.cjs、enemy-animation.cjsで形状と表示連携、previews/carrier.htmlで4方向の見た目を確認する。
+
+GILDEDの金色防護具・検体ケースとWARLORDの指揮官用装甲・背面旗はorganic-enemy-models.jsで既存関節へ取り付ける。状態・通信・戦闘・判定は変更せず、既存の共有アセット・歩行・凍結・被弾色・解放経路を利用する。形状・出力・表示連携は既存の敵モデル関連4テスト、見た目はpreviews/gilded-warlord.htmlで確認する。
+
+ARMOREDは布の防護ベストの上に、厚い面取り付き胸・背面装甲、分割腹部装甲、肩殻、前腕・大腿・膝・すねの防弾装甲を重ねる。暗い縁と明るい硬質シェルで厚みを示し、ヘルメットの頬・顎保護を追加する。各防具は既存の胴・頭・腕・脚の関節へ取り付け、歩行・凍結・被弾・解放を共有する。戦闘の軽減率・命中判定・通信は変更しない。enemy-models.cjsで形状・接地・GLB出力、lab-enemy-models.cjs・lab3d-models.cjs・enemy-animation.cjsで表示連携を確認する。
+
+停電の描画設定は既存の「影」オン／オフと連動する。Lab3Dはオン時にFogを常設し、通常はnear=10000/far=11000、停電時は48/160へ変更する。近距離PointLightも常設して強度だけ0/1.8へ変え、敵補助光は強度0で止めるため、停電・復旧・暗視でFog有無や光源数を変えない。オフ時はFogと近距離PointLightを使わず、環境光0.2と強めのFPS暗幕で簡略化する。設定自体の変更は次フレームに反映する。停電中は太陽光を0にし、影の構成を維持したままshadowMap.autoUpdateを止め、復旧・暗視時に再開する。描画カメラのfarは停電中200、通常5000。敵は保守的な身体球全体がFogの奥行160（簡略時200）より先にある場合だけ非表示にし、姿勢組み立てを1000ms間隔へ落とす。近距離・暗視へ戻る時は既存の更新頻度昇格で即時反映し、状態・戦闘・通信は維持する。FPS暗幕は解像度・描画設定ごとにCanvasGradientを再利用する。lab3d-models.cjs、enemy-animation.cjs、blackout-overlay.cjsで両設定・動的切替・境界・復旧・暗視・姿勢復帰・キャッシュを検証する。調査と制約は[blackout-performance.md](blackout-performance.md)を参照。
+
 スナイパーはユーザー添付MP3を加工したassets/sounds/sniper_shot.wav（1.8秒・48kHz・16bitモノラル）を発砲イベントから再生する。合成済みWAVへ発砲後550msのボルト音、900msの薬莢落下音を組み込み、銃声の最初の550msは保持する。単一バッファなのでタイマー・追加の取得・追加音枠は不要で、停止・ミュート・距離減衰を3音まとめて適用する。ボルトと薬莢は末尾無音・低域を除去して短いフェードを付け、銃声より控えめな音量とする。sound.jsのサンプル管理は武器ごとに取得・デコード・バッファを保持し、ピストルと共用する。HTTPではWAV、file://では同一バイトのsniper_shot.jsを1回読み込み、初回操作でデコードする。ゲイン0.45へ既存音量・距離減衰・8音上限を適用。読み込み中・失敗時は従来の合成SEを即時再生し、遅延再生しない。preloadSamples(name)は指定武器を待ち、省略時は既存の設定試聴用ピストルを待つ。加工条件・再生成手順はclient/assets/sounds/sniper_shot.md、試聴はclient/previews/sniper-audio.html、検証はnode client/tests/pistol-sample.cjs sniperを参照。
 
 弾道の敵候補はGameSession所有のEnemySpatialIndexで80×80（2×2マス）の水平区画へ索引化する。生存判定・高さ・頭/胴・遮蔽・貫通・消費・報酬はCombatSystemの従来ルールを維持する。通常/散弾/跳弾・継続レールビーム・ロケット直撃が共有し、範囲攻撃・自動照準・敵弾・味方の探索は変更しない。64体以下は区画索引を保持せず全件確認、65体に増えた時だけ現在座標から索引を構築する。Enemy.moveToは通常移動・ノックバック・フック・ボス突進の所属を即時更新し、登録済みの敵座標を直接書き換えない。身体と背負い袋の保守的な範囲を複数区画へ登録し、射線幅を含む区画だけ参照する。重複は問い合わせ番号で除き、区画からの削除は末尾との交換で一定時間とする。候補の検索順に依存せず、同距離の射撃とビームの処理順は元の敵一覧順に合わせる。設計・サイズ比較・再計測手順は[shot-grid.md](shot-grid.md)を参照。
@@ -233,7 +247,7 @@ EnemyWaveRulesが通常敵数・ボス数・初登場ラウンド・重み付き
 
 BossAbilitySystemはWARLORDの3点砲撃（射程560・1秒の砲撃予告・8秒間隔）とTITANの半径200の衝撃波（1秒予告・8秒間隔）を更新する。GameSessionは標的選択、凍結・フックによる停止、更新順序を担う。TITANは予告中に移動とノックバックを止め、WardenCombatSystem.areaImpactを共用してプレイヤー・ドローン・設備・デコイ・コアへ一度ずつ通常のダメージ処理を適用する。SnapshotBuilderはTITANの予告を既存のbossAction形式で配信し、warden-ui.jsがWARDENと共通の円を描く。CPUは同じ予告範囲から退避し、WARLORDの砲撃には既存の砲撃回避を使う。両ボスの旧無予告コアパルスは置き換える。最初の黒いボスは突進と通常の接触攻撃を使い、コアへの接近だけでコアや周辺プレイヤーへダメージを与える旧コアパルスは使用しない。クライアントもコアから広がる攻撃エフェクトを表示しない。
 
-BossRulesはBOSS・WARDEN・WARLORD・TITAN・EXPLOSION BOSSの生成HPを従来の65%にして100単位へ四捨五入する。通常出現とデバッグ召喚で同じ計算を使う。BossRulesがEXPLOSION BOSS以外のボスの通常移動を同ラウンドのRUNNERと同速にする処理と、TITAN・WARLORDのHP段階による加速を管理する。WARDENと同じWardenRules.phase（HP60%以下・30%以下）を使い、移動倍率は1・1.2・1.5倍、攻撃倍率は1・1.5・2倍。GameSessionは生成時にRUNNERと共有する速度（140 + R×3.5）へ合わせ、共通の0.5倍と入口補正を適用し、更新時はHP段階の移動倍率と接触攻撃のクールタイム消化倍率を適用する。BossAbilitySystemも同じ攻撃倍率で特殊攻撃の待ち時間を消化するため、残り待ち時間も段階切替時から加速する。予告時間はBOSS突進0.45秒、WARDEN突進0.65秒・範囲攻撃0.8秒、TITAN衝撃波とWARLORD砲撃1秒。ArtilleryShellは個別のdurationを保持し、SnapshotBuilderが着弾待ちと描画へ同じ時間を配信する。通常砲兵の飛行時間は従来の1.5秒を保持し、凍結・フック・予告中の停止は従来どおり。WARDENの既存段階倍率と突進速度は維持する。
+BossRulesはBOSS・WARDEN・WARLORD・TITAN・EXPLOSION BOSSの生成HPを従来の65%にして100単位へ四捨五入する。通常出現とデバッグ召喚で同じ計算を使う。BossRulesがEXPLOSION BOSS以外のボスの通常移動を同ラウンドのRUNNERと同速にする処理と、TITAN・WARLORDのHP段階による加速を管理する。WARDENと同じWardenRules.phase（HP60%以下・30%以下）を使い、移動倍率は1・1.2・1.5倍、攻撃倍率は1・1.5・2倍。GameSessionは生成時にRUNNERと共有する速度（140 + R×3.5）へ合わせ、共通の0.5倍と入口補正を適用し、更新時はHP段階の移動倍率と接触攻撃のクールタイム消化倍率を適用する。BossAbilitySystemも同じ攻撃倍率で特殊攻撃の待ち時間を消化するため、残り待ち時間も段階切替時から加速する。予告時間はBOSS突進0.8秒、WARDEN突進0.65秒・範囲攻撃0.8秒、TITAN衝撃波とWARLORD砲撃1秒。ArtilleryShellは個別のdurationを保持し、SnapshotBuilderが着弾待ちと描画へ同じ時間を配信する。通常砲兵の飛行時間は従来の1.5秒を保持し、凍結・フック・予告中の停止は従来どおり。WARDENの既存段階倍率と突進速度は維持する。
 
 WARLORDは3点砲撃と1秒予告付きの増援召喚を交互に使う。BossAbilitySystemが予告・切替・種類（RUNNER12体＋ARMORED6体）・円状の候補座標を管理し、GameSessionが敵更新の反復後に18体を一括追加する。候補が壁・未解放部屋・設備で塞がる場合はWARLORDの足元へ戻し、通常の敵生成・報酬・撃破処理を共有する。召喚元IDで同時生存数を36体までに制限し、上限時は砲撃を続ける。追加数をroundEnemyTotalへ加算し、全滅判定と残敵表示へ反映する。予告中は移動・ノックバックを止め、凍結・フックで予告の時計を止める。倒せば未発動の召喚は中止する。SnapshotBuilderがSUMMON_WARNINGと時間を配信し、warden-ui.jsが水色の円で表示する。
 
@@ -483,3 +497,11 @@ EXPLOSION BOSS / FINAL BOSSにはlab-explosionboss / lab-finalbossを割り当�
 WARLORD・TITAN・ARTILLERY ELITEはlab-warlord・lab-titan・lab-artilleryeliteの有機モデルへ接続する。指揮装甲と長い上着、幅広い拘束実験体、双筒の砲撃装置で区別する。共有形状・個体別歩行・姿勢間引き・凍結・被弾・死亡・解放は既存経路を使い、能力と命中判定は変更しない。enemy-heavy.htmlで実ゲームの照明・既存半径44/48/27を確認できる。
 
 SEEKERの誘導弾用武装はorganic-enemy-models.jsのlab-seekerに置く。右肩の前向きランチャー・赤い照準レンズ・背面予備弾ケースをTorsoへ取り付け、首振りと腕振りから分離する。共有素材・個体別姿勢・凍結・被弾・解放は既存経路を使う。敵弾の発射・追尾・判定と通信には変更を加えない。
+
+GHOSTはlab-ghostの半透明な被験者モデルへ割り当てる。OrganicEnemyが青白い身体・裂けた検査衣・患者バンドと材質の透明度を所有し、深度テストは維持、深度書き込みと影は無効にする。LabEnemyModelsは半透明材質の凍結色だけ個体別に複製し、元の透明度を保持して個体解放時に破棄する。HitPresentationの既存の透明度乗算を利用して被弾・死亡表示を連携する。GLB出力もopacityとalphaMode=BLENDを保持する。戦闘・通信・命中判定は変更しない。
+
+Bomberの爆発範囲はSnapshotBuilderがGameConfig.BOMBER_BLAST_RADIUSをblastRadiusとして配信し、Lab3Dと2D表示が生存中の敵へ追従する円を描く。Tankの軽減範囲円は3Dにも追加し、自分は予測座標へ追従、ダウン時は非表示とする。砲撃周期は6秒、着弾予告は濃い緑。SEEKER弾は正の有効ダメージ1回で迎撃し、旋回を毎秒0.8radに制限する。呼吸円は全対応武器で表示半径を20%縮め、散弾の既存表示補正・発射判定は維持する。MissileInterceptionTest・EnemyProjectileSystemTest・ArtilleryEnemyTest・BomberEnemyTestとaim-control.cjs・lab3d-models.cjsで判定と連携を検証する。
+
+通常BOSSの突進はBossChargeSystemで予告0.8秒・速度260/秒・継続1.1秒（最大286）とし、enemy.slowを反映する。予告・突進中の被弾はダメージのみ適用してノックバックを止め、終了後は視認・経路キャッシュを更新して古い追跡位置への折り返しを避ける。ラウンド8を含む通常BOSSで共通とし、BossChargeSystemTestとEnemyHookGachaTestで連続移動・減速・固定方向・凍結・設備衝突・被弾と追跡再開を検証する。
+
+ショットガンの散弾と呼吸円の不一致を修正。ShotSpreadRulesの実散布半径を520から145.6（旧表示の28%）へ縮め、AimControl.displaySampleのショットガンだけ表示補正を1にする。これにより配信spreadSlopeが表示・抽選で一致し、既存の小さい円の見た目を維持する。クライアントの未配信時の基準も145.6へ合わせる。ShotSpreadCombatTestは呼吸の最大/最小と移動中の4方向の実弾道・1発消費、aim-control.cjsは配信値からの円半径とFOV投影、lab3d-models.cjsは弾道の銃口・着弾点描画を確認する。

@@ -22,8 +22,11 @@ window.Lab3D = (() => {
         scene.background = new T.Color('#141e26');
         const camera = new T.PerspectiveCamera(72, 1, .5, 5000);
         const ambient=new T.HemisphereLight(0xe4f5ff, 0x455262, .75);scene.add(ambient);
-        const blackoutFog=new T.Fog(0x010205,48,160);
-        const nearbyLight=new T.PointLight(0xc6dded,1.8,160,2);nearbyLight.name="blackout-nearby-light";nearbyLight.visible=false;scene.add(nearbyLight);
+        // Keep shader defines/light counts stable across power and night-vision changes.
+        // Only the explicit graphics setting changes the rendering configuration.
+        const blackoutFog=new T.Fog(0x010205,10000,11000);
+        const nearbyLight=new T.PointLight(0xc6dded,0,160,2);nearbyLight.name="blackout-nearby-light";scene.add(nearbyLight);
+        const blackoutDirection=new T.Vector3();
         let darkened=false;
         const sun = new T.DirectionalLight(0xfff3dd, 1.0);
         sun.castShadow = true;
@@ -103,6 +106,7 @@ window.Lab3D = (() => {
                     mesh.setMatrixAt(i, dummy.matrix);
                 });
                 mesh.name = name; mesh.receiveShadow = !glowing; mesh.castShadow = !glowing && name !== 'lab-ceilings'; terrain.add(mesh);
+                window.BlockTerrain.indexInstances(T,mesh,items);
             }
             instances(floors, '#8799a2', 'lab-floors');
             instances(walls, '#d8e2e6', 'lab-walls');
@@ -139,7 +143,8 @@ window.Lab3D = (() => {
         const raycaster = new T.Raycaster();
         const animationFrustum=new T.Frustum(),animationProjection=new T.Matrix4(),animationSphere=new T.Sphere();
         let fullEnemyAnimation=false;
-        function enemyAnimationInterval(point,radius) {
+        function enemyAnimationInterval(point,radius,visible=true) {
+            if(!visible)return 1000;
             if(fullEnemyAnimation)return 0;
             // Conservative whole-body bounds keep partially visible enemies at full detail.
             animationSphere.center.set(point.x,radius*.8,point.y);animationSphere.radius=radius*1.5;
@@ -320,10 +325,16 @@ window.Lab3D = (() => {
             if(item.root.userData.presentationOnly)return;
             hitPresentation.restore(item);
             item.root.position.set(point.x, 0, point.y);
+            // Fog uses view depth. Include the entire conservative body sphere so
+            // large enemies crossing the boundary never disappear prematurely.
+            const depth=(point.x-camera.position.x)*blackoutDirection.x
+                +(radius*.8-camera.position.y)*blackoutDirection.y
+                +(point.y-camera.position.z)*blackoutDirection.z;
+            item.root.visible=!darkened || depth-radius*1.5 <= (scene.fog?160:200);
             item.root.userData.entity={x:point.x,y:point.y};
             item.root.rotation.y = Math.atan2(entity.facingX || 0, entity.facingY ?? 1);
             if(item.model){
-                item.model.update(point,now,entity.frozenRemaining>0,enemyAnimationInterval(point,radius));
+                item.model.update(point,now,entity.frozenRemaining>0,enemyAnimationInterval(point,radius,item.root.visible));
                 item.model.tint(entity.frozenRemaining>0?material('#95dded')
                     :entity.type==='explosionBoss' && entity.fuse>=0 && Math.sin(now/Math.max(50,entity.fuse*15))>0?material('#d64e58'):null);
                 return;
@@ -541,7 +552,7 @@ window.Lab3D = (() => {
         function renderCombat(frame,now) {
             const {state,smooth}=frame;
             for(const shot of state.projectiles || []) {const p=smooth('projectile',shot),dx=Math.cos(shot.angle),dy=Math.sin(shot.angle);beam('projectile:'+shot.id,new T.Vector3(p.x-dx*20,(shot.height ?? 16)-(shot.slope || 0)*20,p.y-dy*20),new T.Vector3(p.x,shot.height ?? 16,p.y),shot.source==='enemy'?'#ff7050':'#69dfff',1.5);}
-            for(const shell of state.artilleryShells || []) {ring('shell:'+shell.id,shell.x,shell.y,shell.radius,'#7edc7a');const remaining=shell.remaining-Math.max(0,(now-(state.artilleryReceivedAt || now))/1000);const progress=Math.max(0,Math.min(1,1-remaining/shell.duration));const x=shell.sourceX+(shell.x-shell.sourceX)*progress,y=shell.sourceY+(shell.y-shell.sourceY)*progress;beam('shell-body:'+shell.id,new T.Vector3(x,5+Math.sin(progress*Math.PI)*65,y),new T.Vector3(x,12+Math.sin(progress*Math.PI)*65,y),'#7edc7a',3);}
+            for(const shell of state.artilleryShells || []) {ring('shell:'+shell.id,shell.x,shell.y,shell.radius,'#48be41',.95);const remaining=shell.remaining-Math.max(0,(now-(state.artilleryReceivedAt || now))/1000);const progress=Math.max(0,Math.min(1,1-remaining/shell.duration));const x=shell.sourceX+(shell.x-shell.sourceX)*progress,y=shell.sourceY+(shell.y-shell.sourceY)*progress;beam('shell-body:'+shell.id,new T.Vector3(x,5+Math.sin(progress*Math.PI)*65,y),new T.Vector3(x,12+Math.sin(progress*Math.PI)*65,y),'#7edc7a',3);}
             for(const [i,strike] of (state.missiles || []).entries()) {
                 missileRadius=strike.radius || 120;
                 const pulse=.65+.35*Math.sin(now*.018);
@@ -555,6 +566,7 @@ window.Lab3D = (() => {
             for(const player of state.players) {
                 if(player.down)continue;
                 const p=player.id===frame.localId && frame.predicted ? frame.predicted : smooth('player',player);
+                if(player.job==='tank')ring('tank-aura:'+player.id,p.x,p.y,player.tankAuraRadius || 160,'#7acba8',.6);
                 for(const [side,weapon,charge,remaining,dx,dy,range,pitch] of [
                     ['main',player.weapon,player.railgunCharge,player.railgunRemaining,player.railgunDx,player.railgunDy,player.railgunRange,player.railgunPitch],
                     ['sub',player.secondaryWeapon,player.secondaryRailgunCharge,player.secondaryRailgunRemaining,player.secondaryRailgunDx,player.secondaryRailgunDy,player.secondaryRailgunRange,player.secondaryRailgunPitch]]) {
@@ -582,6 +594,7 @@ window.Lab3D = (() => {
                     }
                 }
             }
+            for(const enemy of state.enemies) if(enemy.hp>0 && enemy.type==='bomber') {const p=smooth('enemy',enemy);ring('bomber-range:'+enemy.id,p.x,p.y,enemy.blastRadius || 120,'#ff805c',.85);}
             for(const enemy of state.enemies) if(enemy.hp>0 && enemy.chargeWarning>0) {const p=smooth('enemy',enemy);beam('charge:'+enemy.id,new T.Vector3(p.x,1,p.y),new T.Vector3(p.x+enemy.chargeDx*286,1,p.y+enemy.chargeDy*286),'#ff5964',5);}
             for(const enemy of state.enemies) if(enemy.hp>0 && ['PULSE_WARNING','SUMMON_WARNING'].includes(enemy.bossAction)) {
                 ring('boss-warning:'+enemy.id,enemy.x,enemy.y,enemy.pulseRadius,enemy.bossAction==='SUMMON_WARNING'?'#9ce8ff':'#ffac70',.95);
@@ -636,7 +649,8 @@ window.Lab3D = (() => {
         let lastFrame = performance.now(), walkPhase=0, walkBlend=0, recoil=0, sniperRecoil=0, batSwingAt=-Infinity, bottleThrowAt=-Infinity, lastKickAt=-Infinity, lastWalkPoint=null;
         const kickedEffects=new WeakSet(),lastGunKick=new Map();
         function render(frame) {
-            renderer.shadowMap.enabled = window.coreGraphicsSettings?.getShadows() ?? true;
+            const detailedLighting=window.coreGraphicsSettings?.getShadows() ?? true;
+            renderer.shadowMap.enabled = detailedLighting;
             cachedAim=null;
             const { map, reachable, center, scale, state, localId, predicted, smooth, radius, stations, aim, effects = [] } = frame;
             const now = performance.now(), dt = Math.min(.1, (now - lastFrame) / 1000); lastFrame = now;
@@ -647,6 +661,8 @@ window.Lab3D = (() => {
             if(!state || map!==lastMap)hitPresentation.reset();
             const me=state?.players.find(p=>p.id===localId), view=frame.view || {yaw:0,pitch:0};
             const eye=frame.eye || predicted || me || center;
+            darkened=!!state?.blackoutActive && !me?.drone?.controlled && !frame.nightVision;
+            camera.far=darkened?200:5000;
             camera.aspect=overlay.width/overlay.height; camera.fov=window.AimControl.viewFov(me?.weapon,view,frame.scoped); camera.updateProjectionMatrix();
             const walking=frame.motion?.moving && !me?.sniper?.fixed && !me?.down && !me?.drone?.controlled && !(eye.jumpHeight>0);
             const walkPoint=predicted || eye;
@@ -678,12 +694,18 @@ window.Lab3D = (() => {
             camera.updateMatrixWorld(true);
             fullEnemyAnimation=me?.weapon==='sniper' || me?.job==='attacker' && me.secondaryWeapon==='sniper';
             if(!fullEnemyAnimation)animationFrustum.setFromProjectionMatrix(animationProjection.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse));
-            darkened=!!state?.blackoutActive && !me?.drone?.controlled && !frame.nightVision;
-            scene.fog=darkened?blackoutFog:null;scene.background.set(darkened?'#010205':'#141e26');
-            ambient.intensity=darkened?.07:.75;sun.intensity=darkened?.08:1;
-            enemyFill.visible=!darkened;enemyFill.position.copy(camera.position);enemyFill.position.y+=30;
+            camera.getWorldDirection(blackoutDirection);
+            scene.fog=detailedLighting?blackoutFog:null;
+            blackoutFog.near=darkened?48:10000;blackoutFog.far=darkened?160:11000;
+            scene.background.set(darkened?'#010205':'#141e26');
+            ambient.intensity=darkened?(detailedLighting?.07:.2):.75;sun.intensity=darkened?0:1;
+            // With no sun contribution the old shadow map is irrelevant. Preserve
+            // shadow defines while skipping its pass, and refresh on restoration.
+            renderer.shadowMap.autoUpdate=!darkened;
+            if(darkened)renderer.shadowMap.needsUpdate=false;
+            enemyFill.intensity=darkened?0:.65;enemyFill.position.copy(camera.position);enemyFill.position.y+=30;
             enemyFill.target.position.set(camera.position.x+Math.sin(view.yaw)*100,camera.position.y-15,camera.position.z-Math.cos(view.yaw)*100);
-            nearbyLight.visible=darkened;nearbyLight.position.copy(camera.position);
+            nearbyLight.visible=detailedLighting;nearbyLight.intensity=darkened&&detailedLighting?1.8:0;nearbyLight.position.copy(camera.position);
             handLight.intensity=darkened?.38:1.8;sniperKey.intensity=darkened?.4:1.7;sniperFill.intensity=darkened?.15:.7;
             const holdingSniper=me?.weapon==='sniper';
             const ads=holdingSniper?(view.sniperAds ?? (frame.scoped?1:0)):0;

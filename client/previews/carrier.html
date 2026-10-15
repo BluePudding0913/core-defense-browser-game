@@ -1,0 +1,15 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>CARRIER</title><style>body{margin:0;background:#191d20;color:#e6e5df;font:14px system-ui}header{padding:20px 30px;display:flex;justify-content:space-between}button{color:inherit;background:#303a40;border:1px solid #6c797f;border-radius:4px;padding:8px 16px;cursor:pointer}canvas{display:block;width:100%;height:auto}</style></head><body><header><span>CARRIER · 更新モデル</span><button id="save">画像を保存</button></header><canvas id="sheet"></canvas>
+<script src="../vendor/three.min.js"></script><script src="../organic-enemy-models.js"></script><script>
+'use strict';
+const T=THREE,sheet=document.querySelector('#sheet');sheet.width=1800;sheet.height=1120;const ctx=sheet.getContext('2d');ctx.fillStyle='#191d20';ctx.fillRect(0,0,1800,1120);
+ctx.fillStyle='#e6e5df';ctx.font='500 36px system-ui';ctx.fillText('CARRIER',32,54);ctx.fillStyle='#a1abad';ctx.font='18px system-ui';ctx.fillText('大型の背負い袋 · 検体運搬員',32,88);
+const r=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});r.setPixelRatio(2);r.setSize(418,850);r.outputEncoding=T.sRGBEncoding;r.toneMapping=T.ACESFilmicToneMapping;r.toneMappingExposure=1;
+const studio=new T.Scene();studio.background=new T.Color('#535e66').convertSRGBToLinear();for(const [x,y,z,w,h,color]of [[-3,3,2,2,5,'#e3e9e6'],[3,2,1,2,4,'#9aaeb7'],[0,4,-3,4,2,'#f4e7d1']]){const p=new T.Mesh(new T.PlaneGeometry(w,h),new T.MeshBasicMaterial({color,side:T.DoubleSide}));p.position.set(x,y,z);p.lookAt(0,1,0);studio.add(p);}const pmrem=new T.PMREMGenerator(r),env=pmrem.fromScene(studio,.12);
+for(const [i,id,angle,label]of [[0,'lab-carrier',.25,'FRONT'],[1,'lab-carrier',1.57,'SIDE'],[2,'lab-carrier',Math.PI+.38,'BACK'],[3,'lab-carrier',-.8,'THREE QUARTER']]){
+ const s=new T.Scene();s.background=new T.Color('#20272b');s.environment=env.texture;s.add(new T.HemisphereLight('#c5d5dd','#33302b',.72));for(const [x,y,z,intensity,color]of [[-3,6,5,1.7,'#f4ecdb'],[4,3,2,.55,'#bad5e4'],[1,4,-4,1.3,'#d2e2df']]){const l=new T.DirectionalLight(color,intensity);l.position.set(x,y,z);s.add(l);}
+ const m=buildOrganicEnemy(T,id);m.reset();m.root.rotation.y=angle;s.add(m.root);const camera=new T.PerspectiveCamera(32,418/850,.05,40);camera.position.set(0,1.08,4.35);camera.lookAt(0,.94,0);r.render(s,camera);const x=32+i*438;ctx.drawImage(r.domElement,x,130,418,850);ctx.fillStyle='#e6e5df';ctx.font='500 22px system-ui';ctx.fillText(label,x+14,1018);ctx.fillStyle='#a1abad';ctx.font='16px system-ui';ctx.fillText('黄土色の袋・絞り口・太いハーネス',x+14,1050);m.dispose();
+}
+ctx.fillStyle='#a1abad';ctx.font='15px system-ui';ctx.fillText('Actual 3D models · Studio lighting · Rest pose',32,1100);r.dispose();env.dispose();pmrem.dispose();
+document.querySelector('#save').onclick=()=>sheet.toBlob(blob=>{const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='carrier.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+</script></body></html>
+

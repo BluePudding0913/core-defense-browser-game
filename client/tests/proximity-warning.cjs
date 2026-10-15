@@ -1,0 +1,78 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const motion={matches:false},window={matchMedia:()=>motion};
+const sandbox=vm.createContext({window});
+vm.runInContext(fs.readFileSync('client/proximity-warning.js','utf8'),sandbox);
+vm.runInContext(fs.readFileSync('client/aim-control.js','utf8'),sandbox);
+const warning=window.ProximityWarning,eye={x:0,y:0};
+const enemy=(angle,distance=60,more={})=>({x:Math.sin(angle)*distance,y:-Math.cos(angle)*distance,hp:100,type:'grunt',...more});
+const check=(enemies,options={})=>warning.sample(eye,enemies,options);
+assert.equal(check([]),null);assert.equal(warning.sample(null,[]),null);
+assert(check([enemy(Math.PI,200)]),'Five-tile boundary warns');
+assert.equal(check([enemy(Math.PI,201)]),null);
+assert(check([enemy(Math.PI,199)]));
+assert(check([enemy(Math.PI,160)]),'Four tiles is inside warning range');
+assert.equal(check([enemy(Math.PI,40,{hp:0})]),null);
+assert.equal(check([enemy(Math.PI,40,{type:'ghost'})]),null);
+assert.equal(check([enemy(0,35)]),null,'Front never warns');
+assert.equal(check([enemy(.3)]),null,'Visible diagonal never warns');
+assert.equal(check([enemy(0,20),enemy(Math.PI,70)]).distance,70,'Visible nearest enemy cannot mask rear threat');
+assert.equal(check([enemy(Math.PI,90),enemy(Math.PI/2,40)]).distance,40);
+assert.equal(check([enemy(Math.PI/2)]).angle,Math.PI/2);
+assert.equal(check([enemy(-Math.PI/2)]).angle,-Math.PI/2);
+assert.equal(check([enemy(Math.PI/2)],{yaw:Math.PI/2}),null,'Turning toward a threat clears it');
+assert.equal(check([enemy(0)],{yaw:Math.PI/2}).angle,-Math.PI/2);
+assert(Math.abs(Math.abs(check([enemy(Math.PI)],{yaw:Math.PI*4}).angle)-Math.PI)<1e-10);
+const boundary=Math.atan(Math.tan(72*Math.PI/360)*16/9);
+assert.equal(check([enemy(boundary-.001)],{aspect:16/9}),null);
+assert(check([enemy(boundary+.001)],{aspect:16/9}));
+assert.equal(check([enemy(.8)],{aspect:16/9}),null,'Landscape horizontal field is wider');
+assert(check([enemy(.8)],{aspect:9/16}),'Portrait horizontal field is narrower');
+assert.equal(check([enemy(.5)]),null);
+assert(check([enemy(.5)],{fov:16}),'Scope uses its narrower field');
+const fov=window.AimControl.viewFov('sniper',{sniperAds:.5},true);
+assert.equal(fov,44);assert(check([enemy(.5)],{fov}),'ADS transition uses intermediate FOV');
+assert(check([enemy(Math.PI,40)]).strength>check([enemy(Math.PI,100)]).strength);
+assert.equal(check([enemy(Math.PI,40)]).strength,1);
+assert(check([enemy(boundary+.001)],{aspect:16/9}).strength<.02,'Screen boundary fades in');
+assert.equal(check([enemy(0)],{smooth:()=>({x:0,y:60})}).angle,Math.PI,'Displayed enemy position is used');
+assert.equal(warning.sample({x:10,y:20},[{x:10,y:60,hp:100}]).distance,40);
+
+const strokes=[],ellipses=[],scales=[];
+let saves=0;
+const ctx={save(){saves++;},restore(){saves--;},beginPath(){},ellipse(...args){ellipses.push(args);},
+    stroke(){strokes.push(this.strokeStyle);},scale(...args){scales.push(args);}};
+warning.draw(ctx,800,600,null,0);assert.equal(strokes.length,0);
+const threat=check([enemy(Math.PI/2,40)]);
+warning.draw(ctx,800,600,threat,0);
+assert.equal(strokes.length,2);assert.equal(saves,0);assert.equal(ellipses[0][0],400);assert.equal(ellipses[0][1],300);
+assert.equal(ellipses[0][5],-.23,'Right threat is centered on the right edge');
+motion.matches=true;strokes.length=0;
+warning.draw(ctx,390,844,threat,0);const still=strokes.slice();strokes.length=0;
+warning.draw(ctx,390,844,threat,350);assert.deepEqual(strokes,still,'Reduced motion disables pulse');
+for(const args of ellipses)assert(args.every(Number.isFinite));
+
+// Execute the actual FPS integration block with real sampling and drawing.
+const app=fs.readFileSync('client/app.js','utf8');
+const start=app.indexOf('    if(playing && !menusOpen && !me.down && !me.drone?.controlled && !droneCameraView()) {');
+const end=app.indexOf('\n    if(playing && !menusOpen && !me.down && !me.selectedBuild',start);
+assert(start>0 && end>start);
+let remote=false;
+Object.assign(sandbox,{playing:true,menusOpen:false,me:{weapon:'pistol'},droneCameraView:()=>remote,eye,
+    state:{enemies:[enemy(Math.PI/2,40)]},fpsInput:{view:{yaw:0,zoom:false}},scoped:false,
+    innerWidth:800,innerHeight:600,dpr:2,smoothEntity:(_,e)=>e,ctx,now:100});
+const render=()=>{strokes.length=0;vm.runInContext(app.slice(start,end),sandbox);return strokes.length;};
+assert.equal(render(),2);assert.deepEqual(scales.pop(),[2,2],'HUD uses CSS pixels at high DPI');
+sandbox.state.enemies=[enemy(0,40)];assert.equal(render(),0);
+sandbox.state.enemies=[enemy(Math.PI/2,40)];
+sandbox.menusOpen=true;assert.equal(render(),0);sandbox.menusOpen=false;
+sandbox.playing=false;assert.equal(render(),0);sandbox.playing=true;
+sandbox.me.down=true;assert.equal(render(),0);sandbox.me.down=false;
+sandbox.me.drone={controlled:true};assert.equal(render(),0);sandbox.me.drone.controlled=false;
+remote=true;assert.equal(render(),0);remote=false;
+sandbox.state.blackoutActive=true;assert.equal(render(),2,'Blackout retains warning');
+sandbox.me.selectedBuild='turret';assert.equal(render(),2,'Building still warns about nearby enemies');
+assert.equal(saves,0);
+const html=fs.readFileSync('client/index.html','utf8');
+assert(html.indexOf('src="proximity-warning.js"')>=0 && html.indexOf('src="proximity-warning.js"')<html.indexOf('src="menu-ui.js"'),'Warning loads before the menu starts the game');
+console.log('Proximity warning passed: visibility, nearest offscreen threat, range, camera/FOV/aspect, smoothing, reduced motion, DPI, FPS lifecycle and blackout.');

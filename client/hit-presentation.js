@@ -35,6 +35,9 @@ window.createHitPresentation = (T, scene) => {
     }
     function release(item) {
         restore(item);for(const mat of item.hitTints?.values() || [])mat.dispose();item.hitTints?.clear();
+        for(const [id,flash] of flashes)if(flash.item===item){flashes.delete(id);lastBlood.delete(id);}
+        for(const [id,fade] of fades)if(fade.item===item){fades.delete(id);lastBlood.delete(id);}
+        item.root.userData.presentationOnly=false;
     }
     function headPosition(item,effect) {
         item.root.updateMatrixWorld(true);
@@ -67,7 +70,7 @@ window.createHitPresentation = (T, scene) => {
             processed.add(e);
             const item=lookup(e.enemyId);if(!item)continue;
             const own=e.playerId===localId,old=flashes.get(e.enemyId),strength=own?.72:.19;
-            if(!old || own || now-old.at>=FLASH_MS || old.strength<=strength)flashes.set(e.enemyId,{at:e.started,strength});
+            if(!old || own || now-old.at>=FLASH_MS || old.strength<=strength)flashes.set(e.enemyId,{item,at:e.started,strength});
             emit(e,item,now);
             if(e.defeated===true && !fades.has(e.enemyId)) {
                 if(fades.size>=FADE_LIMIT){const oldest=fades.keys().next().value;fades.get(oldest).item.root.visible=false;fades.delete(oldest);}
@@ -95,6 +98,7 @@ window.createHitPresentation = (T, scene) => {
         for(const [id,at] of lastBlood)if(now-at>1000)lastBlood.delete(id);
     }
     function reset(){
+        for(const {item} of flashes.values())restore(item);
         for(const {item} of fades.values()){restore(item);item.root.userData.presentationOnly=false;item.root.visible=true;}
         fades.clear();
         flashes.clear();particles.length=0;lastBlood.clear();processed=new WeakSet();mesh.count=0;

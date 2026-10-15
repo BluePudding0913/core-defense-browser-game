@@ -121,14 +121,18 @@ context.keys.add('w');context.dashRequested=true;context.dashKey=true;context.jo
 context.sendMovement(true);context.stopGameplayMovement();assert.equal(context.keys.size,0);assert.equal(context.joystick,null);assert.equal(context.dashRequested,false);assert.equal(commands.at(-1),'MOVE:0.00:0.00','UI opening immediately cancels held movement and dash');
 console.log('UI input isolation passed: inventory, shops, instructions, menus, jump/dash/abilities, held movement and immediate stop');
 let inventoryOpen=false;
+let inventoryRefreshes=0;
+context.updateInventory=me=>{assert.deepEqual(me,context.getMe());inventoryRefreshes++;};
 Object.assign(context,{fpsInput:null,firingPointer:null,secondaryHeld:false,closeInventoryPopover(){},endInteractionHold(){},closeActionMenu(){},closeInventory(){inventoryOpen=false;}});
 context.inventoryMenu={classList:{contains:()=>!inventoryOpen,remove:()=>{inventoryOpen=true;}}};
 const inventoryStart=source.indexOf('function toggleInventory(');
 vm.runInContext(source.slice(inventoryStart,source.indexOf('\nfunction ',inventoryStart+1)),context);
 context.keys.add('w');context.sendMovement(true);assert.equal(commands.at(-1),'MOVE:0.00:-1.00');
 context.toggleInventory();assert(inventoryOpen);assert.equal(commands.at(-1),'MOVE:0.00:0.00','Inventory stops movement immediately, before the next frame');
+assert.equal(inventoryRefreshes,1,'Opening refreshes the latest inventory immediately');
 const blockedCount=commands.length;key('keydown',{code:'KeyW'});key('keydown',{code:'Space'});assert.equal(commands.length,blockedCount);
 context.toggleInventory();assert(!inventoryOpen);assert.equal(context.keys.size,0,'Closing inventory does not replay the blocked keys');
+assert.equal(inventoryRefreshes,1,'Closing does not redraw hidden inventory');
 console.log('Inventory integration passed: immediate stop on opening, blocked movement/jump and no held-key replay');
 inventoryOpen=true;
 key('keydown',{code:'KeyR',repeat:true});assert(inventoryOpen,'Repeated R does not close the inventory');

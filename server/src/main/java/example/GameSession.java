@@ -1675,13 +1675,13 @@ final class GameSession {
             if (defense == null || defense.hp <= 0) continue;
             defense.cooldown = Math.max(0, defense.cooldown - dt);
             if (defense.type.equals("wire")) {
-                for (Enemy enemy : enemies) {
+                for (Enemy enemy : enemies.nearbyCandidates(slot.x, slot.y, 62)) {
                     if (enemy.hp > 0 && distance(slot.x, slot.y, enemy.x, enemy.y) < 62) {
                         enemy.slow = Math.min(enemy.slow, 0.48);
                     }
                 }
             } else if (BuildingRules.isTurret(defense.type) && defense.cooldown <= 0) {
-                Enemy target = enemies.stream()
+                Enemy target = enemies.nearbyCandidates(slot.x, slot.y, TurretRules.range(defense.type)).stream()
                         .filter(enemy -> enemy.hp > 0 && distance(slot.x, slot.y, enemy.x, enemy.y) <= TurretRules.range(defense.type))
                         .filter(enemy -> GameMap.hasClearLine(slot.x, slot.y, enemy.x, enemy.y, unlockedAreas))
                         .min(Comparator.comparingDouble(enemy -> distance(enemy.x, enemy.y, coreX, coreY)))
@@ -1700,11 +1700,11 @@ final class GameSession {
                     defense.hp = Math.max(0, defense.hp - TurretRules.SHOT_HP_COST);
                 }
             } else if (defense.type.equals("mine")) {
-                Enemy trigger = enemies.stream()
+                Enemy trigger = enemies.nearbyCandidates(slot.x, slot.y, 58).stream()
                         .filter(enemy -> enemy.hp > 0 && distance(slot.x, slot.y, enemy.x, enemy.y) < 58)
                         .findFirst().orElse(null);
                 if (trigger != null) {
-                    for (Enemy enemy : enemies) {
+                    for (Enemy enemy : enemies.nearbyCandidates(slot.x, slot.y, 120)) {
                         if (enemy.hp > 0 && distance(slot.x, slot.y, enemy.x, enemy.y) < 120) {
                             double dealt = combat.damageEnemy(enemy, 450, null);
                             gameEffects.hit("trap", "mine", slot.x, slot.y, enemy.x, enemy.y,

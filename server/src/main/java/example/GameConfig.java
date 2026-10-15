@@ -80,7 +80,7 @@ final class GameConfig {
     static final double ARTILLERY_RANGE = 420;
     static final double ARTILLERY_BLAST_RADIUS = 64;
     static final double ARTILLERY_FLIGHT_SECONDS = 1.5;
-    static final double ARTILLERY_COOLDOWN = 4;
+    static final double ARTILLERY_COOLDOWN = 6;
     static final int SHOTGUN_PELLETS = 4;
     static final int SHOTGUN_MAX_TARGETS = 4;
     static final double RAILGUN_CHARGE = 1.2;

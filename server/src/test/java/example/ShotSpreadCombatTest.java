@@ -29,6 +29,24 @@ class ShotSpreadCombatTest {
         for(var e:rays){assertTrue(slope(e)<=ShotSpreadRules.slope("shotgun")+.002);points.add(e.path("y")+":"+e.path("hitHeight"));}
         assertEquals(4,points.size());assertEquals(19,player.weapons.ammo("shotgun"));
     }
+    @Test void shotgunTracesMatchCompactPublishedConeThroughBreathingAndMovement() throws Exception {
+        for (double elapsed : new double[]{0,.5,1.5}) for (double movement : new double[]{0,1}) {
+            equip("shotgun");
+            player.aimControl.elapsed=elapsed;player.aimControl.inputTime=null;
+            player.aimControl.movement=movement;player.aimControl.speedRatio=0;
+            player.aimControl.turn=0;player.aimControl.airborne=false;player.aimControl.hasLook=false;
+            // Sample the edge of the disk in all four directions, including vertical spread.
+            int[] n={0};CombatTestRandom.use(game,()->{int i=n[0]++;return i%2==0?1-1e-9:(i/2)/4.;});
+            double published=json.readTree(SnapshotBuilder.build(game)).path("rules").path("weapons")
+                    .path("shotgun").path("spreadSlope").asDouble();
+            assertEquals(520*.28*SniperRules.PIXEL_SLOPE,published,1e-12);
+            double expected=published*AimControlRules.breath(elapsed)*(1+1.25*movement);
+            fire(0);
+            assertEquals(4,rays().size());
+            for (var ray:rays()) assertEquals(expected,slope(ray),.002,"Pellet trace must reach the displayed cone edge");
+            assertEquals(19,player.weapons.ammo("shotgun"));
+        }
+    }
     @Test void ricochetSamplesOnceBeforeReflectionsAndRailgunHoldsOneSampleForTheBeam()throws Exception{
         equip("ricochet");int[] n={0};CombatTestRandom.use(game,()->n[0]++%2==0?.81:.25);fire(0);
         assertEquals(2,n[0]);assertEquals(ShotSpreadRules.slope("ricochet")*.9,slope(rays().get(0)),.002);assertEquals(0,player.aimPitch);

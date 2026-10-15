@@ -308,6 +308,7 @@ function connect() {
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const serverPort = URL_PARAMETERS.get("serverPort") || "8887";
     const parameters = new URLSearchParams({ session: clientSessionId });
+    parameters.set("rules", "once");
     const access = URL_PARAMETERS.get("access");
     if (access) parameters.set("access", access);
     if (connectionTarget.phrase) parameters.set("phrase", connectionTarget.phrase);
@@ -320,6 +321,7 @@ function connect() {
     creatingRoom = false;
     updateRoomButtons();
     const connectingSocket = socket;
+    let ruleDefinitions = null;
     let welcomed = false;
     clearTimeout(connectionAttemptTimer);
     connectionAttemptTimer = setTimeout(() => {
@@ -345,6 +347,8 @@ function connect() {
         if (socket !== connectingSocket) return;
         let message;
         try { message = JSON.parse(data); } catch { return; }
+        if (message.type === "rules") { ruleDefinitions = message.rules; return; }
+        if (message.type === "state" && ruleDefinitions) message.rules = { ...ruleDefinitions, ...message.rules };
         if (message.type === "error" || message.type === "feedback") window.coreMenu?.status(message.message);
         if (message.type === "purchase-complete") {
             window.coreAudio?.play("purchase", 0);
@@ -556,7 +560,8 @@ function acknowledgeInputs(value) {
 }
 
 function applyRules(next) {
-    if (next.rules) {
+    if (next.rules && (typeof state === "undefined" || next.rules.weapons !== state?.rules?.weapons
+            || next.rules.recipes !== state?.rules?.recipes)) {
         BUILD_INFO = { ...next.rules.recipes, teleporter: { name: "TP", shopOnly: true } };
         SHOP_UNITS.filter(shop => shop.item.endsWith("Factory")).forEach(shop => {
             BUILD_INFO[shop.item] = { name: shop.label, description: "持ち運べる製造装置", shopOnly: true };
@@ -1021,7 +1026,7 @@ function updateHud() {
         : state.phase === "wave" ? `ENEMY:${state.enemies.length + state.queued}${blackoutStatus}`
             : "";
     const me = getMe();
-    teamElement.innerHTML = state.players.filter(player => player.id !== myPlayerId).map(player => `
+    const teamHtml = state.players.filter(player => player.id !== myPlayerId).map(player => `
         <div class="teammate ${player.down ? "down" : player.hp <= 30 ? "low" : ""} ${player.id === myPlayerId ? "self" : ""}">
             <div class="teammate-label">
                 <span>${player.id === myPlayerId ? "YOU" : escapeHtml(player.name)}</span>
@@ -1030,6 +1035,7 @@ function updateHud() {
             <div class="hp-line"><span style="width:${100 * player.hp / (player.maxHp || 100)}%"></span></div>
             ${me?.job === "scout" ? window.JobUI.renderAllyIntel(player, AREAS, areaContains, STARTING_AREA) : ""}
         </div>`).join("");
+    if (teamElement.renderedHtml !== teamHtml) { teamElement.innerHTML = teamHtml; teamElement.renderedHtml = teamHtml; }
     selfVitals.classList.toggle("hidden", !me);
     if (me) {
         const health = clamp(100 * me.hp / (me.maxHp || 100), 0, 100);
@@ -1037,8 +1043,9 @@ function updateHud() {
         healthHeart.classList.toggle("full", health === 100);
         healthHeart.setAttribute("aria-label", `体力 ${Math.ceil(health)}%`);
         selfJob.textContent = JOBS[me.job]?.name || me.job;
-        jobCooldownLabel.innerHTML = WeaponUI.jobCooldowns(me).map(timer =>
+        const cooldownHtml = WeaponUI.jobCooldowns(me).map(timer =>
             `<span class="cooldown-orb" title="${timer.label}" aria-label="${timer.label} ${timer.seconds}秒">${timer.seconds}</span>`).join("");
+        if (jobCooldownLabel.renderedHtml !== cooldownHtml) { jobCooldownLabel.innerHTML = cooldownHtml; jobCooldownLabel.renderedHtml = cooldownHtml; }
         selfCredits.textContent = `${me.credits}G`;
         const selectedBuild = me.selectedBuild && (me.buildItems?.[me.selectedBuild] || 0) > 0
             ? me.selectedBuild : null;
@@ -1073,7 +1080,7 @@ function updateHud() {
         weaponButton.classList.toggle("silver-active", Boolean(silverLabel));
         updateSecondaryHud(me);
         updateAttackerLoadout(me);
-        updateInventory(me);
+        if (!inventoryMenu.classList.contains("hidden")) updateInventory(me);
         const placing = Boolean(placementSelection(me));
         const interaction = findNearestInteraction();
         interactLabel.textContent = placing ? "PLACE" : interaction?.kind === "teleporter"
@@ -1345,6 +1352,8 @@ function toggleInventory() {
     }
     closeActionMenu(false);
     inventoryMenu.classList.remove("hidden");
+    const me = getMe();
+    if (me) updateInventory(me);
     stopGameplayMovement();
     fpsInput?.setActive(false,true);
 }
@@ -2687,8 +2696,24 @@ function drawFirstPerson() {
         ctx.restore();
     }
     if(state.blackoutActive && !droneCameraView()){
-        const shade=ctx.createRadialGradient(canvas.width/2,canvas.height/2,0,canvas.width/2,canvas.height/2,canvas.width*.65);
-        shade.addColorStop(0,'rgba(0,5,10,0)');shade.addColorStop(1,'rgba(0,5,10,.45)');ctx.fillStyle=shade;ctx.fillRect(0,0,canvas.width,canvas.height);
+        const detailed=window.coreGraphicsSettings?.getShadows() ?? true;
+        let shade=drawFirstPerson.blackoutShade;
+        if(!shade || shade.width!==canvas.width || shade.height!==canvas.height || shade.detailed!==detailed){
+            const gradient=ctx.createRadialGradient(canvas.width/2,canvas.height/2,0,canvas.width/2,canvas.height/2,canvas.width*.65);
+            gradient.addColorStop(0,detailed?'rgba(0,5,10,0)':'rgba(0,5,10,.12)');
+            gradient.addColorStop(1,detailed?'rgba(0,5,10,.45)':'rgba(0,5,10,.9)');
+            shade=drawFirstPerson.blackoutShade={width:canvas.width,height:canvas.height,detailed,gradient};
+        }
+        ctx.fillStyle=shade.gradient;ctx.fillRect(0,0,canvas.width,canvas.height);
+    }
+    if(playing && !menusOpen && !me.down && !me.drone?.controlled && !droneCameraView()) {
+        const threat=window.ProximityWarning.sample(eye,state.enemies,{
+            yaw:fpsInput.view.yaw,fov:window.AimControl.viewFov(me.weapon,fpsInput.view,scoped),
+            aspect:innerWidth/innerHeight,smooth:smoothEntity
+        });
+        ctx.save();ctx.scale(dpr,dpr);
+        window.ProximityWarning.draw(ctx,innerWidth,innerHeight,threat,now);
+        ctx.restore();
     }
     if(playing && !menusOpen && !me.down && !me.selectedBuild && !me.drone?.controlled) {
         const spread=window.AimControl?.displaySample(me,now,WEAPON_FIELDS) || (me.weapon==='sniper'?window.SniperAim.sample(me,now):{slope:WEAPON_FIELDS[me.weapon]?.spreadSlope || 0});
@@ -3179,8 +3204,8 @@ function drawArtilleryShells() {
         if (remaining <= 0) continue;
         const progress = clamp(1 - remaining / shell.duration, 0, 1);
         ctx.save();
-        ctx.fillStyle = "rgb(126 220 122 / 18%)";
-        ctx.strokeStyle = "rgb(126 220 122 / 40%)"; ctx.lineWidth = 3;
+        ctx.fillStyle = "rgb(72 190 65 / 38%)";
+        ctx.strokeStyle = "rgb(72 190 65 / 90%)"; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.arc(shell.x, shell.y, shell.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         ctx.strokeStyle = "#7edc7a"; ctx.lineWidth = 4;
         ctx.beginPath(); ctx.arc(shell.x, shell.y, shell.radius, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2); ctx.stroke();
@@ -3200,6 +3225,10 @@ function drawEnemies() {
         if (enemy.hp <= 0) continue;
         if (typeof WardenUI !== "undefined") WardenUI.draw(ctx, enemy);
         const p = smoothEntity("enemy", enemy), radius = enemyRadius(enemy);
+        if (enemy.type === "bomber" && (typeof labRenderer === "undefined" || !labRenderer)) {
+            ctx.save(); ctx.strokeStyle = "#ff805c"; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(p.x, p.y, enemy.blastRadius || 120, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+        }
         if (enemy.type === "carrier" && enemy.bagHp > 0) {
             const bx = p.x + enemy.bagX - enemy.x, by = p.y + enemy.bagY - enemy.y;
             ctx.fillStyle = "#62442e"; ctx.strokeStyle = "#d9ae77"; ctx.lineWidth = 2;
@@ -3434,7 +3463,7 @@ function drawPlayers() {
         const p = isLocal ? predictedLocal : smoothEntity("player", player);
         if (player.job === "tank" && !player.down) {
             ctx.save();
-            ctx.strokeStyle = "#7acba822";
+            ctx.strokeStyle = "#7acba899";
             ctx.beginPath(); ctx.arc(p.x, p.y, player.tankAuraRadius, 0, Math.PI * 2); ctx.stroke();
             ctx.restore();
         }

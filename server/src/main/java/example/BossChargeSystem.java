@@ -2,7 +2,10 @@ package example;
 import java.util.List;
 /** First boss: fixed heading after a visible windup, swept movement and one impact. */
 final class BossChargeSystem {
-    static final double WARNING = .45, DURATION = .65, SPEED = 440, COOLDOWN = 7;
+    static final double WARNING = .8, DURATION = 1.1, SPEED = 260, COOLDOWN = 7;
+    static boolean resistsKnockback(Enemy enemy) {
+        return enemy.type.equals("boss") && (enemy.chargeWarning > 0 || enemy.chargeRemaining > 0);
+    }
     interface World {
         List<Player> players();
         List<TrapSlot> slots();
@@ -20,7 +23,7 @@ final class BossChargeSystem {
             return true;
         }
         if (enemy.chargeRemaining > 0) {
-            double travel = SPEED * Math.min(dt, enemy.chargeRemaining);
+            double travel = SPEED * enemy.slow * Math.min(dt, enemy.chargeRemaining);
             enemy.chargeRemaining = Math.max(0, enemy.chargeRemaining - dt);
             int steps = Math.max(1, (int)Math.ceil(travel / 6));
             for (int i = 0; i < steps; i++) {
@@ -42,7 +45,9 @@ final class BossChargeSystem {
                     enemy.chargeRemaining = 0; break;
                 }
             }
-            enemy.navigationTimer = enemy.pathTimer = 0;
+            // The charge can pass the last observed player position. Refresh it
+            // before ordinary pursuit resumes instead of steering back to it.
+            enemy.perceptionTimer = enemy.navigationTimer = enemy.pathTimer = 0;
             return true;
         }
         if (enemy.chargeCooldown > 0) return false;
