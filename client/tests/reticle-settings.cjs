@@ -54,7 +54,16 @@ context.fpsInput.view.zoom=false;context.drawFirstPerson();assert.equal(reticles
 assert.equal(circles.length,0,'Standing sniper hides its internal cone');
 player.sniper={fixed:true,elapsed:1,cycle:0};context.drawFirstPerson();assert.equal(reticles,4);assert.equal(circles.length,0,'Prone hip fire hides the breathing circle');
 context.fpsInput.view.zoom=true;context.drawFirstPerson();assert.equal(reticles,5,'Prone scope preserves the normal reticle');assert.equal(circles.pop(),'rgba(190,224,246,.55)');
-player.sniper.fixed=false;player.weapon='pistol';context.fpsInput.view.zoom=false;context.drawFirstPerson();assert.equal(circles.length,0,'Ordinary weapons hide cones during hip fire');context.fpsInput.view.zoom=true;context.drawFirstPerson();assert.equal(circles.pop(),'rgba(190,224,246,.55)','Ordinary ADS shows breathing circle');context.fpsInput.view.zoom=false;
+player.sniper.fixed=false;
+for(const debug of [false,true])for(const weapon of ['pistol','smg','rifle','revolver','lmg','shotgun','ricochet','freezeGun','sniper','railgun']) {
+ context.DEBUG_MODE=debug;player.weapon=weapon;context.fpsInput.view.zoom=false;
+ context.drawFirstPerson();assert.equal(circles.length,0,weapon+' hip fire hides breathing circle');
+ context.fpsInput.view.zoom=true;const before=reticles;context.drawFirstPerson();
+ assert.equal(reticles,before+1,weapon+' ADS preserves the normal reticle');
+ if(weapon==='rifle'||weapon==='sniper')assert.equal(circles.pop(),'rgba(190,224,246,.55)',weapon+' ADS shows breathing circle');
+ else assert.equal(circles.length,0,weapon+' ADS hides breathing circle, including debug');
+}
+player.weapon='pistol';context.fpsInput.view.zoom=false;
 context.DEBUG_MODE=true;context.drawFirstPerson();assert.equal(circles.length,0,'Debug hip fire hides the internal cone');
 player.weapon='sniper';context.drawFirstPerson();assert.equal(circles.length,0,'Debug standing sniper hides its internal cone');
 player.sniper.fixed=true;context.drawFirstPerson();assert.equal(circles.length,0,'Debug prone hip fire also hides the circle');

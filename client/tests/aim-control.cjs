@@ -41,6 +41,14 @@ assert(Math.abs(api.sample(jitter,100,definitions).slope*.8-beforeJitter.slope)>
 assert.equal(api.displaySample(jitter,100,definitions).slope,beforeJitter.slope,'Snapshot does not jump the visible circle');
 const afterJitter=api.displaySample(jitter,116,definitions);assert(Number.isFinite(afterJitter.slope));assert(afterJitter.slope>beforeJitter.slope,'Display follows the faster breathing smoothly');
 const weapons=['pistol','smg','rifle','revolver','lmg','shotgun','ricochet','freezeGun','sniper'];
+for(const weapon of [...weapons,'rocket','railgun','laser','flamethrower'])for(const fixed of [false,true]) {
+ const p={weapon,sniper:{fixed}};
+ const fields={[weapon]:{aimControl:true}};
+ assert.equal(api.visible(p,{zoom:true},fields),weapon==='rifle'||weapon==='sniper',weapon+' circle visibility is limited to the two rifles, even with server aim support');
+ assert.equal(api.visible(p,{zoom:false},fields),false,weapon+' hip fire hides the circle');
+}
+assert.equal(api.visible({weapon:'rifle'},{zoom:true},{rifle:{aimControl:false}}),false);
+assert.equal(api.visible(null,{zoom:true},definitions),false);
 for(const weapon of weapons){const p={id:'period-'+weapon,weapon,aimControl:{elapsed:.5,turn:0,movement:0},sniper:{fixed:false,recovery:0}};const max=api.sample(p,0).slope;p.aimControl.elapsed=1.5;const min=api.sample(p,0).slope;assert(Math.abs(max/min-1.35/.65)<1e-9,weapon+' has 2-second breathing');}
 for(const weapon of weapons){
  const p={id:'all-compact-'+weapon,weapon,aimControl:{elapsed:.5,turn:0,movement:0},sniper:{fixed:false,recovery:0}};
