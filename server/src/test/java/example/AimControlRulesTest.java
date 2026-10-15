@@ -13,7 +13,7 @@ class AimControlRulesTest {
  @Test void proneSniperPreservesSpecialBreathAndConcentration(){var s=new AimControlRules.State();var sniper=new SniperRules.State();sniper.start(()->.1);sniper.elapsed=1.5;assertEquals(SniperRules.radius(sniper,1.5),AimControlRules.radius(s,"sniper",sniper));sniper.elapsed=181.5;sniper.cycle=90;double before=sniper.elapsed;sniper.recovery=.9;AimControlRules.radius(s,"sniper",sniper);assertEquals(before,sniper.elapsed);}
  @Test void turningWidensEverySupportedWeaponIncludingProneSniper(){
   var s=new AimControlRules.State();var sniper=new SniperRules.State();
-  for(String weapon:new String[]{"pistol","smg","rifle","revolver","lmg","shotgun","ricochet","freezeGun","sniper"}) {
+  for(String weapon:new String[]{"rifle","sniper"}) {
    s.turn=0;double base=AimControlRules.radius(s,weapon,sniper);s.turn=1.5;
    assertEquals(base*3.25,AimControlRules.radius(s,weapon,sniper),1e-9,weapon);
   }

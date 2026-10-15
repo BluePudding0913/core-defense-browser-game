@@ -592,7 +592,7 @@ final class CombatSystem {
         try {
         double shotDistance = GameMap.distanceToWall(shotX(player), shotY(player),
                 directionX, directionY, weapon.range(), world.unlockedAreas());
-        if(ShotSpreadRules.radius(shotWeapon(player))>0 && player.aimPitch!=null) {
+        if(player.aimPitch!=null) {
             double slope=Math.tan(player.aimPitch),height=shotHeight(player);
             shotDistance=GameMap.terrainDistance(shotX(player),shotY(player),height,directionX,directionY,slope,shotDistance);
         }

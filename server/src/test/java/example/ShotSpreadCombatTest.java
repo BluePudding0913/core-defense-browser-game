@@ -15,8 +15,24 @@ class ShotSpreadCombatTest {
     void fire(double pitch){game.handleMessage(player,"FIRE:"+(player.x+200)+":"+player.y+":1:"+pitch);}
     List<JsonNode> rays()throws Exception{List<JsonNode> result=new ArrayList<>();for(String m:messages){var e=json.readTree(m);if(e.path("effect").asText().equals("hit")&&e.path("damage").asDouble()==0)result.add(e);}return result;}
     double slope(JsonNode e){double x=e.path("x").asDouble()-e.path("fromX").asDouble(),y=e.path("y").asDouble()-e.path("fromY").asDouble(),z=e.path("hitHeight").asDouble()-e.path("fromHeight").asDouble();return Math.hypot(y,z)/x;}
+    @Test void removedConesFollowAimEvenWhileMovingTurningAndJumping() throws Exception {
+        for(String id:List.of("pistol","smg","revolver","lmg","freezeGun","laserCannon","ricochet"))
+        for(double pitch:new double[]{0,.2,-.2}) {
+            equip(id);player.aimControl.elapsed=.5;player.aimControl.movement=1.8;
+            player.aimControl.speedRatio=1.8;player.aimControl.turn=1.5;player.aimControl.airborne=true;
+            int[] n={0};CombatTestRandom.use(game,()->{n[0]++;return .81;});
+            // Legacy circle timestamps must no longer reject these weapons.
+            game.handleMessage(player,"FIRE:"+(player.x+200)+":"+player.y+":1:"+pitch+":100");
+            var ray=rays().get(0);
+            double distance=ray.path("x").asDouble()-ray.path("fromX").asDouble();
+            assertEquals(0,ray.path("y").asDouble()-ray.path("fromY").asDouble(),1e-8,id);
+            assertEquals(Math.tan(pitch),(ray.path("hitHeight").asDouble()-ray.path("fromHeight").asDouble())/distance,.002,id);
+            assertEquals(0,n[0],id);assertEquals(pitch,player.aimPitch);
+            if(WeaponCatalog.capacity(id)>0)assertEquals(19,player.weapons.ammo(id),id);
+        }
+    }
     @Test void ordinaryShotsSampleTheActualThreeDimensionalDiskAndRestoreManualAim()throws Exception{
-        for(String id:List.of("pistol","smg","rifle","revolver","lmg","laserCannon","freezeGun")){
+        for(String id:List.of("rifle")){
             equip(id);int[] n={0};CombatTestRandom.use(game,()->n[0]++%2==0?.81:.25);fire(0);
             var trace=rays().get(0);assertEquals(2,n[0]);assertEquals(ShotSpreadRules.slope(id)*.9,slope(trace),.002,id);
             assertTrue(trace.path("hitHeight").asDouble()>26);assertEquals(0,player.aimPitch);
@@ -40,7 +56,7 @@ class ShotSpreadCombatTest {
             double published=json.readTree(SnapshotBuilder.build(game)).path("rules").path("weapons")
                     .path("shotgun").path("spreadSlope").asDouble();
             assertEquals(72.8*SniperRules.PIXEL_SLOPE,published,1e-12);
-            double expected=published*AimControlRules.breath(elapsed)*(1+1.25*movement);
+            double expected=published;
             fire(0);
             assertEquals(4,rays().size());
             for (var ray:rays()) assertEquals(expected,slope(ray),.002,"Pellet trace must reach the displayed cone edge");
@@ -49,16 +65,16 @@ class ShotSpreadCombatTest {
     }
     @Test void ricochetSamplesOnceBeforeReflectionsAndRailgunHoldsOneSampleForTheBeam()throws Exception{
         equip("ricochet");int[] n={0};CombatTestRandom.use(game,()->n[0]++%2==0?.81:.25);fire(0);
-        assertEquals(2,n[0]);assertEquals(ShotSpreadRules.slope("ricochet")*.9,slope(rays().get(0)),.002);assertEquals(0,player.aimPitch);
+        assertEquals(0,n[0]);assertEquals(0,slope(rays().get(0)),1e-9);assertEquals(0,player.aimPitch);
         equip("railgun");n[0]=0;fire(0);game.combat.updateRailgun(player,GameConfig.RAILGUN_CHARGE+.1);
-        assertEquals(2,n[0]);double pitch=player.railgunPitch,dx=player.railgunDx,dy=player.railgunDy;
-        assertTrue(pitch>0);player.aimPitch=-.5;player.aimX=player.x-200;game.combat.updateRailgun(player,.2);
-        assertEquals(pitch,player.railgunPitch);assertEquals(dx,player.railgunDx);assertEquals(dy,player.railgunDy);assertEquals(2,n[0]);assertEquals(1,player.weapons.ammo("railgun"));
+        assertEquals(0,n[0]);double pitch=player.railgunPitch,dx=player.railgunDx,dy=player.railgunDy;
+        assertEquals(0,pitch);player.aimPitch=-.5;player.aimX=player.x-200;game.combat.updateRailgun(player,.2);
+        assertEquals(pitch,player.railgunPitch);assertEquals(dx,player.railgunDx);assertEquals(dy,player.railgunDy);assertEquals(0,n[0]);assertEquals(1,player.weapons.ammo("railgun"));
     }
     @Test void rocketsCarryTheirSampledHeightIntoTravelAndSnapshots()throws Exception{
         equip("rocket");int[] n={0};CombatTestRandom.use(game,()->n[0]++%2==0?.81:.25);fire(0);
         var flight=game.rockets.get(0);assertEquals(ShotSpreadRules.slope("rocket")*.9,flight.slope,1e-9);assertEquals(26,flight.height);
-        game.combat.updateRockets(.1);assertTrue(flight.height>26);assertEquals(7,player.weapons.ammo("rocket"));
+        assertEquals(0,n[0]);game.combat.updateRockets(.1);assertEquals(26,flight.height);assertEquals(7,player.weapons.ammo("rocket"));
         var shot=json.readTree(SnapshotBuilder.build(game)).path("projectiles").get(0);assertEquals(flight.height,shot.path("height").asDouble(),1e-9);
     }
     @Test void definitionsMatchPublishedDebugConesAndProneSniperIsMostPrecise()throws Exception{

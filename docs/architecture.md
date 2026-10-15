@@ -1,5 +1,7 @@
 # 機能変更に合わせた責務分離
 
+照準の最新仕様は`docs/aim-control.md`を参照。AimControlRulesとclient/aim-control.jsの精度判定対象はrifle・sniperだけ。他の銃はShotSpreadRulesで散布半径0、shotgunだけ72.8の固定散弾とし、移動・呼吸・照準変更で拡大しない。CombatSystemは散布の有無と独立して床・天井の射線を検証する。廃止した武器では旧呼吸時刻による発射拒否も行わない。以下の旧全9武器・特殊武器の散布記述はこの仕様で置き換える。
+
 合流後のロビーは`menu-ui.js`の「設定」から端末設定を開ける。ホスト・ゲスト共通で、名前欄を省き、決定・Esc・Eで最新の参加者状態を反映したロビーへ戻る。ロビーのスナップショットは設定DOMを保持し、ゲーム開始・切断・退出時にロビー設定を閉じる。menu-ui.cjsでクイック合流・双方の権限・FPS変更・状態更新・各復帰経路を検証する。
 
 最大FPSは`client/graphics-settings.js`が60（初期値）／30の選択と端末内保存を管理し、`menu-ui.js`の設定→描画からプレイ中も変更できる。`app.js`はrequestAnimationFrameの時刻で2D・3D・HUDの共通drawを間引き、移動予測・音声同期・端末UI更新は毎コールバック維持する。遅延後の描画は1回に留める。graphics-settings.cjs・menu-ui.cjs・frame-rate.cjsで保存・設定連携・30〜240Hzでの上限・動的切替・長い停止後の再開を検証する。
