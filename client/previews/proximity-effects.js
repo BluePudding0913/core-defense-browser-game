@@ -1,7 +1,7 @@
 /* Presentation study only. No combat, networking, or saved settings. */
 'use strict';
 window.ProximityEffects = (() => {
-    const range = 120; // Three 40-unit tiles, measured between entity centers.
+    const range = 200; // Five 40-unit tiles, measured between entity centers.
     function sample(eye, enemies, yaw = 0) {
         let nearest = null;
         for (const enemy of enemies) {
@@ -9,10 +9,10 @@ window.ProximityEffects = (() => {
             if (!(enemy.hp > 0) || enemy.type === 'ghost') continue;
             const dx = enemy.x - eye.x, dy = enemy.y - eye.y;
             const distance = Math.hypot(dx, dy);
-            if (distance >= range || nearest && distance >= nearest.distance) continue;
+            if (distance > range || nearest && distance >= nearest.distance) continue;
             const angle = Math.atan2(dx, -dy) - yaw;
             nearest = {distance, angle: Math.atan2(Math.sin(angle), Math.cos(angle)),
-                strength: Math.min(1, (range - distance) / 80)};
+                strength: .15+.85*Math.min(1, (range - distance) / (range-40))};
         }
         return nearest;
     }
@@ -35,17 +35,7 @@ window.ProximityEffects = (() => {
                 ctx.fillStyle = gradient; ctx.fillRect(x,y,w,h);
             }
         } else if (mode === 'arc') {
-            // Front / right / back / left map to top / right / bottom / left.
-            const a = threat.angle - Math.PI / 2;
-            ctx.translate(cx,cy);
-            ctx.scale(Math.max(1,cx-45),Math.max(1,cy-65));
-            ctx.strokeStyle = `rgba(255,95,70,${alpha * .9})`;
-            ctx.lineWidth = 7 / Math.min(cx,cy);
-            ctx.lineCap = 'round';
-            ctx.beginPath(); ctx.arc(0,0,1,a-.23,a+.23); ctx.stroke();
-            ctx.strokeStyle = `rgba(255,195,135,${alpha})`;
-            ctx.lineWidth = 2 / Math.min(cx,cy);
-            ctx.beginPath(); ctx.arc(0,0,.974,a-.13,a+.13); ctx.stroke();
+            window.ProximityWarning.draw(ctx,width,height,threat,now);
         } else if (mode === 'ring') {
             const r = Math.min(74,Math.min(width,height)*.16);
             ctx.lineCap = 'round'; ctx.lineWidth = 3;

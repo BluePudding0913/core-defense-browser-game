@@ -5,8 +5,8 @@ vm.runInContext(fs.readFileSync('client/previews/proximity-effects.js','utf8'),s
 const {sample}=sandbox.window.ProximityEffects,eye={x:0,y:0};
 const enemy=(x,y,hp=100,type='grunt')=>({x,y,hp,type});
 assert.equal(sample(eye,[]),null);
-assert.equal(sample(eye,[enemy(0,-120)]),null,'Range boundary is quiet');
-assert.equal(sample(eye,[enemy(0,-200)]),null);
+assert(sample(eye,[enemy(0,-200)]),'Five-tile range boundary warns');
+assert.equal(sample(eye,[enemy(0,-201)]),null);
 assert.equal(sample(eye,[enemy(0,-20,0)]),null,'Dead enemies are ignored');
 assert.equal(sample(eye,[enemy(0,-20,100,'ghost')]),null,'Concealed GHOST remains concealed');
 assert.equal(sample(eye,[enemy(0,-40)]).angle,0);

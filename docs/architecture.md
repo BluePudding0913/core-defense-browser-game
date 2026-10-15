@@ -1,6 +1,6 @@
 # 機能変更に合わせた責務分離
 
-敵の接近エフェクトは採用前の比較用として`client/previews/proximity.html`へ配置する。既存Lab3Dの地形・照明・敵・FPS武器を使い、画面端発光・方向アーク・照準周辺リング・なしを同じ距離と方向で切り替える。`previews/proximity-effects.js`は生存敵の中心間水平距離120未満（3マス）から最寄りの敵を選び、視線相対方向と距離による強さを描画へ渡す。GHOSTは隠密表示を維持して除外する。この試作は壁・高さを判定しない。接近再生・停電切替・距離と方向の調整はプレビュー内だけに保持し、ゲーム本体・保存設定・戦闘・通信へはまだ接続しない。動きを減らす設定では警告の明滅を止める。`node client/tests/proximity-effects.cjs`で境界・死亡・GHOST・方向・最寄り・強さを確認し、ブラウザーで表示と操作を確認する。`client/previews/capture-proximity.cjs`はPlaywrightとChromiumを用意した環境で画像保存と操作確認を行う。
+敵の接近警告は`client/proximity-warning.js`が担当する。生存敵の中心間水平距離200以内（5マス）から、現在の水平視野外にいる最寄りの敵1体を選ぶ。Lab3Dと共通のAimControl.viewFovから画面比率に合わせた水平視野を求め、正面の視界内は通知しない。描画と同じ補間済み敵座標・予測視点を使い、境界から約4.6度の間で発光を強める。近いほど強い赤い方向アークを左右・背後に表示し、背後は画面下へ対応する。GHOSTは隠密表示を保つため除外。壁・高さの遮蔽判定は追加しない。app.jsはFPSの準備・戦闘中だけ、停電暗幕とスコープ枠より手前へCSSピクセルで描画する。メニュー・ダウン・ドローン操作と破壊直後の遠隔視点では隠す。動きを減らす設定では明滅を止め、戦闘・通信・保存設定は変更しない。`previews/proximity.html`のB案も同じ判定と描画を使う。A案・C案は比較用に維持する。`node client/tests/proximity-warning.cjs`で5マス境界・視野・ズーム・複数敵・方向・補間・DPI・FPS表示条件・停電を確認し、reticle-settings.cjs、blackout-overlay.cjs、fpsui.cjsで既存HUDを確認する。
 
 軽量化ではBlockTerrain.indexInstancesが描画地形の静的インスタンスを160単位の区画へ索引化し、Three.jsの厳密なMesh.raycastへ候補だけ渡す。未解放区画・表裏・高さ・near/farは描画地形と共通にし、照準と表示用遮蔽の結果キャッシュは混同しない。LabEnemyModelsは同じ親関節と材質を持つ固定・不透明な末端部品を結合し、元の名前付き形状を頭位置と照準レイ用に保持する。元モデルで大きさを決め、結合形状はタイプ単位で共有・解放する。動く末端を増やす時はbatchStaticPartsの除外とenemy-batching.cjsの姿勢・実頂点比較を確認する。固定部品はローカル行列更新と姿勢転写を省く。詳しい調査・比較条件は[performance-audit.md](performance-audit.md)を参照。
 

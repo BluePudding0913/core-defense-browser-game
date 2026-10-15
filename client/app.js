@@ -2706,6 +2706,15 @@ function drawFirstPerson() {
         }
         ctx.fillStyle=shade.gradient;ctx.fillRect(0,0,canvas.width,canvas.height);
     }
+    if(playing && !menusOpen && !me.down && !me.drone?.controlled && !droneCameraView()) {
+        const threat=window.ProximityWarning.sample(eye,state.enemies,{
+            yaw:fpsInput.view.yaw,fov:window.AimControl.viewFov(me.weapon,fpsInput.view,scoped),
+            aspect:innerWidth/innerHeight,smooth:smoothEntity
+        });
+        ctx.save();ctx.scale(dpr,dpr);
+        window.ProximityWarning.draw(ctx,innerWidth,innerHeight,threat,now);
+        ctx.restore();
+    }
     if(playing && !menusOpen && !me.down && !me.selectedBuild && !me.drone?.controlled) {
         const spread=window.AimControl?.displaySample(me,now,WEAPON_FIELDS) || (me.weapon==='sniper'?window.SniperAim.sample(me,now):{slope:WEAPON_FIELDS[me.weapon]?.spreadSlope || 0});
         if(spread.slope>0 && window.AimControl?.visible(me,fpsInput.view,WEAPON_FIELDS)) {

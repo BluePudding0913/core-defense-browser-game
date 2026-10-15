@@ -15,10 +15,12 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
             assert.equal(await page.evaluate(()=>proximityPreview.mode),mode);
             await page.screenshot({path:'artifacts/proximity/'+mode+'.png'});
         }
-        await slider('distance',150);assert.equal(await page.evaluate(()=>proximityPreview.threat),null);
+        await slider('distance',250);assert.equal(await page.evaluate(()=>proximityPreview.threat),null);
         assert.equal(await page.locator('#threat-state').textContent(),'範囲外');
         await slider('distance',40);assert.equal(await page.evaluate(()=>proximityPreview.threat.strength),1);
         await page.locator('[data-mode=arc]').click();
+        await page.waitForFunction(()=>proximityPreview.threat===null);
+        assert.equal(await page.evaluate(()=>proximityPreview.threat),null,'Front has no arc');
         for(const [angle,name] of [[90,'right'],[-90,'left'],[180,'behind']]){
             await slider('direction',angle);
             assert(Math.abs(await page.evaluate(()=>proximityPreview.threat.angle)-angle*Math.PI/180)<1e-8);
