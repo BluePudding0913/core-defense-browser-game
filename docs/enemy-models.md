@@ -6,7 +6,9 @@ The live renderer now uses `lab-enemy-models.js`: GRUNT → researcher, RUNNER �
 
 - RUNNER: narrow teal scrubs, bare forearms, a low forward posture and faster, longer strides.
 - BRUTE: broad shoulders and forearms, shaved head, a pale canvas apron and slow heavy steps.
-- POISONER: muted ochre workwear, a compact respirator, harness and two dorsal reagent cylinders.
+- POISONER: a hunched chemical researcher with a stained split lab coat, round goggles, respirator, disheveled gray hair, rubber gloves and a large chartreuse reagent syringe; two dorsal reagent cylinders retain the poison-role silhouette.
+
+POISONER's revised model has 15,572 triangles / 82 meshes. Its coat uses the existing grounded gait and panel sway; the syringe follows the right hand. Only its GLB is regenerated. Existing model, live adapter, renderer and sparse-animation tests pass. Browser views of the front/back and normal/blackout game lighting are in `artifacts/poisoner/`; `capture.cjs` reproduces them with Playwright (`ENEMY_PREVIEW_BROWSER` optionally selects an installed Chromium browser). Combat stats, poison rules and collision volumes are unchanged.
 
 All use matte skin/cloth, corrected mirrored hands and the attached cervical base. Individual GLBs are under `client/assets/enemies/`. Geometry is about 10–11k triangles per new model; many-enemy frame time has not been benchmarked. The live adapter shares geometry/materials but keeps animation and tint per actor, normalizes height to 1.55 × radius and releases shared resources when the last actor disappears. GRUNT's head volume is refit to the visible skull; other enemies retain their existing coarse body volumes. Enemy stats and attacks are unchanged.
 
