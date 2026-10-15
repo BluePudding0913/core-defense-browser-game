@@ -2,6 +2,7 @@
 // Procedural studio candidates. Metres, +Y up, +Z forward. No game-state dependencies.
 window.EnemyModels = (() => {
   const variants = [
+    {id:'lab-ghost',name:'GHOST',label:'半透明の被験者',color:'#81aeb8'},
     {id:'ash', name:'ASH', label:'一体成形', color:'#bcbcb0'},
     {id:'slate', name:'SLATE', label:'装甲', color:'#4b6265'},
     {id:'veil', name:'VEIL', label:'フード', color:'#807062'},
@@ -37,7 +38,7 @@ window.EnemyModels = (() => {
   ];
   function build(T,id) {
     if(!variants.some(v=>v.id===id))throw new Error('Unknown enemy model: '+id);
-    if(['lab-warlord','lab-titan','lab-artilleryelite','lab-explosionboss','lab-finalboss','rasp','rush','hollow','researcher','lab-assistant','lab-pathologist','lab-runner','lab-brute','lab-poisoner','lab-shield','lab-bomber','lab-carrier','lab-hunter','lab-armored','lab-artillery','lab-corehunter','lab-seeker','lab-blackout','lab-siege','lab-champion','lab-warden','lab-tiny','lab-gilded','lab-blueace'].includes(id))return window.buildOrganicEnemy(T,id);
+    if(['lab-ghost','lab-warlord','lab-titan','lab-artilleryelite','lab-explosionboss','lab-finalboss','rasp','rush','hollow','researcher','lab-assistant','lab-pathologist','lab-runner','lab-brute','lab-poisoner','lab-shield','lab-bomber','lab-carrier','lab-hunter','lab-armored','lab-artillery','lab-corehunter','lab-seeker','lab-blackout','lab-siege','lab-champion','lab-warden','lab-tiny','lab-gilded','lab-blueace'].includes(id))return window.buildOrganicEnemy(T,id);
     const root=new T.Group();root.name='Enemy_'+id;const owned=new Set(),mats=[];
     const mat=(name,color,roughness,metalness=0)=>{const m=new T.MeshStandardMaterial({name,color,roughness,metalness});m.color.convertSRGBToLinear();m.envMapIntensity=.55;mats.push(m);return m;};
     const under=mat('Graphite textile','#20282a',.94),rubber=mat('Rubber','#161d20',.84),dark=mat('Recess','#0c1417',.54);
