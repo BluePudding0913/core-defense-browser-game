@@ -106,6 +106,7 @@ window.Lab3D = (() => {
                     mesh.setMatrixAt(i, dummy.matrix);
                 });
                 mesh.name = name; mesh.receiveShadow = !glowing; mesh.castShadow = !glowing && name !== 'lab-ceilings'; terrain.add(mesh);
+                window.BlockTerrain.indexInstances(T,mesh,items);
             }
             instances(floors, '#8799a2', 'lab-floors');
             instances(walls, '#d8e2e6', 'lab-walls');
