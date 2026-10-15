@@ -62,6 +62,7 @@ final class SniperRules {
     record Direction(double dx, double dy, double pitch) {}
     // A uniform disk in the plane perpendicular to the sight line, not uniform radius.
     static Direction scatter(double dx, double dy, double pitch, double radius, DoubleSupplier random) {
+        if (radius <= 0) return new Direction(dx,dy,pitch);
         double r=Math.sqrt(random.getAsDouble())*radius*PIXEL_SLOPE,angle=random.getAsDouble()*Math.PI*2;
         double horizontal=r*Math.cos(angle),vertical=r*Math.sin(angle),c=Math.cos(pitch),s=Math.sin(pitch);
         double x=dx*c-dy*horizontal-dx*s*vertical;

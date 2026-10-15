@@ -6,12 +6,12 @@ assert(Math.abs(api.sample(player,0,definitions).slope-.03)<1e-12);player.aimCon
 player.aimControl.elapsed=0;player.aimControl.movement=1;player.aimControl.speedRatio=1;assert.equal(api.sample(player,0,definitions).penalty,2.25);api.sync([player],1000);assert.equal(api.sample(player,1500,definitions).penalty,2.25,'Holding movement has no snapshot sawtooth');player.aimControl.speedRatio=0;assert(api.sample(player,1750,definitions).penalty<1.063);
 player.aimControl.turn=1;player.aimControl.airborne=true;assert(api.sample(player,1000,definitions).penalty>4);
 assert(api.visible(player,{zoom:true},definitions));assert(!api.visible(player,{zoom:false},definitions));player.weapon='sniper';assert(api.visible(player,{zoom:true},definitions));player.sniper={fixed:true,elapsed:1.5,cycle:0,precision:true,nextPrecision:false,recovery:0};assert(!api.visible(player,{zoom:false},definitions),"Prone hip fire keeps internal spread but hides the circle");
-player.aimControl={elapsed:0,movement:0,turn:0};assert(Math.abs(api.sample(player,1000,definitions).slope-c.window.SniperAim.sample(player,1000).slope)<1e-12,'Prone retains the special sniper curve');player.weapon='rocket';assert(!api.visible(player,{zoom:true},definitions));assert.equal(api.sample(player,1000,definitions).slope,.08);
+player.aimControl={elapsed:0,movement:0,turn:0};assert(Math.abs(api.sample(player,1000,definitions).slope-c.window.SniperAim.sample(player,1000).slope)<1e-12,'Prone retains the special sniper curve');player.weapon='rocket';assert(!api.visible(player,{zoom:true},definitions));assert.equal(api.sample(player,1000,definitions).slope,0);
 player.weapon='rifle';api.sync([player],2000);const a=api.sample(player,2100,definitions);player.aimControl.elapsed=.09;api.sync([player],2100);assert(Math.abs(api.sample(player,2100,definitions).slope-a.slope)<1e-12,'Snapshot correction is continuous');assert(api.sample(player,2200,definitions).elapsed>api.sample(player,2199,definitions).elapsed,'Clock never stalls');
 console.log('Aim control passed: breathing, server penalties, movement continuity, ADS/prone/hip visibility, deferred weapons and smooth clock');
 const shotgun={id:'compact-shotgun',weapon:'shotgun',aimControl:{elapsed:.5}},shotgunFields={shotgun:{spreadSlope:.21,aimControl:true}};
 assert.equal(api.displaySample(shotgun,0,shotgunFields).slope,api.sample(shotgun,0,shotgunFields).slope,'Shotgun circle shows the entire pellet cone');
-assert.equal(api.sample(shotgun,0,shotgunFields).slope,.21*1.35,'Shotgun firing spread is unchanged');
+assert.equal(api.sample(shotgun,0,shotgunFields).slope,.21,'Shotgun has a fixed pellet cone');
 
 // The displayed penalty is continuous at snapshots; authoritative sampling remains immediate.
 const smooth={id:'smooth',weapon:'rifle',aimControl:{elapsed:0,movement:0,speedRatio:0,turn:0,airborne:false}};
@@ -49,8 +49,8 @@ for(const weapon of [...weapons,'rocket','railgun','laser','flamethrower'])for(c
 }
 assert.equal(api.visible({weapon:'rifle'},{zoom:true},{rifle:{aimControl:false}}),false);
 assert.equal(api.visible(null,{zoom:true},definitions),false);
-for(const weapon of weapons){const p={id:'period-'+weapon,weapon,aimControl:{elapsed:.5,turn:0,movement:0},sniper:{fixed:false,recovery:0}};const max=api.sample(p,0).slope;p.aimControl.elapsed=1.5;const min=api.sample(p,0).slope;assert(Math.abs(max/min-1.35/.65)<1e-9,weapon+' has 2-second breathing');}
-for(const weapon of weapons){
+for(const weapon of ['rifle','sniper']){const p={id:'period-'+weapon,weapon,aimControl:{elapsed:.5,turn:0,movement:0},sniper:{fixed:false,recovery:0}};const max=api.sample(p,0).slope;p.aimControl.elapsed=1.5;const min=api.sample(p,0).slope;assert(Math.abs(max/min-1.35/.65)<1e-9,weapon+' has 2-second breathing');}
+for(const weapon of ['rifle','sniper','shotgun']){
  const p={id:'all-compact-'+weapon,weapon,aimControl:{elapsed:.5,turn:0,movement:0},sniper:{fixed:false,recovery:0}};
  assert(Math.abs(api.displaySample(p,0).slope/api.sample(p,0).slope-(weapon==='shotgun'?1:weapon==='sniper'?.64:.8))<1e-12,weapon+' uses its intended display scale');
 }
@@ -60,7 +60,7 @@ const shotgunSlope=72.8*Math.tan(Math.PI/18)/425;
 for(const elapsed of [0,.5,1.5])for(const movement of [0,1]) {
  const p={id:`shotgun-contract-${elapsed}-${movement}`,weapon:'shotgun',aimControl:{elapsed,movement,speedRatio:0,turn:0}};
  const definitions={shotgun:{spreadSlope:shotgunSlope,aimControl:true}};
- const expected=shotgunSlope*(1+.35*Math.sin(elapsed/2*Math.PI*2))*(1+1.25*movement);
+ const expected=shotgunSlope;
  const displayed=api.displaySample(p,0,definitions);
  assert(Math.abs(displayed.slope-expected)<1e-12,'Shotgun display matches the full server cone');
  assert(Math.abs(api.sample(p,0).slope-expected)<1e-12,'Fallback uses the compact shotgun definition');
@@ -81,3 +81,14 @@ assert.equal(api.viewFov('rifle', {zoom:true}, true), 32);
 assert.equal(api.viewFov('sniper', {sniperAds:0}, false), 100);
 assert.equal(api.viewFov('sniper', {sniperAds:.5}, true), 58);
 assert.equal(api.viewFov('sniper', {sniperAds:1}, true), 16);
+
+for(const weapon of ['pistol','smg','revolver','lmg','ricochet','freezeGun','rocket','railgun','laserCannon']) {
+ const p={id:weapon,weapon,aimControl:{elapsed:.5,movement:1.8,speedRatio:1.8,turn:1.5,airborne:true}};
+ const oldFields={[weapon]:{spreadSlope:.3,aimControl:true}};
+ assert.equal(api.supported(weapon,oldFields),false);
+ assert.equal(api.sample(p,0,oldFields).slope,0,weapon+' stays on aim even with old snapshot fields');
+ assert.equal(api.displaySample(p,0,oldFields).slope,0);
+ assert.equal(api.visible(p,{zoom:true},oldFields),false);
+ assert(api.recoilPitch(weapon)>=0);
+}
+console.log('Removed cones passed: straight shots outside rifle/sniper, fixed shotgun spread, no hidden penalty');

@@ -5,10 +5,8 @@ final class ShotSpreadRules {
     private ShotSpreadRules() {}
     static double radius(String weapon) {
         return switch(weapon) {
-            case "pistol" -> 100; case "smg" -> 140; case "rifle" -> 70;
-            case "revolver" -> 85; case "lmg" -> 170; case "ricochet" -> 120;
-            case "shotgun" -> 72.8; case "laserCannon" -> 80; case "freezeGun" -> 110;
-            case "railgun" -> 75; case "rocket" -> 160; case "sniper" -> 90;
+            case "rifle" -> 70; case "sniper" -> 90;
+            case "shotgun" -> 72.8;
             default -> 0;
         };
     }
