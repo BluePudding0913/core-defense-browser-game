@@ -2687,8 +2687,15 @@ function drawFirstPerson() {
         ctx.restore();
     }
     if(state.blackoutActive && !droneCameraView()){
-        const shade=ctx.createRadialGradient(canvas.width/2,canvas.height/2,0,canvas.width/2,canvas.height/2,canvas.width*.65);
-        shade.addColorStop(0,'rgba(0,5,10,0)');shade.addColorStop(1,'rgba(0,5,10,.45)');ctx.fillStyle=shade;ctx.fillRect(0,0,canvas.width,canvas.height);
+        const detailed=window.coreGraphicsSettings?.getShadows() ?? true;
+        let shade=drawFirstPerson.blackoutShade;
+        if(!shade || shade.width!==canvas.width || shade.height!==canvas.height || shade.detailed!==detailed){
+            const gradient=ctx.createRadialGradient(canvas.width/2,canvas.height/2,0,canvas.width/2,canvas.height/2,canvas.width*.65);
+            gradient.addColorStop(0,detailed?'rgba(0,5,10,0)':'rgba(0,5,10,.12)');
+            gradient.addColorStop(1,detailed?'rgba(0,5,10,.45)':'rgba(0,5,10,.9)');
+            shade=drawFirstPerson.blackoutShade={width:canvas.width,height:canvas.height,detailed,gradient};
+        }
+        ctx.fillStyle=shade.gradient;ctx.fillRect(0,0,canvas.width,canvas.height);
     }
     if(playing && !menusOpen && !me.down && !me.selectedBuild && !me.drone?.controlled) {
         const spread=window.AimControl?.displaySample(me,now,WEAPON_FIELDS) || (me.weapon==='sniper'?window.SniperAim.sample(me,now):{slope:WEAPON_FIELDS[me.weapon]?.spreadSlope || 0});
