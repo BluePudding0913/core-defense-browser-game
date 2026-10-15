@@ -1,8 +1,8 @@
 "use strict";
 window.AimControl = (() => {
     const TURN_WEIGHT=1.5,PRONE_TURN_WEIGHT=3,PERIOD=window.SniperAim?.period ?? 2,PIXEL_SLOPE=Math.tan(Math.PI/18)/425,clocks=new Map(),visuals=new Map();
-    const weapons=['pistol','smg','rifle','revolver','lmg','shotgun','ricochet','freezeGun','sniper'];
-    const supported=(weapon,definitions)=>definitions?.[weapon]?.aimControl ?? weapons.includes(weapon);
+    const weapons=['rifle','sniper'];
+    const supported=(weapon,definitions)=>weapons.includes(weapon) && (definitions?.[weapon]?.aimControl ?? true);
     const phase=(clock,now)=>{const age=Math.max(0,(now-clock.at)/1000);return clock.elapsed+age+clock.offset*Math.exp(-age/.2);};
     function sync(players,now) {
         const ids=new Set(players.map(p=>p.id));for(const id of clocks.keys())if(!ids.has(id)){clocks.delete(id);visuals.delete(id);}
@@ -15,7 +15,7 @@ window.AimControl = (() => {
     function sample(player,now,definitions={},weapon=player?.weapon) {
         const s=player?.aimControl || {},clock=clocks.get(player?.id),age=Math.max(0,(now-(player?.aimControlReceivedAt ?? now))/1000);
         const elapsed=clock?phase(clock,now):(s.elapsed || 0)+age;
-        if(!supported(weapon,definitions))return {elapsed,slope:definitions[weapon]?.spreadSlope || 0};
+        if(!supported(weapon,definitions))return {elapsed,slope:weapon==='shotgun'?(definitions[weapon]?.spreadSlope ?? 72.8*PIXEL_SLOPE):0};
         const penalty=1+1.25*Math.max(s.speedRatio || 0,(s.movement || 0)*Math.exp(-age/.25))+(weapon==='sniper' && player?.sniper?.fixed?PRONE_TURN_WEIGHT:TURN_WEIGHT)*(s.turn || 0)*Math.exp(-age/.22)+(s.airborne?.8:0);
         let slope;
         if(weapon==='sniper' && player?.sniper?.fixed)slope=window.SniperAim.sample(player,now).slope;

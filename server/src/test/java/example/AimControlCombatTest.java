@@ -9,7 +9,7 @@ class AimControlCombatTest {
  void equip(String id){player.weapons.setOwned(id,true);player.weapons.setAmmo(id,20);player.equipWeapon(id);player.cooldown=0;player.firing=false;}
  void fire(String suffix){game.handleMessage(player,"FIRE:"+(player.x+200)+":"+player.y+":1:0"+suffix);}
  @Test void lookUsesServerTime(){game.handleMessage(player,"LOOK:0:-1:0");game.update(.05);game.handleMessage(player,"LOOK:1:0:0");assertEquals(1.5,player.aimControl.turn);for(int i=0;i<100;i++)game.handleMessage(player,"LOOK:1:0:0");assertEquals(1.5,player.aimControl.turn);}
- @Test void fireChecksDirectionWithoutLookPackets(){equip("pistol");game.handleMessage(player,"LOOK:0:-1:0");fire("");assertEquals(1.5,player.aimControl.turn);}
+ @Test void fireChecksDirectionWithoutLookPackets(){equip("rifle");game.handleMessage(player,"LOOK:0:-1:0");fire("");assertEquals(1.5,player.aimControl.turn);}
  @Test void proneLookAndFireBothValidateSmallTurns(){
   equip("sniper");player.sniper.start(()->.9);game.handleMessage(player,"LOOK:1:0:0");
   game.update(.1);game.handleMessage(player,"LOOK:1:0:0.02");assertEquals(.3,player.aimControl.turn,1e-9);

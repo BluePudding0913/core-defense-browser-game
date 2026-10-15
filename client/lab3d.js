@@ -689,7 +689,7 @@ window.Lab3D = (() => {
             const firingRail=me?.railgunRemaining>0 || me?.secondaryRailgunRemaining>0;
             const bob=(firingRail || me?.sniper?.fixed ? 0 : 1)*walkBlend*(frame.scoped ? .12 : 1)*(frame.motion?.dashing?1.15:1);
             camera.position.set(eye.x, me?.down ? 6 : me?.drone?.controlled ? 23 : (me?.sniper?.fixed ? 6.2 : 26)+(eye.jumpHeight || 0)+(eye.renderOffsetHeight || 0)+Math.sin(walkPhase*2)*.32*bob, eye.y);
-            view.recoilPitch=firingRail || window.AimControl?.supported(me?.weapon) ? 0 : recoil*(frame.scoped ? .006 : .003);
+            view.recoilPitch=firingRail || window.AimControl?.recoilPitch(me?.weapon)>0 ? 0 : recoil*(frame.scoped ? .006 : .003);
             camera.rotation.set(Math.max(-1.2,Math.min(1.2,view.pitch+view.recoilPitch)),-view.yaw,me?.down ? .2 : Math.sin(walkPhase)*.0025*bob,'YXZ');
             camera.updateMatrixWorld(true);
             fullEnemyAnimation=me?.weapon==='sniper' || me?.job==='attacker' && me.secondaryWeapon==='sniper';

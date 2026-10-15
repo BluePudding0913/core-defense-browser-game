@@ -6,7 +6,7 @@ final class AimControlRules {
     private AimControlRules() {}
     static boolean supported(String weapon) {
         return switch(weapon) {
-            case "pistol","smg","rifle","revolver","lmg","shotgun","ricochet","freezeGun","sniper" -> true;
+            case "rifle","sniper" -> true;
             default -> false;
         };
     }
