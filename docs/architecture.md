@@ -509,3 +509,5 @@ Bomberの爆発範囲はSnapshotBuilderがGameConfig.BOMBER_BLAST_RADIUSをblast
 ショットガンの散弾と呼吸円の不一致を修正。ShotSpreadRulesの実散布半径を520から145.6（旧表示の28%）へ縮め、AimControl.displaySampleのショットガンだけ表示補正を1にする。これにより配信spreadSlopeが表示・抽選で一致し、既存の小さい円の見た目を維持する。クライアントの未配信時の基準も145.6へ合わせる。ShotSpreadCombatTestは呼吸の最大/最小と移動中の4方向の実弾道・1発消費、aim-control.cjsは配信値からの円半径とFOV投影、lab3d-models.cjsは弾道の銃口・着弾点描画を確認する。
 
 ショットガンの実散布半径と呼吸円を145.6から72.8へ半減する。ShotSpreadRulesの配信値とクライアントの未配信時の基準を揃え、表示は実際の散弾範囲をそのまま示す。呼吸・移動の倍率、4ペレット、弾薬消費は維持し、ShotSpreadCombatTestとaim-control.cjsで呼吸の最大・最小、移動中、FOV投影を確認する。
+
+呼吸円の表示はAimControl.visibleでrifleとsniperの構え中だけに限定する。他の武器の呼吸・移動・照準変更による散布判定は維持する。aim-control.cjsで全武器の構え・腰撃ち・伏せ状態と配信aimControlフラグによる表示条件を確認する。

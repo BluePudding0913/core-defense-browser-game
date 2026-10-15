@@ -37,7 +37,7 @@ window.AimControl = (() => {
         // Shotgun uses the full authoritative cone; other weapons retain their compact cue.
         return {...raw,slope:baseSlope*penalty*(weapon==='shotgun'?1:.8),penalty};
     }
-    function visible(player,view,definitions) {return supported(player?.weapon,definitions) && !!view.zoom;}
+    function visible(player,view,definitions) {return (player?.weapon==='rifle' || player?.weapon==='sniper') && supported(player.weapon,definitions) && !!view.zoom;}
     const scopeFov=weapon=>weapon==='sniper'?16:weapon==='rifle'?32:26;
     const viewFov=(weapon,view,scoped)=>weapon==='sniper' && Number.isFinite(view.sniperAds)
         ? 72+(scopeFov(weapon)-72)*view.sniperAds : scoped?scopeFov(weapon):view.zoom?48:72;
