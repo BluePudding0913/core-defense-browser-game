@@ -43,6 +43,7 @@ vm.runInContext(fs.readFileSync("client/key-settings.js","utf8"),context);
 vm.runInContext(fs.readFileSync("client/sniper-aim.js","utf8"),context);
 context.window.SniperAim.draw=(ctx,x,y,h,fov,sample,color='rgba(190,224,246,.55)')=>circles.push(color);
 vm.runInContext(fs.readFileSync("client/aim-control.js","utf8"),context);
+vm.runInContext(fs.readFileSync("client/proximity-warning.js","utf8"),context);
 vm.runInContext(app.slice(start,end),context);
 context.drawFirstPerson();assert.equal(reticles,1);
 context.state.phase='lost';context.drawFirstPerson();assert.equal(reticles,1,'Failure hides the aiming mark');
