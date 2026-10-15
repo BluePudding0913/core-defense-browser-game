@@ -6,19 +6,22 @@ window.coreReconnect = (() => {
     const port = new URLSearchParams(location.search).get("serverPort") || "8887";
     const roomKey = `core-defense-return-room:${port}`;
     const validId = value => typeof value === "string" && /^[A-Za-z0-9_-]{16,128}$/.test(value);
+    let currentId;
     function createId() {
         const bytes = new Uint8Array(24);
         crypto.getRandomValues(bytes); // Available on HTTP as well as HTTPS.
         return Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
     }
     function adopt(id) {
+        currentId = id;
         try { sessionStorage.setItem(tabKey, id); } catch { /* Storage may be disabled. */ }
         return id;
     }
     function session() {
+        if (validId(currentId)) return currentId;
         let id;
         try { id = sessionStorage.getItem(tabKey); } catch { /* Storage may be disabled. */ }
-        return validId(id) ? id : adopt(createId());
+        return adopt(validId(id) ? id : createId());
     }
     function saved() {
         try {
