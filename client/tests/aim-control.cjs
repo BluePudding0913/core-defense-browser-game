@@ -10,7 +10,7 @@ player.aimControl={elapsed:0,movement:0,turn:0};assert(Math.abs(api.sample(playe
 player.weapon='rifle';api.sync([player],2000);const a=api.sample(player,2100,definitions);player.aimControl.elapsed=.09;api.sync([player],2100);assert(Math.abs(api.sample(player,2100,definitions).slope-a.slope)<1e-12,'Snapshot correction is continuous');assert(api.sample(player,2200,definitions).elapsed>api.sample(player,2199,definitions).elapsed,'Clock never stalls');
 console.log('Aim control passed: breathing, server penalties, movement continuity, ADS/prone/hip visibility, deferred weapons and smooth clock');
 const shotgun={id:'compact-shotgun',weapon:'shotgun',aimControl:{elapsed:.5}},shotgunFields={shotgun:{spreadSlope:.21,aimControl:true}};
-assert(Math.abs(api.displaySample(shotgun,0,shotgunFields).slope/api.sample(shotgun,0,shotgunFields).slope-.28)<1e-12,'Shotgun retains compact cue with 20% reduction');
+assert.equal(api.displaySample(shotgun,0,shotgunFields).slope,api.sample(shotgun,0,shotgunFields).slope,'Shotgun circle shows the entire pellet cone');
 assert.equal(api.sample(shotgun,0,shotgunFields).slope,.21*1.35,'Shotgun firing spread is unchanged');
 
 // The displayed penalty is continuous at snapshots; authoritative sampling remains immediate.
@@ -44,5 +44,23 @@ const weapons=['pistol','smg','rifle','revolver','lmg','shotgun','ricochet','fre
 for(const weapon of weapons){const p={id:'period-'+weapon,weapon,aimControl:{elapsed:.5,turn:0,movement:0},sniper:{fixed:false,recovery:0}};const max=api.sample(p,0).slope;p.aimControl.elapsed=1.5;const min=api.sample(p,0).slope;assert(Math.abs(max/min-1.35/.65)<1e-9,weapon+' has 2-second breathing');}
 for(const weapon of weapons){
  const p={id:'all-compact-'+weapon,weapon,aimControl:{elapsed:.5,turn:0,movement:0},sniper:{fixed:false,recovery:0}};
- assert(Math.abs(api.displaySample(p,0).slope/api.sample(p,0).slope-(weapon==='shotgun'?.28:.8))<1e-12,weapon+' has a smaller display circle');
+ assert(Math.abs(api.displaySample(p,0).slope/api.sample(p,0).slope-(weapon==='shotgun'?1:.8))<1e-12,weapon+' uses its intended display scale');
 }
+
+// The authoritative shotgun slope projects to the breathing circle without a hidden shrink.
+const shotgunSlope=145.6*Math.tan(Math.PI/18)/425;
+for(const elapsed of [0,.5,1.5])for(const movement of [0,1]) {
+ const p={id:`shotgun-contract-${elapsed}-${movement}`,weapon:'shotgun',aimControl:{elapsed,movement,speedRatio:0,turn:0}};
+ const definitions={shotgun:{spreadSlope:shotgunSlope,aimControl:true}};
+ const expected=shotgunSlope*(1+.35*Math.sin(elapsed/2*Math.PI*2))*(1+1.25*movement);
+ const displayed=api.displaySample(p,0,definitions);
+ assert(Math.abs(displayed.slope-expected)<1e-12,'Shotgun display matches the full server cone');
+ assert(Math.abs(api.sample(p,0).slope-expected)<1e-12,'Fallback uses the compact shotgun definition');
+ for(const fov of [48,26]) {
+  let radius;
+  const ctx={save(){},restore(){},beginPath(){},arc(x,y,r){radius=r;},fill(){},stroke(){}};
+  c.window.SniperAim.draw(ctx,450,250,500,fov,displayed);
+  assert(Math.abs(radius-expected*500/(2*Math.tan(fov*Math.PI/360)))<1e-9,'Cone and circle share the camera projection');
+ }
+}
+console.log('Shotgun cone contract passed: full disk, compact fallback, breathing, movement and FOV projection');
