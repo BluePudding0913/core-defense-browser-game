@@ -120,6 +120,49 @@ for(const name of ['actionMenu','inventoryMenu','howToMenu','menu'])context[name
 context.keys.add('w');context.dashRequested=true;context.dashKey=true;context.joystick={x:40,y:0,originX:0,originY:0};
 context.sendMovement(true);context.stopGameplayMovement();assert.equal(context.keys.size,0);assert.equal(context.joystick,null);assert.equal(context.dashRequested,false);assert.equal(commands.at(-1),'MOVE:0.00:0.00','UI opening immediately cancels held movement and dash');
 console.log('UI input isolation passed: inventory, shops, instructions, menus, jump/dash/abilities, held movement and immediate stop');
+// Use the real Scout ability path through the keyboard handler, including remapping and UI gates.
+const extractFunction = name => {
+    const start = source.indexOf('function ' + name + '(');
+    return source.slice(start, source.indexOf('\nfunction ', start + 1));
+};
+vm.runInContext(extractFunction('useJobAbility'), context);
+vm.runInContext(extractFunction('requestScoutDash'), context);
+const scout = {job:'scout',stamina:100,scoutDashStamina:20,credits:1000};
+context.getMe=()=>scout;
+context.aimPointer=null;
+context.worldFromScreen=()=>({x:1500,y:1900});
+assert(context.window.coreKeySettings.setJobEffect('f'));
+commands.length=0;
+key('keydown',{code:'KeyF'});key('keydown',{code:'KeyF',repeat:true});key('keyup',{code:'KeyF'});
+assert.deepEqual(commands,['SCOUT_DASH:1500.0:1900.0'],'default F dashes once toward the FPS aim');
+assert(context.window.coreKeySettings.setJobEffect('j'));
+commands.length=0;
+key('keydown',{code:'KeyF'});key('keyup',{code:'KeyF'});
+assert(!commands.some(c=>c.startsWith('SCOUT_DASH:')),'old key no longer dashes');
+context.aimPointer={x:320,y:240};
+context.worldFromScreen=(x,y)=>({x,y});
+key('keydown',{code:'KeyJ'});
+assert.equal(commands.at(-1),'SCOUT_DASH:320.0:240.0','remapped key uses the cursor in the overhead view');
+const scoutCount=commands.length;
+for(const blocked of [{down:true},{movingCore:true},{selectedBuild:'block'},{stamina:19},{railgunCharge:1},{missileControl:true}]) {
+    const previous={...scout};Object.assign(scout,blocked);key('keydown',{code:'KeyJ'});
+    assert.equal(commands.length,scoutCount);
+    Object.keys(scout).forEach(key=>delete scout[key]);Object.assign(scout,previous);
+}
+for(const panel of ['actionMenu','inventoryMenu','howToMenu','menu']) {
+    context[panel].classList.contains=()=>false;key('keydown',{code:'KeyJ'});
+    assert.equal(commands.length,scoutCount,panel+' blocks Scout dash');
+    context[panel].classList.contains=()=>true;
+}
+context.window.coreMenu.settingsOpen=()=>true;key('keydown',{code:'KeyJ'});
+context.window.coreMenu.settingsOpen=()=>false;
+key('keydown',{code:'KeyJ',target:new HTMLInputElement()});
+context.exitDialog.open=true;key('keydown',{code:'KeyJ'});context.exitDialog.open=false;
+context.state.phase='lobby';key('keydown',{code:'KeyJ'});context.state.phase='wave';
+assert.equal(commands.length,scoutCount,'settings, typing, exit dialog and lobby block Scout dash');
+scout.scoutDashRemaining=.2;key('keydown',{code:'KeyJ'});
+assert.equal(commands.length,scoutCount+1,'another press can restart an active dash');
+console.log('Scout keyboard passed: F, remapping, IME, aim, repeat, active dash and gameplay/UI restrictions');
 let inventoryOpen=false;
 let inventoryRefreshes=0;
 context.updateInventory=me=>{assert.deepEqual(me,context.getMe());inventoryRefreshes++;};
