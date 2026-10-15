@@ -20,7 +20,7 @@ window.AimControl = (() => {
         let slope;
         if(weapon==='sniper' && player?.sniper?.fixed)slope=window.SniperAim.sample(player,now).slope;
         else {
-            slope=(definitions[weapon]?.spreadSlope ?? (weapon==='shotgun'?145.6:weapon==='sniper'?90:100)*PIXEL_SLOPE)*(1+.35*Math.sin(elapsed/PERIOD*Math.PI*2));
+            slope=(definitions[weapon]?.spreadSlope ?? (weapon==='shotgun'?72.8:weapon==='sniper'?90:100)*PIXEL_SLOPE)*(1+.35*Math.sin(elapsed/PERIOD*Math.PI*2));
             if(weapon==='sniper')slope+=Math.max(0,(player.sniper?.recovery || 0)-age)**2/.9**2*48*PIXEL_SLOPE;
         }
         return {elapsed,slope:slope*penalty,penalty};

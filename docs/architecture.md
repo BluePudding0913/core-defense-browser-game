@@ -47,7 +47,7 @@ Headshot通知は自分の確定HSで即時表示し、3秒保持する。次の
 
 `client/hit-presentation.js`は既存のhit通知から赤み・HSの血・撃破時のフェードを表示する。自分の命中は濃く、味方は薄くし、元の材質を個体別の複製へ混ぜて180msで復元する。血はHS時だけ、撃った人・撃破の有無によらず共通の24粒とする。単一InstancedMeshで最大384粒、同じ敵のHSは90ms間隔。撃破時は姿勢を変えず130msで透明になり、表示保持は最大8体まで。死亡表示は照準用レイから除外し、倒れる回転・縮小・物理演算・追加通信は行わない。`hit-presentation.cjs`でHSの共通性・発生条件・上限・寿命・材質解放、`lab3d-models.cjs`で実モデルのフェードと描画連携を検証し、`previews/hit-feedback.html`で比較する。
 
-SYSTEM・MISSILEの端末は机に接するモニター台座・支柱、40キーの共有形状によるキーボード、左右ボタンとホイール付きマウスを持つ。MISSILEの立体模型は置かず、画面内の設計図と状態バーで用途を示す。MEDKITの購入ラベルはBUYに統一する。ショットガンの呼吸円はAimControl.displaySampleだけで半径を35%にし、発射用sampleとサーバーの散弾範囲は維持する。
+SYSTEM・MISSILEの端末は机に接するモニター台座・支柱、40キーの共有形状によるキーボード、左右ボタンとホイール付きマウスを持つ。MISSILEの立体模型は置かず、画面内の設計図と状態バーで用途を示す。MEDKITの購入ラベルはBUYに統一する。ショットガンの呼吸円は配信spreadSlopeと同じ角度を表示する（最新の半径は末尾の仕様を参照）。
 
 ## マップ設備のモデル
 
@@ -507,3 +507,5 @@ Bomberの爆発範囲はSnapshotBuilderがGameConfig.BOMBER_BLAST_RADIUSをblast
 通常BOSSの突進はBossChargeSystemで予告0.8秒・速度260/秒・継続1.1秒（最大286）とし、enemy.slowを反映する。予告・突進中の被弾はダメージのみ適用してノックバックを止め、終了後は視認・経路キャッシュを更新して古い追跡位置への折り返しを避ける。ラウンド8を含む通常BOSSで共通とし、BossChargeSystemTestとEnemyHookGachaTestで連続移動・減速・固定方向・凍結・設備衝突・被弾と追跡再開を検証する。
 
 ショットガンの散弾と呼吸円の不一致を修正。ShotSpreadRulesの実散布半径を520から145.6（旧表示の28%）へ縮め、AimControl.displaySampleのショットガンだけ表示補正を1にする。これにより配信spreadSlopeが表示・抽選で一致し、既存の小さい円の見た目を維持する。クライアントの未配信時の基準も145.6へ合わせる。ShotSpreadCombatTestは呼吸の最大/最小と移動中の4方向の実弾道・1発消費、aim-control.cjsは配信値からの円半径とFOV投影、lab3d-models.cjsは弾道の銃口・着弾点描画を確認する。
+
+ショットガンの実散布半径と呼吸円を145.6から72.8へ半減する。ShotSpreadRulesの配信値とクライアントの未配信時の基準を揃え、表示は実際の散弾範囲をそのまま示す。呼吸・移動の倍率、4ペレット、弾薬消費は維持し、ShotSpreadCombatTestとaim-control.cjsで呼吸の最大・最小、移動中、FOV投影を確認する。
