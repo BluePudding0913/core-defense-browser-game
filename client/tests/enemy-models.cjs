@@ -17,6 +17,21 @@ for(const {id}of context.window.EnemyModels.variants){
    }
   }
  }
+ if(id==='lab-artilleryelite'){
+  for(const side of [-1,1]){
+   const tube=m.root.getObjectByName('Elite shoulder launcher_'+side);
+   const origin=tube.localToWorld(new T.Vector3(0,1,0)),direction=new T.Vector3(0,-1,0).transformDirection(tube.matrixWorld);
+   assert.equal(new T.Raycaster(origin,direction).intersectObject(tube,true)[0]?.object.name,'Elite bore floor_'+side,'Both elite muzzles are hollow');
+  }
+ }
+ if(id==='lab-seeker'){
+  const launcher=m.root.getObjectByName('Seeker guided launcher');
+  assert.equal(launcher.parent,m.torso,'Launcher follows the torso independently of scanning head and swinging arms');
+  assert(m.root.getObjectByName('Red tracking lens')&&m.root.getObjectByName('Seeker ammunition case'));
+  const origin=launcher.localToWorld(new T.Vector3(0,.6,0)),direction=new T.Vector3(0,-1,0).transformDirection(launcher.matrixWorld);
+  assert.equal(new T.Raycaster(origin,direction).intersectObject(launcher,true)[0]?.object.name,'Guided launcher rear breech','Guided launcher has a recessed open muzzle');
+  const forward=new T.Vector3(0,1,0).transformDirection(launcher.matrixWorld);assert(forward.z>.9,'Guided launcher aims forward rather than upward');
+ }
  if(id==='lab-artillery'){
   const tube=m.root.getObjectByName('Shoulder launcher');m.root.updateMatrixWorld(true);
   const origin=tube.localToWorld(new T.Vector3(0,1,0)),direction=new T.Vector3(0,-1,0).transformDirection(tube.matrixWorld);
@@ -37,6 +52,6 @@ for(const {id}of context.window.EnemyModels.variants){
   m.root.updateMatrixWorld(true);const origin=m.torso.localToWorld(new T.Vector3(0,.18,1)),direction=new T.Vector3(0,0,-1).transformDirection(m.torso.matrixWorld),hit=new T.Raycaster(origin,direction).intersectObject(coat)[0];assert(hit,'Ray reaches the back of the coat');assert(m.torso.worldToLocal(hit.point).z<0,'Coat front is an actual opening');
   m.pose(0);let left=0,right=0;for(let k=1;k<=100;k++){m.pose(k*.05);left=Math.max(left,Math.abs(m.legs[0].rotation.x+.14));right=Math.max(right,Math.abs(m.legs[1].rotation.x-.19));}assert(left>right*2,'Dragging leg has a distinctly shorter stride');m.reset();
  }
- const bytes=context.window.exportEnemyGLB(T,m.root),dv=new DataView(bytes.buffer);assert.equal(dv.getUint32(0,true),0x46546c67);assert.equal(dv.getUint32(8,true),bytes.length);const length=dv.getUint32(12,true),j=JSON.parse(new TextDecoder().decode(bytes.slice(20,20+length)));assert.equal(j.meshes.length,meshes);if(id==='lab-finalboss')assert(j.materials.find(m=>m.name==='Pulse ceramic inserts').emissiveFactor.some(v=>v>0),'Core emission survives GLB export');assert.equal(j.nodes[0].name,'Enemy_'+id);if(['lab-explosionboss','lab-finalboss','rasp','rush','hollow','researcher','lab-assistant','lab-pathologist','lab-runner','lab-brute','lab-poisoner','lab-shield','lab-bomber','lab-carrier','lab-hunter','lab-armored','lab-artillery','lab-corehunter','lab-seeker','lab-blackout','lab-siege','lab-champion','lab-warden','lab-tiny','lab-gilded','lab-blueace'].includes(id)){assert(j.meshes.every(mesh=>mesh.primitives[0].attributes.COLOR_0!==undefined),'Skin and fabric shading survive GLB export');assert(j.materials.every(mat=>mat.name==='Tarnished brass' || mat.pbrMetallicRoughness.metallicFactor===0),'Flesh and cloth have no metallic finish');for(let i=0;i<60;i++){m.pose(i*.05);m.root.updateMatrixWorld(true);const movingBounds=new T.Box3().setFromObject(m.root);assert(movingBounds.min.y>-.006&&movingBounds.min.y<.02,'Soles stay on the studio floor');assert(Number.isFinite(movingBounds.max.y));}m.reset();}for(const a of j.accessors){const v=j.bufferViews[a.bufferView];assert(v.byteOffset+v.byteLength<=j.buffers[0].byteLength);}fs.writeFileSync('client/assets/enemies/enemy-'+id+'.glb',bytes);
+ const bytes=context.window.exportEnemyGLB(T,m.root),dv=new DataView(bytes.buffer);assert.equal(dv.getUint32(0,true),0x46546c67);assert.equal(dv.getUint32(8,true),bytes.length);const length=dv.getUint32(12,true),j=JSON.parse(new TextDecoder().decode(bytes.slice(20,20+length)));assert.equal(j.meshes.length,meshes);if(id==='lab-finalboss')assert(j.materials.find(m=>m.name==='Pulse ceramic inserts').emissiveFactor.some(v=>v>0),'Core emission survives GLB export');assert.equal(j.nodes[0].name,'Enemy_'+id);if(['lab-warlord','lab-titan','lab-artilleryelite','lab-explosionboss','lab-finalboss','rasp','rush','hollow','researcher','lab-assistant','lab-pathologist','lab-runner','lab-brute','lab-poisoner','lab-shield','lab-bomber','lab-carrier','lab-hunter','lab-armored','lab-artillery','lab-corehunter','lab-seeker','lab-blackout','lab-siege','lab-champion','lab-warden','lab-tiny','lab-gilded','lab-blueace'].includes(id)){assert(j.meshes.every(mesh=>mesh.primitives[0].attributes.COLOR_0!==undefined),'Skin and fabric shading survive GLB export');assert(j.materials.every(mat=>mat.name==='Tarnished brass' || mat.pbrMetallicRoughness.metallicFactor===0),'Flesh and cloth have no metallic finish');for(let i=0;i<60;i++){m.pose(i*.05);m.root.updateMatrixWorld(true);const movingBounds=new T.Box3().setFromObject(m.root);assert(movingBounds.min.y>-.006&&movingBounds.min.y<.02,'Soles stay on the studio floor');assert(Number.isFinite(movingBounds.max.y));}m.reset();}for(const a of j.accessors){const v=j.bufferViews[a.bufferView];assert(v.byteOffset+v.byteLength<=j.buffers[0].byteLength);}fs.writeFileSync('client/assets/enemies/enemy-'+id+'.glb',bytes);
  let disposed=0;m.root.traverse(o=>{if(o.isMesh)o.geometry.addEventListener('dispose',()=>disposed++);});m.dispose();assert.equal(disposed,meshes);console.log(id+': '+triangles+' triangles / '+meshes+' meshes / height '+b.max.y.toFixed(3)+'m / GLB '+bytes.length+' bytes');
 }

@@ -21,7 +21,7 @@ window.EnemyModels = (() => {
     {id:'lab-armored', name:'ARMORED', label:'防護警備員', color:'#69746e'},
     {id:'lab-artillery', name:'ARTILLERY', label:'射出装置の作業員', color:'#74735a'},
     {id:'lab-corehunter', name:'CORE HUNTER', label:'コア回収員', color:'#97815a'},
-    {id:'lab-seeker', name:'SEEKER', label:'追跡検査員', color:'#8b7777'},
+    {id:'lab-seeker', name:'SEEKER', label:'誘導弾ランチャーの追跡検査員', color:'#8b7777'},
     {id:'lab-blackout', name:'BLACKOUT', label:'感染した電気技師', color:'#425f59'},
     {id:'lab-siege', name:'SIEGE', label:'大型の破砕作業員', color:'#80745b'},
     {id:'lab-champion', name:'CHAMPION', label:'感染した警備主任', color:'#4a4652'},
@@ -30,11 +30,14 @@ window.EnemyModels = (() => {
     {id:'lab-gilded', name:'GILDED', label:'金色の検体回収員', color:'#baa465'},
     {id:'lab-blueace', name:'BLUE ACE', label:'高速の青い警備員', color:'#466f9f'},
     {id:'lab-explosionboss',name:'EXPLOSION BOSS',label:'爆薬を背負う大型個体',color:'#756347'},
-    {id:'lab-finalboss',name:'FINAL BOSS',label:'砲撃と衝撃波の最終実験体',color:'#82758c'}
+    {id:'lab-finalboss',name:'FINAL BOSS',label:'砲撃と衝撃波の最終実験体',color:'#82758c'},
+    {id:'lab-warlord',name:'WARLORD',label:'重装の指揮個体',color:'#75434a'},
+    {id:'lab-titan',name:'TITAN',label:'大型の拘束実験体',color:'#6b496f'},
+    {id:'lab-artilleryelite',name:'ARTILLERY ELITE',label:'上位砲撃手',color:'#526a43'}
   ];
   function build(T,id) {
     if(!variants.some(v=>v.id===id))throw new Error('Unknown enemy model: '+id);
-    if(['lab-explosionboss','lab-finalboss','rasp','rush','hollow','researcher','lab-assistant','lab-pathologist','lab-runner','lab-brute','lab-poisoner','lab-shield','lab-bomber','lab-carrier','lab-hunter','lab-armored','lab-artillery','lab-corehunter','lab-seeker','lab-blackout','lab-siege','lab-champion','lab-warden','lab-tiny','lab-gilded','lab-blueace'].includes(id))return window.buildOrganicEnemy(T,id);
+    if(['lab-warlord','lab-titan','lab-artilleryelite','lab-explosionboss','lab-finalboss','rasp','rush','hollow','researcher','lab-assistant','lab-pathologist','lab-runner','lab-brute','lab-poisoner','lab-shield','lab-bomber','lab-carrier','lab-hunter','lab-armored','lab-artillery','lab-corehunter','lab-seeker','lab-blackout','lab-siege','lab-champion','lab-warden','lab-tiny','lab-gilded','lab-blueace'].includes(id))return window.buildOrganicEnemy(T,id);
     const root=new T.Group();root.name='Enemy_'+id;const owned=new Set(),mats=[];
     const mat=(name,color,roughness,metalness=0)=>{const m=new T.MeshStandardMaterial({name,color,roughness,metalness});m.color.convertSRGBToLinear();m.envMapIntensity=.55;mats.push(m);return m;};
     const under=mat('Graphite textile','#20282a',.94),rubber=mat('Rubber','#161d20',.84),dark=mat('Recess','#0c1417',.54);
