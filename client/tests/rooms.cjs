@@ -115,7 +115,7 @@ run('updateRoomLobby(snapshot)');
 assert(!context.readyRoomButton.classList.contains('hidden'));
 assert(!context.readyRoomButton.disabled);
 assert.equal(context.readyRoomButton.textContent, '準備OK');
-assert.match(context.roomMembers.innerHTML, /room-member ready[\s\S]*あ<\/strong>\s*<span>host<\/span>[\s\S]*?<\/div>/);
+assert.match(context.roomMembers.innerHTML, /room-member ready[\s\S]*あ <small>Healer<\/small><\/strong>\s*<span>host<\/span>[\s\S]*?<\/div>/);
 assert.equal((context.roomMembers.innerHTML.match(/<span>/g) || []).length, 2,
     'host and guest each have a status label, including when viewed by a guest');
 assert(context.roomMembers.innerHTML.includes('準備中'));

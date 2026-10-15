@@ -47,7 +47,7 @@ function mountMenu() {
         if (view === "settings") {
             const reticle = window.coreReticleSettings.get();
             const shadows = window.coreGraphicsSettings?.getShadows() ?? true;
-            content = content.replace("<button>決定</button>", `<fieldset class="ui-settings-group"><legend>描画</legend><label>影<select name="shadows"><option value="on" ${shadows ? "selected" : ""}>オン</option><option value="off" ${!shadows ? "selected" : ""}>オフ</option></select></label></fieldset><button>決定</button>`);
+            content = content.replace("<button>決定</button>", `<fieldset class="ui-settings-group"><legend>描画</legend><label>視野角<input type="range" name="fov" aria-label="視野角" min="60" max="110" step="1" value="${window.coreGraphicsSettings?.getFov() ?? 72}"><output id="fov-value">${window.coreGraphicsSettings?.getFov() ?? 72}°</output></label><label>影<select name="shadows"><option value="on" ${shadows ? "selected" : ""}>オン</option><option value="off" ${!shadows ? "selected" : ""}>オフ</option></select></label></fieldset><button>決定</button>`);
             content = content.replace("<button>決定</button></form>", `<fieldset class="ui-settings-group"><legend>音量</legend><label>SE<input type="range" name="volume" aria-label="SE音量" min="0" max="100" step="1" value="${Math.round(window.coreAudio.getVolume() * 100)}"><output id="volume-value">${Math.round(window.coreAudio.getVolume() * 100)}%</output></label></fieldset><fieldset class="ui-settings-group"><legend>マウス</legend><label>感度<input type="range" name="mouse-sensitivity" aria-label="マウス感度" min="20" max="300" step="5" value="${Math.round((window.coreMouseSettings?.get() ?? 1)*100)}"><output id="mouse-sensitivity-value">${Math.round((window.coreMouseSettings?.get() ?? 1)*100)}%</output></label></fieldset><fieldset class="ui-settings-group"><legend>画面酔い対策</legend><label>白い枠<select name="comfort-frame"><option value="off" ${!window.coreComfortFrame?.get() ? "selected" : ""}>オフ</option><option value="on" ${window.coreComfortFrame?.get() ? "selected" : ""}>オン</option></select></label></fieldset><fieldset class="ui-settings-group"><legend>レティクル</legend><label>形<select name="reticle-shape">${[["cross", "×"], ["plus", "+"]].map(([value, label]) => `<option value="${value}" ${reticle.shape === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><label>色<input type="color" name="reticle-color" value="${reticle.color}"></label><label>大きさ<input type="range" name="reticle-size" min="4" max="32" step="1" value="${reticle.size}"><output id="reticle-size-value">${reticle.size}px</output></label><div class="ui-reticle-previews" aria-label="レティクルのプレビュー"><div class="ui-reticle-preview"><span></span></div></div></fieldset><fieldset class="ui-settings-group"><legend>キー割り当て</legend><label>回復キット<input name="medkit-key" aria-label="回復キットのキー" readonly value="${escape(window.coreKeySettings.getMedkit().toUpperCase())}"></label><label>ジョブ効果<input name="job-effect-key" aria-label="ジョブ効果のキー" readonly value="${escape(window.coreKeySettings.getJobEffect().toUpperCase())}"></label><label>伏せ固定<input name="sniper-stance-key" aria-label="伏せ固定のキー" readonly value="${escape(window.coreKeySettings.getSniperStance().toUpperCase())}"></label><label>ドローン自爆<input name="drone-self-destruct-key" aria-label="ドローン自爆のキー" readonly value="${escape(window.coreKeySettings.getDroneSelfDestruct().toUpperCase())}"></label></fieldset><button type="submit" class="ui-back">決定</button></form>`);
         }
         if (view === "settings" && inGameSettings) content = content.replace(/<input name="name"[^>]*>/, "").replace('data-form="name"', 'data-form="game-settings"');
@@ -60,7 +60,7 @@ function mountMenu() {
             const me = snapshot.players.find(p => p.id === selfId);
             content = '<ol class="ui-members" aria-label="参加者">' + snapshot.players.filter(p => p.human).map(p => {
                 const host = p.id === snapshot.roomOwnerId;
-                return `<li class="room-member ${host || p.ready ? "ready" : ""}"><strong>${escape(p.name)}</strong><span>${host ? "host" : p.ready ? "準備完了" : "準備中"}</span></li>`;
+                return `<li class="room-member ${host || p.ready ? "ready" : ""}"><strong>${escape(p.name)}<small class="room-job">${escape(window.coreJobs?.[p.job]?.name || "Healer")}</small></strong><span>${host ? "host" : p.ready ? "準備完了" : "準備中"}</span></li>`;
             }).join("") + '</ol>';
             if (["won", "lost"].includes(snapshot.phase)) content += `<p class="ui-defense-result${snapshot.phase === "lost" ? " failed" : ""}" role="status">${snapshot.phase === "won" ? "防衛成功" : "防衛失敗"}<small>TIME ${formatMatchTime(snapshot.elapsedSeconds)}</small></p>`;
             content += owner ? `<button data-action="start" ${!snapshot.allReady || !connected ? "disabled" : ""}>${snapshot.phase === "lobby" ? "開始" : "もう一度プレイ"}</button>` : `<button data-action="ready" ${disabled()}>${me?.ready ? "準備を取り消す" : "準備OK"}</button>`;
@@ -212,6 +212,10 @@ function mountMenu() {
         showKeyToast(saved ? "保存しました" : "このキーは使用できません");
     });
     root.addEventListener("input", event => {
+        if (view === "settings" && event.target.name === "fov") {
+            const value = window.coreGraphicsSettings.setFov(Number(event.target.value));
+            root.querySelector("#fov-value").textContent = `${value}°`;
+        }
         if(view === "settings" && event.target.name === "mouse-sensitivity") {
             const value=window.coreMouseSettings.set(Number(event.target.value)/100);
             root.querySelector("#mouse-sensitivity-value").textContent=`${Math.round(value*100)}%`;

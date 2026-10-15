@@ -60,3 +60,5 @@
 #menu-ui .ui-release summary:focus-visible { outline: 2px solid #e0c48d; outline-offset: 4px; }
 #menu-ui .ui-release details[open] summary { margin-bottom: .75rem; }
 #menu-ui .ui-release details p { text-align: left; overflow-wrap: anywhere; }
+
+#menu-ui .room-job { display: block; margin-top: .25rem; color: var(--accent-blue); font-size: .7rem; }

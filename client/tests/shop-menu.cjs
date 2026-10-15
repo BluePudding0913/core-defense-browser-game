@@ -159,6 +159,16 @@ context.message.closeMenu = true;
 vm.runInContext(source.slice(purchaseStart, purchaseEnd), context);
 assert(classes.has('hidden'), 'new weapon closes only after purchase succeeds');
 assert(classes.has('hidden'), 'manual close clears the refresh callback');
+let hint;
+context.window.coreKeySettings = {getSniperStance: () => 'v'};
+context.showNotice = text => {hint={text};};
+context.message.item = 'sniper';
+vm.runInContext(source.slice(purchaseStart, purchaseEnd), context);
+assert.equal(hint.text, 'V 長押しで伏せ固定');
+context.window.coreKeySettings.getSniperStance = () => 'z';
+vm.runInContext(source.slice(purchaseStart, purchaseEnd), context);
+assert.equal(hint.text, 'Z 長押しで伏せ固定', 'purchase hint follows key remapping');
+
 me.wood = 4; me.ore = 3;
 context.workbench = { x: 0, y: 0 };
 run('openWorkbenchMenu(workbench)');

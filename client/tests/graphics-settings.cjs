@@ -26,3 +26,18 @@ assert.equal(settings.getShadows(), false, 'unavailable storage does not prevent
 settings.setShadows(true);
 assert.equal(settings.getShadows(), true);
 console.log('Graphics settings passed: defaults, persistence, restoration and unavailable storage.');
+
+saved.clear();
+settings = load();
+assert.equal(settings.getFov(), 72);
+assert.equal(settings.setFov(90), 90);
+assert.equal(load().getFov(), 90);
+assert.equal(settings.setFov(999), 110);
+assert.equal(settings.setFov(0), 60);
+for (const value of ['', 'broken', 'NaN', 'Infinity']) {
+    saved.set('core-defense-fov', value);
+    assert.equal(load().getFov(), 72);
+}
+settings = load({getItem() {throw Error('blocked');}, setItem() {throw Error('blocked');}});
+assert.equal(settings.getFov(), 72);
+assert.equal(settings.setFov(95), 95);
