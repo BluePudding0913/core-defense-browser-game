@@ -21,11 +21,11 @@ console.log('Core alert passed: map-wide reach, independent hits, zoom and reset
 const value={textContent:''},fill={style:{}},element={hidden:true,style:{},querySelector:s=>s==='.core-hud-value'?value:fill};
 Object.assign(core,{hp:700,maxHp:1000});
 feedback.updateHud(element,core,3000);assert(element.hidden,'No HUD before actual damage');
-feedback.add(core,4000);feedback.updateHud(element,core,4000);assert(!element.hidden);assert.equal(element.style.opacity,'1');assert.equal(value.textContent,'','HUD never writes numeric HP');assert.equal(fill.style.width,'70%');assert.equal(element.style.transform,'scale(1.14)');
-feedback.updateHud(element,core,4220);assert.equal(element.style.transform,'scale(1)','Hit pop settles in 220ms');
+feedback.add(core,4000);feedback.updateHud(element,core,4000);assert(!element.hidden);assert.equal(element.style.opacity,'1');assert.equal(value.textContent,'','HUD never writes numeric HP');assert.equal(fill.style.width,'70%');assert.equal(element.style.transform,'scale(1.35)');
+feedback.updateHud(element,core,4450);assert.equal(element.style.transform,'scale(1)','Hit pop settles in 450ms');
 core.hp=500;feedback.updateHud(element,core,13999);assert.equal(fill.style.width,'50%');assert.equal(element.style.opacity,'1','HUD persists for ten seconds');
 feedback.updateHud(element,core,14200);assert.equal(element.style.opacity,'0.5');
-feedback.add(core,14200);feedback.updateHud(element,core,14200);assert.equal(element.style.opacity,'1','Further damage restores full opacity and restarts the timer');assert.equal(element.style.transform,'scale(1.14)','Each new hit retriggers the pop');
+feedback.add(core,14200);feedback.updateHud(element,core,14200);assert.equal(element.style.opacity,'1','Further damage restores full opacity and restarts the timer');assert.equal(element.style.transform,'scale(1.35)','Each new hit retriggers the pop');
 feedback.updateHud(element,core,24600);assert(element.hidden,'HUD hides after its 400ms fade');
 feedback.add(core,25000);feedback.reset();feedback.updateHud(element,core,25000);assert(element.hidden,'Rewind/new match clears HUD');
 feedback.updateHud(null,core,25000);
