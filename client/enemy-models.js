@@ -14,7 +14,7 @@ window.EnemyModels = (() => {
     {id:'lab-pathologist', name:'PATHOLOGIST', label:'感染した病理研究員', color:'#b0ab98'},
     {id:'lab-runner', name:'RUNNER', label:'検体搬送員', color:'#6b8781'},
     {id:'lab-brute', name:'BRUTE', label:'収容担当', color:'#a5a28e'},
-    {id:'lab-poisoner', name:'POISONER', label:'汚染処理員', color:'#928b63'},
+    {id:'lab-poisoner', name:'POISONER', label:'禁忌の薬品研究員', color:'#b7baa1'},
     {id:'lab-shield', name:'SHIELD', label:'封鎖警備員', color:'#526469'},
     {id:'lab-bomber', name:'BOMBER', label:'解体作業員', color:'#8c604a'},
     {id:'lab-carrier', name:'CARRIER', label:'検体運搬員', color:'#868876'},
