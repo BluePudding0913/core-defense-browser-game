@@ -1,5 +1,7 @@
 # Enemy form studies
 
+GILDED / WARLORD recognition revision: GILDED now wears a gold protective hood, a sealed face shield with a jade visor, a metal chest shell and forearm guards. Its large reinforced gold specimen strongbox and side canisters carry matching jade seals. WARLORD has graphite armor over crimson cloth, an officer helmet/jaw guard, wider angular pauldrons with pale rank trim, shin armor and a torso-mounted crimson command standard visible above the shoulders. Geometry is 11,936 / 12,644 triangles respectively; animation, resource pooling, freeze/tint, combat and collision rules retain their existing paths. Model/export, runtime, renderer and animation suites pass. [Front/back image](previews/gilded-warlord.png); regenerate with `client/previews/gilded-warlord.html`. Studio images frame each silhouette independently rather than comparing gameplay scale.
+
 The live renderer now uses `lab-enemy-models.js`: GRUNT → researcher, RUNNER → lab-runner, BRUTE → lab-brute, POISONER → lab-poisoner. The studio opens the new three enemy roles; 白衣3案 retains all three coat variations. Earlier preview-only notes below describe the preceding iterations.
 
 - RUNNER: narrow teal scrubs, bare forearms, a low forward posture and faster, longer strides.
