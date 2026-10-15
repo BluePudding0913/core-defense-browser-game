@@ -472,4 +472,6 @@ SIEGE / CHAMPION / WARDENにはlab-siege / lab-champion / lab-wardenを割り当
 
 画面酔い対策の白い枠は`client/comfort-frame.js`が初期オフ・端末内保存を管理し、`menu-ui.js`の設定から切り替える。`comfort-frame.css`の固定枠をHUD内に置き、カメラ移動・反動・倍率とは独立して画面の8%・24%内側へ二重に表示する。枠のz-indexは0とし、他のHUDより奥へ配置する。枠は入力を遮らず、メニュー・ロビーでは非表示。`client/previews/comfort-frame.html`は共通CSSでオン・オフと視点移動を比較し、プレビューの操作は保存設定を変更しない。`node client/tests/comfort-frame.cjs`で保存と失敗時の動作を検証し、`client/previews/capture-comfort-frame.cjs`でブラウザー表示・設定連携と画像を確認する。
 
+WARLORD・TITAN・ARTILLERY ELITEはlab-warlord・lab-titan・lab-artilleryeliteの有機モデルへ接続する。指揮装甲と長い上着、幅広い拘束実験体、双筒の砲撃装置で区別する。共有形状・個体別歩行・姿勢間引き・凍結・被弾・死亡・解放は既存経路を使い、能力と命中判定は変更しない。enemy-heavy.htmlで実ゲームの照明・既存半径44/48/27を確認できる。
+
 SEEKERの誘導弾用武装はorganic-enemy-models.jsのlab-seekerに置く。右肩の前向きランチャー・赤い照準レンズ・背面予備弾ケースをTorsoへ取り付け、首振りと腕振りから分離する。共有素材・個体別姿勢・凍結・被弾・解放は既存経路を使う。敵弾の発射・追尾・判定と通信には変更を加えない。

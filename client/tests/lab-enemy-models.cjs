@@ -14,10 +14,10 @@ try{
 }finally{T.ColorManagement.legacyMode=legacy;}
 assert.equal(pool.create('ghost',21),null);
 const boss=pool.create('boss',42);assert(boss.rig.getObjectByName('Broken chest plate'));assert(boss.rig.getObjectByName('Breach collar'));assert(boss.rig.getObjectByName('Heavy wrist shackle_1'));let bossMeshes=0,bossTriangles=0;boss.rig.traverse(o=>{if(o.isMesh){bossMeshes++;bossTriangles+=(o.geometry.index?.count || o.geometry.attributes.position.count)/3;}});assert(bossMeshes<100 && bossTriangles<35000,'Boss stays within bounded mesh/triangle budget');boss.dispose();
-for(const [type,detail] of [['seeker','Seeker guided launcher'],['tiny','Broken wrist restraint'],['gilded','Gold specimen canister_-1'],['blueAce','Blue response helmet']]) {
+for(const [type,detail] of [['seeker','Seeker guided launcher'],['warlord','Command cuirass'],['titan','Titan restraint yoke'],['artilleryElite','Elite launcher rack'],['tiny','Broken wrist restraint'],['gilded','Gold specimen canister_-1'],['blueAce','Blue response helmet']]) {
  const actor=pool.create(type,type==='tiny'?10:21);assert(actor.rig.getObjectByName(detail),'New role has its own equipment: '+type);assert(actor.rig.getObjectByName('Anatomical head'));actor.dispose();
 }
-for(const type of ['boss','grunt','runner','brute','poisoner','shield','bomber','carrier','hunter','armored','artillery','coreHunter','seeker','blackout','siege','champion','warden','tiny','gilded','blueAce']){
+for(const type of ['warlord','titan','artilleryElite','boss','grunt','runner','brute','poisoner','shield','bomber','carrier','hunter','armored','artillery','coreHunter','seeker','blackout','siege','champion','warden','tiny','gilded','blueAce']){
  const a=pool.create(type,21),b=pool.create(type,21);
  const meshes=[];a.rig.traverse(o=>{if(o.isMesh)meshes.push(o);});
  let count=0;b.rig.traverse(o=>{if(o.isMesh){assert.equal(o.geometry,meshes[count].geometry);assert.equal(o.material,meshes[count++].material);}});
@@ -46,4 +46,4 @@ for(let i=0;i<=140;i++)for(const [j,actor]of [slow,fast].entries()){
  if(i>10&&value*previous[j]<0)crossings[j]++;previous[j]=value;
 }
 assert(crossings[1]>crossings[0]*1.5&&crossings[1]>5,'Faster ground travel produces more steps');slow.dispose();fast.dispose();
-console.log('Lab enemy assignments passed: twenty types, shared assets, individual gait, freeze, tint, head alignment and final-owner disposal');
+console.log('Lab enemy assignments passed: twenty-three types, shared assets, individual gait, freeze, tint, head alignment and final-owner disposal');

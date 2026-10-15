@@ -38,7 +38,7 @@ for(const type of Object.keys(pool.assignments)) {
  sparse.root.updateMatrixWorld(true);assert(new T.Box3().setFromObject(sparse.root).min.y>-.1,type+': resumed pose stays grounded');
  full.dispose();sparse.dispose();
 }
-console.log('Enemy animation state passed: all 19 types, full-rate phase parity, sparse cadence, stop/start, teleport, promotion, freeze/thaw and grounded pose');
+console.log('Enemy animation state passed: all assigned types, full-rate phase parity, sparse cadence, stop/start, teleport, promotion, freeze/thaw and grounded pose');
 
 const renderer=context.window.Lab3D.create({width:900,height:500,before(){}});
 const me={id:'me',x:500,y:1000,weapon:'pistol',facingY:-1};
