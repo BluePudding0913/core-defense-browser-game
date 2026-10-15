@@ -261,16 +261,37 @@ if(lab){
   const sleeve=root.getObjectByName('Short sleeve_R');sleeve.parent.remove(sleeve);owned.delete(sleeve.geometry);sleeve.geometry.dispose();
  }
  if(id==='lab-armored'){
-  const protection=mat('Worn protective textile','#69746e',.95),webbing=mat('Protective vest webbing','#3c4742',.98);
+  const protection=mat('Worn protective textile','#69746e',.95),webbing=mat('Protective vest webbing','#3c4742',.98),armor=mat('Heavy ballistic shell','#77848a',.64),edge=mat('Ballistic edge guards','#39464c',.82);
   loft(torso,'Protective vest',[[.015,.365,.235],[.10,.40,.255],[.29,.51,.265,-.025],[.38,.54,.25,-.04],[.43,.39,.23,-.03]],protection,2.6,32);
   for(const side of [-1,1])loft(torso,'Vest shoulder strap_'+side,[[.35,.065,.023,.093,side*.16],[.44,.065,.028,.075,side*.16],[.47,.065,.03,.015,side*.13]],protection,2.4,16);
   loft(torso,'Vest waist band',[[.035,.38,.25],[.075,.39,.26]],webbing,2.6,24);
+  // Thick chamfered shells sit above the soft vest, with dark rims exposing their depth.
+  loft(torso,'Chest armor rim',[[.085,.36,.075,.135],[.14,.46,.095,.145],[.32,.53,.095,.115],[.405,.38,.075,.095]],edge,4,16);
+  loft(torso,'Ballistic chest plate',[[.105,.33,.070,.177],[.15,.425,.085,.185],[.31,.49,.085,.155],[.385,.35,.065,.135]],armor,4,16);
+  loft(torso,'Back armor rim',[[.07,.36,.075,-.135],[.16,.45,.095,-.155],[.34,.50,.09,-.17],[.41,.34,.07,-.145]],edge,4,16);
+  loft(torso,'Ballistic back plate',[[.09,.33,.065,-.175],[.17,.415,.075,-.195],[.33,.46,.075,-.21],[.39,.31,.06,-.18]],armor,4,16);
+  for(let i=0;i<2;i++)loft(torso,'Abdominal armor_'+i,[[.008+i*.047,.31,.055,.133],[.045+i*.047,.35,.065,.143],[.06+i*.047,.32,.05,.135]],armor,4,16);
+  loft(torso,'Armored collar',[[.405,.25,.205,-.018],[.445,.27,.215,-.018],[.48,.215,.17,-.008]],edge,3.4,20);
   for(const arm of arms){
    const old=arm.children.find(o=>o.name.startsWith('Short sleeve_'));arm.remove(old);owned.delete(old.geometry);old.geometry.dispose();
    loft(arm,'Protective uniform sleeve_'+arm.name,[[-.305,.11*wide,.13,.008],[-.24,.12*wide,.15,.01],[-.15,.15*wide,.175,-.005],[-.06,.175*wide,.19,-.008],[.018,.155*wide,.175],[.065,.10*wide,.13]],cloth,2.1,24);
   }
-  // Open face and exposed hands keep the human silhouette visible.
-  loft(head,'Open face helmet',[[.205,.177,.201,-.012],[.245,.174,.195,-.014],[.282,.135,.15,-.017],[.303,.052,.066,-.017]],protection,2.2,32);
+  for(const side of [-1,1]){
+   const i=side<0?0:1;
+   loft(arms[i],'Shoulder armor rim_'+side,[[-.12,.225,.24,-.008],[.015,.25,.26,-.008],[.09,.145,.17,-.015]],edge,3.4,16);
+   loft(arms[i],'Ballistic shoulder shell_'+side,[[-.09,.245,.255,-.008],[.025,.265,.275,-.008],[.10,.145,.17,-.015]],armor,3.4,16);
+   loft(elbows[i],'Armored elbow_'+side,[[-.055,.15,.155],[.025,.17,.18],[.07,.13,.145]],edge,3,16);
+   loft(elbows[i],'Ballistic forearm guard_'+side,[[-.23,.12,.14,.02],[-.18,.15,.17,.02],[-.045,.17,.185,.014],[.005,.14,.15,.01]],armor,3.5,16);
+   loft(legs[i],'Ballistic thigh plate_'+side,[[-.29,.145,.055,.095],[-.10,.19,.07,.115],[-.03,.17,.055,.115]],armor,3.6,16);
+   loft(shins[i],'Knee armor rim_'+side,[[-.07,.17,.08,.072],[.035,.18,.09,.075],[.07,.13,.065,.06]],edge,3.4,16);
+   loft(shins[i],'Ballistic knee cap_'+side,[[-.055,.14,.065,.115],[.025,.16,.075,.12],[.06,.11,.055,.10]],armor,3.4,16);
+   loft(shins[i],'Ballistic shin guard_'+side,[[-.30,.11,.055,.055],[-.25,.135,.065,.07],[-.095,.16,.075,.085],[-.06,.14,.055,.08]],armor,3.5,16);
+   loft(head,'Helmet cheek guard_'+side,[[.09,.04,.115,.016,side*.085],[.16,.05,.16,-.005,side*.086],[.235,.05,.17,-.014,side*.077]],armor,3.2,16);
+  }
+  // The recessed face remains readable inside the helmet and jaw protection.
+  loft(head,'Helmet rim',[[.198,.20,.228,-.012],[.224,.20,.228,-.012]],edge,3,24);
+  loft(head,'Open face helmet',[[.215,.204,.231,-.012],[.255,.195,.216,-.014],[.298,.15,.17,-.017],[.323,.065,.08,-.017]],armor,2.8,24);
+  loft(head,'Armored chin guard',[[.065,.13,.045,.085],[.095,.16,.055,.098],[.12,.135,.04,.105]],edge,3.2,16);
  }
  if(id==='lab-artillery'){
   const device=mat('Worn launcher casing','#5a6655',.86),webbing=mat('Launcher harness','#38473d',.97),interior=mat('Launcher interior','#222a24',.98);
