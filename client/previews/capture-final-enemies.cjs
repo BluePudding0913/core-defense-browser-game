@@ -11,6 +11,7 @@ const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:
   assert.equal(await page.locator('.label.shown').count(),2);
   for(const id of ['lab-explosionboss','lab-finalboss']){
    await page.evaluate(id=>enemyStudio.select(id),id);await page.screenshot({path:'artifacts/final-enemies/'+id+'.png'});
+   for(const [angle,dx]of [['side',-165],['back',-195]]){await page.mouse.move(720,450);await page.mouse.down();await page.mouse.move(720+dx,450);await page.mouse.up();await page.screenshot({path:'artifacts/final-enemies/'+id+'-'+angle+'.png'});}
   }
   await page.goto(pathToFileURL(path.resolve('client/previews/final-enemies.html')).href);
   await page.waitForFunction(()=>document.querySelector('#lab-scene')?.width>0);

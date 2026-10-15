@@ -20,6 +20,16 @@ for(const [type,detail,radius]of [['explosionBoss','Large explosive drum_-1',42]
   const tube=actor.rig.getObjectByName('Final salvo pod_'+side),origin=tube.localToWorld(new T.Vector3(0,1,0)),direction=new T.Vector3(0,-1,0).transformDirection(tube.matrixWorld);
   assert.equal(new T.Raycaster(origin,direction).intersectObject(tube,true)[0]?.object.name,'Final bore floor_'+side,'Salvo barrel has a recessed bore');
  }
+ if(type==='explosionBoss'){
+  assert(actor.rig.getObjectByName('Distended abdomen'));assert(actor.rig.getObjectByName('Pressure gauge'));assert(actor.rig.getObjectByName('Tank feed hose_-1'));
+  assert(actor.rig.getObjectByName('Forearm_L').scale.x>actor.rig.getObjectByName('Forearm_R').scale.x,'Blast shield arm is heavier');
+ }else{
+  assert(!actor.rig.getObjectByName('Hand_R'));assert(!actor.rig.getObjectByName('Eye_1'));assert(actor.rig.getObjectByName('Final faceless mask'));
+  for(let i=0;i<6;i++)assert(actor.rig.getObjectByName('Halo segment_'+i));
+  const tube=actor.rig.getObjectByName('Integrated pulse cannon'),origin=tube.localToWorld(new T.Vector3(0,1,0)),direction=new T.Vector3(0,-1,0).transformDirection(tube.matrixWorld);
+  assert.equal(new T.Raycaster(origin,direction).intersectObject(tube,true)[0]?.object.name,'Pulse cannon floor','Integrated cannon muzzle is hollow');
+ }
+ let meshes=0,triangles=0;actor.rig.traverse(o=>{if(o.isMesh){meshes++;triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3;}});assert(meshes<100&&triangles<22000,'Detailed bosses retain bounded rendering cost');
  actor.dispose();
 }
 const boss=pool.create('boss',42);assert(boss.rig.getObjectByName('Broken chest plate'));assert(boss.rig.getObjectByName('Breach collar'));assert(boss.rig.getObjectByName('Heavy wrist shackle_1'));let bossMeshes=0,bossTriangles=0;boss.rig.traverse(o=>{if(o.isMesh){bossMeshes++;bossTriangles+=(o.geometry.index?.count || o.geometry.attributes.position.count)/3;}});assert(bossMeshes<100 && bossTriangles<35000,'Boss stays within bounded mesh/triangle budget');boss.dispose();
