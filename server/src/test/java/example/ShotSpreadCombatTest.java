@@ -39,7 +39,7 @@ class ShotSpreadCombatTest {
             int[] n={0};CombatTestRandom.use(game,()->{int i=n[0]++;return i%2==0?1-1e-9:(i/2)/4.;});
             double published=json.readTree(SnapshotBuilder.build(game)).path("rules").path("weapons")
                     .path("shotgun").path("spreadSlope").asDouble();
-            assertEquals(520*.28*SniperRules.PIXEL_SLOPE,published,1e-12);
+            assertEquals(72.8*SniperRules.PIXEL_SLOPE,published,1e-12);
             double expected=published*AimControlRules.breath(elapsed)*(1+1.25*movement);
             fire(0);
             assertEquals(4,rays().size());

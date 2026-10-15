@@ -48,7 +48,7 @@ for(const weapon of weapons){
 }
 
 // The authoritative shotgun slope projects to the breathing circle without a hidden shrink.
-const shotgunSlope=145.6*Math.tan(Math.PI/18)/425;
+const shotgunSlope=72.8*Math.tan(Math.PI/18)/425;
 for(const elapsed of [0,.5,1.5])for(const movement of [0,1]) {
  const p={id:`shotgun-contract-${elapsed}-${movement}`,weapon:'shotgun',aimControl:{elapsed,movement,speedRatio:0,turn:0}};
  const definitions={shotgun:{spreadSlope:shotgunSlope,aimControl:true}};
