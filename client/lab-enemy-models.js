@@ -2,7 +2,7 @@
 // Renderer-scoped pool: geometry/materials are shared, transforms and gait are per actor.
 window.createLabEnemyModels = T => {
  let nextActor=0;
- const assignments={warlord:'lab-warlord',titan:'lab-titan',artilleryElite:'lab-artilleryelite',explosionBoss:'lab-explosionboss',finalBoss:'lab-finalboss',boss:'lab-boss',grunt:'researcher',runner:'lab-runner',brute:'lab-brute',poisoner:'lab-poisoner',shield:'lab-shield',bomber:'lab-bomber',carrier:'lab-carrier',hunter:'lab-hunter',armored:'lab-armored',artillery:'lab-artillery',coreHunter:'lab-corehunter',seeker:'lab-seeker',blackout:'lab-blackout',siege:'lab-siege',champion:'lab-champion',warden:'lab-warden',tiny:'lab-tiny',gilded:'lab-gilded',blueAce:'lab-blueace'},pool=new Map();
+ const assignments={ghost:'lab-ghost',warlord:'lab-warlord',titan:'lab-titan',artilleryElite:'lab-artilleryelite',explosionBoss:'lab-explosionboss',finalBoss:'lab-finalboss',boss:'lab-boss',grunt:'researcher',runner:'lab-runner',brute:'lab-brute',poisoner:'lab-poisoner',shield:'lab-shield',bomber:'lab-bomber',carrier:'lab-carrier',hunter:'lab-hunter',armored:'lab-armored',artillery:'lab-artillery',coreHunter:'lab-corehunter',seeker:'lab-seeker',blackout:'lab-blackout',siege:'lab-siege',champion:'lab-champion',warden:'lab-warden',tiny:'lab-tiny',gilded:'lab-gilded',blueAce:'lab-blueace'},pool=new Map();
  function create(type,radius){
   const id=assignments[type];if(!id)return null;
   let entry=pool.get(id);
@@ -12,7 +12,7 @@ window.createLabEnemyModels = T => {
    entry={model,nodes,height,refs:0};pool.set(id,entry);
   }
   entry.refs++;
-  const root=new T.Group(),rig=entry.model.root.clone(true),nodes=[],materials=new Map();
+  const root=new T.Group(),rig=entry.model.root.clone(true),nodes=[],materials=new Map(),tints=new Map();
   rig.traverse(o=>{nodes.push(o);if(o.isMesh)materials.set(o,o.material);});root.add(rig);
   root.scale.setScalar(radius*1.55/entry.height);
   const phaseOffset=(nextActor++*.61803398875)%1;
@@ -37,8 +37,14 @@ window.createLabEnemyModels = T => {
    }
    lastInterval=interval;wasFrozen=frozen;
    point={x:next.x,y:next.y};lastAt=now;
-  },tint(material){for(const [mesh,original]of materials)mesh.material=material||original;},dispose(){
-   if(disposed)return;disposed=true;if(--entry.refs===0){entry.model.dispose();pool.delete(id);}
+  },tint(material){for(const [mesh,original]of materials){
+   if(!material || !original.transparent){mesh.material=material||original;continue;}
+   let copy=tints.get(original);
+   if(!copy){copy=original.clone();tints.set(original,copy);}
+   copy.color.copy(material.color);if(copy.emissive)copy.emissive.set(0);
+   mesh.material=copy;
+  }},dispose(){
+   if(disposed)return;disposed=true;for(const m of tints.values())m.dispose();tints.clear();if(--entry.refs===0){entry.model.dispose();pool.delete(id);}
   }};
  }
  return {create,assignments};

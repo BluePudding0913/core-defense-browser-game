@@ -92,7 +92,7 @@ for(const view of [{yaw:0,pitch:0,zoom:false},{yaw:.7,pitch:.4,zoom:false},{yaw:
 for(const [i,type] of ['warlord','titan','artilleryElite','grunt','runner','carrier','shield','bomber','hunter','armored','artillery','coreHunter','seeker','blackout','siege','champion','warden','ghost'].entries()) {
     state.enemies=[{id:200+i,type,x:180,y:100,hp:100,facingX:-.6,facingY:-.8}];frame.effects=[];renderer.render(frame);
     assert(Math.abs(scene.getObjectByName('enemy:'+(200+i)).rotation.y-Math.atan2(-.6,-.8))<1e-8,'All enemy models use transmitted facing');
-    const gear={warlord:'Command cuirass',titan:'Titan restraint yoke',artilleryElite:'Elite launcher rack',shield:'Containment shield',bomber:'Demolition charge_-1',carrier:'Specimen backpack',hunter:'Torn patient gown',armored:'Protective vest',artillery:'Open launcher tube',coreHunter:'Recovery vest',seeker:'Seeker guided launcher',blackout:'Looped power cable',siege:'Crushing gauntlet',champion:'Supervisor coat',warden:'Hanging restraint chain'}[type];
+    const gear={ghost:'Ghost examination gown',warlord:'Command cuirass',titan:'Titan restraint yoke',artilleryElite:'Elite launcher rack',shield:'Containment shield',bomber:'Demolition charge_-1',carrier:'Specimen backpack',hunter:'Torn patient gown',armored:'Protective vest',artillery:'Open launcher tube',coreHunter:'Recovery vest',seeker:'Seeker guided launcher',blackout:'Looped power cable',siege:'Crushing gauntlet',champion:'Supervisor coat',warden:'Hanging restraint chain'}[type];
     if(gear)assert(scene.getObjectByName('enemy:'+(200+i)).getObjectByName(gear),'Live enemy uses its assigned lab equipment');
 }
 console.log('FPS trajectory regressions passed: muzzle screen alignment, pitch, zoom, fixed fired segments, aim excludes red lines, all enemy facing');
@@ -587,3 +587,19 @@ state.enemies[0].frozenRemaining=0;now=Math.PI*1.5*50;renderer.render(frame);
 assert.notEqual(drum.material,flash);assert.equal(drum.material.name,'Scorched explosive casing');
 state.enemies[0].type='finalBoss';renderer.render(frame);assert(scene.getObjectByName('Final salvo pod_-1'));assert(!scene.getObjectByName('Enemy_lab-explosionboss'));
 console.log('Final enemy models: fuse flash, freeze priority, color recovery and model replacement passed');
+
+// Ghost transparency survives the real freeze, hit and death presentation paths.
+now+=1000;frame.effects=[];state.enemies=[{id:4001,type:'ghost',x:180,y:100,hp:100},{id:4002,type:'ghost',x:220,y:100,hp:100}];renderer.render(frame);
+const ghostRoot=scene.getObjectByName('enemy:4001'),ghostSkin=ghostRoot.getObjectByName('Anatomical head'),ghostOriginal=ghostSkin.material;
+assert(ghostRoot.getObjectByName('Ghost torn gown'));assert.equal(ghostOriginal.opacity,.30);assert.equal(ghostOriginal.depthWrite,false);
+state.enemies[0].frozenRemaining=1;renderer.render(frame);
+assert.equal(ghostSkin.material.opacity,.30);assert(ghostSkin.material.transparent);assert.equal(ghostSkin.material.depthWrite,false);
+assert.equal(ghostSkin.material.color.getHexString(),'95dded');
+assert.equal(scene.getObjectByName('enemy:4002').getObjectByName('Anatomical head').material,ghostOriginal,'Freeze does not change another ghost');
+frame.effects=[{effect:'hit',enemyId:4001,playerId:'me',damage:20,started:now}];renderer.render(frame);
+assert.equal(ghostSkin.material.opacity,.30);assert(ghostSkin.material.transparent);assert.equal(ghostSkin.material.depthWrite,false);
+now+=200;frame.effects=[];state.enemies[0].frozenRemaining=0;renderer.render(frame);assert.equal(ghostSkin.material,ghostOriginal);
+frame.effects=[{effect:'hit',enemyId:4001,playerId:'me',damage:100,defeated:true,started:now}];state.enemies.shift();renderer.render(frame);
+frame.effects=[];now+=65;renderer.render(frame);assert(Math.abs(ghostSkin.material.opacity-.15)<1e-6,'Death halves the original ghost alpha');
+now+=70;renderer.render(frame);assert(!scene.getObjectByName('enemy:4001'));
+console.log('Ghost integration passed: live assignment, translucency, freeze, isolated hit tint, thaw and proportional death fade');
