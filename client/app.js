@@ -929,6 +929,7 @@ function useJobAbility() {
             || !inventoryMenu.classList.contains("hidden") || !howToMenu.classList.contains("hidden")
             || !actionMenu.classList.contains("hidden")) return;
     if (me.job === "drone" && !me.drone?.active) openDroneLaunch();
+    else if (me.job === "scout") requestScoutDash(worldFromScreen(aimPointer?.x ?? 0, aimPointer?.y ?? 0));
     else if (["drone", "healer", "spy", "tp"].includes(me.job)) send("JOB_ABILITY");
 }
 // A release opens the menu; holding picks up the original target directly.
