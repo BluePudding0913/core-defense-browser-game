@@ -284,6 +284,14 @@ assert.equal(result.textContent, '接続できません', 'reconnection preserve
 click('phrase'); click('search');
 assert.equal(result.textContent, '', 'reopening search clears its previous result');
 click('home'); click('settings');
+assert.match(root.innerHTML, /最大FPS<select name="max-fps"><option value="60" selected/);
+await handlers.change({ target: { name: 'max-fps', value: '30' } });
+assert.equal(context.window.coreGraphicsSettings.getMaxFps(), 30);
+assert.equal(saved.get('core-defense-max-fps'), '30');
+click('home'); click('settings');
+assert.match(root.innerHTML, /<option value="30" selected>30 FPS/);
+await handlers.change({ target: { name: 'max-fps', value: '60' } });
+assert.equal(context.window.coreGraphicsSettings.getMaxFps(), 60);
 assert.match(root.innerHTML, /影<select name="shadows"><option value="on" selected/);
 await handlers.change({ target: { name: 'shadows', value: 'off' } });
 assert.equal(context.window.coreGraphicsSettings.getShadows(), false);
@@ -371,6 +379,53 @@ for (const phase of ['won', 'lost']) {
     assert(!root.hidden, 'result menu appears after the delay');
 }
 
+context.window.coreMenu.exited();
+context.window.coreMenu.connected();
+click('quick');
+const quickLobby = { ...state, phase: 'lobby', privateRoom: false, roomId: 'quick-room' };
+for (const id of ['p1', 'p2']) {
+    context.window.coreMenu.snapshot(quickLobby, id);
+    assert.match(root.innerHTML, /data-action="lobby-settings">設定/);
+    const callsBeforeSettings = calls.length;
+    click('lobby-settings');
+    assert.match(root.innerHTML, /data-form="game-settings"/);
+    assert.doesNotMatch(root.innerHTML, /name="name"|ゲストプレイヤー名/);
+    await handlers.change({ target: { name: 'max-fps', value: '30' } });
+    assert.equal(context.window.coreGraphicsSettings.getMaxFps(), 30);
+    const settingsRenders = renderCount;
+    const updatedLobby = { ...quickLobby, players: quickLobby.players.map(p => ({ ...p, name: p.id === id ? 'Updated' : p.name })) };
+    context.window.coreMenu.snapshot(updatedLobby, id);
+    assert.equal(renderCount, settingsRenders, 'lobby snapshots preserve open settings and focus');
+    submit('game-settings', {});
+    assert(!root.hidden);
+    assert.match(root.innerHTML, /ui-members[\s\S]*Updated/);
+    assert.equal(calls.length, callsBeforeSettings, 'opening and closing settings does not leave or change readiness');
+    click('lobby-settings');
+    handlers.keydown({ key: 'Escape', target: {}, preventDefault() {}, stopPropagation() {} });
+    assert(!root.hidden);
+    assert.match(root.innerHTML, /ui-members/);
+    click('lobby-settings');
+    handlers.keydown({ key: 'Process', code: 'KeyE', target: {}, preventDefault() {}, stopPropagation() {} });
+    assert.match(root.innerHTML, /ui-members/);
+}
+click('lobby-settings');
+context.window.coreMenu.snapshot({ ...quickLobby, phase: 'preparing' }, 'p1');
+assert(root.hidden, 'the game starts normally while lobby settings are open');
+assert(!context.window.coreMenu.settingsOpen());
+context.window.coreMenu.snapshot(quickLobby, 'p1');
+assert.match(root.innerHTML, /ui-members/);
+click('lobby-settings');
+context.window.coreMenu.disconnected();
+assert(!root.hidden);
+assert.match(root.innerHTML, /メインメニュー/);
+context.window.coreMenu.snapshot(quickLobby, 'p1');
+click('lobby-settings');
+context.window.coreMenu.exited();
+assert.match(root.innerHTML, /メインメニュー/);
+click('settings');
+assert.match(root.innerHTML, /name="name"/, 'home settings retain the player name field');
+console.log('Lobby settings passed: quick join, host/guest, FPS switching, snapshots, return, game start and disconnect.');
+
 const previewed = [];
 context.window.coreAudio.play = name => previewed.push([name, context.window.coreAudio.getVolume()]);
 const playingState = { ...state, phase: 'wave' };
@@ -380,6 +435,8 @@ context.window.coreMenu.openSettings(() => returnedToInventory++);
 assert.equal(root.hidden, false);
 assert(context.window.coreMenu.settingsOpen());
 assert.match(root.innerHTML, /data-form="game-settings"/);
+await handlers.change({ target: { name: 'max-fps', value: '30' } });
+assert.equal(context.window.coreGraphicsSettings.getMaxFps(), 30, 'in-game settings switch maximum FPS');
 await handlers.change({ target: { name: 'shadows', value: 'off' } });
 assert.equal(context.window.coreGraphicsSettings.getShadows(), false, 'in-game settings switch shadows');
 assert.doesNotMatch(root.innerHTML, /name="name"|ゲストプレイヤー名/);

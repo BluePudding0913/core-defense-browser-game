@@ -12,7 +12,7 @@ const context = vm.createContext({
     gameplayUiOpen:()=>false, fpsInput: null, endInteractionHold() {}, endJobHold() {}, keys: new Set(['w']), joystick: {}, dashKey: true,
     closeInventory() {}, closeActionMenu() {}, setDash() {}, pendingMove: null, firingPointer: null, secondaryHeld:false, sendMovement() {},
     leaveRoom() { exits++; }, window: { confirm() { throw Error('Blocking confirmation'); } },
-    performance: { now: () => 100 }, lastFrameAt: 0, updateLocalPrediction() {},
+    performance: { now: () => 100 }, lastFrameAt: 0, lastDrawAt: null, updateLocalPrediction() {},
     draw() { draws++; }, requestAnimationFrame() { frames++; },
 });
 vm.runInContext(source.slice(source.indexOf('const exitDialog ='), source.indexOf('let equipmentOrder =')), context);
