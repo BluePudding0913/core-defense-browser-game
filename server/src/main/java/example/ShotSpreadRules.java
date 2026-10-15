@@ -7,7 +7,7 @@ final class ShotSpreadRules {
         return switch(weapon) {
             case "pistol" -> 100; case "smg" -> 140; case "rifle" -> 70;
             case "revolver" -> 85; case "lmg" -> 170; case "ricochet" -> 120;
-            case "shotgun" -> 520; case "laserCannon" -> 80; case "freezeGun" -> 110;
+            case "shotgun" -> 145.6; case "laserCannon" -> 80; case "freezeGun" -> 110;
             case "railgun" -> 75; case "rocket" -> 160; case "sniper" -> 90;
             default -> 0;
         };
